@@ -1,0 +1,95 @@
+import {
+  ForbiddenException,
+  Injectable,
+  NotFoundException,
+} from '@nestjs/common';
+import { InjectRepository } from '@nestjs/typeorm';
+import { Repository } from 'typeorm';
+import { StepProgress } from './step-progress.entity';
+import { CompleteStepDto } from './dto/complete-step.dto';
+import { Assignment } from '../assignments/assignment.entity';
+import { TaskStep } from '../tasks/steps/task-step.entity';
+import { UserRole } from '../users/user.entity';
+import { ActivityLogService } from '../activity-log/activity-log.service';
+import { Hive } from '../hives/hive.entity';
+
+@Injectable()
+export class ProgressService {
+  constructor(
+    @InjectRepository(StepProgress)
+    private readonly progressRepository: Repository<StepProgress>,
+    @InjectRepository(Assignment)
+    private readonly assignmentsRepository: Repository<Assignment>,
+    @InjectRepository(TaskStep)
+    private readonly stepRepository: Repository<TaskStep>,
+    @InjectRepository(Hive)
+    private readonly hiveRepository: Repository<Hive>,
+    private readonly activityLog: ActivityLogService,
+  ) {}
+
+  private async ensureAssignmentAccess(assignmentId: string, user) {
+    const assignment = await this.assignmentsRepository.findOne({ where: { id: assignmentId } });
+    if (!assignment) {
+      throw new NotFoundException('Assignment not found');
+    }
+    if (user.role === UserRole.USER) {
+      const hive = await this.hiveRepository.findOne({ where: { id: assignment.hiveId } });
+      if (!hive || hive.ownerUserId !== user.id) {
+        throw new ForbiddenException('Access denied');
+      }
+    }
+    return assignment;
+  }
+
+  async completeStep(dto: CompleteStepDto, user) {
+    const assignment = await this.ensureAssignmentAccess(dto.assignmentId, user);
+    const step = await this.stepRepository.findOne({ where: { id: dto.taskStepId } });
+    if (!step) {
+      throw new NotFoundException('Task step not found');
+    }
+    if (step.taskId !== assignment.taskId) {
+      throw new ForbiddenException('Step does not belong to assignment task');
+    }
+    const existing = await this.progressRepository.findOne({
+      where: { assignmentId: dto.assignmentId, taskStepId: dto.taskStepId },
+    });
+    if (existing) {
+      return existing;
+    }
+    const progress = this.progressRepository.create({
+      ...dto,
+    });
+    const saved = await this.progressRepository.save(progress);
+    await this.activityLog.log('step_completed', user.id, 'assignment', assignment.id);
+    return saved;
+  }
+
+  async listForAssignment(assignmentId: string, user) {
+    await this.ensureAssignmentAccess(assignmentId, user);
+    return this.progressRepository.find({ where: { assignmentId } });
+  }
+
+  async remove(id: string, user) {
+    if (![UserRole.MANAGER, UserRole.ADMIN].includes(user.role)) {
+      throw new ForbiddenException('Requires manager or admin role');
+    }
+    const progress = await this.progressRepository.findOne({ where: { id } });
+    if (!progress) {
+      throw new NotFoundException('Progress not found');
+    }
+    await this.progressRepository.delete(id);
+    await this.activityLog.log('step_progress_deleted', user.id, 'progress', id);
+    return { success: true };
+  }
+
+  async assignmentCompletion(assignmentId: string, user) {
+    const assignment = await this.ensureAssignmentAccess(assignmentId, user);
+    const steps = await this.stepRepository.find({ where: { taskId: assignment.taskId } });
+    const progress = await this.progressRepository.find({ where: { assignmentId } });
+    if (!steps.length) {
+      return 0;
+    }
+    const completion = Math.round((progress.length / steps.length) * 100);
+    return completion;
+  }
+}

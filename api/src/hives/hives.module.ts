@@ -1,0 +1,19 @@
+import { Module, forwardRef } from '@nestjs/common';
+import { TypeOrmModule } from '@nestjs/typeorm';
+import { Hive } from './hive.entity';
+import { HivesService } from './hives.service';
+import { HivesController } from './hives.controller';
+import { ActivityLogModule } from '../activity-log/activity-log.module';
+import { AssignmentsModule } from '../assignments/assignments.module';
+
+@Module({
+  imports: [
+    TypeOrmModule.forFeature([Hive]),
+    ActivityLogModule,
+    forwardRef(() => AssignmentsModule),
+  ],
+  providers: [HivesService],
+  controllers: [HivesController],
+  exports: [HivesService],
+})
+export class HivesModule {}

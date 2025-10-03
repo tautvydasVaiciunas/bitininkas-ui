@@ -1,73 +1,74 @@
-# Welcome to your Lovable project
+# Bitininkas Platform
 
-## Project info
+This repository now hosts both the existing Vite UI and the new **Busmedaus API** built with NestJS, TypeORM, and PostgreSQL.
 
-**URL**: https://lovable.dev/projects/7472bedd-3ba1-4bb7-ace2-6ab22de1fc49
+## Project Structure
 
-## How can I edit this code?
+- `src/`, `public/`, etc. – existing Vite front-end.
+- `api/` – NestJS backend service.
+- `docker-compose.yml` – starts PostgreSQL and the API.
 
-There are several ways of editing your application.
+## Backend (api/)
 
-**Use Lovable**
+### Requirements
 
-Simply visit the [Lovable Project](https://lovable.dev/projects/7472bedd-3ba1-4bb7-ace2-6ab22de1fc49) and start prompting.
+- Node.js 20+
+- npm 9+
+- PostgreSQL 16+
 
-Changes made via Lovable will be committed automatically to this repo.
+### Environment variables
 
-**Use your preferred IDE**
+Copy `.env.example` to `.env` and adjust:
 
-If you want to work locally using your own IDE, you can clone this repo and push changes. Pushed changes will also be reflected in Lovable.
+```bash
+cp api/.env.example api/.env
+```
 
-The only requirement is having Node.js & npm installed - [install with nvm](https://github.com/nvm-sh/nvm#installing-and-updating)
+Key variables:
 
-Follow these steps:
+- `DATABASE_URL` or the combination of `POSTGRES_USER`, `POSTGRES_PASSWORD`, `POSTGRES_DB`
+- `JWT_SECRET`, `JWT_REFRESH_SECRET`
+- `ALLOWED_ORIGINS` – comma-separated list of allowed origins for CORS
+- `PORT` – defaults to 3000
 
-```sh
-# Step 1: Clone the repository using the project's Git URL.
-git clone <YOUR_GIT_URL>
+### Local development (without Docker)
 
-# Step 2: Navigate to the project directory.
-cd <YOUR_PROJECT_NAME>
+```bash
+cd api
+npm install
+npm run build # first build for migrations
+npm run migration:run:dev
+npm run seed
+npm run start:dev
+```
 
-# Step 3: Install the necessary dependencies.
-npm i
+The API is exposed on `http://localhost:3000`. UI applications should reference it via the `VITE_API_BASE_URL` environment variable (for example `http://localhost:3000`).
 
-# Step 4: Start the development server with auto-reloading and an instant preview.
+### Running with Docker
+
+```bash
+cp api/.env.example .env
+# edit the .env file as necessary
+docker-compose up --build
+```
+
+The `api` container automatically runs database migrations before starting.
+
+### Tests
+
+```bash
+cd api
+npm test
+npm run test:e2e
+```
+
+## Front-end (Vite UI)
+
+Refer to the original instructions for running the Vite project:
+
+```bash
+npm install
 npm run dev
 ```
 
-**Edit a file directly in GitHub**
-
-- Navigate to the desired file(s).
-- Click the "Edit" button (pencil icon) at the top right of the file view.
-- Make your changes and commit the changes.
-
-**Use GitHub Codespaces**
-
-- Navigate to the main page of your repository.
-- Click on the "Code" button (green button) near the top right.
-- Select the "Codespaces" tab.
-- Click on "New codespace" to launch a new Codespace environment.
-- Edit files directly within the Codespace and commit and push your changes once you're done.
-
-## What technologies are used for this project?
-
-This project is built with:
-
-- Vite
-- TypeScript
-- React
-- shadcn-ui
-- Tailwind CSS
-
-## How can I deploy this project?
-
-Simply open [Lovable](https://lovable.dev/projects/7472bedd-3ba1-4bb7-ace2-6ab22de1fc49) and click on Share -> Publish.
-
-## Can I connect a custom domain to my Lovable project?
-
-Yes, you can!
-
-To connect a domain, navigate to Project > Settings > Domains and click Connect Domain.
-
-Read more here: [Setting up a custom domain](https://docs.lovable.dev/features/custom-domain#custom-domain)
+The development server runs on `http://localhost:5173` by default.

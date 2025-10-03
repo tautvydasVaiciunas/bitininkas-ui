@@ -1,0 +1,12 @@
+import { IsDateString, IsEnum, IsOptional } from 'class-validator';
+import { AssignmentStatus } from '../assignment.entity';
+
+export class UpdateAssignmentDto {
+  @IsOptional()
+  @IsEnum(AssignmentStatus)
+  status?: AssignmentStatus;
+
+  @IsOptional()
+  @IsDateString()
+  dueDate?: string;
+}

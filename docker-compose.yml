@@ -1,0 +1,33 @@
+version: '3.9'
+services:
+  db:
+    image: postgres:16
+    restart: always
+    environment:
+      POSTGRES_DB: ${POSTGRES_DB:-busmedaus}
+      POSTGRES_USER: ${POSTGRES_USER:-postgres}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-postgres}
+    volumes:
+      - db-data:/var/lib/postgresql/data
+    ports:
+      - "5432:5432"
+  api:
+    build:
+      context: ./api
+    depends_on:
+      - db
+    environment:
+      DATABASE_URL: ${DATABASE_URL:-}
+      POSTGRES_DB: ${POSTGRES_DB:-busmedaus}
+      POSTGRES_USER: ${POSTGRES_USER:-postgres}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-postgres}
+      JWT_SECRET: ${JWT_SECRET:-changeme}
+      JWT_REFRESH_SECRET: ${JWT_REFRESH_SECRET:-changeme}
+      PORT: ${PORT:-3000}
+      ALLOWED_ORIGINS: ${ALLOWED_ORIGINS:-http://localhost:5173}
+    ports:
+      - "3000:3000"
+    command: ["/bin/sh", "-c", "npm run build && npm run migration:run && node dist/main.js"]
+    restart: unless-stopped
+volumes:
+  db-data:

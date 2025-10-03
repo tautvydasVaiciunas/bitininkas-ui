@@ -1,0 +1,158 @@
+import { MigrationInterface, QueryRunner } from 'typeorm';
+
+export class InitialMigration1720000000000 implements MigrationInterface {
+  name = 'InitialMigration1720000000000';
+
+  public async up(queryRunner: QueryRunner): Promise<void> {
+    await queryRunner.query('CREATE EXTENSION IF NOT EXISTS "pgcrypto"');
+    await queryRunner.query(`CREATE TYPE "users_role_enum" AS ENUM('user', 'manager', 'admin')`);
+    await queryRunner.query(`
+      CREATE TABLE "users" (
+        "id" uuid NOT NULL DEFAULT gen_random_uuid(),
+        "email" character varying NOT NULL,
+        "password_hash" character varying NOT NULL,
+        "role" "users_role_enum" NOT NULL DEFAULT 'user',
+        "name" character varying,
+        "phone" character varying,
+        "address" character varying,
+        "created_at" TIMESTAMP NOT NULL DEFAULT now(),
+        "updated_at" TIMESTAMP NOT NULL DEFAULT now(),
+        "deleted_at" TIMESTAMP,
+        CONSTRAINT "PK_users_id" PRIMARY KEY ("id"),
+        CONSTRAINT "UQ_users_email" UNIQUE ("email")
+      )
+    `);
+
+    await queryRunner.query(`CREATE TYPE "hives_status_enum" AS ENUM('active', 'paused', 'archived')`);
+    await queryRunner.query(`
+      CREATE TABLE "hives" (
+        "id" uuid NOT NULL DEFAULT gen_random_uuid(),
+        "owner_user_id" uuid NOT NULL,
+        "label" character varying NOT NULL,
+        "location" character varying,
+        "queen_year" integer,
+        "status" "hives_status_enum" NOT NULL DEFAULT 'active',
+        "created_at" TIMESTAMP NOT NULL DEFAULT now(),
+        "updated_at" TIMESTAMP NOT NULL DEFAULT now(),
+        "deleted_at" TIMESTAMP,
+        CONSTRAINT "PK_hives_id" PRIMARY KEY ("id"),
+        CONSTRAINT "FK_hives_owner" FOREIGN KEY ("owner_user_id") REFERENCES "users"("id") ON DELETE NO ACTION
+      )
+    `);
+
+    await queryRunner.query(`CREATE TYPE "tasks_frequency_enum" AS ENUM('once', 'weekly', 'monthly')`);
+    await queryRunner.query(`
+      CREATE TABLE "tasks" (
+        "id" uuid NOT NULL DEFAULT gen_random_uuid(),
+        "title" character varying NOT NULL,
+        "description" character varying,
+        "category" character varying,
+        "season_months" integer array NOT NULL DEFAULT ARRAY[]::INTEGER[],
+        "frequency" "tasks_frequency_enum" NOT NULL DEFAULT 'once',
+        "default_due_days" integer NOT NULL DEFAULT 7,
+        "created_by_user_id" uuid NOT NULL,
+        "created_at" TIMESTAMP NOT NULL DEFAULT now(),
+        "updated_at" TIMESTAMP NOT NULL DEFAULT now(),
+        "deleted_at" TIMESTAMP,
+        CONSTRAINT "PK_tasks_id" PRIMARY KEY ("id"),
+        CONSTRAINT "FK_tasks_creator" FOREIGN KEY ("created_by_user_id") REFERENCES "users"("id") ON DELETE NO ACTION
+      )
+    `);
+
+    await queryRunner.query(`
+      CREATE TABLE "task_steps" (
+        "id" uuid NOT NULL DEFAULT gen_random_uuid(),
+        "task_id" uuid NOT NULL,
+        "order_index" integer NOT NULL,
+        "title" character varying NOT NULL,
+        "content_text" character varying,
+        "media_url" character varying,
+        "created_at" TIMESTAMP NOT NULL DEFAULT now(),
+        CONSTRAINT "PK_task_steps_id" PRIMARY KEY ("id"),
+        CONSTRAINT "FK_task_steps_task" FOREIGN KEY ("task_id") REFERENCES "tasks"("id") ON DELETE CASCADE
+      )
+    `);
+    await queryRunner.query(`CREATE UNIQUE INDEX "IDX_task_steps_task_order" ON "task_steps" ("task_id", "order_index")`);
+
+    await queryRunner.query(`CREATE TYPE "assignments_status_enum" AS ENUM('not_started', 'in_progress', 'done')`);
+    await queryRunner.query(`
+      CREATE TABLE "assignments" (
+        "id" uuid NOT NULL DEFAULT gen_random_uuid(),
+        "hive_id" uuid NOT NULL,
+        "task_id" uuid NOT NULL,
+        "created_by_user_id" uuid NOT NULL,
+        "due_date" date NOT NULL,
+        "status" "assignments_status_enum" NOT NULL DEFAULT 'not_started',
+        "created_at" TIMESTAMP NOT NULL DEFAULT now(),
+        "updated_at" TIMESTAMP NOT NULL DEFAULT now(),
+        CONSTRAINT "PK_assignments_id" PRIMARY KEY ("id"),
+        CONSTRAINT "FK_assignments_hive" FOREIGN KEY ("hive_id") REFERENCES "hives"("id") ON DELETE CASCADE,
+        CONSTRAINT "FK_assignments_task" FOREIGN KEY ("task_id") REFERENCES "tasks"("id") ON DELETE CASCADE,
+        CONSTRAINT "FK_assignments_creator" FOREIGN KEY ("created_by_user_id") REFERENCES "users"("id") ON DELETE NO ACTION
+      )
+    `);
+    await queryRunner.query(`CREATE INDEX "IDX_ASSIGNMENTS_HIVE_ID" ON "assignments" ("hive_id")`);
+
+    await queryRunner.query(`
+      CREATE TABLE "step_progress" (
+        "id" uuid NOT NULL DEFAULT gen_random_uuid(),
+        "assignment_id" uuid NOT NULL,
+        "task_step_id" uuid NOT NULL,
+        "completed_at" TIMESTAMP NOT NULL DEFAULT now(),
+        "notes" character varying,
+        "evidence_url" character varying,
+        CONSTRAINT "PK_step_progress_id" PRIMARY KEY ("id"),
+        CONSTRAINT "FK_step_progress_assignment" FOREIGN KEY ("assignment_id") REFERENCES "assignments"("id") ON DELETE CASCADE,
+        CONSTRAINT "FK_step_progress_step" FOREIGN KEY ("task_step_id") REFERENCES "task_steps"("id") ON DELETE CASCADE
+      )
+    `);
+    await queryRunner.query(`CREATE UNIQUE INDEX "IDX_step_progress_unique" ON "step_progress" ("assignment_id", "task_step_id")`);
+
+    await queryRunner.query(`
+      CREATE TABLE "notifications" (
+        "id" uuid NOT NULL DEFAULT gen_random_uuid(),
+        "user_id" uuid NOT NULL,
+        "type" text NOT NULL,
+        "payload" jsonb NOT NULL DEFAULT '{}',
+        "scheduled_at" TIMESTAMP,
+        "sent_at" TIMESTAMP,
+        "read_at" TIMESTAMP,
+        "created_at" TIMESTAMP NOT NULL DEFAULT now(),
+        "updated_at" TIMESTAMP NOT NULL DEFAULT now(),
+        CONSTRAINT "PK_notifications_id" PRIMARY KEY ("id"),
+        CONSTRAINT "FK_notifications_user" FOREIGN KEY ("user_id") REFERENCES "users"("id") ON DELETE CASCADE
+      )
+    `);
+
+    await queryRunner.query(`
+      CREATE TABLE "activity_logs" (
+        "id" uuid NOT NULL DEFAULT gen_random_uuid(),
+        "user_id" uuid,
+        "action" text NOT NULL,
+        "entity" text,
+        "entity_id" uuid,
+        "created_at" TIMESTAMP NOT NULL DEFAULT now(),
+        CONSTRAINT "PK_activity_logs_id" PRIMARY KEY ("id"),
+        CONSTRAINT "FK_activity_logs_user" FOREIGN KEY ("user_id") REFERENCES "users"("id") ON DELETE NO ACTION
+      )
+    `);
+  }
+
+  public async down(queryRunner: QueryRunner): Promise<void> {
+    await queryRunner.query('DROP TABLE "activity_logs"');
+    await queryRunner.query('DROP TABLE "notifications"');
+    await queryRunner.query('DROP INDEX "IDX_step_progress_unique"');
+    await queryRunner.query('DROP TABLE "step_progress"');
+    await queryRunner.query('DROP INDEX "IDX_ASSIGNMENTS_HIVE_ID"');
+    await queryRunner.query('DROP TABLE "assignments"');
+    await queryRunner.query('DROP TYPE "assignments_status_enum"');
+    await queryRunner.query('DROP INDEX "IDX_task_steps_task_order"');
+    await queryRunner.query('DROP TABLE "task_steps"');
+    await queryRunner.query('DROP TABLE "tasks"');
+    await queryRunner.query('DROP TYPE "tasks_frequency_enum"');
+    await queryRunner.query('DROP TABLE "hives"');
+    await queryRunner.query('DROP TYPE "hives_status_enum"');
+    await queryRunner.query('DROP TABLE "users"');
+    await queryRunner.query('DROP TYPE "users_role_enum"');
+  }
+}

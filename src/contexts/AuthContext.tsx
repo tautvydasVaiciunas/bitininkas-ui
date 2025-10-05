@@ -1,5 +1,7 @@
 import React, { createContext, useContext, useState, useEffect, useCallback } from 'react';
-import api, { AuthenticatedUser, HttpError, clearCredentials, setToken, type UserRole } from '@/lib/api';
+import api, { HttpError, clearCredentials, setToken } from '@/lib/api';
+import type { AuthenticatedUser, UserRole } from '@/lib/types';
+import { mapUserFromApi } from '@/lib/types';
 
 export type User = AuthenticatedUser & {
   phone?: string | null;
@@ -102,7 +104,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     const bootstrap = async () => {
       try {
         const profile = await api.auth.me();
-        const normalizedUser = normalizeUser(profile);
+        const normalizedUser = normalizeUser(mapUserFromApi(profile));
         if (normalizedUser) {
           setUser(normalizedUser);
           persistUser(normalizedUser);
@@ -136,7 +138,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
       setToken(result.accessToken, result.refreshToken);
 
       const profile = await api.auth.me();
-      const normalizedUser = normalizeUser(profile);
+      const normalizedUser = normalizeUser(mapUserFromApi(profile));
       if (normalizedUser) {
         setUser(normalizedUser);
         persistUser(normalizedUser);
@@ -173,7 +175,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
       setToken(result.accessToken, result.refreshToken);
 
       const profile = await api.auth.me();
-      const normalizedUser = normalizeUser(profile);
+      const normalizedUser = normalizeUser(mapUserFromApi(profile));
       if (normalizedUser) {
         setUser(normalizedUser);
         persistUser(normalizedUser);

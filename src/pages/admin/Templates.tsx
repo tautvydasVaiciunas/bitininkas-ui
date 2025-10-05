@@ -5,15 +5,19 @@ import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Badge } from '@/components/ui/badge';
-import api, { type TaskResponse } from '@/lib/api';
+import api from '@/lib/api';
+import { mapTaskFromApi, type Task } from '@/lib/types';
 import { Plus, Search, Edit } from 'lucide-react';
 
 export default function AdminTemplates() {
   const [searchQuery, setSearchQuery] = useState('');
 
-  const { data: tasks = [], isLoading, isError } = useQuery({
+  const { data: tasks = [], isLoading, isError } = useQuery<Task[]>({
     queryKey: ['tasks', 'admin', 'list'],
-    queryFn: api.tasks.list,
+    queryFn: async () => {
+      const response = await api.tasks.list();
+      return response.map(mapTaskFromApi);
+    },
   });
 
   const filteredTasks = useMemo(() => {
@@ -75,7 +79,7 @@ export default function AdminTemplates() {
   );
 }
 
-function TaskCard({ task }: { task: TaskResponse }) {
+function TaskCard({ task }: { task: Task }) {
   return (
     <Card className="shadow-sm">
       <CardContent className="p-6">

@@ -38,13 +38,14 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@
 import { Skeleton } from '@/components/ui/skeleton';
 import { useToast } from '@/components/ui/use-toast';
 import { useAuth } from '@/contexts/AuthContext';
-import api, {
+import api, { HttpError } from '@/lib/api';
+import {
+  mapHiveFromApi,
   type CreateHivePayload,
-  type HiveResponse,
+  type Hive,
   type HiveStatus,
-  HttpError,
   type UpdateHivePayload,
-} from '@/lib/api';
+} from '@/lib/types';
 import { Box, Calendar, ChevronRight, Loader2, MapPin, MoreVertical, Plus, Search } from 'lucide-react';
 
 type StatusFilter = HiveStatus | 'all';
@@ -57,7 +58,7 @@ type UpdateHiveVariables = {
 type MutationError = HttpError | Error;
 
 type HiveCardProps = {
-  hive: HiveResponse;
+  hive: Hive;
   onUpdateStatus: (id: string, status: HiveStatus) => void;
   onArchive: (id: string) => void;
   onDelete: (id: string) => void;
@@ -287,9 +288,12 @@ export default function Hives() {
     isError,
     error,
     refetch,
-  } = useQuery<HiveResponse[], MutationError>({
+  } = useQuery<Hive[], MutationError>({
     queryKey: ['hives'],
-    queryFn: () => api.hives.list(),
+    queryFn: async () => {
+      const response = await api.hives.list();
+      return response.map(mapHiveFromApi);
+    },
   });
 
   const resetCreateForm = () => setCreateForm({ label: '', location: '', queenYear: '' });
@@ -303,8 +307,8 @@ export default function Hives() {
     });
   };
 
-  const createHiveMutation = useMutation<HiveResponse, MutationError, CreateHivePayload>({
-    mutationFn: (payload) => api.hives.create(payload),
+  const createHiveMutation = useMutation<Hive, MutationError, CreateHivePayload>({
+    mutationFn: (payload) => api.hives.create(payload).then(mapHiveFromApi),
     onSuccess: (createdHive) => {
       queryClient.invalidateQueries({ queryKey: ['hives'] });
       toast({
@@ -319,8 +323,8 @@ export default function Hives() {
     },
   });
 
-  const updateHiveMutation = useMutation<HiveResponse, MutationError, UpdateHiveVariables>({
-    mutationFn: ({ id, payload }) => api.hives.update(id, payload),
+  const updateHiveMutation = useMutation<Hive, MutationError, UpdateHiveVariables>({
+    mutationFn: ({ id, payload }) => api.hives.update(id, payload).then(mapHiveFromApi),
     onSuccess: (updatedHive, variables) => {
       queryClient.invalidateQueries({ queryKey: ['hives'] });
       queryClient.invalidateQueries({ queryKey: ['hives', variables.id, 'summary'] });
@@ -334,8 +338,8 @@ export default function Hives() {
     },
   });
 
-  const archiveHiveMutation = useMutation<HiveResponse, MutationError, string>({
-    mutationFn: (id) => api.hives.update(id, { status: 'archived' }),
+  const archiveHiveMutation = useMutation<Hive, MutationError, string>({
+    mutationFn: (id) => api.hives.update(id, { status: 'archived' }).then(mapHiveFromApi),
     onSuccess: (archivedHive, hiveId) => {
       queryClient.invalidateQueries({ queryKey: ['hives'] });
       queryClient.invalidateQueries({ queryKey: ['hives', hiveId, 'summary'] });

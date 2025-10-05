@@ -6,16 +6,20 @@ import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Badge } from '@/components/ui/badge';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
-import api, { type TaskResponse } from '@/lib/api';
+import api from '@/lib/api';
+import { mapTaskFromApi, type Task } from '@/lib/types';
 import { Plus, Search, Edit, Archive } from 'lucide-react';
 
 export default function AdminTasks() {
   const [searchQuery, setSearchQuery] = useState('');
   const [categoryFilter, setCategoryFilter] = useState<string>('all');
 
-  const { data: tasks = [], isLoading, isError } = useQuery({
+  const { data: tasks = [], isLoading, isError } = useQuery<Task[]>({
     queryKey: ['tasks', 'admin', 'overview'],
-    queryFn: api.tasks.list,
+    queryFn: async () => {
+      const response = await api.tasks.list();
+      return response.map(mapTaskFromApi);
+    },
   });
 
   const filteredTasks = useMemo(() => {
@@ -31,8 +35,8 @@ export default function AdminTasks() {
     });
   }, [tasks, searchQuery, categoryFilter]);
 
-  const getFrequencyLabel = (frequency: TaskResponse['frequency']) => {
-    const labels: Record<TaskResponse['frequency'], string> = {
+  const getFrequencyLabel = (frequency: Task['frequency']) => {
+    const labels: Record<Task['frequency'], string> = {
       once: 'Vienkartinė',
       weekly: 'Kas savaitę',
       monthly: 'Kas mėnesį',

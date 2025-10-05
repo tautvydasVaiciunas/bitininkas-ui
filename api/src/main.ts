@@ -3,7 +3,7 @@ import { AppModule } from './app.module';
 import { ValidationPipe } from '@nestjs/common';
 import helmet from 'helmet';
 import { ConfigService } from '@nestjs/config';
-import { ThrottlerGuard } from '@nestjs/throttler';
+
 
 async function bootstrap() {
   const app = await NestFactory.create(AppModule);
@@ -15,7 +15,6 @@ async function bootstrap() {
     .filter(Boolean);
 
   app.use(helmet());
-
   app.enableCors({
     origin: allowedOrigins.length ? allowedOrigins : true,
     credentials: true,
@@ -29,11 +28,7 @@ async function bootstrap() {
     }),
   );
 
-  const throttlerGuard = app.get(ThrottlerGuard);
-  app.useGlobalGuards(throttlerGuard);
-
-  const port = configService.get<number>('PORT') || 3000;
+  const port = Number(configService.get('PORT') || 3000);
   await app.listen(port);
 }
-
 bootstrap();

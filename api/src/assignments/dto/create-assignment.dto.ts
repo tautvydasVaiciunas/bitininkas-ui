@@ -1,16 +1,1 @@
-import { IsDateString, IsEnum, IsString } from 'class-validator';
-import { AssignmentStatus } from '../assignment.entity';
-
-export class CreateAssignmentDto {
-  @IsString()
-  hiveId: string;
-
-  @IsString()
-  taskId: string;
-
-  @IsDateString()
-  dueDate: string;
-
-  @IsEnum(AssignmentStatus)
-  status?: AssignmentStatus;
-}
+import { IsDateString, IsEnum, IsString } from 'class-validator';import { AssignmentStatus } from '../assignment.entity';export class CreateAssignmentDto {  @IsString()  hiveId: string;  @IsString()  taskId: string;  @IsDateString()  dueDate: string;  @IsEnum(AssignmentStatus)  status?: AssignmentStatus;}

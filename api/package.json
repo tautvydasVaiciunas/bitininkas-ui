@@ -8,11 +8,19 @@
     "start": "node dist/main.js",
     "start:dev": "nest start --watch",
     "lint": "eslint \"{src,apps,libs,test}/**/*.ts\" --fix",
-    "migration:run": "typeorm-ts-node-commonjs migration:run -d dist/typeorm.config.js",
-    "migration:run:dev": "ts-node -r tsconfig-paths/register node_modules/typeorm/cli.js migration:run -d src/typeorm.config.ts",
-    "migration:revert": "typeorm-ts-node-commonjs migration:revert -d dist/typeorm.config.js",
-    "migration:generate": "ts-node -r tsconfig-paths/register node_modules/typeorm/cli.js migration:generate -d src/typeorm.config.ts src/migrations/auto-migration",
+
+    "start:prod": "node -e \"const fs=require('fs'); const p=fs.existsSync('./dist/main.js')?'./dist/main.js':'./dist/src/main.js'; console.log('Starting',p); require(p);\"",
+
+    "migration:run": "node -e \"const fs=require('fs');function pick(){const cands=['./dist/ormdatasource.js','./dist/src/ormdatasource.js','./dist/typeorm.config.js','./dist/src/typeorm.config.js'];for(const c of cands){if(fs.existsSync(c)) return c;}throw new Error('No compiled DataSource file found');}const p=pick();console.log('Using DataSource at',p);const mod=require(p);const ds=mod.AppDataSource||mod.dataSource||mod.default; if(!ds) throw new Error('No DataSource export (AppDataSource/dataSource/default)'); ds.initialize().then(()=>ds.runMigrations()).then(()=>{console.log('Migrations done');process.exit(0)}).catch(e=>{console.error(e);process.exit(1)})\"",
+
+    "migration:revert": "node -e \"const fs=require('fs');function pick(){const cands=['./dist/ormdatasource.js','./dist/src/ormdatasource.js','./dist/typeorm.config.js','./dist/src/typeorm.config.js'];for(const c of cands){if(fs.existsSync(c)) return c;}throw new Error('No compiled DataSource file found');}const p=pick();console.log('Using DataSource at',p);const mod=require(p);const ds=mod.AppDataSource||mod.dataSource||mod.default; if(!ds) throw new Error('No DataSource export (AppDataSource/dataSource/default)'); ds.initialize().then(()=>ds.undoLastMigration()).then(()=>{console.log('Reverted');process.exit(0)}).catch(e=>{console.error(e);process.exit(1)})\"",
+
+    "migration:generate": "ts-node -r tsconfig-paths/register node_modules/typeorm/cli.js migration:generate -d src/ormdatasource.ts src/migrations/auto-migration",
+
     "seed": "ts-node -r tsconfig-paths/register src/seeds/seed.ts",
+
+    "seed:prod": "node -e \"const fs=require('fs'); const p=fs.existsSync('./dist/src/seeds/seed.js')?'./dist/src/seeds/seed.js':(fs.existsSync('./dist/seeds/seed.js')?'./dist/seeds/seed.js':null); if(!p){console.log('No compiled seed file found, skipping'); process.exit(0);} console.log('Running seed',p); require(p);\"",
+
     "test": "jest",
     "test:e2e": "jest --config test/jest-e2e.json"
   },
@@ -21,10 +29,12 @@
     "@nestjs/config": "^3.2.0",
     "@nestjs/core": "^10.0.0",
     "@nestjs/jwt": "^10.2.0",
+    "@nestjs/mapped-types": "^2.1.0",
     "@nestjs/passport": "^10.0.2",
     "@nestjs/platform-express": "^10.0.0",
     "@nestjs/throttler": "^5.0.0",
-    "bcrypt": "^5.1.1",
+    "@nestjs/typeorm": "^11.0.0",
+    "bcryptjs": "^2.4.3",
     "class-transformer": "^0.5.1",
     "class-validator": "^0.14.0",
     "helmet": "^7.0.0",
@@ -33,13 +43,12 @@
     "pg": "^8.11.3",
     "reflect-metadata": "^0.1.13",
     "rxjs": "^7.8.1",
-    "typeorm": "^0.3.17"
+    "typeorm": "^0.3.20"
   },
   "devDependencies": {
     "@nestjs/cli": "^10.3.2",
     "@nestjs/schematics": "^10.0.0",
     "@nestjs/testing": "^10.0.0",
-    "@types/bcrypt": "^5.0.0",
     "@types/express": "^4.17.17",
     "@types/jest": "^29.5.3",
     "@types/node": "^20.10.0",
@@ -55,7 +64,6 @@
     "ts-loader": "^9.4.4",
     "ts-node": "^10.9.1",
     "tsconfig-paths": "^4.2.0",
-    "typeorm-ts-node-commonjs": "^0.5.1",
     "typescript": "^5.2.2"
   }
 }

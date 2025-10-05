@@ -8,6 +8,7 @@ import { Badge } from '@/components/ui/badge';
 import { Skeleton } from '@/components/ui/skeleton';
 import { AssignmentStatusBadge } from '@/components/AssignmentStatusBadge';
 import api from '@/lib/api';
+import { mapAssignmentDetailsFromApi, type AssignmentDetails } from '@/lib/types';
 import { Calendar, ChevronLeft, ClipboardList, Loader2 } from 'lucide-react';
 
 const formatDate = (dateStr?: string | null) => {
@@ -26,9 +27,9 @@ export default function TaskDetail() {
     isLoading,
     isError,
     error,
-  } = useQuery({
+  } = useQuery<AssignmentDetails, Error>({
     queryKey: ['assignments', id, 'details'],
-    queryFn: () => api.assignments.details(id ?? ''),
+    queryFn: () => api.assignments.details(id ?? '').then(mapAssignmentDetailsFromApi),
     enabled: Boolean(id),
   });
 

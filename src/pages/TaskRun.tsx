@@ -9,7 +9,17 @@ import { Label } from '@/components/ui/label';
 import { Progress } from '@/components/ui/progress';
 import { Skeleton } from '@/components/ui/skeleton';
 import { AssignmentStatusBadge } from '@/components/AssignmentStatusBadge';
-import api, { type AssignmentStatus, type HttpError, type StepProgressResponse } from '@/lib/api';
+import api, { type HttpError } from '@/lib/api';
+import {
+  mapAssignmentDetailsFromApi,
+  mapAssignmentFromApi,
+  mapHiveFromApi,
+  mapStepProgressFromApi,
+  type AssignmentDetails,
+  type AssignmentStatus,
+  type Hive,
+  type StepProgress,
+} from '@/lib/types';
 import { Calendar, CheckCircle2, ChevronLeft, ChevronRight } from 'lucide-react';
 import { toast } from 'sonner';
 
@@ -38,9 +48,9 @@ export default function TaskRun() {
     isLoading,
     isError,
     error,
-  } = useQuery({
+  } = useQuery<AssignmentDetails, HttpError | Error>({
     queryKey: ['assignments', id, 'details'],
-    queryFn: () => api.assignments.details(id ?? ''),
+    queryFn: () => api.assignments.details(id ?? '').then(mapAssignmentDetailsFromApi),
     enabled: Boolean(id),
   });
 
@@ -58,16 +68,16 @@ export default function TaskRun() {
   const assignment = data?.assignment;
   const hiveId = assignment?.hiveId;
 
-  const { data: hive } = useQuery({
+  const { data: hive } = useQuery<Hive>({
     queryKey: ['hives', hiveId],
-    queryFn: () => api.hives.details(hiveId ?? ''),
+    queryFn: () => api.hives.details(hiveId ?? '').then(mapHiveFromApi),
     enabled: Boolean(hiveId),
   });
 
   const updateAssignmentStatusMutation = useMutation({
-    mutationFn: (status: AssignmentStatus) => api.assignments.update(id!, { status }),
+    mutationFn: (status: AssignmentStatus) => api.assignments.update(id!, { status }).then(mapAssignmentFromApi),
     onSuccess: (updatedAssignment) => {
-      queryClient.setQueryData(['assignments', id, 'details'], (oldData) => {
+      queryClient.setQueryData<AssignmentDetails | undefined>(['assignments', id, 'details'], (oldData) => {
         if (!oldData) return oldData;
         return { ...oldData, assignment: updatedAssignment };
       });
@@ -82,13 +92,15 @@ export default function TaskRun() {
 
   const completeStepMutation = useMutation({
     mutationFn: (payload: { taskStepId: string; notes?: string }) =>
-      api.progress.completeStep({ assignmentId: id!, taskStepId: payload.taskStepId, notes: payload.notes }),
+      api.progress
+        .completeStep({ assignmentId: id!, taskStepId: payload.taskStepId, notes: payload.notes })
+        .then(mapStepProgressFromApi),
     onSuccess: (progressEntry) => {
       let previousStatus: AssignmentStatus | undefined;
       let newCompletion = data?.completion ?? 0;
       let added = false;
 
-      queryClient.setQueryData(['assignments', id, 'details'], (oldData) => {
+      queryClient.setQueryData<AssignmentDetails | undefined>(['assignments', id, 'details'], (oldData) => {
         if (!oldData) return oldData;
         previousStatus = oldData.assignment.status;
         if (oldData.progress.some((item) => item.taskStepId === progressEntry.taskStepId)) {
@@ -97,7 +109,7 @@ export default function TaskRun() {
         }
 
         added = true;
-        const updatedProgress: StepProgressResponse[] = [...oldData.progress, progressEntry];
+        const updatedProgress: StepProgress[] = [...oldData.progress, progressEntry];
         const totalSteps = oldData.task.steps.length;
         newCompletion = totalSteps ? Math.round((updatedProgress.length / totalSteps) * 100) : 0;
 

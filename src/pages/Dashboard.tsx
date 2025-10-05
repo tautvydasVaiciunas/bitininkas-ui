@@ -7,25 +7,49 @@ import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { Progress } from '@/components/ui/progress';
-import api, { type AssignmentResponse, type HiveResponse, type TaskResponse } from '@/lib/api';
+import api from '@/lib/api';
+import {
+  mapAssignmentDetailsFromApi,
+  mapAssignmentFromApi,
+  mapHiveFromApi,
+  mapTaskFromApi,
+  type Assignment,
+  type AssignmentStatus,
+  type Hive,
+  type Task,
+} from '@/lib/types';
 import { resolveAssignmentUiStatus } from '@/lib/assignmentStatus';
 import { Box, ListTodo, CheckCircle2, AlertCircle, MapPin, Calendar, ChevronRight } from 'lucide-react';
+
+type NormalizedAssignment = {
+  assignment: Assignment;
+  hive?: Hive;
+  task?: Task;
+};
 
 export default function Dashboard() {
   const { user } = useAuth();
   const isAdmin = user?.role === 'admin';
 
-  const { data, isLoading, isError } = useQuery({
+  const { data, isLoading, isError } = useQuery<{
+    hives: Hive[];
+    assignments: NormalizedAssignment[];
+    completionMap: Record<string, number>;
+  }>({
     queryKey: ['dashboard', 'overview'],
     queryFn: async () => {
-      const [hives, assignments, tasks] = await Promise.all([
+      const [hivesResponse, assignmentsResponse, tasksResponse] = await Promise.all([
         api.hives.list(),
         api.assignments.list(),
         api.tasks.list(),
       ]);
 
-      const hiveMap = new Map<string, HiveResponse>(hives.map((hive) => [hive.id, hive]));
-      const taskMap = new Map<string, TaskResponse>(tasks.map((task) => [task.id, task]));
+      const hives = hivesResponse.map(mapHiveFromApi);
+      const assignments = assignmentsResponse.map(mapAssignmentFromApi);
+      const tasks = tasksResponse.map(mapTaskFromApi);
+
+      const hiveMap = new Map<string, Hive>(hives.map((hive) => [hive.id, hive]));
+      const taskMap = new Map<string, Task>(tasks.map((task) => [task.id, task]));
 
       const normalizedAssignments = assignments.map((assignment) => {
         const hive = hiveMap.get(assignment.hiveId);
@@ -41,7 +65,9 @@ export default function Dashboard() {
       const detailsEntries = await Promise.all(
         upcomingBase.map(async ({ assignment }) => {
           try {
-            const details = await api.assignments.details(assignment.id);
+            const details = await api.assignments
+              .details(assignment.id)
+              .then(mapAssignmentDetailsFromApi);
             return [assignment.id, details.completion] as const;
           } catch (error) {
             console.error('Failed to load assignment details for dashboard', error);
@@ -57,7 +83,7 @@ export default function Dashboard() {
   });
 
   const filteredHives = useMemo(() => {
-    if (!data) return [] as HiveResponse[];
+    if (!data) return [] as Hive[];
     if (isAdmin) {
       return data.hives;
     }
@@ -121,7 +147,7 @@ export default function Dashboard() {
     return map;
   }, [filteredAssignments]);
 
-  const getStatusBadge = (status: AssignmentResponse['status'], dueDate: string) => {
+  const getStatusBadge = (status: AssignmentStatus, dueDate: string) => {
     const uiStatus = resolveAssignmentUiStatus(status, dueDate);
     const variants: Record<string, { variant: 'default' | 'destructive' | 'success' | 'secondary'; label: string }> = {
       not_started: { variant: 'secondary', label: 'Nepradėta' },

@@ -1,6 +1,6 @@
 import { Badge } from '@/components/ui/badge';
 import type { BadgeProps } from '@/components/ui/badge';
-import type { AssignmentStatus } from '@/lib/api';
+import type { AssignmentStatus } from '@/lib/types';
 import {
   type AssignmentUiStatus,
   assignmentStatusLabels,

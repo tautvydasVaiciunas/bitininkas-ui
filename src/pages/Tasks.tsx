@@ -9,7 +9,15 @@ import { Badge } from '@/components/ui/badge';
 import { Progress } from '@/components/ui/progress';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { useAuth } from '@/contexts/AuthContext';
-import api, { type HiveResponse, type TaskResponse } from '@/lib/api';
+import api from '@/lib/api';
+import {
+  mapAssignmentFromApi,
+  mapHiveFromApi,
+  mapTaskFromApi,
+  type Assignment,
+  type Hive,
+  type Task,
+} from '@/lib/types';
 import { AssignmentStatusBadge } from '@/components/AssignmentStatusBadge';
 import { assignmentStatusFilterOptions, resolveAssignmentUiStatus } from '@/lib/assignmentStatus';
 import { Plus, Search, Calendar, Box, ChevronRight, ListTodo } from 'lucide-react';
@@ -21,11 +29,18 @@ export default function Tasks() {
 
   const isAdmin = user?.role === 'admin';
 
-  const { data, isLoading, isError } = useQuery({
+  const { data, isLoading, isError } = useQuery<{
+    assignments: Assignment[];
+    hives: Hive[];
+    tasks: Task[];
+    completionMap: Record<string, number>;
+  }>({
     queryKey: ['assignments', 'list'],
     queryFn: async () => {
-      const assignments = await api.assignments.list();
-      const [hives, tasks] = await Promise.all([api.hives.list(), api.tasks.list()]);
+      const assignments = (await api.assignments.list()).map(mapAssignmentFromApi);
+      const [hivesResponse, tasksResponse] = await Promise.all([api.hives.list(), api.tasks.list()]);
+      const hives = hivesResponse.map(mapHiveFromApi);
+      const tasks = tasksResponse.map(mapTaskFromApi);
       const completionEntries = await Promise.all(
         assignments.map(async (assignment) => {
           try {
@@ -50,8 +65,8 @@ export default function Tasks() {
   const assignmentItems = useMemo(() => {
     if (!data) return [];
 
-    const hiveMap = new Map<string, HiveResponse>(data.hives.map((hive) => [hive.id, hive]));
-    const taskMap = new Map<string, TaskResponse>(data.tasks.map((task) => [task.id, task]));
+    const hiveMap = new Map<string, Hive>(data.hives.map((hive) => [hive.id, hive]));
+    const taskMap = new Map<string, Task>(data.tasks.map((task) => [task.id, task]));
 
     return data.assignments.map((assignment) => {
       const hive = hiveMap.get(assignment.hiveId);

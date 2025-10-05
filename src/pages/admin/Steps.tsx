@@ -8,7 +8,8 @@ import { Label } from '@/components/ui/label';
 import { Textarea } from '@/components/ui/textarea';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Badge } from '@/components/ui/badge';
-import api, { type TaskStepResponse } from '@/lib/api';
+import api from '@/lib/api';
+import { mapTaskFromApi, mapTaskStepFromApi, type Task, type TaskStep } from '@/lib/types';
 import { Plus, Search, Edit, Trash2 } from 'lucide-react';
 import { toast } from 'sonner';
 
@@ -18,9 +19,12 @@ export default function AdminSteps() {
   const [selectedTaskId, setSelectedTaskId] = useState<string>('');
   const queryClient = useQueryClient();
 
-  const { data: tasks = [] } = useQuery({
+  const { data: tasks = [] } = useQuery<Task[]>({
     queryKey: ['tasks', 'for-steps'],
-    queryFn: api.tasks.list,
+    queryFn: async () => {
+      const response = await api.tasks.list();
+      return response.map(mapTaskFromApi);
+    },
   });
 
   useEffect(() => {
@@ -29,9 +33,9 @@ export default function AdminSteps() {
     }
   }, [tasks, selectedTaskId]);
 
-  const { data: steps = [], isLoading, isError } = useQuery({
+  const { data: steps = [], isLoading, isError } = useQuery<TaskStep[]>({
     queryKey: ['tasks', selectedTaskId, 'steps'],
-    queryFn: () => api.tasks.getSteps(selectedTaskId!),
+    queryFn: () => api.tasks.getSteps(selectedTaskId!).then((response) => response.map(mapTaskStepFromApi)),
     enabled: !!selectedTaskId,
   });
 
@@ -207,7 +211,7 @@ function StepCard({
   onDelete,
   disableActions,
 }: {
-  step: TaskStepResponse;
+  step: TaskStep;
   onDelete: () => void;
   disableActions: boolean;
 }) {

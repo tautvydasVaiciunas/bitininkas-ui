@@ -7,14 +7,27 @@ import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Progress } from '@/components/ui/progress';
-import api, { type AssignmentResponse, type TaskResponse } from '@/lib/api';
+import api from '@/lib/api';
+import {
+  mapAssignmentDetailsFromApi,
+  mapAssignmentFromApi,
+  mapHiveFromApi,
+  mapTaskFromApi,
+  type Assignment,
+  type AssignmentStatus,
+  type Hive,
+  type Task,
+} from '@/lib/types';
 import { resolveAssignmentUiStatus } from '@/lib/assignmentStatus';
 import { MapPin, Calendar, Edit, Archive, Box, ChevronRight } from 'lucide-react';
 
 export default function HiveDetail() {
   const { id } = useParams();
 
-  const { data, isLoading, isError } = useQuery({
+  const { data, isLoading, isError } = useQuery<{
+    hive: Hive;
+    assignments: { assignment: Assignment; task: Task | null; completion: number }[];
+  }>({
     queryKey: ['hive', id],
     enabled: !!id,
     queryFn: async () => {
@@ -22,21 +35,27 @@ export default function HiveDetail() {
         throw new Error('Missing hive id');
       }
 
-      const [hive, assignments, tasks] = await Promise.all([
+      const [hiveResponse, assignmentsResponse, tasksResponse] = await Promise.all([
         api.hives.details(id),
         api.assignments.list({ hiveId: id }),
         api.tasks.list(),
       ]);
 
-      const taskMap = new Map<string, TaskResponse>(tasks.map((task) => [task.id, task]));
+      const hive = mapHiveFromApi(hiveResponse);
+      const assignments = assignmentsResponse.map(mapAssignmentFromApi);
+      const tasks = tasksResponse.map(mapTaskFromApi);
+
+      const taskMap = new Map<string, Task>(tasks.map((task) => [task.id, task]));
 
       const assignmentEntries = await Promise.all(
         assignments.map(async (assignment) => {
           try {
-            const details = await api.assignments.details(assignment.id);
+            const details = await api.assignments
+              .details(assignment.id)
+              .then(mapAssignmentDetailsFromApi);
             return {
               assignment,
-              task: details.task ?? taskMap.get(assignment.taskId),
+              task: details.task ?? taskMap.get(assignment.taskId) ?? null,
               completion: details.completion,
             };
           } catch (error) {
@@ -63,7 +82,7 @@ export default function HiveDetail() {
     return date.toLocaleDateString('lt-LT', { year: 'numeric', month: 'long', day: 'numeric' });
   };
 
-  const getStatusBadge = (status: AssignmentResponse['status'], dueDate: string) => {
+  const getStatusBadge = (status: AssignmentStatus, dueDate: string) => {
     const uiStatus = resolveAssignmentUiStatus(status, dueDate);
     const variants: Record<string, { variant: 'default' | 'destructive' | 'success' | 'secondary'; label: string }> = {
       not_started: { variant: 'secondary', label: 'Nepradėta' },

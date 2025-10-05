@@ -6,7 +6,8 @@ import { Badge } from '@/components/ui/badge';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { useAuth } from '@/contexts/AuthContext';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
-import api, { type NotificationResponse } from '@/lib/api';
+import api from '@/lib/api';
+import { mapNotificationFromApi, type Notification } from '@/lib/types';
 import { Bell, CheckCheck } from 'lucide-react';
 import { toast } from 'sonner';
 
@@ -14,18 +15,20 @@ export default function Notifications() {
   const { user } = useAuth();
   const queryClient = useQueryClient();
 
-  const { data: notifications = [], isLoading, isError } = useQuery({
+  const { data: notifications = [], isLoading, isError } = useQuery<Notification[]>({
     queryKey: ['notifications'],
     queryFn: async () => {
       const items = await api.notifications.list();
-      return items.filter((item) => !user || item.userId === user.id);
+      return items
+        .map(mapNotificationFromApi)
+        .filter((item) => !user || item.userId === user.id);
     },
   });
 
   const markMutation = useMutation({
     mutationFn: (id: string) => api.notifications.markRead(id),
     onSuccess: (_, id) => {
-      queryClient.setQueryData<NotificationResponse[]>(['notifications'], (current) => {
+      queryClient.setQueryData<Notification[]>(['notifications'], (current) => {
         if (!current) return current;
         return current.map((item) => (item.id === id ? { ...item, readAt: new Date().toISOString() } : item));
       });
@@ -41,7 +44,7 @@ export default function Notifications() {
       await Promise.all(ids.map((notificationId) => api.notifications.markRead(notificationId)));
     },
     onSuccess: (_, ids) => {
-      queryClient.setQueryData<NotificationResponse[]>(['notifications'], (current) => {
+      queryClient.setQueryData<Notification[]>(['notifications'], (current) => {
         if (!current) return current;
         const timestamp = new Date().toISOString();
         return current.map((item) => (ids.includes(item.id) ? { ...item, readAt: timestamp } : item));

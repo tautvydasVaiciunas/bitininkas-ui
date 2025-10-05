@@ -1,4 +1,4 @@
-import type { AssignmentStatus } from '@/lib/api';
+import type { AssignmentStatus } from '@/lib/types';
 
 export type AssignmentUiStatus = AssignmentStatus | 'overdue';
 

@@ -23,7 +23,8 @@ import {
   AlertDialogHeader,
   AlertDialogTitle,
 } from '@/components/ui/alert-dialog';
-import api, { type UserRole } from '@/lib/api';
+import api from '@/lib/api';
+import type { UserRole } from '@/lib/types';
 import { Plus, Search, Edit, Trash2 } from 'lucide-react';
 import { toast } from 'sonner';
 

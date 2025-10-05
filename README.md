@@ -68,6 +68,18 @@ Refer to the original instructions for running the Vite project:
 
 ```bash
 npm install
+```
+
+Before starting the UI make sure the API is running (for example via `docker-compose up --build`).
+Set the API URL for the UI by creating a `.env` file in the project root:
+
+```
+VITE_API_BASE_URL=http://localhost:3000
+```
+
+Then launch the development server:
+
+```bash
 npm run dev
 ```
 

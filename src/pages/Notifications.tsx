@@ -1,41 +1,59 @@
-import { useState } from 'react';
+import { useMemo } from 'react';
 import { MainLayout } from '@/components/Layout/MainLayout';
 import { Card, CardContent } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { useAuth } from '@/contexts/AuthContext';
-import { mockNotifications } from '@/lib/mockData';
-import { Bell, CheckCheck, X } from 'lucide-react';
+import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
+import api, { type NotificationResponse } from '@/lib/api';
+import { Bell, CheckCheck } from 'lucide-react';
 import { toast } from 'sonner';
 
 export default function Notifications() {
   const { user } = useAuth();
-  const [notifications, setNotifications] = useState(
-    mockNotifications.filter(n => n.userId === user?.id)
-  );
+  const queryClient = useQueryClient();
 
-  const unreadCount = notifications.filter(n => !n.read).length;
+  const { data: notifications = [], isLoading, isError } = useQuery({
+    queryKey: ['notifications'],
+    queryFn: async () => {
+      const items = await api.notifications.list();
+      return items.filter((item) => !user || item.userId === user.id);
+    },
+  });
 
-  const markAsRead = (id: string) => {
-    setNotifications(prev =>
-      prev.map(n => (n.id === id ? { ...n, read: true } : n))
-    );
-    // TODO: call PATCH /notifications/:id/read
-    toast.success('Pranešimas pažymėtas kaip perskaitytas');
-  };
+  const markMutation = useMutation({
+    mutationFn: (id: string) => api.notifications.markRead(id),
+    onSuccess: (_, id) => {
+      queryClient.setQueryData<NotificationResponse[]>(['notifications'], (current) => {
+        if (!current) return current;
+        return current.map((item) => (item.id === id ? { ...item, readAt: new Date().toISOString() } : item));
+      });
+      toast.success('Pranešimas pažymėtas kaip perskaitytas');
+    },
+    onError: () => {
+      toast.error('Nepavyko pažymėti pranešimo');
+    },
+  });
 
-  const markAllAsRead = () => {
-    setNotifications(prev => prev.map(n => ({ ...n, read: true })));
-    // TODO: call PATCH /notifications/mark-all-read
-    toast.success('Visi pranešimai pažymėti kaip perskaityti');
-  };
+  const markAllMutation = useMutation({
+    mutationFn: async (ids: string[]) => {
+      await Promise.all(ids.map((notificationId) => api.notifications.markRead(notificationId)));
+    },
+    onSuccess: (_, ids) => {
+      queryClient.setQueryData<NotificationResponse[]>(['notifications'], (current) => {
+        if (!current) return current;
+        const timestamp = new Date().toISOString();
+        return current.map((item) => (ids.includes(item.id) ? { ...item, readAt: timestamp } : item));
+      });
+      toast.success('Visi pranešimai pažymėti kaip perskaityti');
+    },
+    onError: () => {
+      toast.error('Nepavyko pažymėti visų pranešimų');
+    },
+  });
 
-  const deleteNotification = (id: string) => {
-    setNotifications(prev => prev.filter(n => n.id !== id));
-    // TODO: call DELETE /notifications/:id
-    toast.success('Pranešimas ištrintas');
-  };
+  const unreadCount = useMemo(() => notifications.filter((n) => !n.readAt).length, [notifications]);
 
   const getTypeIcon = (type: string) => {
     const icons: Record<string, React.ReactNode> = {
@@ -70,7 +88,7 @@ export default function Notifications() {
   const renderNotifications = (filterRead: boolean | null) => {
     const filtered = filterRead === null
       ? notifications
-      : notifications.filter(n => n.read === filterRead);
+      : notifications.filter(n => (!!n.readAt) === filterRead);
 
     if (filtered.length === 0) {
       return (
@@ -83,55 +101,54 @@ export default function Notifications() {
 
     return (
       <div className="divide-y divide-border">
-        {filtered.map((notification) => (
-          <div
-            key={notification.id}
-            className={`p-6 transition-colors ${
-              !notification.read ? 'bg-muted/30' : 'hover:bg-muted/20'
-            }`}
-          >
-            <div className="flex items-start gap-4">
-              <div className="mt-1">{getTypeIcon(notification.type)}</div>
-              
-              <div className="flex-1 min-w-0">
-                <div className="flex items-start justify-between gap-4 mb-2">
-                  <div className="flex-1">
-                    <h3 className="font-semibold mb-1">{notification.title}</h3>
-                    <p className="text-sm text-muted-foreground">{notification.message}</p>
-                  </div>
-                  {!notification.read && (
-                    <Badge variant="default" className="flex-shrink-0">Nauja</Badge>
-                  )}
-                </div>
-                
-                <div className="flex items-center justify-between mt-3">
-                  <p className="text-xs text-muted-foreground">
-                    {formatDate(notification.createdAt)}
-                  </p>
-                  <div className="flex items-center gap-2">
-                    {!notification.read && (
-                      <Button
-                        variant="ghost"
-                        size="sm"
-                        onClick={() => markAsRead(notification.id)}
-                      >
-                        <CheckCheck className="mr-2 w-4 h-4" />
-                        Pažymėti kaip perskaitytą
-                      </Button>
+        {filtered.map((notification) => {
+          const isRead = !!notification.readAt;
+          return (
+            <div
+              key={notification.id}
+              className={`p-6 transition-colors ${
+                !isRead ? 'bg-muted/30' : 'hover:bg-muted/20'
+              }`}
+            >
+              <div className="flex items-start gap-4">
+                <div className="mt-1">{getTypeIcon(notification.type)}</div>
+
+                <div className="flex-1 min-w-0">
+                  <div className="flex items-start justify-between gap-4 mb-2">
+                    <div className="flex-1">
+                      <h3 className="font-semibold mb-1">{notification.title ?? 'Pranešimas'}</h3>
+                      {notification.message && (
+                        <p className="text-sm text-muted-foreground">{notification.message}</p>
+                      )}
+                    </div>
+                    {!isRead && (
+                      <Badge variant="default" className="flex-shrink-0">Nauja</Badge>
                     )}
-                    <Button
-                      variant="ghost"
-                      size="sm"
-                      onClick={() => deleteNotification(notification.id)}
-                    >
-                      <X className="w-4 h-4" />
-                    </Button>
+                  </div>
+
+                  <div className="flex items-center justify-between mt-3">
+                    <p className="text-xs text-muted-foreground">
+                      {formatDate(notification.createdAt)}
+                    </p>
+                    <div className="flex items-center gap-2">
+                      {!isRead && (
+                        <Button
+                          variant="ghost"
+                          size="sm"
+                          onClick={() => markMutation.mutate(notification.id)}
+                          disabled={markMutation.isLoading}
+                        >
+                          <CheckCheck className="mr-2 w-4 h-4" />
+                          Pažymėti kaip perskaitytą
+                        </Button>
+                      )}
+                    </div>
                   </div>
                 </div>
               </div>
             </div>
-          </div>
-        ))}
+          );
+        })}
       </div>
     );
   };
@@ -147,7 +164,11 @@ export default function Notifications() {
             </p>
           </div>
           {unreadCount > 0 && (
-            <Button onClick={markAllAsRead} variant="outline">
+            <Button
+              onClick={() => markAllMutation.mutate(notifications.filter((n) => !n.readAt).map((n) => n.id))}
+              variant="outline"
+              disabled={markAllMutation.isLoading}
+            >
               <CheckCheck className="mr-2 w-4 h-4" />
               Pažymėti visus kaip perskaitytus
             </Button>
@@ -177,13 +198,25 @@ export default function Notifications() {
 
             <TabsContent value="all" className="m-0">
               <CardContent className="p-0">
-                {renderNotifications(null)}
+                {isLoading ? (
+                  <div className="p-12 text-center text-muted-foreground">Kraunama...</div>
+                ) : isError ? (
+                  <div className="p-12 text-center text-destructive">Nepavyko įkelti pranešimų.</div>
+                ) : (
+                  renderNotifications(null)
+                )}
               </CardContent>
             </TabsContent>
 
             <TabsContent value="unread" className="m-0">
               <CardContent className="p-0">
-                {renderNotifications(false)}
+                {isLoading ? (
+                  <div className="p-12 text-center text-muted-foreground">Kraunama...</div>
+                ) : isError ? (
+                  <div className="p-12 text-center text-destructive">Nepavyko įkelti pranešimų.</div>
+                ) : (
+                  renderNotifications(false)
+                )}
               </CardContent>
             </TabsContent>
           </Tabs>

@@ -1,4 +1,5 @@
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
+import { useMutation } from '@tanstack/react-query';
 import { MainLayout } from '@/components/Layout/MainLayout';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
@@ -8,15 +9,35 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Avatar, AvatarFallback } from '@/components/ui/avatar';
 import { Badge } from '@/components/ui/badge';
 import { useAuth } from '@/contexts/AuthContext';
-import { mockGroups } from '@/lib/mockData';
-import { User, Mail, Phone, MapPin, Users, Edit2, Lock } from 'lucide-react';
+import api from '@/lib/api';
+import { User, Mail, Edit2, Lock } from 'lucide-react';
 import { toast } from 'sonner';
 
 export default function Profile() {
-  const { user } = useAuth();
+  const { user, updateUserProfile } = useAuth();
   const [isEditing, setIsEditing] = useState(false);
+  const [formValues, setFormValues] = useState({ name: user?.name ?? '', email: user?.email ?? '' });
 
-  const userGroup = mockGroups.find(g => g.id === user?.groupId);
+  const updateMutation = useMutation({
+    mutationFn: async (payload: { name: string; email: string }) => {
+      if (!user) throw new Error('Neprisijungęs vartotojas');
+      return api.users.update(user.id, payload);
+    },
+    onSuccess: (updated) => {
+      updateUserProfile({ name: updated.name, email: updated.email });
+      toast.success('Profilis atnaujintas');
+      setIsEditing(false);
+    },
+    onError: () => {
+      toast.error('Nepavyko atnaujinti profilio');
+    },
+  });
+
+  useEffect(() => {
+    if (user) {
+      setFormValues({ name: user.name, email: user.email });
+    }
+  }, [user]);
 
   const getInitials = (name: string) => {
     return name
@@ -37,9 +58,7 @@ export default function Profile() {
   };
 
   const handleSave = () => {
-    // TODO: call PATCH /users/:id
-    setIsEditing(false);
-    toast.success('Profilis atnaujintas');
+    updateMutation.mutate(formValues);
   };
 
   if (!user) {
@@ -69,30 +88,12 @@ export default function Profile() {
                 <h2 className="text-2xl font-bold mb-2">{user.name}</h2>
                 <div className="flex items-center gap-2 mb-4">
                   <Badge variant="default">{getRoleLabel(user.role)}</Badge>
-                  {userGroup && (
-                    <Badge variant="secondary">
-                      <Users className="mr-1 w-3 h-3" />
-                      {userGroup.name}
-                    </Badge>
-                  )}
                 </div>
                 <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 text-sm">
                   {user.email && (
                     <div className="flex items-center gap-2 text-muted-foreground">
                       <Mail className="w-4 h-4" />
                       {user.email}
-                    </div>
-                  )}
-                  {user.phone && (
-                    <div className="flex items-center gap-2 text-muted-foreground">
-                      <Phone className="w-4 h-4" />
-                      {user.phone}
-                    </div>
-                  )}
-                  {user.address && (
-                    <div className="flex items-center gap-2 text-muted-foreground sm:col-span-2">
-                      <MapPin className="w-4 h-4" />
-                      {user.address}
                     </div>
                   )}
                 </div>
@@ -116,10 +117,11 @@ export default function Profile() {
                   <Button
                     variant="outline"
                     size="sm"
+                    disabled={updateMutation.isLoading}
                     onClick={() => (isEditing ? handleSave() : setIsEditing(true))}
                   >
                     {isEditing ? (
-                      'Išsaugoti'
+                      updateMutation.isLoading ? 'Saugoma...' : 'Išsaugoti'
                     ) : (
                       <>
                         <Edit2 className="mr-2 w-4 h-4" />
@@ -135,8 +137,9 @@ export default function Profile() {
                     <Label htmlFor="name">Vardas ir pavardė</Label>
                     <Input
                       id="name"
-                      defaultValue={user.name}
+                      value={formValues.name}
                       disabled={!isEditing}
+                      onChange={(event) => setFormValues((prev) => ({ ...prev, name: event.target.value }))}
                     />
                   </div>
 
@@ -145,18 +148,9 @@ export default function Profile() {
                     <Input
                       id="email"
                       type="email"
-                      defaultValue={user.email}
+                      value={formValues.email}
                       disabled={!isEditing}
-                    />
-                  </div>
-
-                  <div className="space-y-2">
-                    <Label htmlFor="phone">Telefonas</Label>
-                    <Input
-                      id="phone"
-                      type="tel"
-                      defaultValue={user.phone}
-                      disabled={!isEditing}
+                      onChange={(event) => setFormValues((prev) => ({ ...prev, email: event.target.value }))}
                     />
                   </div>
 
@@ -168,26 +162,6 @@ export default function Profile() {
                       disabled
                     />
                   </div>
-
-                  <div className="space-y-2 md:col-span-2">
-                    <Label htmlFor="address">Adresas</Label>
-                    <Input
-                      id="address"
-                      defaultValue={user.address}
-                      disabled={!isEditing}
-                    />
-                  </div>
-
-                  {userGroup && (
-                    <div className="space-y-2">
-                      <Label htmlFor="group">Grupė</Label>
-                      <Input
-                        id="group"
-                        value={userGroup.name}
-                        disabled
-                      />
-                    </div>
-                  )}
                 </div>
               </CardContent>
             </Card>

@@ -1,6 +1,6 @@
-import React, { createContext, useContext, useState, useEffect } from 'react';
+import React, { createContext, useContext, useState, useEffect, useCallback } from 'react';
 import { User, UserRole } from '@/lib/types';
-import { mockUsers } from '@/lib/mockData';
+import api, { AuthenticatedUser, HttpError, clearCredentials, setToken } from '@/lib/api';
 
 interface AuthContextType {
   user: User | null;
@@ -22,43 +22,113 @@ export const useAuth = () => {
 
 export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children }) => {
   const [user, setUser] = useState<User | null>(null);
-  const [isAuthenticated, setIsAuthenticated] = useState(false);
 
-  useEffect(() => {
-    // Check for saved user in localStorage
-    const savedUser = localStorage.getItem('bitininkas_user');
-    if (savedUser) {
-      setUser(JSON.parse(savedUser));
-      setIsAuthenticated(true);
+  const normalizeUser = useCallback((data: Partial<AuthenticatedUser> | Partial<User> | null | undefined): User | null => {
+    if (!data || !data.id || !data.email) {
+      return null;
+    }
+
+    const fallbackCreatedAt = new Date().toISOString();
+
+    return {
+      id: data.id,
+      email: data.email,
+      name: data.name && data.name.trim().length > 0 ? data.name : data.email,
+      role: (data.role as UserRole) ?? 'user',
+      phone: 'phone' in data ? data.phone : undefined,
+      address: 'address' in data ? data.address : undefined,
+      groupId: 'groupId' in data ? data.groupId : undefined,
+      createdAt: 'createdAt' in data && data.createdAt ? data.createdAt : fallbackCreatedAt,
+    };
+  }, []);
+
+  const persistUser = useCallback((value: User | null) => {
+    if (typeof window === 'undefined') return;
+    if (value) {
+      window.localStorage.setItem('bitininkas_user', JSON.stringify(value));
+    } else {
+      window.localStorage.removeItem('bitininkas_user');
     }
   }, []);
 
-  const login = async (email: string, password: string): Promise<{ success: boolean; error?: string }> => {
-    // TODO: call POST /auth/login
-    
-    // Mock login - check against demo users
-    const foundUser = mockUsers.find((u) => u.email === email);
-    
-    if (!foundUser) {
-      return { success: false, error: 'Neteisingas el. paštas arba slaptažodis' };
-    }
-
-    // In real app, verify password hash
-    if (password !== 'password') {
-      return { success: false, error: 'Neteisingas el. paštas arba slaptažodis' };
-    }
-
-    setUser(foundUser);
-    setIsAuthenticated(true);
-    localStorage.setItem('bitininkas_user', JSON.stringify(foundUser));
-
-    return { success: true };
-  };
-
-  const logout = () => {
+  const logout = useCallback(() => {
+    clearCredentials();
     setUser(null);
-    setIsAuthenticated(false);
-    localStorage.removeItem('bitininkas_user');
+  }, []);
+
+  useEffect(() => {
+    if (typeof window === 'undefined') return;
+
+    const savedUserRaw = window.localStorage.getItem('bitininkas_user');
+    if (savedUserRaw) {
+      try {
+        const parsed = JSON.parse(savedUserRaw) as Partial<User>;
+        const normalized = normalizeUser(parsed);
+        if (normalized) {
+          setUser(normalized);
+        }
+      } catch (error) {
+        console.warn('Failed to parse stored user', error);
+      }
+    }
+
+    const storedAccessToken = window.localStorage.getItem('bitininkas_access_token');
+    const storedRefreshToken = window.localStorage.getItem('bitininkas_refresh_token');
+
+    if (!storedAccessToken) {
+      return;
+    }
+
+    setToken(storedAccessToken, storedRefreshToken);
+
+    const bootstrap = async () => {
+      try {
+        const profile = await api.auth.me();
+        const normalizedUser = normalizeUser(profile);
+        if (normalizedUser) {
+          setUser(normalizedUser);
+          persistUser(normalizedUser);
+        }
+      } catch (error) {
+        console.error('Failed to restore session', error);
+        logout();
+      }
+    };
+
+    void bootstrap();
+  }, [normalizeUser, logout, persistUser]);
+
+  const login = async (email: string, password: string): Promise<{ success: boolean; error?: string }> => {
+    const getErrorMessage = (err: unknown) => {
+      if (err instanceof HttpError) {
+        const data = err.data as { message?: string } | undefined;
+        if (data?.message) {
+          return data.message;
+        }
+        return err.message;
+      }
+      if (err instanceof Error) {
+        return err.message;
+      }
+      return 'Neteisingas el. paštas arba slaptažodis';
+    };
+
+    try {
+      const result = await api.auth.login({ email, password });
+      setToken(result.accessToken, result.refreshToken);
+
+      const profile = await api.auth.me();
+      const normalizedUser = normalizeUser(profile);
+      if (normalizedUser) {
+        setUser(normalizedUser);
+        persistUser(normalizedUser);
+      }
+
+      return { success: true };
+    } catch (error) {
+      logout();
+      return { success: false, error: getErrorMessage(error) };
+    }
   };
 
   const register = async (
@@ -66,30 +136,39 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     email: string,
     password: string
   ): Promise<{ success: boolean; error?: string }> => {
-    // TODO: call POST /auth/register
-    
-    // Mock registration
-    const existingUser = mockUsers.find((u) => u.email === email);
-    
-    if (existingUser) {
-      return { success: false, error: 'Vartotojas su tokiu el. paštu jau egzistuoja' };
-    }
-
-    const newUser: User = {
-      id: `${mockUsers.length + 1}`,
-      name: name || 'Naujas vartotojas',
-      email,
-      role: 'user',
-      groupId: '1',
-      createdAt: new Date().toISOString(),
+    const getErrorMessage = (err: unknown) => {
+      if (err instanceof HttpError) {
+        const data = err.data as { message?: string } | undefined;
+        if (data?.message) {
+          return data.message;
+        }
+        return err.message;
+      }
+      if (err instanceof Error) {
+        return err.message;
+      }
+      return 'Registracija nepavyko. Bandykite dar kartą vėliau.';
     };
 
-    setUser(newUser);
-    setIsAuthenticated(true);
-    localStorage.setItem('bitininkas_user', JSON.stringify(newUser));
+    try {
+      const result = await api.auth.register({ name, email, password });
+      setToken(result.accessToken, result.refreshToken);
 
-    return { success: true };
+      const profile = await api.auth.me();
+      const normalizedUser = normalizeUser(profile);
+      if (normalizedUser) {
+        setUser(normalizedUser);
+        persistUser(normalizedUser);
+      }
+
+      return { success: true };
+    } catch (error) {
+      logout();
+      return { success: false, error: getErrorMessage(error) };
+    }
   };
+
+  const isAuthenticated = !!user;
 
   return (
     <AuthContext.Provider value={{ user, isAuthenticated, login, logout, register }}>

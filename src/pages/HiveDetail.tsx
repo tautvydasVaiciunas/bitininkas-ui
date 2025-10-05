@@ -1,18 +1,93 @@
+import { useMemo } from 'react';
 import { useParams, Link } from 'react-router-dom';
+import { useQuery } from '@tanstack/react-query';
 import { MainLayout } from '@/components/Layout/MainLayout';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Progress } from '@/components/ui/progress';
-import { mockHives, mockAssignments } from '@/lib/mockData';
+import api, { type AssignmentResponse, type TaskResponse } from '@/lib/api';
+import { resolveAssignmentUiStatus } from '@/lib/assignmentStatus';
 import { MapPin, Calendar, Edit, Archive, Box, ChevronRight } from 'lucide-react';
 
 export default function HiveDetail() {
   const { id } = useParams();
-  const hive = mockHives.find(h => h.id === id);
-  
-  if (!hive) {
+
+  const { data, isLoading, isError } = useQuery({
+    queryKey: ['hive', id],
+    enabled: !!id,
+    queryFn: async () => {
+      if (!id) {
+        throw new Error('Missing hive id');
+      }
+
+      const [hive, assignments, tasks] = await Promise.all([
+        api.hives.details(id),
+        api.assignments.list({ hiveId: id }),
+        api.tasks.list(),
+      ]);
+
+      const taskMap = new Map<string, TaskResponse>(tasks.map((task) => [task.id, task]));
+
+      const assignmentEntries = await Promise.all(
+        assignments.map(async (assignment) => {
+          try {
+            const details = await api.assignments.details(assignment.id);
+            return {
+              assignment,
+              task: details.task ?? taskMap.get(assignment.taskId),
+              completion: details.completion,
+            };
+          } catch (error) {
+            console.error('Failed to fetch assignment details for hive', error);
+            return {
+              assignment,
+              task: taskMap.get(assignment.taskId) ?? null,
+              completion: 0,
+            };
+          }
+        })
+      );
+
+      return { hive, assignments: assignmentEntries };
+    },
+  });
+
+  const hive = data?.hive;
+
+  const assignments = useMemo(() => data?.assignments ?? [], [data]);
+
+  const formatDate = (dateStr: string) => {
+    const date = new Date(dateStr);
+    return date.toLocaleDateString('lt-LT', { year: 'numeric', month: 'long', day: 'numeric' });
+  };
+
+  const getStatusBadge = (status: AssignmentResponse['status'], dueDate: string) => {
+    const uiStatus = resolveAssignmentUiStatus(status, dueDate);
+    const variants: Record<string, { variant: 'default' | 'destructive' | 'success' | 'secondary'; label: string }> = {
+      not_started: { variant: 'secondary', label: 'Nepradėta' },
+      in_progress: { variant: 'default', label: 'Vykdoma' },
+      done: { variant: 'success', label: 'Atlikta' },
+      overdue: { variant: 'destructive', label: 'Vėluojama' },
+    };
+
+    const config = uiStatus === 'overdue' ? variants.overdue : variants[status] ?? { variant: 'secondary', label: status };
+
+    return <Badge variant={config.variant}>{config.label}</Badge>;
+  };
+
+  if (isLoading) {
+    return (
+      <MainLayout>
+        <Card className="shadow-custom">
+          <CardContent className="p-12 text-center text-muted-foreground">Kraunama...</CardContent>
+        </Card>
+      </MainLayout>
+    );
+  }
+
+  if (isError || !hive) {
     return (
       <MainLayout>
         <Card className="shadow-custom">
@@ -29,24 +104,6 @@ export default function HiveDetail() {
     );
   }
 
-  const hiveAssignments = mockAssignments.filter(a => a.hiveId === id);
-
-  const formatDate = (dateStr: string) => {
-    const date = new Date(dateStr);
-    return date.toLocaleDateString('lt-LT', { year: 'numeric', month: 'long', day: 'numeric' });
-  };
-
-  const getStatusBadge = (status: string) => {
-    const config: Record<string, { variant: 'default' | 'destructive' | 'success' | 'secondary'; label: string }> = {
-      pending: { variant: 'secondary', label: 'Laukiama' },
-      in_progress: { variant: 'default', label: 'Vykdoma' },
-      completed: { variant: 'success', label: 'Atlikta' },
-      overdue: { variant: 'destructive', label: 'Vėluojama' },
-    };
-    const item = config[status] || config.pending;
-    return <Badge variant={item.variant}>{item.label}</Badge>;
-  };
-
   return (
     <MainLayout>
       <div className="space-y-6">
@@ -54,19 +111,25 @@ export default function HiveDetail() {
         <div className="flex items-start justify-between">
           <div className="space-y-2">
             <div className="flex items-center gap-3">
-              <h1 className="text-3xl font-bold">{hive.name}</h1>
+              <h1 className="text-3xl font-bold">{hive.label}</h1>
               <Badge variant={hive.status === 'active' ? 'success' : 'secondary'}>
-                {hive.status === 'active' ? 'Aktyvus' : 'Neaktyvus'}
+                {hive.status === 'active'
+                  ? 'Aktyvus'
+                  : hive.status === 'paused'
+                    ? 'Pristabdyta'
+                    : 'Archyvuota'}
               </Badge>
             </div>
             <div className="flex items-center gap-4 text-muted-foreground">
-              <div className="flex items-center gap-1">
-                <MapPin className="w-4 h-4" />
-                {hive.location}
-              </div>
+              {hive.location && (
+                <div className="flex items-center gap-1">
+                  <MapPin className="w-4 h-4" />
+                  {hive.location}
+                </div>
+              )}
               <div className="flex items-center gap-1">
                 <Calendar className="w-4 h-4" />
-                Įsigyta: {formatDate(hive.acquisitionDate)}
+                Sukurta: {formatDate(hive.createdAt ?? new Date().toISOString())}
               </div>
             </div>
           </div>
@@ -92,23 +155,29 @@ export default function HiveDetail() {
             <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
               <div>
                 <p className="text-sm text-muted-foreground mb-1">Pavadinimas</p>
-                <p className="font-medium">{hive.name}</p>
+                <p className="font-medium">{hive.label}</p>
               </div>
               <div>
                 <p className="text-sm text-muted-foreground mb-1">Lokacija</p>
-                <p className="font-medium">{hive.location}</p>
+                <p className="font-medium">{hive.location ?? 'Nenurodyta'}</p>
               </div>
               <div>
                 <p className="text-sm text-muted-foreground mb-1">Karalienės metai</p>
-                <p className="font-medium">{hive.queenYear}</p>
+                <p className="font-medium">{hive.queenYear ?? 'Nenurodyta'}</p>
               </div>
               <div>
-                <p className="text-sm text-muted-foreground mb-1">Įsigijimo data</p>
-                <p className="font-medium">{formatDate(hive.acquisitionDate)}</p>
+                <p className="text-sm text-muted-foreground mb-1">Sukurta</p>
+                <p className="font-medium">{formatDate(hive.createdAt ?? new Date().toISOString())}</p>
               </div>
               <div>
                 <p className="text-sm text-muted-foreground mb-1">Statusas</p>
-                <p className="font-medium">{hive.status === 'active' ? 'Aktyvus' : 'Neaktyvus'}</p>
+                <p className="font-medium">
+                  {hive.status === 'active'
+                    ? 'Aktyvus'
+                    : hive.status === 'paused'
+                      ? 'Pristabdyta'
+                      : 'Archyvuota'}
+                </p>
               </div>
             </div>
           </CardContent>
@@ -128,30 +197,32 @@ export default function HiveDetail() {
                 <CardTitle>Užduotys</CardTitle>
               </CardHeader>
               <CardContent>
-                {hiveAssignments.length === 0 ? (
+                {assignments.length === 0 ? (
                   <div className="text-center py-8 text-muted-foreground">
                     Šiam aviliui nėra priskirtų užduočių
                   </div>
                 ) : (
                   <div className="divide-y divide-border">
-                    {hiveAssignments.map((assignment) => (
+                    {assignments.map(({ assignment, task, completion }) => (
                       <div key={assignment.id} className="py-4 first:pt-0 last:pb-0">
                         <div className="flex items-start justify-between gap-4">
                           <div className="flex-1 space-y-2">
                             <div className="flex items-start justify-between">
-                              <h4 className="font-semibold">{assignment.task.name}</h4>
-                              {getStatusBadge(assignment.status)}
+                              <h4 className="font-semibold">{task?.title ?? 'Nežinoma užduotis'}</h4>
+                              {getStatusBadge(assignment.status, assignment.dueDate)}
                             </div>
-                            <p className="text-sm text-muted-foreground">{assignment.task.description}</p>
+                            {task?.description && (
+                              <p className="text-sm text-muted-foreground">{task.description}</p>
+                            )}
                             <div className="flex items-center gap-4 text-sm text-muted-foreground">
                               <span>Terminas: {formatDate(assignment.dueDate)}</span>
                             </div>
                             <div className="space-y-1">
                               <div className="flex items-center justify-between text-sm">
                                 <span className="text-muted-foreground">Progresas</span>
-                                <span className="font-medium">{assignment.progress}%</span>
+                                <span className="font-medium">{completion}%</span>
                               </div>
-                              <Progress value={assignment.progress} className="h-2" />
+                              <Progress value={completion} className="h-2" />
                             </div>
                           </div>
                           <Button asChild size="sm">

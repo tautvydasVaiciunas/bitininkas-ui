@@ -1,6 +1,11 @@
 import React, { createContext, useContext, useState, useEffect, useCallback } from 'react';
-import { User, UserRole } from '@/lib/types';
-import api, { AuthenticatedUser, HttpError, clearCredentials, setToken } from '@/lib/api';
+import api, { AuthenticatedUser, HttpError, clearCredentials, setToken, type UserRole } from '@/lib/api';
+
+export type User = AuthenticatedUser & {
+  phone?: string | null;
+  address?: string | null;
+  createdAt?: string | null;
+};
 
 interface AuthContextType {
   user: User | null;
@@ -8,6 +13,7 @@ interface AuthContextType {
   login: (email: string, password: string) => Promise<{ success: boolean; error?: string }>;
   logout: () => void;
   register: (name: string, email: string, password: string) => Promise<{ success: boolean; error?: string }>;
+  updateUserProfile: (updates: Partial<User>) => void;
 }
 
 const AuthContext = createContext<AuthContextType | undefined>(undefined);
@@ -35,9 +41,8 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
       email: data.email,
       name: data.name && data.name.trim().length > 0 ? data.name : data.email,
       role: (data.role as UserRole) ?? 'user',
-      phone: 'phone' in data ? data.phone : undefined,
-      address: 'address' in data ? data.address : undefined,
-      groupId: 'groupId' in data ? data.groupId : undefined,
+      phone: 'phone' in data ? data.phone ?? null : undefined,
+      address: 'address' in data ? data.address ?? null : undefined,
       createdAt: 'createdAt' in data && data.createdAt ? data.createdAt : fallbackCreatedAt,
     };
   }, []);
@@ -50,6 +55,19 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
       window.localStorage.removeItem('bitininkas_user');
     }
   }, []);
+
+  const updateUserProfile = useCallback(
+    (updates: Partial<User>) => {
+      setUser((previous) => {
+        if (!previous) return previous;
+        const normalized = normalizeUser({ ...previous, ...updates });
+        if (!normalized) return previous;
+        persistUser(normalized);
+        return normalized;
+      });
+    },
+    [normalizeUser, persistUser]
+  );
 
   const logout = useCallback(() => {
     clearCredentials();
@@ -171,7 +189,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
   const isAuthenticated = !!user;
 
   return (
-    <AuthContext.Provider value={{ user, isAuthenticated, login, logout, register }}>
+    <AuthContext.Provider value={{ user, isAuthenticated, login, logout, register, updateUserProfile }}>
       {children}
     </AuthContext.Provider>
   );

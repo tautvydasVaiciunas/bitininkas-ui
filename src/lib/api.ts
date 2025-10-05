@@ -49,7 +49,9 @@ export interface NotificationResponse {
   id: string;
   userId: string;
   type: string;
-  payload: Record<string, unknown>;
+  title?: string | null;
+  message?: string | null;
+  payload?: Record<string, unknown>;
   scheduledAt?: string | null;
   sentAt?: string | null;
   readAt?: string | null;
@@ -76,7 +78,7 @@ export interface HiveSummary {
   completion: number;
 }
 
-export type TaskFrequency = 'once' | 'weekly' | 'monthly';
+export type TaskFrequency = 'once' | 'weekly' | 'monthly' | 'seasonal';
 
 export interface TaskStepResponse {
   id: string;
@@ -103,6 +105,27 @@ export interface TaskResponse {
 export interface TaskWithStepsResponse extends TaskResponse {
   steps: TaskStepResponse[];
 }
+
+export interface CreateTaskPayload {
+  title: string;
+  description?: string | null;
+  category?: string | null;
+  seasonMonths?: number[];
+  frequency: TaskFrequency;
+  defaultDueDays: number;
+}
+
+export type UpdateTaskPayload = Partial<CreateTaskPayload>;
+
+export interface CreateTaskStepPayload {
+  title: string;
+  contentText?: string | null;
+  mediaUrl?: string | null;
+}
+
+export type UpdateTaskStepPayload = Partial<CreateTaskStepPayload> & {
+  orderIndex?: number;
+};
 
 export type AssignmentStatus = 'not_started' | 'in_progress' | 'done';
 
@@ -131,6 +154,21 @@ export interface AssignmentDetails {
   task: TaskWithStepsResponse;
   progress: StepProgressResponse[];
   completion: number;
+}
+
+export interface AdminUserResponse {
+  id: string;
+  email: string;
+  name: string;
+  role: UserRole;
+  createdAt: string;
+  updatedAt?: string;
+}
+
+export interface UpdateUserPayload {
+  name?: string;
+  email?: string;
+  role?: UserRole;
 }
 
 export interface LoginPayload {
@@ -428,9 +466,14 @@ export const api = {
       get<TaskResponse[]>('/tasks', { query: params }),
     get: (id: string) => get<TaskResponse>(`/tasks/${id}`),
     getSteps: (id: string) => get<TaskStepResponse[]>(`/tasks/${id}/steps`),
-    create: (payload: Partial<TaskWithStepsResponse>) => post<TaskResponse>('/tasks', { json: payload }),
-    update: (id: string, payload: Partial<TaskWithStepsResponse>) =>
+    create: (payload: CreateTaskPayload) => post<TaskResponse>('/tasks', { json: payload }),
+    update: (id: string, payload: UpdateTaskPayload) =>
       patch<TaskResponse>(`/tasks/${id}`, { json: payload }),
+    createStep: (taskId: string, payload: CreateTaskStepPayload) =>
+      post<TaskStepResponse>(`/tasks/${taskId}/steps`, { json: payload }),
+    updateStep: (taskId: string, stepId: string, payload: UpdateTaskStepPayload) =>
+      patch<TaskStepResponse>(`/tasks/${taskId}/steps/${stepId}`, { json: payload }),
+    deleteStep: (taskId: string, stepId: string) => del<void>(`/tasks/${taskId}/steps/${stepId}`),
     reorderSteps: (id: string, payload: { stepIds: string[] }) =>
       post<TaskStepResponse[]>(`/tasks/${id}/steps/reorder`, { json: payload }),
   },
@@ -449,6 +492,12 @@ export const api = {
     assignmentCompletion: (assignmentId: string) =>
       get<number>(`/assignments/${assignmentId}/progress`),
     remove: (id: string) => del<void>(`/progress/${id}`),
+  },
+  users: {
+    list: () => get<AdminUserResponse[]>('/users'),
+    update: (id: string, payload: UpdateUserPayload) =>
+      patch<AdminUserResponse>(`/users/${id}`, { json: payload }),
+    remove: (id: string) => del<void>(`/users/${id}`),
   },
 };
 

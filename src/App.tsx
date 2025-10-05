@@ -11,6 +11,7 @@ import ForgotPassword from "./pages/auth/ForgotPassword";
 import Hives from "./pages/Hives";
 import HiveDetail from "./pages/HiveDetail";
 import Tasks from "./pages/Tasks";
+import TaskDetail from "./pages/TaskDetail";
 import TaskRun from "./pages/TaskRun";
 import Notifications from "./pages/Notifications";
 import Profile from "./pages/Profile";
@@ -38,6 +39,7 @@ const App = () => (
             <Route path="/hives" element={<Hives />} />
             <Route path="/hives/:id" element={<HiveDetail />} />
             <Route path="/tasks" element={<Tasks />} />
+            <Route path="/tasks/:id" element={<TaskDetail />} />
             <Route path="/tasks/:id/run" element={<TaskRun />} />
             <Route path="/notifications" element={<Notifications />} />
             <Route path="/profile" element={<Profile />} />

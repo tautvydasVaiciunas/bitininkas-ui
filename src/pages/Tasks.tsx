@@ -1,5 +1,6 @@
-import { useState } from 'react';
+import { useMemo, useState } from 'react';
 import { Link } from 'react-router-dom';
+import { useQuery } from '@tanstack/react-query';
 import { MainLayout } from '@/components/Layout/MainLayout';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
@@ -8,7 +9,9 @@ import { Badge } from '@/components/ui/badge';
 import { Progress } from '@/components/ui/progress';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { useAuth } from '@/contexts/AuthContext';
-import { mockAssignments } from '@/lib/mockData';
+import api, { type HiveResponse, type TaskResponse } from '@/lib/api';
+import { AssignmentStatusBadge } from '@/components/AssignmentStatusBadge';
+import { assignmentStatusFilterOptions, resolveAssignmentUiStatus } from '@/lib/assignmentStatus';
 import { Plus, Search, Calendar, Box, ChevronRight, ListTodo } from 'lucide-react';
 
 export default function Tasks() {
@@ -17,33 +20,74 @@ export default function Tasks() {
   const [statusFilter, setStatusFilter] = useState<string>('all');
 
   const isAdmin = user?.role === 'admin';
-  const userAssignments = isAdmin ? mockAssignments : mockAssignments.filter(a => a.assignedTo === user?.id);
 
-  const filteredAssignments = userAssignments.filter(assignment => {
-    const matchesSearch = assignment.task.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
-                         assignment.task.description.toLowerCase().includes(searchQuery.toLowerCase());
-    const matchesStatus = statusFilter === 'all' || assignment.status === statusFilter;
-    return matchesSearch && matchesStatus;
+  const { data, isLoading, isError } = useQuery({
+    queryKey: ['assignments', 'list'],
+    queryFn: async () => {
+      const assignments = await api.assignments.list();
+      const [hives, tasks] = await Promise.all([api.hives.list(), api.tasks.list()]);
+      const completionEntries = await Promise.all(
+        assignments.map(async (assignment) => {
+          try {
+            const completion = await api.progress.assignmentCompletion(assignment.id);
+            return [assignment.id, completion] as const;
+          } catch (error) {
+            console.error('Failed to fetch assignment completion', error);
+            return [assignment.id, 0] as const;
+          }
+        })
+      );
+
+      return {
+        assignments,
+        hives,
+        tasks,
+        completionMap: Object.fromEntries(completionEntries) as Record<string, number>,
+      };
+    },
   });
+
+  const assignmentItems = useMemo(() => {
+    if (!data) return [];
+
+    const hiveMap = new Map<string, HiveResponse>(data.hives.map((hive) => [hive.id, hive]));
+    const taskMap = new Map<string, TaskResponse>(data.tasks.map((task) => [task.id, task]));
+
+    return data.assignments.map((assignment) => {
+      const hive = hiveMap.get(assignment.hiveId);
+      const task = taskMap.get(assignment.taskId);
+      const completion = data.completionMap[assignment.id] ?? 0;
+
+      return {
+        assignment,
+        hive,
+        task,
+        completion,
+      };
+    });
+  }, [data]);
+
+  const filteredAssignments = useMemo(() => {
+    const normalizedQuery = searchQuery.trim().toLowerCase();
+
+    return assignmentItems.filter(({ assignment, task }) => {
+      const matchesSearch =
+        !normalizedQuery ||
+        (task?.title?.toLowerCase().includes(normalizedQuery) ?? false) ||
+        (task?.description?.toLowerCase().includes(normalizedQuery) ?? false);
+
+      const uiStatus = resolveAssignmentUiStatus(assignment.status, assignment.dueDate);
+      const matchesStatus =
+        statusFilter === 'all' ||
+        (statusFilter === 'overdue' ? uiStatus === 'overdue' : assignment.status === statusFilter);
+
+      return matchesSearch && matchesStatus;
+    });
+  }, [assignmentItems, searchQuery, statusFilter]);
 
   const formatDate = (dateStr: string) => {
     const date = new Date(dateStr);
     return date.toLocaleDateString('lt-LT', { year: 'numeric', month: 'long', day: 'numeric' });
-  };
-
-  const isOverdue = (dueDate: string) => {
-    return new Date(dueDate) < new Date();
-  };
-
-  const getStatusBadge = (status: string) => {
-    const config: Record<string, { variant: 'default' | 'destructive' | 'success' | 'secondary'; label: string }> = {
-      pending: { variant: 'secondary', label: 'Laukiama' },
-      in_progress: { variant: 'default', label: 'Vykdoma' },
-      completed: { variant: 'success', label: 'Atlikta' },
-      overdue: { variant: 'destructive', label: 'Vėluojama' },
-    };
-    const item = config[status] || config.pending;
-    return <Badge variant={item.variant}>{item.label}</Badge>;
   };
 
   return (
@@ -80,11 +124,11 @@ export default function Tasks() {
                   <SelectValue placeholder="Būsena" />
                 </SelectTrigger>
                 <SelectContent>
-                  <SelectItem value="all">Visos būsenos</SelectItem>
-                  <SelectItem value="pending">Laukiama</SelectItem>
-                  <SelectItem value="in_progress">Vykdoma</SelectItem>
-                  <SelectItem value="completed">Atlikta</SelectItem>
-                  <SelectItem value="overdue">Vėluojama</SelectItem>
+                  {assignmentStatusFilterOptions.map((option) => (
+                    <SelectItem key={option.value} value={option.value}>
+                      {option.label}
+                    </SelectItem>
+                  ))}
                 </SelectContent>
               </Select>
             </div>
@@ -92,7 +136,17 @@ export default function Tasks() {
         </Card>
 
         {/* Tasks List */}
-        {filteredAssignments.length === 0 ? (
+        {isLoading ? (
+          <Card className="shadow-custom">
+            <CardContent className="p-12 text-center text-muted-foreground">Kraunama...</CardContent>
+          </Card>
+        ) : isError ? (
+          <Card className="shadow-custom">
+            <CardContent className="p-12 text-center text-destructive">
+              Nepavyko įkelti užduočių. Pabandykite dar kartą.
+            </CardContent>
+          </Card>
+        ) : filteredAssignments.length === 0 ? (
           <Card className="shadow-custom">
             <CardContent className="p-12 text-center">
               <ListTodo className="w-12 h-12 mx-auto mb-4 text-muted-foreground" />
@@ -106,30 +160,30 @@ export default function Tasks() {
           </Card>
         ) : (
           <div className="space-y-4">
-            {filteredAssignments.map((assignment) => (
+            {filteredAssignments.map(({ assignment, hive, task, completion }) => (
               <Card key={assignment.id} className="shadow-custom hover:shadow-custom-md transition-all group">
                 <CardContent className="p-6">
                   <div className="flex items-start justify-between gap-4">
                     <div className="flex-1 space-y-3">
                       <div className="flex items-start gap-3">
                         <div className="flex-1">
-                          <h3 className="font-semibold text-lg mb-1">{assignment.task.name}</h3>
-                          <p className="text-sm text-muted-foreground">{assignment.task.description}</p>
+                          <h3 className="font-semibold text-lg mb-1">{task?.title ?? 'Nežinoma užduotis'}</h3>
+                          <p className="text-sm text-muted-foreground">{task?.description ?? 'Aprašymas nepateiktas'}</p>
                         </div>
-                        {getStatusBadge(assignment.status)}
+                        <AssignmentStatusBadge status={assignment.status} dueDate={assignment.dueDate} />
                       </div>
 
                       <div className="flex flex-wrap items-center gap-4 text-sm">
                         <div className="flex items-center gap-1.5">
                           <Box className="w-4 h-4 text-muted-foreground" />
                           <span className="text-muted-foreground">Avilys:</span>
-                          <span className="font-medium">{assignment.hive.name}</span>
+                          <span className="font-medium">{hive?.label ?? 'Nežinomas avilys'}</span>
                         </div>
                         <div className="flex items-center gap-1.5">
                           <Calendar className="w-4 h-4 text-muted-foreground" />
                           <span className="text-muted-foreground">Terminas:</span>
                           <span className="font-medium">{formatDate(assignment.dueDate)}</span>
-                          {isOverdue(assignment.dueDate) && assignment.status !== 'completed' && (
+                          {resolveAssignmentUiStatus(assignment.status, assignment.dueDate) === 'overdue' && (
                             <Badge variant="destructive" className="ml-2">Vėluojama</Badge>
                           )}
                         </div>
@@ -138,9 +192,9 @@ export default function Tasks() {
                       <div className="space-y-1.5">
                         <div className="flex items-center justify-between text-sm">
                           <span className="text-muted-foreground">Progresas</span>
-                          <span className="font-medium">{assignment.progress}%</span>
+                          <span className="font-medium">{completion}%</span>
                         </div>
-                        <Progress value={assignment.progress} className="h-2" />
+                        <Progress value={completion} className="h-2" />
                       </div>
                     </div>
 
@@ -150,7 +204,7 @@ export default function Tasks() {
                           Peržiūrėti
                         </Link>
                       </Button>
-                      {assignment.status !== 'completed' && (
+                        {assignment.status !== 'done' && (
                         <Button asChild size="sm">
                           <Link to={`/tasks/${assignment.id}/run`}>
                             Vykdyti

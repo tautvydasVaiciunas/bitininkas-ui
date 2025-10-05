@@ -3,6 +3,9 @@ import { INestApplication, ValidationPipe } from '@nestjs/common';
 import * as request from 'supertest';
 import { AppModule } from '../src/app.module';
 
+process.env.THROTTLE_TTL = '1';
+process.env.THROTTLE_LIMIT = '2';
+
 describe('Auth E2E', () => {
   let app: INestApplication;
 
@@ -51,5 +54,42 @@ describe('Auth E2E', () => {
       .expect(200);
 
     expect(meResponse.body.email).toBe(email);
+  });
+
+  it('enforces throttling limit and resets after ttl', async () => {
+    const email = `throttle+${Date.now()}@example.com`;
+    const password = 'password123';
+
+    const registerResponse = await request(app.getHttpServer())
+      .post('/auth/register')
+      .send({ email, password })
+      .expect(201);
+
+    const token = registerResponse.body.accessToken;
+    expect(token).toBeDefined();
+
+    const server = request(app.getHttpServer());
+
+    await server
+      .get('/auth/me')
+      .set('Authorization', `Bearer ${token}`)
+      .expect(200);
+
+    await server
+      .get('/auth/me')
+      .set('Authorization', `Bearer ${token}`)
+      .expect(200);
+
+    await server
+      .get('/auth/me')
+      .set('Authorization', `Bearer ${token}`)
+      .expect(429);
+
+    await new Promise((resolve) => setTimeout(resolve, 1500));
+
+    await server
+      .get('/auth/me')
+      .set('Authorization', `Bearer ${token}`)
+      .expect(200);
   });
 });

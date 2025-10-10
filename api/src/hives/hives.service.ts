@@ -55,6 +55,9 @@ export class HivesService {
   }
 
   async create(dto: CreateHiveDto, userId: string, role: UserRole) {
+    if (role === UserRole.USER) {
+      throw new ForbiddenException('Requires manager or admin role');
+    }
     const ownerUserId = dto.ownerUserId && role !== UserRole.USER ? dto.ownerUserId : userId;
     const members = await this.loadMembers(dto.members);
 
@@ -133,6 +136,9 @@ export class HivesService {
   }
 
   async remove(id: string, userId: string, role: UserRole) {
+    if (role === UserRole.USER) {
+      throw new ForbiddenException('Requires manager or admin role');
+    }
     const hive = await this.findOne(id, userId, role);
     await this.hiveRepository.softDelete(id);
     await this.activityLog.log('hive_deleted', userId, 'hive', id);

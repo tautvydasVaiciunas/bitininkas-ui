@@ -15,6 +15,8 @@ import { AssignmentsModule } from './assignments/assignments.module';
 import { ProgressModule } from './progress/progress.module';
 import { NotificationsModule } from './notifications/notifications.module';
 import { ActivityLogModule } from './activity-log/activity-log.module';
+import { GroupsModule } from './groups/groups.module';
+import { ReportsModule } from './reports/reports.module';
 
 import ormConfig from './typeorm.config';
 
@@ -45,6 +47,8 @@ import ormConfig from './typeorm.config';
     ProgressModule,
     NotificationsModule,
     ActivityLogModule,
+    GroupsModule,
+    ReportsModule,
   ],
   providers: [
     { provide: APP_GUARD, useClass: ThrottlerGuard },

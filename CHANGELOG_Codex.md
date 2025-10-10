@@ -1,5 +1,11 @@
 # Changelog (Codex AI updates)
 
+## 2025-02-15
+- Introduced role-aware guarding across hives and assignments so basic users only see/manage their own resources while managers retain full CRUD.
+- Added groups management (new `/groups` REST resource with membership endpoints) and surfaced the Admin → Groups UI for creating/editing teams.
+- Delivered the manager dashboard at `/reports`, backed by `GET /reports/assignments`, to visualize group progress with overdue and completion metrics.
+- Fixed profile editing by routing the UI through `PATCH /profile` and refreshing cached session details after a successful update.
+
 ## 2025-02-14
 - Documented end-to-end integration details in `docs/INTEGRATION_SUMMARY.md` so engineers have a single reference for architecture, configuration, and API touchpoints.
 - Expanded `README.md` with a Quick Start guide covering Docker-backed and local workflows to streamline developer onboarding and highlight environment requirements.

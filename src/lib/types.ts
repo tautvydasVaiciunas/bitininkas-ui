@@ -3,16 +3,22 @@ import type {
   AssignmentResponse as ApiAssignmentResponse,
   AssignmentStatus as ApiAssignmentStatus,
   AuthenticatedUser as ApiAuthenticatedUser,
+  AddGroupMemberPayload,
   CreateAssignmentPayload,
+  CreateGroupPayload,
   CreateHivePayload,
   CreateTaskPayload,
   CreateTaskStepPayload,
+  GroupMemberResponse as ApiGroupMemberResponse,
+  GroupResponse as ApiGroupResponse,
   HiveMemberResponse as ApiHiveMemberResponse,
   HiveResponse as ApiHiveResponse,
   HiveStatus as ApiHiveStatus,
   HiveSummary as ApiHiveSummary,
   LoginPayload,
+  ProfileResponse as ApiProfileResponse,
   NotificationResponse as ApiNotificationResponse,
+  AssignmentReportRow as ApiAssignmentReportRow,
   RegisterPayload,
   StepProgressResponse as ApiStepProgressResponse,
   TaskFrequency as ApiTaskFrequency,
@@ -20,9 +26,11 @@ import type {
   TaskStepResponse as ApiTaskStepResponse,
   TaskWithStepsResponse as ApiTaskWithStepsResponse,
   UpdateAssignmentPayload,
+  UpdateGroupPayload,
   UpdateHivePayload,
   UpdateTaskPayload,
   UpdateTaskStepPayload,
+  UpdateProfilePayload,
   UpdateUserPayload,
   UpdateProgressPayload,
   UserRole as ApiUserRole,
@@ -31,14 +39,18 @@ import type {
 export type {
   CreateAssignmentPayload,
   CreateHivePayload,
+  CreateGroupPayload,
   CreateTaskPayload,
   CreateTaskStepPayload,
+  AddGroupMemberPayload,
   LoginPayload,
   RegisterPayload,
   UpdateAssignmentPayload,
+  UpdateGroupPayload,
   UpdateHivePayload,
   UpdateTaskPayload,
   UpdateTaskStepPayload,
+  UpdateProfilePayload,
   UpdateUserPayload,
   UpdateProgressPayload,
 } from './api';
@@ -58,6 +70,10 @@ export type Notification = ApiNotificationResponse;
 export type HiveSummary = ApiHiveSummary;
 export type TaskFrequency = ApiTaskFrequency;
 export type UserRole = ApiUserRole;
+export type GroupMember = ApiGroupMemberResponse;
+export type Group = Omit<ApiGroupResponse, 'members'> & { members: GroupMember[] };
+export type AssignmentReportItem = ApiAssignmentReportRow;
+export type Profile = ApiProfileResponse;
 
 export interface User extends ApiAuthenticatedUser {
   phone?: string | null;
@@ -123,4 +139,30 @@ export const mapNotificationFromApi = (notification: ApiNotificationResponse): N
 
 export const mapUserFromApi = (user: ApiAuthenticatedUser): User => ({
   ...user,
+});
+
+export const mapGroupMemberFromApi = (member: ApiGroupMemberResponse): GroupMember => ({
+  ...member,
+  role: mapOptionalString(member.role),
+  user: member.user
+    ? {
+        ...member.user,
+        name: mapOptionalString(member.user.name),
+      }
+    : undefined,
+});
+
+export const mapGroupFromApi = (group: ApiGroupResponse): Group => ({
+  ...group,
+  description: mapOptionalString(group.description),
+  members: Array.isArray(group.members)
+    ? group.members.map(mapGroupMemberFromApi)
+    : [],
+});
+
+export const mapProfileFromApi = (profile: ApiProfileResponse): Profile => ({
+  ...profile,
+  name: mapOptionalString(profile.name),
+  phone: mapOptionalString(profile.phone),
+  address: mapOptionalString(profile.address),
 });

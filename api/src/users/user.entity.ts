@@ -13,6 +13,7 @@ import { Task } from '../tasks/task.entity';
 import { Assignment } from '../assignments/assignment.entity';
 import { Notification } from '../notifications/notification.entity';
 import { ActivityLog } from '../activity-log/activity-log.entity';
+import { GroupMember } from '../groups/group-member.entity';
 
 export enum UserRole {
   USER = 'user',
@@ -69,4 +70,7 @@ export class User {
 
   @OneToMany(() => ActivityLog, (log) => log.user)
   activities: ActivityLog[];
+
+  @OneToMany(() => GroupMember, (membership) => membership.user)
+  groupMemberships: GroupMember[];
 }

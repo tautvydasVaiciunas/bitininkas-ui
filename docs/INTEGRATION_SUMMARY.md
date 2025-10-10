@@ -44,6 +44,9 @@ The UI routes/components call the following API endpoints (all defined in [`src/
 - **Hives**: `GET /hives/:id`, `GET /hives/:id/summary`, `POST /hives` (accepts optional `ownerUserId` plus `members[]` assignments), `PATCH /hives/:id` (update label, location, queen year, and membership), `GET /assignments?hiveId=:id`, `POST /assignments`, `PATCH /assignments/:id`.
 - **Task Library**: `GET /tasks`, `GET /tasks/:id`, `GET /tasks/:id/steps`, `POST /tasks`, `PATCH /tasks/:id`, `POST /tasks/:id/steps`, `PATCH /tasks/:id/steps/:stepId`, `POST /tasks/:id/steps/reorder`, `DELETE /tasks/:taskId/steps/:stepId`.
 - **Assignments & Progress**: `POST /assignments`, `PATCH /assignments/:id`, `GET /assignments/:id/details`, `POST /progress/step-complete`, `PATCH /progress/:id`, `GET /assignments/:id/progress/list`, `GET /assignments/:id/progress`, `DELETE /progress/:id`.
+- **Profile**: `PATCH /profile` (updates name, email, phone, address for the signed-in user).
+- **Groups**: `GET /groups`, `POST /groups`, `PATCH /groups/:id`, `DELETE /groups/:id`, `GET /groups/:id/members`, `POST /groups/:id/members`, `DELETE /groups/:id/members/:userId`.
+- **Reports**: `GET /reports/assignments?groupId=...&taskId=...`.
 - **Notifications**: `GET /notifications`, `PATCH /notifications/:id/read`.
 - **Admin Users**: `GET /users`, `PATCH /users/:id`, `DELETE /users/:id`.
 
@@ -55,6 +58,22 @@ Running `npm run seed` (locally) or `docker compose up` (inside the container) i
 ## Domain Behavior Notes
 - **Hive membership**: The create/edit Hive forms now surface a multi-select for assigning members. Requests send `ownerUserId` (optional) and `members: string[]` to the backend so hive ownership and collaborators persist across reloads.
 - **Task runs**: Completing a step continues to POST via `/progress/step-complete`, while per-step note edits debounce a `PATCH /progress/:id` update. Users can revert a finished step with the new “uncomplete” action, which deletes the progress record and re-opens the step without page refreshes.
+
+## Roles & Permissions
+- **User**
+  - Sees only hives they own or are assigned to. Hive creation/removal UI is hidden and the API rejects these actions for basic users.
+  - Assignment listings are filtered to hives where the user is owner or member.
+- **Manager**
+  - Full CRUD across hives, tasks, assignments, groups, templates, and users (same scope as admins for this iteration).
+  - Has access to the Reports dashboard for group progress monitoring.
+- **Admin**
+  - Unrestricted access.
+- Profile updates now go through `PATCH /profile` and automatically refresh the session cache in `AuthContext`.
+
+## Reports
+- `/reports` lets managers and administrators inspect a group + task combination using `GET /reports/assignments`.
+- Each row returns assignment status, overdue flag, due date, and completed/total step counts so the UI can render badges and progress bars.
+- Group options come from the new `/groups` resource; membership management lives under Admin → Groups.
 
 ## Startup Paths
 ### Flow A – Docker (DB + API) & Local Vite Dev Server

@@ -10,6 +10,7 @@ import { Avatar, AvatarFallback } from '@/components/ui/avatar';
 import { Badge } from '@/components/ui/badge';
 import { useAuth } from '@/contexts/AuthContext';
 import api from '@/lib/api';
+import { mapProfileFromApi } from '@/lib/types';
 import { User, Mail, Edit2, Lock } from 'lucide-react';
 import { toast } from 'sonner';
 
@@ -20,11 +21,16 @@ export default function Profile() {
 
   const updateMutation = useMutation({
     mutationFn: async (payload: { name: string; email: string }) => {
-      if (!user) throw new Error('Neprisijungęs vartotojas');
-      return api.users.update(user.id, payload);
+      const response = await api.profile.update(payload);
+      return mapProfileFromApi(response);
     },
     onSuccess: (updated) => {
-      updateUserProfile({ name: updated.name, email: updated.email });
+      updateUserProfile({
+        name: updated.name ?? undefined,
+        email: updated.email,
+        phone: updated.phone ?? undefined,
+        address: updated.address ?? undefined,
+      });
       toast.success('Profilis atnaujintas');
       setIsEditing(false);
     },

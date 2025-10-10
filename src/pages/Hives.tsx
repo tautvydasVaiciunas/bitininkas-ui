@@ -1,6 +1,6 @@
-import { useMemo, useState } from 'react';
-import { Link } from 'react-router-dom';
-import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
+import { useMemo, useState } from "react";
+import { Link } from "react-router-dom";
+import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import {
   AlertDialog,
   AlertDialogAction,
@@ -10,11 +10,11 @@ import {
   AlertDialogFooter,
   AlertDialogHeader,
   AlertDialogTitle,
-} from '@/components/ui/alert-dialog';
-import { Badge } from '@/components/ui/badge';
-import type { BadgeProps } from '@/components/ui/badge';
-import { Button } from '@/components/ui/button';
-import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
+} from "@/components/ui/alert-dialog";
+import { Badge } from "@/components/ui/badge";
+import type { BadgeProps } from "@/components/ui/badge";
+import { Button } from "@/components/ui/button";
+import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import {
   Dialog,
   DialogContent,
@@ -23,33 +23,51 @@ import {
   DialogHeader,
   DialogTitle,
   DialogTrigger,
-} from '@/components/ui/dialog';
+} from "@/components/ui/dialog";
 import {
   DropdownMenu,
   DropdownMenuContent,
   DropdownMenuItem,
   DropdownMenuSeparator,
   DropdownMenuTrigger,
-} from '@/components/ui/dropdown-menu';
-import { Input } from '@/components/ui/input';
-import { Label } from '@/components/ui/label';
-import { MainLayout } from '@/components/Layout/MainLayout';
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
-import { Skeleton } from '@/components/ui/skeleton';
-import { useToast } from '@/components/ui/use-toast';
-import { useAuth } from '@/contexts/AuthContext';
-import api, { HttpError, type AdminUserResponse } from '@/lib/api';
+} from "@/components/ui/dropdown-menu";
+import { Input } from "@/components/ui/input";
+import { Label } from "@/components/ui/label";
+import { MainLayout } from "@/components/Layout/MainLayout";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
+import { Skeleton } from "@/components/ui/skeleton";
+import { useToast } from "@/components/ui/use-toast";
+import { useAuth } from "@/contexts/AuthContext";
+import api, { HttpError, type AdminUserResponse } from "@/lib/api";
 import {
   mapHiveFromApi,
   type CreateHivePayload,
   type Hive,
   type HiveStatus,
   type UpdateHivePayload,
-} from '@/lib/types';
-import { Box, Calendar, ChevronRight, Loader2, MapPin, MoreVertical, Plus, Search } from 'lucide-react';
-import { UserMultiSelect, type MultiSelectOption } from '@/components/UserMultiSelect';
+} from "@/lib/types";
+import {
+  Box,
+  Calendar,
+  ChevronRight,
+  Loader2,
+  MapPin,
+  MoreVertical,
+  Plus,
+  Search,
+} from "lucide-react";
+import {
+  UserMultiSelect,
+  type MultiSelectOption,
+} from "@/components/UserMultiSelect";
 
-type StatusFilter = HiveStatus | 'all';
+type StatusFilter = HiveStatus | "all";
 
 type UpdateHiveVariables = {
   id: string;
@@ -66,26 +84,34 @@ type HiveCardProps = {
   isUpdating: boolean;
   isArchiving: boolean;
   isDeleting: boolean;
+  canManage: boolean;
 };
 
-const statusMetadata: Record<HiveStatus, { label: string; badgeVariant: BadgeProps['variant'] }> = {
-  active: { label: 'Aktyvus', badgeVariant: 'success' },
-  paused: { label: 'Pristabdytas', badgeVariant: 'secondary' },
-  archived: { label: 'Archyvuotas', badgeVariant: 'outline' },
+const statusMetadata: Record<
+  HiveStatus,
+  { label: string; badgeVariant: BadgeProps["variant"] }
+> = {
+  active: { label: "Aktyvus", badgeVariant: "success" },
+  paused: { label: "Pristabdytas", badgeVariant: "secondary" },
+  archived: { label: "Archyvuotas", badgeVariant: "outline" },
 };
 
 const statusFilterOptions: { value: StatusFilter; label: string }[] = [
-  { value: 'all', label: 'Visi statusai' },
-  { value: 'active', label: 'Aktyvūs' },
-  { value: 'paused', label: 'Pristabdyti' },
-  { value: 'archived', label: 'Archyvuoti' },
+  { value: "all", label: "Visi statusai" },
+  { value: "active", label: "Aktyvūs" },
+  { value: "paused", label: "Pristabdyti" },
+  { value: "archived", label: "Archyvuoti" },
 ];
 
 const formatDate = (value?: string | null) => {
-  if (!value) return '—';
+  if (!value) return "—";
   const date = new Date(value);
-  if (Number.isNaN(date.getTime())) return '—';
-  return date.toLocaleDateString('lt-LT', { year: 'numeric', month: 'long', day: 'numeric' });
+  if (Number.isNaN(date.getTime())) return "—";
+  return date.toLocaleDateString("lt-LT", {
+    year: "numeric",
+    month: "long",
+    day: "numeric",
+  });
 };
 
 const getErrorMessage = (error: unknown) => {
@@ -108,11 +134,18 @@ function HiveCard({
   isUpdating,
   isArchiving,
   isDeleting,
+  canManage,
 }: HiveCardProps) {
-  const [confirmAction, setConfirmAction] = useState<'archive' | 'delete' | null>(null);
+  const [confirmAction, setConfirmAction] = useState<
+    "archive" | "delete" | null
+  >(null);
   const statusMeta = statusMetadata[hive.status];
-  const { data: summary, isLoading: summaryLoading, isError: summaryError } = useQuery({
-    queryKey: ['hives', hive.id, 'summary'],
+  const {
+    data: summary,
+    isLoading: summaryLoading,
+    isError: summaryError,
+  } = useQuery({
+    queryKey: ["hives", hive.id, "summary"],
     queryFn: () => api.hives.summary(hive.id),
   });
 
@@ -133,49 +166,51 @@ function HiveCard({
           </div>
           <div className="flex items-center gap-2">
             <Badge variant={statusMeta.badgeVariant}>{statusMeta.label}</Badge>
-            <DropdownMenu>
-              <DropdownMenuTrigger asChild>
-                <Button variant="ghost" size="icon" className="h-8 w-8">
-                  <MoreVertical className="h-4 w-4" />
-                </Button>
-              </DropdownMenuTrigger>
-              <DropdownMenuContent align="end" className="w-48">
-                <DropdownMenuItem
-                  disabled={hive.status === 'active' || isUpdating}
-                  onSelect={() => {
-                    onUpdateStatus(hive.id, 'active');
-                  }}
-                >
-                  Pažymėti kaip aktyvų
-                </DropdownMenuItem>
-                <DropdownMenuItem
-                  disabled={hive.status === 'paused' || isUpdating}
-                  onSelect={() => {
-                    onUpdateStatus(hive.id, 'paused');
-                  }}
-                >
-                  Pristabdyti
-                </DropdownMenuItem>
-                <DropdownMenuSeparator />
-                <DropdownMenuItem
-                  disabled={isArchiving || hive.status === 'archived'}
-                  onSelect={() => {
-                    setConfirmAction('archive');
-                  }}
-                >
-                  Archyvuoti
-                </DropdownMenuItem>
-                <DropdownMenuItem
-                  disabled={isDeleting}
-                  className="text-destructive focus:text-destructive"
-                  onSelect={() => {
-                    setConfirmAction('delete');
-                  }}
-                >
-                  Ištrinti
-                </DropdownMenuItem>
-              </DropdownMenuContent>
-            </DropdownMenu>
+            {canManage ? (
+              <DropdownMenu>
+                <DropdownMenuTrigger asChild>
+                  <Button variant="ghost" size="icon" className="h-8 w-8">
+                    <MoreVertical className="h-4 w-4" />
+                  </Button>
+                </DropdownMenuTrigger>
+                <DropdownMenuContent align="end" className="w-48">
+                  <DropdownMenuItem
+                    disabled={hive.status === "active" || isUpdating}
+                    onSelect={() => {
+                      onUpdateStatus(hive.id, "active");
+                    }}
+                  >
+                    Pažymėti kaip aktyvų
+                  </DropdownMenuItem>
+                  <DropdownMenuItem
+                    disabled={hive.status === "paused" || isUpdating}
+                    onSelect={() => {
+                      onUpdateStatus(hive.id, "paused");
+                    }}
+                  >
+                    Pristabdyti
+                  </DropdownMenuItem>
+                  <DropdownMenuSeparator />
+                  <DropdownMenuItem
+                    disabled={isArchiving || hive.status === "archived"}
+                    onSelect={() => {
+                      setConfirmAction("archive");
+                    }}
+                  >
+                    Archyvuoti
+                  </DropdownMenuItem>
+                  <DropdownMenuItem
+                    disabled={isDeleting}
+                    className="text-destructive focus:text-destructive"
+                    onSelect={() => {
+                      setConfirmAction("delete");
+                    }}
+                  >
+                    Ištrinti
+                  </DropdownMenuItem>
+                </DropdownMenuContent>
+              </DropdownMenu>
+            ) : null}
           </div>
         </div>
       </CardHeader>
@@ -204,7 +239,10 @@ function HiveCard({
               <span className="font-medium">{summary.assignmentsCount}</span>
             </div>
             <div className="mt-1 text-muted-foreground">
-              Užbaigta: <span className="font-medium text-foreground">{completionPercent}%</span>
+              Užbaigta:{" "}
+              <span className="font-medium text-foreground">
+                {completionPercent}%
+              </span>
             </div>
           </div>
         ) : summaryError ? (
@@ -236,34 +274,40 @@ function HiveCard({
         <AlertDialogContent>
           <AlertDialogHeader>
             <AlertDialogTitle>
-              {confirmAction === 'delete' ? 'Ištrinti avilį?' : 'Ar archyvuoti avilį?'}
+              {confirmAction === "delete"
+                ? "Ištrinti avilį?"
+                : "Ar archyvuoti avilį?"}
             </AlertDialogTitle>
             <AlertDialogDescription>
-              {confirmAction === 'delete'
-                ? 'Šis veiksmas negrįžtamas. Avilys ir su juo susiję duomenys gali būti pašalinti iš sistemos.'
-                : 'Archyvavus avilį, jis bus pašalintas iš aktyvių sąrašų, tačiau jo duomenys bus išsaugoti.'}
+              {confirmAction === "delete"
+                ? "Šis veiksmas negrįžtamas. Avilys ir su juo susiję duomenys gali būti pašalinti iš sistemos."
+                : "Archyvavus avilį, jis bus pašalintas iš aktyvių sąrašų, tačiau jo duomenys bus išsaugoti."}
             </AlertDialogDescription>
           </AlertDialogHeader>
           <AlertDialogFooter>
             <AlertDialogCancel>Atšaukti</AlertDialogCancel>
             <AlertDialogAction
               onClick={() => {
-                if (confirmAction === 'archive') {
+                if (confirmAction === "archive") {
                   onArchive(hive.id);
-                } else if (confirmAction === 'delete') {
+                } else if (confirmAction === "delete") {
                   onDelete(hive.id);
                 }
                 setConfirmAction(null);
               }}
-              className={confirmAction === 'delete' ? 'bg-destructive text-destructive-foreground hover:bg-destructive/90' : undefined}
+              className={
+                confirmAction === "delete"
+                  ? "bg-destructive text-destructive-foreground hover:bg-destructive/90"
+                  : undefined
+              }
             >
-              {confirmAction === 'delete'
+              {confirmAction === "delete"
                 ? isDeleting
-                  ? 'Šalinama...'
-                  : 'Ištrinti'
+                  ? "Šalinama..."
+                  : "Ištrinti"
                 : isArchiving
-                ? 'Archyvuojama...'
-                : 'Archyvuoti'}
+                  ? "Archyvuojama..."
+                  : "Archyvuoti"}
             </AlertDialogAction>
           </AlertDialogFooter>
         </AlertDialogContent>
@@ -276,16 +320,22 @@ export default function Hives() {
   const { user } = useAuth();
   const { toast } = useToast();
   const queryClient = useQueryClient();
-  const [searchQuery, setSearchQuery] = useState('');
-  const [statusFilter, setStatusFilter] = useState<StatusFilter>('all');
+  const [searchQuery, setSearchQuery] = useState("");
+  const [statusFilter, setStatusFilter] = useState<StatusFilter>("all");
   const [isCreateDialogOpen, setIsCreateDialogOpen] = useState(false);
-  const [createForm, setCreateForm] = useState({ label: '', location: '', queenYear: '', members: [] as string[] });
+  const [createForm, setCreateForm] = useState({
+    label: "",
+    location: "",
+    queenYear: "",
+    members: [] as string[],
+  });
 
-  const isAdmin = user?.role === 'admin';
-  const canManageMembers = user?.role === 'admin' || user?.role === 'manager';
+  const isAdmin = user?.role === "admin";
+  const canManageHives = user?.role === "admin" || user?.role === "manager";
+  const canManageMembers = user?.role === "admin" || user?.role === "manager";
 
   const { data: users = [] } = useQuery<AdminUserResponse[]>({
-    queryKey: ['users', 'all'],
+    queryKey: ["users", "all"],
     queryFn: () => api.users.list(),
     enabled: canManageMembers,
   });
@@ -306,82 +356,95 @@ export default function Hives() {
     error,
     refetch,
   } = useQuery<Hive[], MutationError>({
-    queryKey: ['hives'],
+    queryKey: ["hives"],
     queryFn: async () => {
       const response = await api.hives.list();
       return response.map(mapHiveFromApi);
     },
   });
 
-  const resetCreateForm = () => setCreateForm({ label: '', location: '', queenYear: '', members: [] });
+  const resetCreateForm = () =>
+    setCreateForm({ label: "", location: "", queenYear: "", members: [] });
 
   const showErrorToast = (title: string, errorValue: unknown) => {
     const description = getErrorMessage(errorValue);
     toast({
       title,
       description,
-      variant: 'destructive',
+      variant: "destructive",
     });
   };
 
-  const createHiveMutation = useMutation<Hive, MutationError, CreateHivePayload>({
+  const createHiveMutation = useMutation<
+    Hive,
+    MutationError,
+    CreateHivePayload
+  >({
     mutationFn: (payload) => api.hives.create(payload).then(mapHiveFromApi),
     onSuccess: (createdHive) => {
-      queryClient.invalidateQueries({ queryKey: ['hives'] });
+      queryClient.invalidateQueries({ queryKey: ["hives"] });
       toast({
-        title: 'Avilys sukurtas',
+        title: "Avilys sukurtas",
         description: `Avilys „${createdHive.label}“ sėkmingai pridėtas.`,
       });
       setIsCreateDialogOpen(false);
       resetCreateForm();
     },
     onError: (err) => {
-      showErrorToast('Nepavyko sukurti avilio', err);
+      showErrorToast("Nepavyko sukurti avilio", err);
     },
   });
 
-  const updateHiveMutation = useMutation<Hive, MutationError, UpdateHiveVariables>({
-    mutationFn: ({ id, payload }) => api.hives.update(id, payload).then(mapHiveFromApi),
+  const updateHiveMutation = useMutation<
+    Hive,
+    MutationError,
+    UpdateHiveVariables
+  >({
+    mutationFn: ({ id, payload }) =>
+      api.hives.update(id, payload).then(mapHiveFromApi),
     onSuccess: (updatedHive, variables) => {
-      queryClient.invalidateQueries({ queryKey: ['hives'] });
-      queryClient.invalidateQueries({ queryKey: ['hives', variables.id, 'summary'] });
+      queryClient.invalidateQueries({ queryKey: ["hives"] });
+      queryClient.invalidateQueries({
+        queryKey: ["hives", variables.id, "summary"],
+      });
       toast({
-        title: 'Avilys atnaujintas',
+        title: "Avilys atnaujintas",
         description: `Atnaujintas avilio „${updatedHive.label}“ statusas.`,
       });
     },
     onError: (err) => {
-      showErrorToast('Nepavyko atnaujinti avilio', err);
+      showErrorToast("Nepavyko atnaujinti avilio", err);
     },
   });
 
   const archiveHiveMutation = useMutation<Hive, MutationError, string>({
-    mutationFn: (id) => api.hives.update(id, { status: 'archived' }).then(mapHiveFromApi),
+    mutationFn: (id) =>
+      api.hives.update(id, { status: "archived" }).then(mapHiveFromApi),
     onSuccess: (archivedHive, hiveId) => {
-      queryClient.invalidateQueries({ queryKey: ['hives'] });
-      queryClient.invalidateQueries({ queryKey: ['hives', hiveId, 'summary'] });
+      queryClient.invalidateQueries({ queryKey: ["hives"] });
+      queryClient.invalidateQueries({ queryKey: ["hives", hiveId, "summary"] });
       toast({
-        title: 'Avilys archyvuotas',
+        title: "Avilys archyvuotas",
         description: `Avilys „${archivedHive.label}“ perkeltas į archyvą.`,
       });
     },
     onError: (err) => {
-      showErrorToast('Nepavyko archyvuoti avilio', err);
+      showErrorToast("Nepavyko archyvuoti avilio", err);
     },
   });
 
   const deleteHiveMutation = useMutation<void, MutationError, string>({
     mutationFn: (id) => api.hives.remove(id),
     onSuccess: (_, hiveId) => {
-      queryClient.invalidateQueries({ queryKey: ['hives'] });
-      queryClient.removeQueries({ queryKey: ['hives', hiveId, 'summary'] });
+      queryClient.invalidateQueries({ queryKey: ["hives"] });
+      queryClient.removeQueries({ queryKey: ["hives", hiveId, "summary"] });
       toast({
-        title: 'Avilys ištrintas',
-        description: 'Avilys pašalintas iš sistemos.',
+        title: "Avilys ištrintas",
+        description: "Avilys pašalintas iš sistemos.",
       });
     },
     onError: (err) => {
-      showErrorToast('Nepavyko ištrinti avilio', err);
+      showErrorToast("Nepavyko ištrinti avilio", err);
     },
   });
 
@@ -400,21 +463,26 @@ export default function Hives() {
       const matchesSearch =
         !normalizedSearch ||
         hive.label.toLowerCase().includes(normalizedSearch) ||
-        (hive.location ?? '').toLowerCase().includes(normalizedSearch);
-      const matchesStatus = statusFilter === 'all' || hive.status === statusFilter;
+        (hive.location ?? "").toLowerCase().includes(normalizedSearch);
+      const matchesStatus =
+        statusFilter === "all" || hive.status === statusFilter;
       return matchesSearch && matchesStatus;
     });
   }, [accessibleHives, searchQuery, statusFilter]);
 
-  const handleCreateSubmit = async (event: React.FormEvent<HTMLFormElement>) => {
+  const handleCreateSubmit = async (
+    event: React.FormEvent<HTMLFormElement>,
+  ) => {
     event.preventDefault();
     if (createHiveMutation.isPending) return;
 
     const payload: CreateHivePayload = {
       label: createForm.label.trim(),
       location: createForm.location.trim() || undefined,
-      queenYear: createForm.queenYear ? Number(createForm.queenYear) : undefined,
-      status: 'active',
+      queenYear: createForm.queenYear
+        ? Number(createForm.queenYear)
+        : undefined,
+      status: "active",
     };
 
     if (canManageMembers && createForm.members.length > 0) {
@@ -423,18 +491,18 @@ export default function Hives() {
 
     if (!payload.label) {
       toast({
-        title: 'Trūksta pavadinimo',
-        description: 'Įveskite avilio pavadinimą prieš išsaugant.',
-        variant: 'destructive',
+        title: "Trūksta pavadinimo",
+        description: "Įveskite avilio pavadinimą prieš išsaugant.",
+        variant: "destructive",
       });
       return;
     }
 
     if (payload.queenYear && Number.isNaN(payload.queenYear)) {
       toast({
-        title: 'Neteisingi karalienės metai',
-        description: 'Prašome įvesti teisingą metų skaičių.',
-        variant: 'destructive',
+        title: "Neteisingi karalienės metai",
+        description: "Prašome įvesti teisingą metų skaičių.",
+        variant: "destructive",
       });
       return;
     }
@@ -470,87 +538,117 @@ export default function Hives() {
             <h1 className="text-3xl font-bold">Aviliai</h1>
             <p className="text-muted-foreground mt-1">Valdykite savo avilius</p>
           </div>
-          <Dialog
-            open={isCreateDialogOpen}
-            onOpenChange={(open) => {
-              setIsCreateDialogOpen(open);
-              if (!open) {
-                resetCreateForm();
-              }
-            }}
-          >
-            <DialogTrigger asChild>
-              <Button disabled={createHiveMutation.isPending}>
-                {createHiveMutation.isPending ? (
-                  <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-                ) : (
-                  <Plus className="mr-2 h-4 w-4" />
-                )}
-                {createHiveMutation.isPending ? 'Kuriama...' : 'Pridėti avilį'}
-              </Button>
-            </DialogTrigger>
-            <DialogContent>
-              <DialogHeader>
-                <DialogTitle>Naujas avilys</DialogTitle>
-                <DialogDescription>Užpildykite informaciją apie avilį.</DialogDescription>
-              </DialogHeader>
-              <form onSubmit={handleCreateSubmit} className="space-y-4">
-                <div className="space-y-2">
-                  <Label htmlFor="hive-label">Pavadinimas</Label>
-                  <Input
-                    id="hive-label"
-                    value={createForm.label}
-                    onChange={(event) => setCreateForm((prev) => ({ ...prev, label: event.target.value }))}
-                    placeholder="Pvz., Avilys 1"
-                    required
-                  />
-                </div>
-                <div className="space-y-2">
-                  <Label htmlFor="hive-location">Vieta</Label>
-                  <Input
-                    id="hive-location"
-                    value={createForm.location}
-                    onChange={(event) => setCreateForm((prev) => ({ ...prev, location: event.target.value }))}
-                    placeholder="Pvz., Vilnius, Žvėrynas"
-                  />
-                </div>
-                <div className="space-y-2">
-                  <Label htmlFor="hive-queen-year">Karalienės metai</Label>
-                  <Input
-                    id="hive-queen-year"
-                    type="number"
-                    value={createForm.queenYear}
-                    onChange={(event) => setCreateForm((prev) => ({ ...prev, queenYear: event.target.value }))}
-                    placeholder="Pvz., 2024"
-                    min={1900}
-                    max={2100}
-                  />
-                </div>
-                {canManageMembers ? (
+          {canManageHives ? (
+            <Dialog
+              open={isCreateDialogOpen}
+              onOpenChange={(open) => {
+                setIsCreateDialogOpen(open);
+                if (!open) {
+                  resetCreateForm();
+                }
+              }}
+            >
+              <DialogTrigger asChild>
+                <Button disabled={createHiveMutation.isPending}>
+                  {createHiveMutation.isPending ? (
+                    <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                  ) : (
+                    <Plus className="mr-2 h-4 w-4" />
+                  )}
+                  {createHiveMutation.isPending
+                    ? "Kuriama..."
+                    : "Pridėti avilį"}
+                </Button>
+              </DialogTrigger>
+              <DialogContent>
+                <DialogHeader>
+                  <DialogTitle>Naujas avilys</DialogTitle>
+                  <DialogDescription>
+                    Užpildykite informaciją apie avilį.
+                  </DialogDescription>
+                </DialogHeader>
+                <form onSubmit={handleCreateSubmit} className="space-y-4">
                   <div className="space-y-2">
-                    <Label>Priskirti vartotojus</Label>
-                    <UserMultiSelect
-                      options={memberOptions}
-                      value={createForm.members}
-                      onChange={(members) => setCreateForm((prev) => ({ ...prev, members }))}
-                      placeholder="Pasirinkite komandos narius (nebūtina)"
+                    <Label htmlFor="hive-label">Pavadinimas</Label>
+                    <Input
+                      id="hive-label"
+                      value={createForm.label}
+                      onChange={(event) =>
+                        setCreateForm((prev) => ({
+                          ...prev,
+                          label: event.target.value,
+                        }))
+                      }
+                      placeholder="Pvz., Avilys 1"
+                      required
                     />
                   </div>
-                ) : null}
-                <DialogFooter>
-                  <Button variant="outline" type="button" onClick={() => setIsCreateDialogOpen(false)}>
-                    Atšaukti
-                  </Button>
-                  <Button type="submit" disabled={createHiveMutation.isPending}>
-                    {createHiveMutation.isPending ? (
-                      <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-                    ) : null}
-                    Išsaugoti
-                  </Button>
-                </DialogFooter>
-              </form>
-            </DialogContent>
-          </Dialog>
+                  <div className="space-y-2">
+                    <Label htmlFor="hive-location">Vieta</Label>
+                    <Input
+                      id="hive-location"
+                      value={createForm.location}
+                      onChange={(event) =>
+                        setCreateForm((prev) => ({
+                          ...prev,
+                          location: event.target.value,
+                        }))
+                      }
+                      placeholder="Pvz., Vilnius, Žvėrynas"
+                    />
+                  </div>
+                  <div className="space-y-2">
+                    <Label htmlFor="hive-queen-year">Karalienės metai</Label>
+                    <Input
+                      id="hive-queen-year"
+                      type="number"
+                      value={createForm.queenYear}
+                      onChange={(event) =>
+                        setCreateForm((prev) => ({
+                          ...prev,
+                          queenYear: event.target.value,
+                        }))
+                      }
+                      placeholder="Pvz., 2024"
+                      min={1900}
+                      max={2100}
+                    />
+                  </div>
+                  {canManageMembers ? (
+                    <div className="space-y-2">
+                      <Label>Priskirti vartotojus</Label>
+                      <UserMultiSelect
+                        options={memberOptions}
+                        value={createForm.members}
+                        onChange={(members) =>
+                          setCreateForm((prev) => ({ ...prev, members }))
+                        }
+                        placeholder="Pasirinkite komandos narius (nebūtina)"
+                      />
+                    </div>
+                  ) : null}
+                  <DialogFooter>
+                    <Button
+                      variant="outline"
+                      type="button"
+                      onClick={() => setIsCreateDialogOpen(false)}
+                    >
+                      Atšaukti
+                    </Button>
+                    <Button
+                      type="submit"
+                      disabled={createHiveMutation.isPending}
+                    >
+                      {createHiveMutation.isPending ? (
+                        <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                      ) : null}
+                      Išsaugoti
+                    </Button>
+                  </DialogFooter>
+                </form>
+              </DialogContent>
+            </Dialog>
+          ) : null}
         </div>
 
         <Card className="shadow-custom">
@@ -567,7 +665,9 @@ export default function Hives() {
               </div>
               <Select
                 value={statusFilter}
-                onValueChange={(value) => setStatusFilter(value as StatusFilter)}
+                onValueChange={(value) =>
+                  setStatusFilter(value as StatusFilter)
+                }
               >
                 <SelectTrigger className="w-full sm:w-48">
                   <SelectValue placeholder="Statusas" />
@@ -589,7 +689,8 @@ export default function Hives() {
             <CardContent className="p-12 text-center space-y-4">
               <h3 className="text-lg font-semibold">Nepavyko įkelti avilių</h3>
               <p className="text-muted-foreground">
-                {getErrorMessage(error) ?? 'Įvyko nenumatyta klaida bandant gauti avilių sąrašą.'}
+                {getErrorMessage(error) ??
+                  "Įvyko nenumatyta klaida bandant gauti avilių sąrašą."}
               </p>
               <Button onClick={() => refetch()} variant="outline">
                 Bandyti iš naujo
@@ -622,11 +723,11 @@ export default function Hives() {
               <Box className="w-12 h-12 mx-auto mb-4 text-muted-foreground" />
               <h3 className="text-lg font-semibold mb-2">Nerasta avilių</h3>
               <p className="text-muted-foreground mb-6">
-                {searchQuery || statusFilter !== 'all'
-                  ? 'Pabandykite pakeisti paieškos kriterijus'
-                  : 'Pradėkite pridėdami savo pirmą avilį'}
+                {searchQuery || statusFilter !== "all"
+                  ? "Pabandykite pakeisti paieškos kriterijus"
+                  : "Pradėkite pridėdami savo pirmą avilį"}
               </p>
-              {!searchQuery && statusFilter === 'all' && (
+              {canManageHives && !searchQuery && statusFilter === "all" && (
                 <Button onClick={() => setIsCreateDialogOpen(true)}>
                   <Plus className="mr-2 w-4 h-4" />
                   Pridėti avilį
@@ -644,14 +745,18 @@ export default function Hives() {
                 onArchive={handleArchive}
                 onDelete={handleDelete}
                 isUpdating={
-                  updateHiveMutation.isPending && updateHiveMutation.variables?.id === hive.id
+                  updateHiveMutation.isPending &&
+                  updateHiveMutation.variables?.id === hive.id
                 }
                 isArchiving={
-                  archiveHiveMutation.isPending && archiveHiveMutation.variables === hive.id
+                  archiveHiveMutation.isPending &&
+                  archiveHiveMutation.variables === hive.id
                 }
                 isDeleting={
-                  deleteHiveMutation.isPending && deleteHiveMutation.variables === hive.id
+                  deleteHiveMutation.isPending &&
+                  deleteHiveMutation.variables === hive.id
                 }
+                canManage={canManageHives}
               />
             ))}
           </div>

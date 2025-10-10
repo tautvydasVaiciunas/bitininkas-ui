@@ -6,6 +6,7 @@ import * as bcrypt from 'bcryptjs';
 import { User, UserRole } from './user.entity';
 import { CreateUserDto } from './dto/create-user.dto';
 import { UpdateUserDto } from './dto/update-user.dto';
+import { UpdateProfileDto } from './dto/update-profile.dto';
 import { ActivityLogService } from '../activity-log/activity-log.service';
 
 @Injectable()
@@ -114,5 +115,46 @@ export class UsersService {
     await this.usersRepository.softDelete(id);
     await this.activityLog.log('user_deleted', user.id, 'user', id);
     return { success: true };
+  }
+
+  async updateProfile(id: string, updates: UpdateProfileDto) {
+    const user = await this.usersRepository.findOne({ where: { id } });
+
+    if (!user) {
+      throw new NotFoundException('User not found');
+    }
+
+    if (updates.email && updates.email !== user.email) {
+      const email = updates.email.trim().toLowerCase();
+      const existing = await this.usersRepository.findOne({
+        where: { email },
+        withDeleted: true,
+      });
+
+      if (existing && existing.id !== id) {
+        throw new ConflictException('Email already registered');
+      }
+
+      user.email = email;
+    }
+
+    if (updates.name !== undefined) {
+      const name = updates.name?.trim();
+      user.name = name && name.length > 0 ? name : null;
+    }
+
+    if (updates.phone !== undefined) {
+      const phone = updates.phone?.trim();
+      user.phone = phone && phone.length > 0 ? phone : null;
+    }
+
+    if (updates.address !== undefined) {
+      const address = updates.address?.trim();
+      user.address = address && address.length > 0 ? address : null;
+    }
+
+    const saved = await this.usersRepository.save(user);
+    await this.activityLog.log('profile_updated', saved.id, 'user', saved.id);
+    return saved;
   }
 }

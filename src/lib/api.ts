@@ -150,6 +150,71 @@ export interface AssignmentResponse {
   updatedAt: string;
 }
 
+export interface GroupMemberUser {
+  id: string;
+  email: string;
+  name?: string | null;
+}
+
+export interface GroupMemberResponse {
+  id: string;
+  groupId: string;
+  userId: string;
+  role?: string | null;
+  createdAt: string;
+  user?: GroupMemberUser;
+}
+
+export interface GroupResponse {
+  id: string;
+  name: string;
+  description?: string | null;
+  createdAt: string;
+  updatedAt: string;
+  members?: GroupMemberResponse[];
+}
+
+export interface CreateGroupPayload {
+  name: string;
+  description?: string | null;
+}
+
+export type UpdateGroupPayload = Partial<CreateGroupPayload>;
+
+export interface AddGroupMemberPayload {
+  userId: string;
+  role?: string | null;
+}
+
+export interface AssignmentReportRow {
+  userId: string;
+  userName: string;
+  assignmentId: string | null;
+  status: AssignmentStatus | null;
+  completedSteps: number;
+  totalSteps: number;
+  overdue: boolean;
+  dueDate: string | null;
+}
+
+export interface ProfileResponse {
+  id: string;
+  email: string;
+  name?: string | null;
+  role: UserRole;
+  phone?: string | null;
+  address?: string | null;
+  createdAt: string;
+  updatedAt: string;
+}
+
+export interface UpdateProfilePayload {
+  name?: string | null;
+  email?: string | null;
+  phone?: string | null;
+  address?: string | null;
+}
+
 export interface StepProgressResponse {
   id: string;
   assignmentId: string;
@@ -507,6 +572,28 @@ export const api = {
     update: (id: string, payload: UpdateAssignmentPayload) =>
       patch<AssignmentResponse>(`/assignments/${id}`, { json: payload }),
     details: (id: string) => get<AssignmentDetails>(`/assignments/${id}/details`),
+  },
+  profile: {
+    update: (payload: UpdateProfilePayload) => patch<ProfileResponse>('/profile', { json: payload }),
+  },
+  groups: {
+    list: () => get<GroupResponse[]>('/groups'),
+    get: (id: string) => get<GroupResponse>(`/groups/${id}`),
+    create: (payload: CreateGroupPayload) => post<GroupResponse>('/groups', { json: payload }),
+    update: (id: string, payload: UpdateGroupPayload) =>
+      patch<GroupResponse>(`/groups/${id}`, { json: payload }),
+    remove: (id: string) => del<void>(`/groups/${id}`),
+    members: {
+      list: (groupId: string) => get<GroupMemberResponse[]>(`/groups/${groupId}/members`),
+      add: (groupId: string, payload: AddGroupMemberPayload) =>
+        post<GroupMemberResponse>(`/groups/${groupId}/members`, { json: payload }),
+      remove: (groupId: string, userId: string) =>
+        del<void>(`/groups/${groupId}/members/${userId}`),
+    },
+  },
+  reports: {
+    assignments: (params: { groupId: string; taskId?: string }) =>
+      get<AssignmentReportRow[]>('/reports/assignments', { query: params }),
   },
   progress: {
     completeStep: (payload: CompleteStepPayload) =>

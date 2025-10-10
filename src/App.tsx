@@ -15,6 +15,7 @@ import TaskDetail from "./pages/TaskDetail";
 import TaskRun from "./pages/TaskRun";
 import Notifications from "./pages/Notifications";
 import Profile from "./pages/Profile";
+import Reports from "./pages/Reports";
 import AdminUsers from "./pages/admin/Users";
 import AdminGroups from "./pages/admin/Groups";
 import AdminSteps from "./pages/admin/Steps";
@@ -43,6 +44,7 @@ const App = () => (
             <Route path="/tasks/:id/run" element={<TaskRun />} />
             <Route path="/notifications" element={<Notifications />} />
             <Route path="/profile" element={<Profile />} />
+            <Route path="/reports" element={<Reports />} />
             <Route path="/admin/users" element={<AdminUsers />} />
             <Route path="/admin/groups" element={<AdminGroups />} />
             <Route path="/admin/steps" element={<AdminSteps />} />

@@ -18,8 +18,8 @@ services:
 
   api:
     build:
-      context: .
-      dockerfile: api/Dockerfile
+      context: ./api
+      dockerfile: Dockerfile
     depends_on:
       db:
         condition: service_healthy

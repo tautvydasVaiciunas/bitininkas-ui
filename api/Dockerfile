@@ -2,12 +2,11 @@ FROM node:20-alpine AS builder
 WORKDIR /app
 
 # Copy package manifests explicitly to fail fast if lockfile is missing
-COPY api/package.json ./package.json
-COPY api/package-lock.json ./package-lock.json
+COPY package.json package-lock.json ./
 RUN npm ci
 
 # Copy the rest of the API source
-COPY api/. .
+COPY . .
 
 # Build the NestJS project
 RUN npm run build

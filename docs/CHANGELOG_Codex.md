@@ -13,6 +13,6 @@
 
 ## Docker build determinism and compose boot flow
 - Ensured `api/package-lock.json` remains committed and included in Docker builds for deterministic `npm ci` installs.
-- Updated the API Dockerfile to copy manifests explicitly, preventing silent lockfile omissions and keeping runtime dependencies production-only.
-- Verified `.dockerignore` rules retain lockfiles while excluding build artifacts and `node_modules`.
-- Documented the compose boot sequence (migrations → seed → Nest API) that runs via the API service command.
+- Switched the compose build context to `./api` so the Dockerfile copies manifests (`package.json` + `package-lock.json`) without globbing and fails fast when the lockfile is missing.
+- Hardened `.dockerignore` files (root and API) to keep `package-lock.json` in the context while filtering out `node_modules`, build artifacts, and common clutter.
+- Reconfirmed the compose boot sequence (migrations → seed → Nest API) triggered by the API service command.

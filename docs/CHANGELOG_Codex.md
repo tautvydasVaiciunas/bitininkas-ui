@@ -16,3 +16,15 @@
 - Switched the compose build context to `./api` so the Dockerfile copies manifests (`package.json` + `package-lock.json`) without globbing and fails fast when the lockfile is missing.
 - Hardened `.dockerignore` files (root and API) to keep `package-lock.json` in the context while filtering out `node_modules`, build artifacts, and common clutter.
 - Reconfirmed the compose boot sequence (migrations → seed → Nest API) triggered by the API service command.
+
+## Lockfile guardrails and API Docker hardening
+- Converted the API's `lru-cache` dependency to use the vendored package directly, avoiding workspace-style overrides in `package.json`.
+- Regenerated `api/package-lock.json` to match the manifest, ensuring the Docker build context always includes a valid lockfile.
+- Added explicit sanity checks in `api/Dockerfile` so builds fail fast when the lockfile is missing/empty and to surface the Node/NPM versions being used.
+- Introduced `scripts/verify-locks.sh` and `scripts/verify-locks.ps1` to validate the presence, JSON integrity, and package name alignment for the API lockfile.
+
+### Verification
+- `cd api && npm install --package-lock-only`
+- `./scripts/verify-locks.sh`
+- `pwsh ./scripts/verify-locks.ps1`
+- `docker compose build --no-cache`

@@ -3,7 +3,9 @@ WORKDIR /app
 
 # Copy package manifests explicitly to fail fast if lockfile is missing
 COPY package.json package-lock.json ./
-RUN npm ci
+RUN test -s package-lock.json || (echo "ERROR: api/package-lock.json missing or empty" && exit 1)
+RUN node -v && npm -v
+RUN npm ci --no-audit --no-fund
 
 # Copy the rest of the API source
 COPY . .
@@ -18,7 +20,8 @@ ENV NODE_ENV=production
 
 # Install production dependencies only
 COPY --from=builder /app/package*.json ./
-RUN npm ci --omit=dev
+RUN test -s package-lock.json || (echo "ERROR: api/package-lock.json missing or empty" && exit 1)
+RUN npm ci --omit=dev --no-audit --no-fund
 
 # Copy built assets and environment example
 COPY --from=builder /app/dist ./dist

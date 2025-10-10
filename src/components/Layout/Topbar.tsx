@@ -13,11 +13,26 @@ import {
 } from '@/components/ui/dropdown-menu';
 import { Avatar, AvatarFallback } from '@/components/ui/avatar';
 import { Badge } from '@/components/ui/badge';
+import { useQuery } from '@tanstack/react-query';
+import api from '@/lib/api';
+import { mapNotificationFromApi, type Notification } from '@/lib/types';
 
 export const Topbar = () => {
   const [theme, setTheme] = useState<'light' | 'dark'>('light');
   const { user, logout } = useAuth();
   const navigate = useNavigate();
+
+  const { data: notifications = [] } = useQuery<Notification[]>({
+    queryKey: ['notifications'],
+    queryFn: async () => {
+      const items = await api.notifications.list();
+      return items
+        .map(mapNotificationFromApi)
+        .filter((item) => !user || item.userId === user.id);
+    },
+  });
+
+  const unreadCount = notifications.filter((notification) => !notification.readAt).length;
 
   const toggleTheme = () => {
     const newTheme = theme === 'light' ? 'dark' : 'light';
@@ -83,9 +98,11 @@ export const Topbar = () => {
             className="rounded-full relative"
           >
             <Bell className="w-5 h-5" />
-            <Badge className="absolute -top-1 -right-1 w-5 h-5 p-0 flex items-center justify-center text-xs bg-destructive">
-              2
-            </Badge>
+            {unreadCount > 0 ? (
+              <Badge className="absolute -top-1 -right-1 min-w-[1.25rem] h-5 px-1 flex items-center justify-center text-xs bg-destructive">
+                {unreadCount}
+              </Badge>
+            ) : null}
           </Button>
 
           <DropdownMenu>

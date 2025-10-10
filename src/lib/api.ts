@@ -61,6 +61,12 @@ export interface NotificationResponse {
 
 export type HiveStatus = 'active' | 'paused' | 'archived';
 
+export interface HiveMemberResponse {
+  id: string;
+  email: string;
+  name?: string | null;
+}
+
 export interface HiveResponse {
   id: string;
   label: string;
@@ -70,6 +76,7 @@ export interface HiveResponse {
   ownerUserId?: string;
   createdAt?: string;
   updatedAt?: string;
+  members?: HiveMemberResponse[];
 }
 
 export interface HiveSummary {
@@ -113,9 +120,12 @@ export interface CreateTaskPayload {
   seasonMonths?: number[];
   frequency: TaskFrequency;
   defaultDueDays: number;
+  steps?: CreateTaskStepPayload[];
 }
 
-export type UpdateTaskPayload = Partial<CreateTaskPayload>;
+export type UpdateTaskPayload = Partial<Omit<CreateTaskPayload, 'steps'>> & {
+  steps?: CreateTaskStepPayload[];
+};
 
 export interface CreateTaskStepPayload {
   title: string;
@@ -159,16 +169,24 @@ export interface AssignmentDetails {
 export interface AdminUserResponse {
   id: string;
   email: string;
-  name: string;
+  name?: string | null;
   role: UserRole;
   createdAt: string;
   updatedAt?: string;
 }
 
-export interface UpdateUserPayload {
+export interface CreateUserPayload {
   name?: string;
+  email: string;
+  password: string;
+  role?: UserRole;
+}
+
+export interface UpdateUserPayload {
+  name?: string | null;
   email?: string;
   role?: UserRole;
+  password?: string;
 }
 
 export interface LoginPayload {
@@ -188,6 +206,7 @@ export interface CreateHivePayload {
   queenYear?: number;
   status?: HiveStatus;
   ownerUserId?: string;
+  members?: string[];
 }
 
 export type UpdateHivePayload = Partial<CreateHivePayload>;
@@ -209,6 +228,11 @@ export interface CompleteStepPayload {
   taskStepId: string;
   notes?: string;
   evidenceUrl?: string;
+}
+
+export interface UpdateProgressPayload {
+  notes?: string | null;
+  evidenceUrl?: string | null;
 }
 
 const isBrowser = typeof window !== 'undefined';
@@ -487,6 +511,8 @@ export const api = {
   progress: {
     completeStep: (payload: CompleteStepPayload) =>
       post<StepProgressResponse>('/progress/step-complete', { json: payload }),
+    update: (id: string, payload: UpdateProgressPayload) =>
+      patch<StepProgressResponse>(`/progress/${id}`, { json: payload }),
     listForAssignment: (assignmentId: string) =>
       get<StepProgressResponse[]>(`/assignments/${assignmentId}/progress/list`),
     assignmentCompletion: (assignmentId: string) =>
@@ -495,6 +521,8 @@ export const api = {
   },
   users: {
     list: () => get<AdminUserResponse[]>('/users'),
+    get: (id: string) => get<AdminUserResponse>(`/users/${id}`),
+    create: (payload: CreateUserPayload) => post<AdminUserResponse>('/users', { json: payload }),
     update: (id: string, payload: UpdateUserPayload) =>
       patch<AdminUserResponse>(`/users/${id}`, { json: payload }),
     remove: (id: string) => del<void>(`/users/${id}`),

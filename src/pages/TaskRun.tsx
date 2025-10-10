@@ -1,4 +1,4 @@
-import { useMemo, useState } from 'react';
+import { useEffect, useMemo, useRef, useState } from 'react';
 import { useNavigate, useParams } from 'react-router-dom';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { MainLayout } from '@/components/Layout/MainLayout';
@@ -19,8 +19,9 @@ import {
   type AssignmentStatus,
   type Hive,
   type StepProgress,
+  type UpdateProgressPayload,
 } from '@/lib/types';
-import { Calendar, CheckCircle2, ChevronLeft, ChevronRight } from 'lucide-react';
+import { Calendar, CheckCircle2, ChevronLeft, ChevronRight, Loader2, RotateCcw } from 'lucide-react';
 import { toast } from 'sonner';
 
 const formatDate = (value?: string | null) => {
@@ -41,7 +42,17 @@ export default function TaskRun() {
   const navigate = useNavigate();
   const queryClient = useQueryClient();
   const [currentStepIndex, setCurrentStepIndex] = useState(0);
-  const [notes, setNotes] = useState('');
+  const [stepNotes, setStepNotes] = useState<Record<string, string>>({});
+  const saveTimeouts = useRef<Record<string, ReturnType<typeof setTimeout>>>({});
+
+  useEffect(() => {
+    const timeouts = saveTimeouts.current;
+    return () => {
+      Object.values(timeouts).forEach((timeoutId) => {
+        clearTimeout(timeoutId);
+      });
+    };
+  }, []);
 
   const {
     data,
@@ -54,9 +65,25 @@ export default function TaskRun() {
     enabled: Boolean(id),
   });
 
+  useEffect(() => {
+    if (!data) return;
+    setStepNotes((prev) => {
+      const next = { ...prev };
+      data.progress.forEach((entry) => {
+        next[entry.taskStepId] = entry.notes ?? '';
+      });
+      return next;
+    });
+  }, [data]);
+
   const steps = useMemo(() => {
     if (!data) return [];
     return [...data.task.steps].sort((a, b) => a.orderIndex - b.orderIndex);
+  }, [data]);
+
+  const progressMap = useMemo(() => {
+    if (!data) return new Map<string, StepProgress>();
+    return new Map(data.progress.map((entry) => [entry.taskStepId, entry]));
   }, [data]);
 
   const completedStepIds = useMemo(() => {
@@ -67,6 +94,27 @@ export default function TaskRun() {
   const currentStep = steps[currentStepIndex];
   const assignment = data?.assignment;
   const hiveId = assignment?.hiveId;
+  const currentNotes = currentStep ? stepNotes[currentStep.id] ?? '' : '';
+  const currentProgress = currentStep ? progressMap.get(currentStep.id) : undefined;
+
+  const scheduleNoteSave = (stepId: string, value: string) => {
+    const progressEntry = progressMap.get(stepId);
+    if (!progressEntry) return;
+    const normalizedValue = value;
+    if ((progressEntry.notes ?? '') === normalizedValue) return;
+    const existingTimeout = saveTimeouts.current[stepId];
+    if (existingTimeout) {
+      clearTimeout(existingTimeout);
+    }
+    const timeoutId = setTimeout(() => {
+      updateProgressMutation.mutate({
+        progressId: progressEntry.id,
+        taskStepId: stepId,
+        payload: { notes: normalizedValue || null },
+      });
+    }, 500);
+    saveTimeouts.current[stepId] = timeoutId;
+  };
 
   const { data: hive } = useQuery<Hive>({
     queryKey: ['hives', hiveId],
@@ -85,6 +133,31 @@ export default function TaskRun() {
     },
     onError: (mutationError: HttpError | Error) => {
       toast.error('Nepavyko atnaujinti užduoties būsenos', {
+        description: getErrorMessage(mutationError),
+      });
+    },
+  });
+
+  const updateProgressMutation = useMutation<
+    StepProgress,
+    HttpError | Error,
+    { progressId: string; taskStepId: string; payload: UpdateProgressPayload }
+  >({
+    mutationFn: ({ progressId, payload }) => api.progress.update(progressId, payload).then(mapStepProgressFromApi),
+    onSuccess: (updatedProgress) => {
+      queryClient.setQueryData<AssignmentDetails | undefined>(['assignments', id, 'details'], (oldData) => {
+        if (!oldData) return oldData;
+        const progress = oldData.progress.map((entry) => (entry.id === updatedProgress.id ? updatedProgress : entry));
+        return { ...oldData, progress };
+      });
+      setStepNotes((prev) => ({ ...prev, [updatedProgress.taskStepId]: updatedProgress.notes ?? '' }));
+      delete saveTimeouts.current[updatedProgress.taskStepId];
+    },
+    onError: (mutationError: HttpError | Error, variables) => {
+      if (variables) {
+        delete saveTimeouts.current[variables.taskStepId];
+      }
+      toast.error('Nepavyko išsaugoti pastabų', {
         description: getErrorMessage(mutationError),
       });
     },
@@ -120,6 +193,8 @@ export default function TaskRun() {
         };
       });
 
+      setStepNotes((prev) => ({ ...prev, [progressEntry.taskStepId]: progressEntry.notes ?? '' }));
+
       queryClient.invalidateQueries({ queryKey: ['assignments', 'list'] });
 
       if (added) {
@@ -137,8 +212,6 @@ export default function TaskRun() {
           setCurrentStepIndex((index) => index + 1);
         }
       }
-
-      setNotes('');
     },
     onError: (stepError: HttpError | Error) => {
       toast.error('Nepavyko pažymėti žingsnio', {
@@ -146,6 +219,42 @@ export default function TaskRun() {
       });
     },
   });
+
+  const uncompleteStepMutation = useMutation<void, HttpError | Error, { progressId: string; taskStepId: string }>(
+    {
+      mutationFn: ({ progressId }) => api.progress.remove(progressId),
+      onSuccess: (_, variables) => {
+        let newCompletion = data?.completion ?? 0;
+        const previousStatus = data?.assignment.status;
+
+        queryClient.setQueryData<AssignmentDetails | undefined>(['assignments', id, 'details'], (oldData) => {
+          if (!oldData) return oldData;
+          const progress = oldData.progress.filter((entry) => entry.id !== variables.progressId);
+          const totalSteps = oldData.task.steps.length;
+          newCompletion = totalSteps ? Math.round((progress.length / totalSteps) * 100) : 0;
+          return { ...oldData, progress, completion: newCompletion };
+        });
+
+        setStepNotes((prev) => ({ ...prev, [variables.taskStepId]: '' }));
+        delete saveTimeouts.current[variables.taskStepId];
+
+        queryClient.invalidateQueries({ queryKey: ['assignments', 'list'] });
+
+        if (newCompletion === 0 && previousStatus !== 'not_started') {
+          updateAssignmentStatusMutation.mutate('not_started');
+        } else if (newCompletion < 100 && previousStatus === 'done') {
+          updateAssignmentStatusMutation.mutate('in_progress');
+        }
+
+        toast.success('Žingsnis grąžintas į neįvykdytą');
+      },
+      onError: (mutationError: HttpError | Error) => {
+        toast.error('Nepavyko atšaukti žingsnio', {
+          description: getErrorMessage(mutationError),
+        });
+      },
+    }
+  );
 
   if (!id) {
     return (
@@ -205,7 +314,25 @@ export default function TaskRun() {
 
   const handleStepComplete = () => {
     if (!currentStep || completeStepMutation.isPending) return;
-    completeStepMutation.mutate({ taskStepId: currentStep.id, notes: notes || undefined });
+    const existingTimeout = saveTimeouts.current[currentStep.id];
+    if (existingTimeout) {
+      clearTimeout(existingTimeout);
+      delete saveTimeouts.current[currentStep.id];
+    }
+    completeStepMutation.mutate({ taskStepId: currentStep.id, notes: currentNotes || undefined });
+  };
+
+  const handleStepUncomplete = () => {
+    if (!currentProgress || uncompleteStepMutation.isPending) return;
+    const existingTimeout = saveTimeouts.current[currentProgress.taskStepId];
+    if (existingTimeout) {
+      clearTimeout(existingTimeout);
+      delete saveTimeouts.current[currentProgress.taskStepId];
+    }
+    uncompleteStepMutation.mutate({
+      progressId: currentProgress.id,
+      taskStepId: currentProgress.taskStepId,
+    });
   };
 
   return (
@@ -299,12 +426,19 @@ export default function TaskRun() {
                 </div>
 
                 <div className="space-y-2">
-                  <Label htmlFor="notes">Pastabos (nebūtina)</Label>
+                  <Label htmlFor="notes">Pastabos (išsaugoma automatiškai)</Label>
                   <Textarea
                     id="notes"
                     placeholder="Įveskite savo pastabas..."
-                    value={notes}
-                    onChange={(event) => setNotes(event.target.value)}
+                    value={currentNotes}
+                    onChange={(event) => {
+                      if (!currentStep) return;
+                      const value = event.target.value;
+                      setStepNotes((prev) => ({ ...prev, [currentStep.id]: value }));
+                      if (progressMap.has(currentStep.id)) {
+                        scheduleNoteSave(currentStep.id, value);
+                      }
+                    }}
                     rows={4}
                   />
                 </div>
@@ -322,12 +456,30 @@ export default function TaskRun() {
               </Button>
 
               <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:gap-3">
-                {!hasCurrentStepCompleted ? (
+                {hasCurrentStepCompleted ? (
+                  <Button
+                    variant="outline"
+                    onClick={handleStepUncomplete}
+                    disabled={uncompleteStepMutation.isPending}
+                  >
+                    {uncompleteStepMutation.isPending ? (
+                      <>
+                        <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                        Grąžinama...
+                      </>
+                    ) : (
+                      <>
+                        <RotateCcw className="mr-2 h-4 w-4" />
+                        Pažymėti kaip neatliktą
+                      </>
+                    )}
+                  </Button>
+                ) : (
                   <Button onClick={handleStepComplete} disabled={completeStepMutation.isPending}>
                     <CheckCircle2 className="mr-2 h-4 w-4" />
                     {completeStepMutation.isPending ? 'Žymima...' : 'Pažymėti kaip atliktą'}
                   </Button>
-                ) : null}
+                )}
 
                 {currentStepIndex < steps.length - 1 ? (
                   <Button variant="outline" onClick={handleNextStep}>

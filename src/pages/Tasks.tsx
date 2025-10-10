@@ -1,6 +1,6 @@
 import { useMemo, useState } from 'react';
 import { Link } from 'react-router-dom';
-import { useQuery } from '@tanstack/react-query';
+import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { MainLayout } from '@/components/Layout/MainLayout';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
@@ -9,7 +9,7 @@ import { Badge } from '@/components/ui/badge';
 import { Progress } from '@/components/ui/progress';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { useAuth } from '@/contexts/AuthContext';
-import api from '@/lib/api';
+import api, { HttpError } from '@/lib/api';
 import {
   mapAssignmentFromApi,
   mapHiveFromApi,
@@ -17,17 +17,196 @@ import {
   type Assignment,
   type Hive,
   type Task,
+  type TaskFrequency,
+  type CreateTaskPayload,
 } from '@/lib/types';
 import { AssignmentStatusBadge } from '@/components/AssignmentStatusBadge';
 import { assignmentStatusFilterOptions, resolveAssignmentUiStatus } from '@/lib/assignmentStatus';
-import { Plus, Search, Calendar, Box, ChevronRight, ListTodo } from 'lucide-react';
+import { Plus, Search, Calendar, Box, ChevronRight, ListTodo, Loader2, Trash2 } from 'lucide-react';
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogFooter,
+  DialogHeader,
+  DialogTitle,
+  DialogTrigger,
+} from '@/components/ui/dialog';
+import { Textarea } from '@/components/ui/textarea';
+import { Label } from '@/components/ui/label';
+import { Checkbox } from '@/components/ui/checkbox';
+import { useToast } from '@/components/ui/use-toast';
+
+const monthOptions = [
+  { value: 1, label: 'Sausis' },
+  { value: 2, label: 'Vasaris' },
+  { value: 3, label: 'Kovas' },
+  { value: 4, label: 'Balandis' },
+  { value: 5, label: 'Gegužė' },
+  { value: 6, label: 'Birželis' },
+  { value: 7, label: 'Liepa' },
+  { value: 8, label: 'Rugpjūtis' },
+  { value: 9, label: 'Rugsėjis' },
+  { value: 10, label: 'Spalis' },
+  { value: 11, label: 'Lapkritis' },
+  { value: 12, label: 'Gruodis' },
+];
+
+const frequencyOptions: { value: TaskFrequency; label: string }[] = [
+  { value: 'once', label: 'Vienkartinė' },
+  { value: 'weekly', label: 'Kas savaitę' },
+  { value: 'monthly', label: 'Kas mėnesį' },
+  { value: 'seasonal', label: 'Sezoninė' },
+];
+
+type EditableStep = {
+  title: string;
+  contentText: string;
+};
 
 export default function Tasks() {
   const { user } = useAuth();
+  const queryClient = useQueryClient();
+  const { toast } = useToast();
   const [searchQuery, setSearchQuery] = useState('');
   const [statusFilter, setStatusFilter] = useState<string>('all');
+  const [isCreateDialogOpen, setIsCreateDialogOpen] = useState(false);
+  const [createForm, setCreateForm] = useState({
+    title: '',
+    description: '',
+    category: '',
+    frequency: 'once' as TaskFrequency,
+    defaultDueDays: '7',
+    seasonMonths: [] as number[],
+    steps: [{ title: '', contentText: '' } as EditableStep],
+  });
 
   const isAdmin = user?.role === 'admin';
+  const canManageTasks = user?.role === 'admin' || user?.role === 'manager';
+
+  const resetCreateForm = () =>
+    setCreateForm({
+      title: '',
+      description: '',
+      category: '',
+      frequency: 'once' as TaskFrequency,
+      defaultDueDays: '7',
+      seasonMonths: [],
+      steps: [{ title: '', contentText: '' }],
+    });
+
+  const createTaskMutation = useMutation<Task, HttpError | Error, CreateTaskPayload>({
+    mutationFn: (payload) => api.tasks.create(payload).then(mapTaskFromApi),
+    onSuccess: (createdTask) => {
+      toast({
+        title: 'Užduotis sukurta',
+        description: `Užduotis „${createdTask.title}“ sėkmingai išsaugota.`,
+      });
+      resetCreateForm();
+      setIsCreateDialogOpen(false);
+      queryClient.invalidateQueries({ queryKey: ['assignments', 'list'] });
+      queryClient.invalidateQueries({ queryKey: ['tasks'] });
+    },
+    onError: (error: HttpError | Error) => {
+      toast({
+        title: 'Nepavyko sukurti užduoties',
+        description: error instanceof Error ? error.message : 'Įvyko nenumatyta klaida',
+        variant: 'destructive',
+      });
+    },
+  });
+
+  const toggleSeasonMonth = (month: number, checked: boolean) => {
+    setCreateForm((prev) => {
+      const months = checked
+        ? Array.from(new Set([...prev.seasonMonths, month]))
+        : prev.seasonMonths.filter((value) => value !== month);
+      return { ...prev, seasonMonths: months };
+    });
+  };
+
+  const updateStep = (index: number, changes: Partial<EditableStep>) => {
+    setCreateForm((prev) => {
+      const steps = prev.steps.map((step, stepIndex) =>
+        stepIndex === index ? { ...step, ...changes } : step
+      );
+      return { ...prev, steps };
+    });
+  };
+
+  const removeStep = (index: number) => {
+    setCreateForm((prev) => {
+      if (prev.steps.length === 1) {
+        return { ...prev, steps: [{ title: '', contentText: '' }] };
+      }
+      const steps = prev.steps.filter((_, stepIndex) => stepIndex !== index);
+      return { ...prev, steps };
+    });
+  };
+
+  const addStep = () => {
+    setCreateForm((prev) => ({ ...prev, steps: [...prev.steps, { title: '', contentText: '' }] }));
+  };
+
+  const handleCreateTaskSubmit = (event: React.FormEvent<HTMLFormElement>) => {
+    event.preventDefault();
+    if (createTaskMutation.isPending) return;
+
+    const trimmedTitle = createForm.title.trim();
+    if (!trimmedTitle) {
+      toast({
+        title: 'Trūksta pavadinimo',
+        description: 'Įveskite užduoties pavadinimą prieš išsaugant.',
+        variant: 'destructive',
+      });
+      return;
+    }
+
+    const dueDays = Number(createForm.defaultDueDays);
+    if (Number.isNaN(dueDays) || dueDays <= 0) {
+      toast({
+        title: 'Neteisingas termino laikas',
+        description: 'Įveskite teigiamą dienų skaičių.',
+        variant: 'destructive',
+      });
+      return;
+    }
+
+    const sanitizedSteps = createForm.steps
+      .map((step) => ({
+        title: step.title.trim(),
+        contentText: step.contentText.trim(),
+      }))
+      .filter((step) => step.title.length > 0);
+
+    if (sanitizedSteps.length === 0) {
+      toast({
+        title: 'Pridėkite bent vieną žingsnį',
+        description: 'Užduotis turi turėti bent vieną žingsnį su pavadinimu.',
+        variant: 'destructive',
+      });
+      return;
+    }
+
+    const payload: CreateTaskPayload = {
+      title: trimmedTitle,
+      description: createForm.description.trim() || undefined,
+      category: createForm.category.trim() || undefined,
+      frequency: createForm.frequency,
+      defaultDueDays: dueDays,
+      seasonMonths: createForm.seasonMonths,
+      steps: sanitizedSteps.map((step) => ({
+        title: step.title,
+        contentText: step.contentText || undefined,
+      })),
+    };
+
+    if (payload.seasonMonths && payload.seasonMonths.length === 0) {
+      delete payload.seasonMonths;
+    }
+
+    createTaskMutation.mutate(payload);
+  };
 
   const { data, isLoading, isError } = useQuery<{
     assignments: Assignment[];
@@ -113,11 +292,180 @@ export default function Tasks() {
             <h1 className="text-3xl font-bold">Užduotys</h1>
             <p className="text-muted-foreground mt-1">Valdykite savo bitininkystės užduotis</p>
           </div>
-          {(user?.role === 'admin' || user?.role === 'manager') && (
-            <Button>
-              <Plus className="mr-2 w-4 h-4" />
-              Sukurti užduotį
-            </Button>
+          {canManageTasks && (
+            <Dialog
+              open={isCreateDialogOpen}
+              onOpenChange={(open) => {
+                setIsCreateDialogOpen(open);
+                if (!open) {
+                  resetCreateForm();
+                }
+              }}
+            >
+              <DialogTrigger asChild>
+                <Button>
+                  <Plus className="mr-2 w-4 h-4" />
+                  Sukurti užduotį
+                </Button>
+              </DialogTrigger>
+              <DialogContent className="max-h-[90vh] overflow-y-auto">
+                <DialogHeader>
+                  <DialogTitle>Nauja užduotis</DialogTitle>
+                  <DialogDescription>Aprašykite užduotį ir jos žingsnius.</DialogDescription>
+                </DialogHeader>
+                <form onSubmit={handleCreateTaskSubmit} className="space-y-6">
+                  <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
+                    <div className="space-y-2 md:col-span-2">
+                      <Label htmlFor="task-title">Pavadinimas</Label>
+                      <Input
+                        id="task-title"
+                        value={createForm.title}
+                        onChange={(event) => setCreateForm((prev) => ({ ...prev, title: event.target.value }))}
+                        required
+                      />
+                    </div>
+                    <div className="space-y-2 md:col-span-2">
+                      <Label htmlFor="task-description">Aprašymas</Label>
+                      <Textarea
+                        id="task-description"
+                        value={createForm.description}
+                        onChange={(event) => setCreateForm((prev) => ({ ...prev, description: event.target.value }))}
+                        placeholder="Trumpai aprašykite užduotį"
+                      />
+                    </div>
+                    <div className="space-y-2">
+                      <Label htmlFor="task-category">Kategorija</Label>
+                      <Input
+                        id="task-category"
+                        value={createForm.category}
+                        onChange={(event) => setCreateForm((prev) => ({ ...prev, category: event.target.value }))}
+                        placeholder="Pvz., Sezoninės priežiūros"
+                      />
+                    </div>
+                    <div className="space-y-2">
+                      <Label>Dažnumas</Label>
+                      <Select
+                        value={createForm.frequency}
+                        onValueChange={(value) =>
+                          setCreateForm((prev) => ({ ...prev, frequency: value as TaskFrequency }))
+                        }
+                      >
+                        <SelectTrigger>
+                          <SelectValue placeholder="Pasirinkite dažnumą" />
+                        </SelectTrigger>
+                        <SelectContent>
+                          {frequencyOptions.map((option) => (
+                            <SelectItem key={option.value} value={option.value}>
+                              {option.label}
+                            </SelectItem>
+                          ))}
+                        </SelectContent>
+                      </Select>
+                    </div>
+                    <div className="space-y-2">
+                      <Label htmlFor="task-default-due">Numatytasis terminas (dienomis)</Label>
+                      <Input
+                        id="task-default-due"
+                        type="number"
+                        min={1}
+                        value={createForm.defaultDueDays}
+                        onChange={(event) => setCreateForm((prev) => ({ ...prev, defaultDueDays: event.target.value }))}
+                      />
+                    </div>
+                  </div>
+
+                  <div className="space-y-2">
+                    <Label>Sezoniniai mėnesiai</Label>
+                    <div className="grid grid-cols-2 sm:grid-cols-3 gap-2">
+                      {monthOptions.map((month) => {
+                        const checked = createForm.seasonMonths.includes(month.value);
+                        return (
+                          <label key={month.value} className="flex items-center gap-2 text-sm font-medium">
+                            <Checkbox
+                              checked={checked}
+                              onCheckedChange={(state) => toggleSeasonMonth(month.value, state === true)}
+                            />
+                            {month.label}
+                          </label>
+                        );
+                      })}
+                    </div>
+                  </div>
+
+                  <div className="space-y-4">
+                    <div className="flex items-center justify-between">
+                      <h3 className="text-lg font-semibold">Žingsniai</h3>
+                      <Button type="button" variant="outline" onClick={addStep}>
+                        <Plus className="mr-2 h-4 w-4" />
+                        Pridėti žingsnį
+                      </Button>
+                    </div>
+                    <div className="space-y-3">
+                      {createForm.steps.map((step, index) => (
+                        <div key={index} className="rounded-lg border border-border p-4 space-y-3">
+                          <div className="flex items-center justify-between">
+                            <h4 className="text-sm font-semibold">Žingsnis {index + 1}</h4>
+                            {createForm.steps.length > 1 ? (
+                              <Button
+                                type="button"
+                                variant="ghost"
+                                size="icon"
+                                onClick={() => removeStep(index)}
+                                aria-label={`Pašalinti ${index + 1}-ą žingsnį`}
+                              >
+                                <Trash2 className="h-4 w-4" />
+                              </Button>
+                            ) : null}
+                          </div>
+                          <div className="space-y-2">
+                            <Label htmlFor={`step-title-${index}`}>Pavadinimas</Label>
+                            <Input
+                              id={`step-title-${index}`}
+                              value={step.title}
+                              onChange={(event) => updateStep(index, { title: event.target.value })}
+                              required
+                            />
+                          </div>
+                          <div className="space-y-2">
+                            <Label htmlFor={`step-description-${index}`}>Instrukcijos</Label>
+                            <Textarea
+                              id={`step-description-${index}`}
+                              value={step.contentText}
+                              onChange={(event) => updateStep(index, { contentText: event.target.value })}
+                              placeholder="Aprašykite žingsnio veiksmus"
+                            />
+                          </div>
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+
+                  <DialogFooter>
+                    <Button
+                      type="button"
+                      variant="outline"
+                      onClick={() => {
+                        resetCreateForm();
+                        setIsCreateDialogOpen(false);
+                      }}
+                      disabled={createTaskMutation.isPending}
+                    >
+                      Atšaukti
+                    </Button>
+                    <Button type="submit" disabled={createTaskMutation.isPending}>
+                      {createTaskMutation.isPending ? (
+                        <>
+                          <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                          Saugoma...
+                        </>
+                      ) : (
+                        'Išsaugoti'
+                      )}
+                    </Button>
+                  </DialogFooter>
+                </form>
+              </DialogContent>
+            </Dialog>
           )}
         </div>
 

@@ -1,28 +1,57 @@
 import { useState } from 'react';
 import { Link } from 'react-router-dom';
+import { Box, Loader2, ArrowLeft } from 'lucide-react';
+import { toast } from 'sonner';
+
+import api, { HttpError } from '@/lib/api';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
-import { Box, Loader2, ArrowLeft } from 'lucide-react';
-import { toast } from 'sonner';
 
 export default function ForgotPassword() {
   const [email, setEmail] = useState('');
   const [loading, setLoading] = useState(false);
   const [sent, setSent] = useState(false);
+  const [resetToken, setResetToken] = useState<string | undefined>();
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     setLoading(true);
 
-    // TODO: call POST /auth/request-reset
-    
-    // Simulate API call
-    await new Promise(resolve => setTimeout(resolve, 1000));
-    setLoading(false);
-    setSent(true);
-    toast.success('Slaptažodžio atstatymo nuoroda išsiųsta!');
+    try {
+      const result = await api.auth.requestPasswordReset(email);
+      setSent(true);
+      setResetToken(result.token);
+      toast.success('Slaptažodžio atstatymo nuoroda išsiųsta!');
+    } catch (error) {
+      const description = (() => {
+        if (error instanceof HttpError) {
+          if (
+            error.data &&
+            typeof error.data === 'object' &&
+            'message' in error.data &&
+            typeof (error.data as { message?: unknown }).message === 'string'
+          ) {
+            return (error.data as { message?: string }).message;
+          }
+
+          return error.message;
+        }
+
+        if (error instanceof Error) {
+          return error.message;
+        }
+
+        return 'Nepavyko išsiųsti atstatymo nuorodos.';
+      })();
+
+      toast.error('Nepavyko išsiųsti atstatymo nuorodos.', {
+        description,
+      });
+    } finally {
+      setLoading(false);
+    }
   };
 
   return (
@@ -49,6 +78,11 @@ export default function ForgotPassword() {
                 <p className="mt-2 text-muted-foreground">
                   Patikrinkite savo el. pašto dėžutę ir sekite instrukcijas.
                 </p>
+                {resetToken ? (
+                  <p className="mt-3 text-xs font-medium text-muted-foreground">
+                    Dev tokenas: <span className="break-all font-mono">{resetToken}</span>
+                  </p>
+                ) : null}
               </div>
               <Button asChild variant="outline" className="w-full">
                 <Link to="/auth/login">

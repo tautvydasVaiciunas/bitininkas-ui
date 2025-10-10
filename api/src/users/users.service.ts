@@ -18,8 +18,10 @@ export class UsersService {
   ) {}
 
   async create(createUserDto: CreateUserDto) {
+    const email = createUserDto.email.trim().toLowerCase();
+
     const existing = await this.usersRepository.findOne({
-      where: { email: createUserDto.email },
+      where: { email },
       withDeleted: true,
     });
 
@@ -30,6 +32,7 @@ export class UsersService {
     const passwordHash = await bcrypt.hash(createUserDto.password, 10);
     const user = this.usersRepository.create({
       ...createUserDto,
+      email,
       passwordHash,
       role: createUserDto.role || UserRole.USER,
     });
@@ -44,7 +47,8 @@ export class UsersService {
   }
 
   async findByEmail(email: string) {
-    return this.usersRepository.findOne({ where: { email } });
+    const normalized = email.trim().toLowerCase();
+    return this.usersRepository.findOne({ where: { email: normalized } });
   }
 
   async findById(id: string) {
@@ -68,8 +72,9 @@ export class UsersService {
     }
 
     if (updateUserDto.email && updateUserDto.email !== user.email) {
+      const email = updateUserDto.email.trim().toLowerCase();
       const existing = await this.usersRepository.findOne({
-        where: { email: updateUserDto.email },
+        where: { email },
         withDeleted: true,
       });
 
@@ -77,7 +82,7 @@ export class UsersService {
         throw new ConflictException('Email already registered');
       }
 
-      user.email = updateUserDto.email;
+      user.email = email;
     }
 
     if (updateUserDto.role) {

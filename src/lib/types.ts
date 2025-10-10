@@ -7,6 +7,7 @@ import type {
   CreateHivePayload,
   CreateTaskPayload,
   CreateTaskStepPayload,
+  HiveMemberResponse as ApiHiveMemberResponse,
   HiveResponse as ApiHiveResponse,
   HiveStatus as ApiHiveStatus,
   HiveSummary as ApiHiveSummary,
@@ -23,6 +24,7 @@ import type {
   UpdateTaskPayload,
   UpdateTaskStepPayload,
   UpdateUserPayload,
+  UpdateProgressPayload,
   UserRole as ApiUserRole,
 } from './api';
 
@@ -38,13 +40,15 @@ export type {
   UpdateTaskPayload,
   UpdateTaskStepPayload,
   UpdateUserPayload,
+  UpdateProgressPayload,
 } from './api';
 
 export type AuthenticatedUser = ApiAuthenticatedUser;
 export type Assignment = ApiAssignmentResponse;
 export type AssignmentDetails = ApiAssignmentDetails;
 export type AssignmentStatus = ApiAssignmentStatus;
-export type Hive = ApiHiveResponse;
+export type HiveMember = ApiHiveMemberResponse;
+export type Hive = Omit<ApiHiveResponse, 'members'> & { members: HiveMember[] };
 export type HiveStatus = ApiHiveStatus;
 export type Task = ApiTaskResponse;
 export type TaskWithSteps = ApiTaskWithStepsResponse;
@@ -67,6 +71,12 @@ export const mapHiveFromApi = (hive: ApiHiveResponse): Hive => ({
   ...hive,
   location: hive.location ?? null,
   queenYear: hive.queenYear ?? null,
+  members: Array.isArray(hive.members)
+    ? hive.members.map((member) => ({
+        ...member,
+        name: mapOptionalString(member.name),
+      }))
+    : [],
 });
 
 export const mapTaskStepFromApi = (step: ApiTaskStepResponse): TaskStep => ({

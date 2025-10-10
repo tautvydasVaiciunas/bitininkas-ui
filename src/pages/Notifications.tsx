@@ -1,4 +1,4 @@
-import { useMemo } from 'react';
+import { useEffect, useMemo } from 'react';
 import { MainLayout } from '@/components/Layout/MainLayout';
 import { Card, CardContent } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
@@ -57,6 +57,15 @@ export default function Notifications() {
   });
 
   const unreadCount = useMemo(() => notifications.filter((n) => !n.readAt).length, [notifications]);
+
+  useEffect(() => {
+    if (isLoading) return;
+    const unreadIds = notifications.filter((notification) => !notification.readAt).map((notification) => notification.id);
+    if (unreadIds.length === 0 || markAllMutation.isPending) {
+      return;
+    }
+    markAllMutation.mutate(unreadIds);
+  }, [isLoading, notifications, markAllMutation]);
 
   const getTypeIcon = (type: string) => {
     const icons: Record<string, React.ReactNode> = {

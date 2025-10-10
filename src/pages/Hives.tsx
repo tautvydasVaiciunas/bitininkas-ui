@@ -38,7 +38,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@
 import { Skeleton } from '@/components/ui/skeleton';
 import { useToast } from '@/components/ui/use-toast';
 import { useAuth } from '@/contexts/AuthContext';
-import api, { HttpError } from '@/lib/api';
+import api, { HttpError, type AdminUserResponse } from '@/lib/api';
 import {
   mapHiveFromApi,
   type CreateHivePayload,
@@ -47,6 +47,7 @@ import {
   type UpdateHivePayload,
 } from '@/lib/types';
 import { Box, Calendar, ChevronRight, Loader2, MapPin, MoreVertical, Plus, Search } from 'lucide-react';
+import { UserMultiSelect, type MultiSelectOption } from '@/components/UserMultiSelect';
 
 type StatusFilter = HiveStatus | 'all';
 
@@ -278,9 +279,25 @@ export default function Hives() {
   const [searchQuery, setSearchQuery] = useState('');
   const [statusFilter, setStatusFilter] = useState<StatusFilter>('all');
   const [isCreateDialogOpen, setIsCreateDialogOpen] = useState(false);
-  const [createForm, setCreateForm] = useState({ label: '', location: '', queenYear: '' });
+  const [createForm, setCreateForm] = useState({ label: '', location: '', queenYear: '', members: [] as string[] });
 
   const isAdmin = user?.role === 'admin';
+  const canManageMembers = user?.role === 'admin' || user?.role === 'manager';
+
+  const { data: users = [] } = useQuery<AdminUserResponse[]>({
+    queryKey: ['users', 'all'],
+    queryFn: () => api.users.list(),
+    enabled: canManageMembers,
+  });
+
+  const memberOptions: MultiSelectOption[] = useMemo(() => {
+    if (!users.length) return [];
+    return users.map((item) => ({
+      value: item.id,
+      label: item.name || item.email,
+      description: item.name ? item.email : undefined,
+    }));
+  }, [users]);
 
   const {
     data: hives = [],
@@ -296,7 +313,7 @@ export default function Hives() {
     },
   });
 
-  const resetCreateForm = () => setCreateForm({ label: '', location: '', queenYear: '' });
+  const resetCreateForm = () => setCreateForm({ label: '', location: '', queenYear: '', members: [] });
 
   const showErrorToast = (title: string, errorValue: unknown) => {
     const description = getErrorMessage(errorValue);
@@ -371,7 +388,10 @@ export default function Hives() {
   const accessibleHives = useMemo(() => {
     const list = Array.isArray(hives) ? hives : [];
     if (isAdmin) return list;
-    return list.filter((hive) => hive.ownerUserId === user?.id);
+    return list.filter((hive) => {
+      if (hive.ownerUserId === user?.id) return true;
+      return hive.members.some((member) => member.id === user?.id);
+    });
   }, [hives, isAdmin, user?.id]);
 
   const filteredHives = useMemo(() => {
@@ -396,6 +416,10 @@ export default function Hives() {
       queenYear: createForm.queenYear ? Number(createForm.queenYear) : undefined,
       status: 'active',
     };
+
+    if (canManageMembers && createForm.members.length > 0) {
+      payload.members = createForm.members;
+    }
 
     if (!payload.label) {
       toast({
@@ -502,6 +526,17 @@ export default function Hives() {
                     max={2100}
                   />
                 </div>
+                {canManageMembers ? (
+                  <div className="space-y-2">
+                    <Label>Priskirti vartotojus</Label>
+                    <UserMultiSelect
+                      options={memberOptions}
+                      value={createForm.members}
+                      onChange={(members) => setCreateForm((prev) => ({ ...prev, members }))}
+                      placeholder="Pasirinkite komandos narius (nebūtina)"
+                    />
+                  </div>
+                ) : null}
                 <DialogFooter>
                   <Button variant="outline" type="button" onClick={() => setIsCreateDialogOpen(false)}>
                     Atšaukti

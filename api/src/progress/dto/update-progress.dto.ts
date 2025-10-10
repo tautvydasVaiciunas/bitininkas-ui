@@ -1,12 +1,6 @@
 import { IsOptional, IsString } from 'class-validator';
 
-export class CompleteStepDto {
-  @IsString()
-  assignmentId: string;
-
-  @IsString()
-  taskStepId: string;
-
+export class UpdateProgressDto {
   @IsOptional()
   @IsString()
   notes?: string;

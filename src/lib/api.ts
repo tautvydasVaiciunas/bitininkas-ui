@@ -169,16 +169,24 @@ export interface AssignmentDetails {
 export interface AdminUserResponse {
   id: string;
   email: string;
-  name: string;
+  name?: string | null;
   role: UserRole;
   createdAt: string;
   updatedAt?: string;
 }
 
-export interface UpdateUserPayload {
+export interface CreateUserPayload {
   name?: string;
+  email: string;
+  password: string;
+  role?: UserRole;
+}
+
+export interface UpdateUserPayload {
+  name?: string | null;
   email?: string;
   role?: UserRole;
+  password?: string;
 }
 
 export interface LoginPayload {
@@ -513,6 +521,8 @@ export const api = {
   },
   users: {
     list: () => get<AdminUserResponse[]>('/users'),
+    get: (id: string) => get<AdminUserResponse>(`/users/${id}`),
+    create: (payload: CreateUserPayload) => post<AdminUserResponse>('/users', { json: payload }),
     update: (id: string, payload: UpdateUserPayload) =>
       patch<AdminUserResponse>(`/users/${id}`, { json: payload }),
     remove: (id: string) => del<void>(`/users/${id}`),

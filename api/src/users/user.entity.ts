@@ -75,6 +75,9 @@ export class User {
   @OneToMany(() => GroupMember, (membership) => membership.user)
   groupMemberships: GroupMember[];
 
-  @OneToMany(() => PasswordResetToken, (token) => token.user)
+  @OneToMany(() => PasswordResetToken, (token) => token.user, {
+    cascade: true,
+    eager: false,
+  })
   passwordResetTokens: PasswordResetToken[];
 }

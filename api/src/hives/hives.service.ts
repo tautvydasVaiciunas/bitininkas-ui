@@ -58,7 +58,10 @@ export class HivesService {
     if (role === UserRole.USER) {
       throw new ForbiddenException('Requires manager or admin role');
     }
-    const ownerUserId = dto.ownerUserId && role !== UserRole.USER ? dto.ownerUserId : userId;
+    const ownerUserId =
+      role === UserRole.ADMIN || role === UserRole.MANAGER
+        ? dto.ownerUserId ?? userId
+        : userId;
     const members = await this.loadMembers(dto.members);
 
     const hive = this.hiveRepository.create({

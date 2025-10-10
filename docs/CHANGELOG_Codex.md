@@ -7,3 +7,6 @@
 
 ## Password reset token integration
 - Password reset token fully wired (entities/modules/ormdatasource/migrations/seed). Clean Docker bring-up confirmed.
+
+## Docker build hardening
+- Docker image now builds from the API folder with multi-stage steps, ignores host node_modules, and relies on the official lru-cache package to avoid COPY conflicts during compose builds.

@@ -27,23 +27,23 @@ export class User {
   @PrimaryGeneratedColumn('uuid')
   id: string;
 
-  @Column({ unique: true })
-  email: string;
+  @Column({ type: 'varchar', length: 255, unique: true })
+  email!: string;
 
-  @Column({ name: 'password_hash' })
-  passwordHash: string;
+  @Column({ name: 'password_hash', type: 'varchar', length: 255 })
+  passwordHash!: string;
 
   @Column({ type: 'enum', enum: UserRole, default: UserRole.USER })
   role: UserRole;
 
-  @Column({ type: 'varchar', length: 255, nullable: true, default: null })
-  name?: string | null;
+  @Column({ type: 'varchar', length: 150, nullable: true, default: null })
+  name!: string | null;
 
   @Column({ type: 'varchar', length: 50, nullable: true, default: null })
-  phone?: string | null;
+  phone!: string | null;
 
   @Column({ type: 'varchar', length: 255, nullable: true, default: null })
-  address?: string | null;
+  address!: string | null;
 
   @CreateDateColumn({ name: 'created_at' })
   createdAt: Date;

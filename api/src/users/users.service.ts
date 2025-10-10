@@ -17,6 +17,11 @@ export class UsersService {
     private readonly activityLog: ActivityLogService,
   ) {}
 
+  private normalizeNullableString(value?: string | null) {
+    const trimmed = value?.trim();
+    return trimmed && trimmed.length > 0 ? trimmed : null;
+  }
+
   async create(createUserDto: CreateUserDto) {
     const email = createUserDto.email.trim().toLowerCase();
 
@@ -31,10 +36,12 @@ export class UsersService {
 
     const passwordHash = await bcrypt.hash(createUserDto.password, 10);
     const user = this.usersRepository.create({
-      ...createUserDto,
       email,
       passwordHash,
       role: createUserDto.role || UserRole.USER,
+      name: this.normalizeNullableString(createUserDto.name),
+      phone: this.normalizeNullableString(createUserDto.phone),
+      address: this.normalizeNullableString(createUserDto.address),
     });
 
     const saved = await this.usersRepository.save(user);
@@ -101,9 +108,17 @@ export class UsersService {
       user.passwordHash = await bcrypt.hash(updateUserDto.password, 10);
     }
 
-    if (updateUserDto.name !== undefined) user.name = updateUserDto.name;
-    if (updateUserDto.phone !== undefined) user.phone = updateUserDto.phone;
-    if (updateUserDto.address !== undefined) user.address = updateUserDto.address;
+    if (updateUserDto.name !== undefined) {
+      user.name = this.normalizeNullableString(updateUserDto.name);
+    }
+
+    if (updateUserDto.phone !== undefined) {
+      user.phone = this.normalizeNullableString(updateUserDto.phone);
+    }
+
+    if (updateUserDto.address !== undefined) {
+      user.address = this.normalizeNullableString(updateUserDto.address);
+    }
 
     const saved = await this.usersRepository.save(user);
     await this.activityLog.log('user_updated', saved.id, 'user', saved.id);
@@ -144,18 +159,15 @@ export class UsersService {
     }
 
     if (updates.name !== undefined) {
-      const name = updates.name?.trim();
-      user.name = name && name.length > 0 ? name : null;
+      user.name = this.normalizeNullableString(updates.name);
     }
 
     if (updates.phone !== undefined) {
-      const phone = updates.phone?.trim();
-      user.phone = phone && phone.length > 0 ? phone : null;
+      user.phone = this.normalizeNullableString(updates.phone);
     }
 
     if (updates.address !== undefined) {
-      const address = updates.address?.trim();
-      user.address = address && address.length > 0 ? address : null;
+      user.address = this.normalizeNullableString(updates.address);
     }
 
     const saved = await this.usersRepository.save(user);

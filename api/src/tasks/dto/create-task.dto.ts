@@ -6,6 +6,7 @@ import {
   IsOptional,
   IsString,
   Max,
+  MaxLength,
   Min,
   ValidateNested,
 } from 'class-validator';
@@ -14,14 +15,17 @@ import { CreateTaskStepInputDto } from './create-task-step.dto';
 
 export class CreateTaskDto {
   @IsString()
+  @MaxLength(255)
   title: string;
 
   @IsOptional()
   @IsString()
+  @MaxLength(255)
   description?: string;
 
   @IsOptional()
   @IsString()
+  @MaxLength(100)
   category?: string;
 
   @IsOptional()

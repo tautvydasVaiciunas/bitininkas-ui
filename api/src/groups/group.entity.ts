@@ -13,10 +13,10 @@ export class Group {
   @PrimaryGeneratedColumn('uuid')
   id: string;
 
-  @Column({ type: 'varchar', length: 120 })
-  name: string;
+  @Column({ type: 'varchar', length: 150 })
+  name!: string;
 
-  @Column({ type: 'text', nullable: true, default: null })
+  @Column({ type: 'varchar', length: 255, nullable: true, default: null })
   description!: string | null;
 
   @CreateDateColumn({ name: 'created_at' })

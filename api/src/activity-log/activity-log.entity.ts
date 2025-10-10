@@ -1,1 +1,35 @@
-import {  Column,  CreateDateColumn,  Entity,  JoinColumn,  ManyToOne,  PrimaryGeneratedColumn,} from 'typeorm';import { User } from '../users/user.entity';@Entity({ name: 'activity_logs' })export class ActivityLog {  @PrimaryGeneratedColumn('uuid')  id: string;  @ManyToOne(() => User, (user) => user.activities, { nullable: true })  @JoinColumn({ name: 'user_id' })  user?: User;  @Column({ name: 'user_id', type: 'uuid', nullable: true })  userId?: string;  @Column({ type: 'text' })  action: string;  @Column({ type: 'text', nullable: true })  entity?: string;  @Column({ name: 'entity_id', type: 'uuid', nullable: true })  entityId?: string;  @CreateDateColumn({ name: 'created_at' })  createdAt: Date;}
+import {
+  Column,
+  CreateDateColumn,
+  Entity,
+  JoinColumn,
+  ManyToOne,
+  PrimaryGeneratedColumn,
+} from 'typeorm';
+
+import { User } from '../users/user.entity';
+
+@Entity({ name: 'activity_logs' })
+export class ActivityLog {
+  @PrimaryGeneratedColumn('uuid')
+  id!: string;
+
+  @ManyToOne(() => User, (user) => user.activities, { nullable: true })
+  @JoinColumn({ name: 'user_id' })
+  user!: User | null;
+
+  @Column({ name: 'user_id', type: 'uuid', nullable: true, default: null })
+  userId!: string | null;
+
+  @Column({ type: 'text' })
+  action!: string;
+
+  @Column({ type: 'text', nullable: true, default: null })
+  entity!: string | null;
+
+  @Column({ name: 'entity_id', type: 'uuid', nullable: true, default: null })
+  entityId!: string | null;
+
+  @CreateDateColumn({ name: 'created_at' })
+  createdAt!: Date;
+}

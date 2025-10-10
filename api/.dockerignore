@@ -1,0 +1,11 @@
+# General ignores
+**/node_modules
+**/.turbo
+**/dist
+**/.next
+**/.cache
+.git
+.gitignore
+.DS_Store
+npm-debug.log
+yarn-error.log

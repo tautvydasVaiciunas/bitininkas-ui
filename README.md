@@ -25,6 +25,8 @@ This repository hosts both the Vite UI and the **Busmedaus API** (NestJS + TypeO
    - `manager@example.com`
    - `jonas@example.com`
 
+> **Note:** Protected routes (dashboard, hives, tasks, notifications, and admin screens) keep their URL after a browser refresh. The auth guard waits for the session bootstrap to finish before deciding whether to redirect, so pressing `F5` on `/hives` or `/admin/users` no longer bounces you back to the home page.
+
 ### Flow B – Optional Full Docker Compose
 The provided `docker-compose.yml` defines `db` and `api`. If you add a front-end service (for example a Node image that runs `npm run dev` or serves the built `dist` folder), configure its `VITE_API_BASE_URL` to `http://api:3000`, mount the project sources, and expose port 5173. Until that container exists, rely on Flow A for the UI while Compose handles the backend.
 
@@ -86,6 +88,17 @@ npm run dev
 ```
 
 Before starting the UI, ensure the API is reachable and `VITE_API_BASE_URL` is configured. For production builds run `npm run build` followed by your preferred static hosting solution or `npm run preview` for local verification.
+
+## Updated API Endpoints
+
+| Method & Path | Purpose |
+| ------------- | ------- |
+| `POST /hives` | Accepts optional `ownerUserId` and `members[]` when creating new hives so ownership and collaborators persist. |
+| `PATCH /hives/:id` | Updates hive label, location, queen year, and assigned members from the edit screen. |
+| `POST /tasks` | Creates tasks together with ordered step definitions supplied from the UI dialog. |
+| `POST /progress/step-complete` | Marks a step as finished and stores any note entered at completion time. |
+| `PATCH /progress/:id` | Debounced updates for per-step notes while running a task. |
+| `DELETE /progress/:id` | Supports the “uncomplete” action by removing step progress without reloading the page. |
 
 ## Additional Documentation
 

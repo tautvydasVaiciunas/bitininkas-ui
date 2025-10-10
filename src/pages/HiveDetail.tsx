@@ -1,13 +1,15 @@
-import { useMemo } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import { useParams, Link } from 'react-router-dom';
-import { useQuery } from '@tanstack/react-query';
+import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { MainLayout } from '@/components/Layout/MainLayout';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
+import { Input } from '@/components/ui/input';
+import { Label } from '@/components/ui/label';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Progress } from '@/components/ui/progress';
-import api from '@/lib/api';
+import api, { HttpError, type AdminUserResponse } from '@/lib/api';
 import {
   mapAssignmentDetailsFromApi,
   mapAssignmentFromApi,
@@ -17,12 +19,19 @@ import {
   type AssignmentStatus,
   type Hive,
   type Task,
+  type UpdateHivePayload,
 } from '@/lib/types';
 import { resolveAssignmentUiStatus } from '@/lib/assignmentStatus';
-import { MapPin, Calendar, Edit, Archive, Box, ChevronRight } from 'lucide-react';
+import { MapPin, Calendar, Edit, Archive, Box, ChevronRight, Loader2 } from 'lucide-react';
+import { useAuth } from '@/contexts/AuthContext';
+import { useToast } from '@/components/ui/use-toast';
+import { UserMultiSelect, type MultiSelectOption } from '@/components/UserMultiSelect';
 
 export default function HiveDetail() {
   const { id } = useParams();
+  const { user } = useAuth();
+  const { toast } = useToast();
+  const queryClient = useQueryClient();
 
   const { data, isLoading, isError } = useQuery<{
     hive: Hive;
@@ -75,11 +84,123 @@ export default function HiveDetail() {
 
   const hive = data?.hive;
 
+  const [activeTab, setActiveTab] = useState<'tasks' | 'history' | 'settings'>('tasks');
+  const [editForm, setEditForm] = useState({
+    label: '',
+    location: '',
+    queenYear: '',
+    members: [] as string[],
+  });
+
+  const canManageMembers = user?.role === 'admin' || user?.role === 'manager';
+
+  const { data: users = [] } = useQuery<AdminUserResponse[]>({
+    queryKey: ['users', 'all'],
+    queryFn: () => api.users.list(),
+    enabled: canManageMembers,
+  });
+
+  const memberOptions: MultiSelectOption[] = useMemo(() => {
+    if (!users.length) return [];
+    return users.map((item) => ({
+      value: item.id,
+      label: item.name || item.email,
+      description: item.name ? item.email : undefined,
+    }));
+  }, [users]);
+
+  useEffect(() => {
+    if (!hive) return;
+    setEditForm({
+      label: hive.label,
+      location: hive.location ?? '',
+      queenYear: hive.queenYear ? String(hive.queenYear) : '',
+      members: hive.members.map((member) => member.id),
+    });
+  }, [hive]);
+
+  const resetEditForm = () => {
+    if (!hive) return;
+    setEditForm({
+      label: hive.label,
+      location: hive.location ?? '',
+      queenYear: hive.queenYear ? String(hive.queenYear) : '',
+      members: hive.members.map((member) => member.id),
+    });
+  };
+
   const assignments = useMemo(() => data?.assignments ?? [], [data]);
 
   const formatDate = (dateStr: string) => {
     const date = new Date(dateStr);
     return date.toLocaleDateString('lt-LT', { year: 'numeric', month: 'long', day: 'numeric' });
+  };
+
+  const friendlyId = hive ? `HIVE-${hive.id.slice(0, 8).toUpperCase()}` : '';
+
+  const updateHiveMutation = useMutation<Hive, HttpError | Error, UpdateHivePayload>({
+    mutationFn: async (payload) => {
+      if (!hive?.id) {
+        throw new Error('Hive not loaded');
+      }
+      return api.hives.update(hive.id, payload).then(mapHiveFromApi);
+    },
+    onSuccess: (updatedHive) => {
+      queryClient.setQueryData<
+        { hive: Hive; assignments: { assignment: Assignment; task: Task | null; completion: number }[] } | undefined
+      >(['hive', id], (old) => {
+        if (!old) return old;
+        return { ...old, hive: updatedHive };
+      });
+      queryClient.invalidateQueries({ queryKey: ['hives'] });
+      toast({
+        title: 'Avilio informacija atnaujinta',
+        description: 'Pakeitimai sėkmingai išsaugoti.',
+      });
+    },
+    onError: (error) => {
+      const description = error instanceof HttpError ? error.message : error instanceof Error ? error.message : undefined;
+      toast({
+        title: 'Nepavyko atnaujinti avilio',
+        description,
+        variant: 'destructive',
+      });
+    },
+  });
+
+  const handleEditSubmit = (event: React.FormEvent<HTMLFormElement>) => {
+    event.preventDefault();
+    if (!hive || updateHiveMutation.isPending) return;
+
+    const payload: UpdateHivePayload = {
+      label: editForm.label.trim(),
+      location: editForm.location.trim() || undefined,
+      queenYear: editForm.queenYear ? Number(editForm.queenYear) : undefined,
+    };
+
+    if (!payload.label) {
+      toast({
+        title: 'Trūksta pavadinimo',
+        description: 'Įveskite avilio pavadinimą prieš išsaugant.',
+        variant: 'destructive',
+      });
+      return;
+    }
+
+    if (payload.queenYear && Number.isNaN(payload.queenYear)) {
+      toast({
+        title: 'Neteisingi karalienės metai',
+        description: 'Prašome įvesti teisingą metų skaičių.',
+        variant: 'destructive',
+      });
+      return;
+    }
+
+    if (canManageMembers) {
+      payload.members = editForm.members;
+    }
+
+    updateHiveMutation.mutate(payload);
   };
 
   const getStatusBadge = (status: AssignmentStatus, dueDate: string) => {
@@ -139,6 +260,9 @@ export default function HiveDetail() {
                     : 'Archyvuota'}
               </Badge>
             </div>
+            {friendlyId ? (
+              <p className="text-sm font-mono text-muted-foreground">{friendlyId}</p>
+            ) : null}
             <div className="flex items-center gap-4 text-muted-foreground">
               {hive.location && (
                 <div className="flex items-center gap-1">
@@ -154,7 +278,7 @@ export default function HiveDetail() {
           </div>
 
           <div className="flex gap-2">
-            <Button variant="outline">
+            <Button variant="outline" onClick={() => setActiveTab('settings')}>
               <Edit className="mr-2 w-4 h-4" />
               Redaguoti
             </Button>
@@ -172,6 +296,10 @@ export default function HiveDetail() {
           </CardHeader>
           <CardContent>
             <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+              <div>
+                <p className="text-sm text-muted-foreground mb-1">Identifikatorius</p>
+                <p className="font-medium font-mono">{friendlyId || '—'}</p>
+              </div>
               <div>
                 <p className="text-sm text-muted-foreground mb-1">Pavadinimas</p>
                 <p className="font-medium">{hive.label}</p>
@@ -198,12 +326,26 @@ export default function HiveDetail() {
                       : 'Archyvuota'}
                 </p>
               </div>
+              <div className="md:col-span-3">
+                <p className="text-sm text-muted-foreground mb-1">Priskirti vartotojai</p>
+                {hive.members.length > 0 ? (
+                  <div className="flex flex-wrap gap-2">
+                    {hive.members.map((member) => (
+                      <Badge key={member.id} variant="secondary">
+                        {member.name || member.email}
+                      </Badge>
+                    ))}
+                  </div>
+                ) : (
+                  <p className="text-sm text-muted-foreground">Nėra priskirtų vartotojų</p>
+                )}
+              </div>
             </div>
           </CardContent>
         </Card>
 
         {/* Tabs */}
-        <Tabs defaultValue="tasks" className="space-y-6">
+        <Tabs value={activeTab} onValueChange={(value) => setActiveTab(value as typeof activeTab)} className="space-y-6">
           <TabsList>
             <TabsTrigger value="tasks">Užduotys</TabsTrigger>
             <TabsTrigger value="history">Istorija</TabsTrigger>
@@ -275,12 +417,74 @@ export default function HiveDetail() {
           <TabsContent value="settings">
             <Card className="shadow-custom">
               <CardHeader>
-                <CardTitle>Nustatymai</CardTitle>
+                <CardTitle>Avilio nustatymai</CardTitle>
               </CardHeader>
               <CardContent>
-                <div className="text-center py-8 text-muted-foreground">
-                  Avilio redagavimo forma bus čia
-                </div>
+                <form onSubmit={handleEditSubmit} className="space-y-6">
+                  <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
+                    <div className="space-y-2">
+                      <Label htmlFor="edit-hive-label">Pavadinimas</Label>
+                      <Input
+                        id="edit-hive-label"
+                        value={editForm.label}
+                        onChange={(event) => setEditForm((prev) => ({ ...prev, label: event.target.value }))}
+                        required
+                      />
+                    </div>
+                    <div className="space-y-2">
+                      <Label htmlFor="edit-hive-location">Lokacija</Label>
+                      <Input
+                        id="edit-hive-location"
+                        value={editForm.location}
+                        onChange={(event) => setEditForm((prev) => ({ ...prev, location: event.target.value }))}
+                        placeholder="Pvz., Vilnius, Žvėrynas"
+                      />
+                    </div>
+                    <div className="space-y-2">
+                      <Label htmlFor="edit-hive-queen-year">Karalienės metai</Label>
+                      <Input
+                        id="edit-hive-queen-year"
+                        type="number"
+                        value={editForm.queenYear}
+                        onChange={(event) => setEditForm((prev) => ({ ...prev, queenYear: event.target.value }))}
+                        placeholder="Pvz., 2023"
+                        min={1900}
+                        max={2100}
+                      />
+                    </div>
+                    {canManageMembers ? (
+                      <div className="space-y-2 md:col-span-2">
+                        <Label>Priskirti vartotojus</Label>
+                        <UserMultiSelect
+                          options={memberOptions}
+                          value={editForm.members}
+                          onChange={(members) => setEditForm((prev) => ({ ...prev, members }))}
+                          placeholder="Pasirinkite komandos narius"
+                        />
+                      </div>
+                    ) : null}
+                  </div>
+                  <div className="flex flex-col gap-3 sm:flex-row sm:justify-end">
+                    <Button
+                      type="button"
+                      variant="outline"
+                      onClick={resetEditForm}
+                      disabled={updateHiveMutation.isPending}
+                    >
+                      Atkurti reikšmes
+                    </Button>
+                    <Button type="submit" disabled={updateHiveMutation.isPending}>
+                      {updateHiveMutation.isPending ? (
+                        <>
+                          <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                          Išsaugoma...
+                        </>
+                      ) : (
+                        'Išsaugoti'
+                      )}
+                    </Button>
+                  </div>
+                </form>
               </CardContent>
             </Card>
           </TabsContent>

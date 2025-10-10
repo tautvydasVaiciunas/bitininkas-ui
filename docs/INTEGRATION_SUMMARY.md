@@ -29,7 +29,8 @@
 
 ## Credential Storage & Session Lifecycle
 - Access and refresh tokens are stored in `localStorage` under `bitininkas_access_token` and `bitininkas_refresh_token`, while the normalized user profile lives under `bitininkas_user`. [`src/lib/api.ts`](../src/lib/api.ts) exposes `setToken`, `clearCredentials`, and `persistUser` helpers used by [`AuthContext`](../src/contexts/AuthContext.tsx) to sync storage.
-- On browser reload, `AuthContext` rehydrates tokens from storage, calls `api.auth.me()` to fetch the profile, and purges storage if the request fails (forcing a logout).
+- On browser reload, `AuthContext` now enters a `bootstrapping` phase: it restores cached credentials, invokes `api.auth.me()` to confirm the session, and only then lets auth guards decide whether to render protected layouts or redirect. During this boot sequence [`MainLayout`](../src/components/Layout/MainLayout.tsx) shows a loading screen instead of redirecting, which keeps `/hives`, `/tasks`, `/notifications`, and `/admin/*` stable after `F5` refreshes.
+- If the profile fetch fails, storage is cleared and users are redirected to `/auth/login` after the bootstrap finishes.
 
 ## 401 Handling & Token Refresh
 1. Every request automatically appends the `Authorization: Bearer <accessToken>` header when available.
@@ -40,9 +41,9 @@
 The UI routes/components call the following API endpoints (all defined in [`src/lib/api.ts`](../src/lib/api.ts)):
 - **Authentication**: `POST /auth/login`, `POST /auth/register`, `POST /auth/refresh`, `GET /auth/me`, `POST /auth/request-reset`.
 - **Dashboard Overview**: `GET /hives`, `GET /assignments`, `GET /assignments/:id/details`, `GET /tasks`.
-- **Hive Details**: `GET /hives/:id`, `GET /hives/:id/summary`, `GET /assignments?hiveId=:id`, `POST /assignments`, `PATCH /assignments/:id`.
+- **Hives**: `GET /hives/:id`, `GET /hives/:id/summary`, `POST /hives` (accepts optional `ownerUserId` plus `members[]` assignments), `PATCH /hives/:id` (update label, location, queen year, and membership), `GET /assignments?hiveId=:id`, `POST /assignments`, `PATCH /assignments/:id`.
 - **Task Library**: `GET /tasks`, `GET /tasks/:id`, `GET /tasks/:id/steps`, `POST /tasks`, `PATCH /tasks/:id`, `POST /tasks/:id/steps`, `PATCH /tasks/:id/steps/:stepId`, `POST /tasks/:id/steps/reorder`, `DELETE /tasks/:taskId/steps/:stepId`.
-- **Assignments & Progress**: `POST /assignments`, `PATCH /assignments/:id`, `GET /assignments/:id/details`, `POST /progress/step-complete`, `GET /assignments/:id/progress/list`, `GET /assignments/:id/progress`, `DELETE /progress/:id`.
+- **Assignments & Progress**: `POST /assignments`, `PATCH /assignments/:id`, `GET /assignments/:id/details`, `POST /progress/step-complete`, `PATCH /progress/:id`, `GET /assignments/:id/progress/list`, `GET /assignments/:id/progress`, `DELETE /progress/:id`.
 - **Notifications**: `GET /notifications`, `PATCH /notifications/:id/read`.
 - **Admin Users**: `GET /users`, `PATCH /users/:id`, `DELETE /users/:id`.
 
@@ -50,6 +51,10 @@ The UI routes/components call the following API endpoints (all defined in [`src/
 Running `npm run seed` (locally) or `docker compose up` (inside the container) inserts:
 - Accounts: `admin@example.com` (role `admin`), `manager@example.com` (role `manager`), and `jonas@example.com` (role `user`), all with password `password`.
 - Sample hives (“Hive Alpha”, “Hive Beta”), tasks with steps, assignments linked to those hives/tasks, notifications, and progress entries. See [`api/src/seeds/seed.ts`](../api/src/seeds/seed.ts) for full data.
+
+## Domain Behavior Notes
+- **Hive membership**: The create/edit Hive forms now surface a multi-select for assigning members. Requests send `ownerUserId` (optional) and `members: string[]` to the backend so hive ownership and collaborators persist across reloads.
+- **Task runs**: Completing a step continues to POST via `/progress/step-complete`, while per-step note edits debounce a `PATCH /progress/:id` update. Users can revert a finished step with the new “uncomplete” action, which deletes the progress record and re-opens the step without page refreshes.
 
 ## Startup Paths
 ### Flow A – Docker (DB + API) & Local Vite Dev Server

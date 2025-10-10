@@ -10,3 +10,9 @@
 
 ## Docker build hardening
 - Docker image now builds from the API folder with multi-stage steps, ignores host node_modules, and relies on the official lru-cache package to avoid COPY conflicts during compose builds.
+
+## Docker build determinism and compose boot flow
+- Ensured `api/package-lock.json` remains committed and included in Docker builds for deterministic `npm ci` installs.
+- Updated the API Dockerfile to copy manifests explicitly, preventing silent lockfile omissions and keeping runtime dependencies production-only.
+- Verified `.dockerignore` rules retain lockfiles while excluding build artifacts and `node_modules`.
+- Documented the compose boot sequence (migrations → seed → Nest API) that runs via the API service command.

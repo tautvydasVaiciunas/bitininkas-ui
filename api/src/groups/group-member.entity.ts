@@ -38,8 +38,14 @@ export class GroupMember {
   @Column({ name: 'user_id' })
   userId: string;
 
-  @Column({ name: 'member_role', nullable: true })
-  role?: string;
+  @Column({
+    name: 'member_role',
+    type: 'varchar',
+    length: 50,
+    nullable: true,
+    default: null,
+  })
+  role!: string | null;
 
   @CreateDateColumn({ name: 'created_at' })
   createdAt: Date;

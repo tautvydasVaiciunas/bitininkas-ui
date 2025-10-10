@@ -8,7 +8,7 @@ import { Hive } from '../hives/hive.entity';
 import { Task } from '../tasks/task.entity';
 import { UserRole } from '../users/user.entity';
 
-interface AssignmentReportRow {
+export interface AssignmentReportRow {
   userId: string;
   userName: string;
   assignmentId: string | null;

@@ -70,7 +70,7 @@ export class GroupsService {
 
     const group = this.groupsRepository.create({
       name,
-      description: dto.description?.trim() || null,
+      description: dto.description?.trim() || undefined,
     });
 
     return this.groupsRepository.save(group);
@@ -140,7 +140,7 @@ export class GroupsService {
     const member = this.membersRepository.create({
       groupId,
       userId: dto.userId,
-      role: dto.role?.trim() || null,
+      role: dto.role?.trim() || undefined,
     });
 
     const saved = await this.membersRepository.save(member);

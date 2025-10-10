@@ -36,14 +36,14 @@ export class User {
   @Column({ type: 'enum', enum: UserRole, default: UserRole.USER })
   role: UserRole;
 
-  @Column({ nullable: true })
-  name?: string;
+  @Column({ type: 'varchar', length: 255, nullable: true, default: null })
+  name?: string | null;
 
-  @Column({ nullable: true })
-  phone?: string;
+  @Column({ type: 'varchar', length: 50, nullable: true, default: null })
+  phone?: string | null;
 
-  @Column({ nullable: true })
-  address?: string;
+  @Column({ type: 'varchar', length: 255, nullable: true, default: null })
+  address?: string | null;
 
   @CreateDateColumn({ name: 'created_at' })
   createdAt: Date;

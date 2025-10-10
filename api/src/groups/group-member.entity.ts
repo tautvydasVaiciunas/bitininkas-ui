@@ -38,7 +38,7 @@ export class GroupMember {
   @Column({ name: 'user_id' })
   userId: string;
 
-  @Column({
+    @Column({
     name: 'member_role',
     type: 'varchar',
     length: 50,

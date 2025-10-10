@@ -46,6 +46,9 @@
     "rxjs": "^7.8.1",
     "typeorm": "^0.3.20"
   },
+  "overrides": {
+    "lru-cache": "file:vendor/lru-cache"
+  },
   "devDependencies": {
     "@nestjs/cli": "^10.3.2",
     "@nestjs/schematics": "^10.0.0",

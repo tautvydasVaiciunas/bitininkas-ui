@@ -29,7 +29,8 @@
 
 ## Credential Storage & Session Lifecycle
 - Access and refresh tokens are stored in `localStorage` under `bitininkas_access_token` and `bitininkas_refresh_token`, while the normalized user profile lives under `bitininkas_user`. [`src/lib/api.ts`](../src/lib/api.ts) exposes `setToken`, `clearCredentials`, and `persistUser` helpers used by [`AuthContext`](../src/contexts/AuthContext.tsx) to sync storage.
-- On browser reload, `AuthContext` rehydrates tokens from storage, calls `api.auth.me()` to fetch the profile, and purges storage if the request fails (forcing a logout).
+- On browser reload, `AuthContext` now enters a `bootstrapping` phase: it restores cached credentials, invokes `api.auth.me()` to confirm the session, and only then lets auth guards decide whether to render protected layouts or redirect. During this boot sequence [`MainLayout`](../src/components/Layout/MainLayout.tsx) shows a loading screen instead of redirecting, which keeps `/hives`, `/tasks`, `/notifications`, and `/admin/*` stable after `F5` refreshes.
+- If the profile fetch fails, storage is cleared and users are redirected to `/auth/login` after the bootstrap finishes.
 
 ## 401 Handling & Token Refresh
 1. Every request automatically appends the `Authorization: Bearer <accessToken>` header when available.

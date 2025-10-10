@@ -25,6 +25,8 @@ This repository hosts both the Vite UI and the **Busmedaus API** (NestJS + TypeO
    - `manager@example.com`
    - `jonas@example.com`
 
+> **Note:** Protected routes (dashboard, hives, tasks, notifications, and admin screens) keep their URL after a browser refresh. The auth guard waits for the session bootstrap to finish before deciding whether to redirect, so pressing `F5` on `/hives` or `/admin/users` no longer bounces you back to the home page.
+
 ### Flow B – Optional Full Docker Compose
 The provided `docker-compose.yml` defines `db` and `api`. If you add a front-end service (for example a Node image that runs `npm run dev` or serves the built `dist` folder), configure its `VITE_API_BASE_URL` to `http://api:3000`, mount the project sources, and expose port 5173. Until that container exists, rely on Flow A for the UI while Compose handles the backend.
 

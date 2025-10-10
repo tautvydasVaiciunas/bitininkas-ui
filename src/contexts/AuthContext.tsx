@@ -12,6 +12,7 @@ export type User = AuthenticatedUser & {
 interface AuthContextType {
   user: User | null;
   isAuthenticated: boolean;
+  isBootstrapping: boolean;
   login: (email: string, password: string) => Promise<{ success: boolean; error?: string }>;
   logout: () => void;
   register: (name: string, email: string, password: string) => Promise<{ success: boolean; error?: string }>;
@@ -30,6 +31,7 @@ export const useAuth = () => {
 
 export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children }) => {
   const [user, setUser] = useState<User | null>(null);
+  const [isBootstrapping, setIsBootstrapping] = useState(true);
 
   const normalizeUser = useCallback((data: Partial<AuthenticatedUser> | Partial<User> | null | undefined): User | null => {
     if (!data || !data.id || !data.email) {
@@ -74,6 +76,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
   const logout = useCallback(() => {
     clearCredentials();
     setUser(null);
+    setIsBootstrapping(false);
   }, []);
 
   useEffect(() => {
@@ -96,26 +99,39 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     const storedRefreshToken = window.localStorage.getItem('bitininkas_refresh_token');
 
     if (!storedAccessToken) {
+      setIsBootstrapping(false);
       return;
     }
 
     setToken(storedAccessToken, storedRefreshToken);
 
+    let cancelled = false;
+
     const bootstrap = async () => {
       try {
         const profile = await api.auth.me();
         const normalizedUser = normalizeUser(mapUserFromApi(profile));
-        if (normalizedUser) {
+        if (normalizedUser && !cancelled) {
           setUser(normalizedUser);
           persistUser(normalizedUser);
         }
       } catch (error) {
-        console.error('Failed to restore session', error);
-        logout();
+        if (!cancelled) {
+          console.error('Failed to restore session', error);
+          logout();
+        }
+      } finally {
+        if (!cancelled) {
+          setIsBootstrapping(false);
+        }
       }
     };
 
     void bootstrap();
+
+    return () => {
+      cancelled = true;
+    };
   }, [normalizeUser, logout, persistUser]);
 
   const login = async (email: string, password: string): Promise<{ success: boolean; error?: string }> => {
@@ -191,7 +207,9 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
   const isAuthenticated = !!user;
 
   return (
-    <AuthContext.Provider value={{ user, isAuthenticated, login, logout, register, updateUserProfile }}>
+    <AuthContext.Provider
+      value={{ user, isAuthenticated, isBootstrapping, login, logout, register, updateUserProfile }}
+    >
       {children}
     </AuthContext.Provider>
   );

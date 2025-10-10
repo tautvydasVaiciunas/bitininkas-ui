@@ -14,6 +14,7 @@ import { Assignment } from '../assignments/assignment.entity';
 import { Notification } from '../notifications/notification.entity';
 import { ActivityLog } from '../activity-log/activity-log.entity';
 import { GroupMember } from '../groups/group-member.entity';
+import { PasswordResetToken } from '../auth/password-reset-token.entity';
 
 export enum UserRole {
   USER = 'user',
@@ -73,4 +74,7 @@ export class User {
 
   @OneToMany(() => GroupMember, (membership) => membership.user)
   groupMemberships: GroupMember[];
+
+  @OneToMany(() => PasswordResetToken, (token) => token.user)
+  passwordResetTokens: PasswordResetToken[];
 }

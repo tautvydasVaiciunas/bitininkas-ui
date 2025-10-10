@@ -529,7 +529,7 @@ export const api = {
     },
     me: () => get<AuthenticatedUser>('/auth/me'),
     requestPasswordReset: (email: string) =>
-      post<{ message: string }>('/auth/request-reset', {
+      post<{ message: string; token?: string }>('/auth/request-reset', {
         json: { email },
         skipAuth: true,
       }),

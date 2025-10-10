@@ -1,5 +1,10 @@
 # Changelog (Codex AI updates)
 
+## 2025-02-16
+- Implemented password reset tokens end-to-end: API now stores one-hour tokens, surfaces dev responses, and the Vite UI consumes the endpoint with proper error handling.
+- Normalized email handling across registration and user management to avoid duplicate entries with mixed casing.
+- Added QA test script and documentation updates covering the password reset flow and validation steps.
+
 ## 2025-02-15
 - Introduced role-aware guarding across hives and assignments so basic users only see/manage their own resources while managers retain full CRUD.
 - Added groups management (new `/groups` REST resource with membership endpoints) and surfaced the Admin → Groups UI for creating/editing teams.

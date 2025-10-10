@@ -99,7 +99,9 @@ Before starting the UI, ensure the API is reachable and `VITE_API_BASE_URL` is c
 | `POST /progress/step-complete` | Marks a step as finished and stores any note entered at completion time. |
 | `PATCH /progress/:id` | Debounced updates for per-step notes while running a task. |
 | `DELETE /progress/:id` | Supports the “uncomplete” action by removing step progress without reloading the page. |
+| `POST /auth/request-reset` | Persists a one-hour password reset token and returns it in non-production responses for easier QA. |
 
 ## Additional Documentation
 
 - [`docs/INTEGRATION_SUMMARY.md`](docs/INTEGRATION_SUMMARY.md) – Deep dive into architecture, environment variables, API endpoints, tokens, seeding, and deployment paths.
+- [`docs/QA_TEST_SCRIPT.md`](docs/QA_TEST_SCRIPT.md) – Copy/paste-able curl/PowerShell snippets for regression testing auth, hives, tasks, notifications, and reports.

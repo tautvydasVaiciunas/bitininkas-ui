@@ -17,6 +17,11 @@ export class HivesService {
     private readonly activityLog: ActivityLogService,
   ) {}
 
+  private normalizeNullableString(value?: string | null) {
+    const trimmed = value?.trim();
+    return trimmed && trimmed.length > 0 ? trimmed : null;
+  }
+
   private async loadMembers(memberIds?: string[]) {
     if (!memberIds?.length) {
       return [];
@@ -65,9 +70,9 @@ export class HivesService {
     const members = await this.loadMembers(dto.members);
 
     const hive = this.hiveRepository.create({
-      label: dto.label,
-      location: dto.location,
-      queenYear: dto.queenYear,
+      label: dto.label.trim(),
+      location: this.normalizeNullableString(dto.location),
+      queenYear: dto.queenYear ?? null,
       status: dto.status ?? HiveStatus.ACTIVE,
       ownerUserId,
       members,
@@ -114,15 +119,15 @@ export class HivesService {
     }
 
     if (dto.label !== undefined) {
-      hive.label = dto.label;
+      hive.label = dto.label.trim();
     }
 
     if (dto.location !== undefined) {
-      hive.location = dto.location;
+      hive.location = this.normalizeNullableString(dto.location);
     }
 
     if (dto.queenYear !== undefined) {
-      hive.queenYear = dto.queenYear;
+      hive.queenYear = dto.queenYear ?? null;
     }
 
     if (dto.status !== undefined) {

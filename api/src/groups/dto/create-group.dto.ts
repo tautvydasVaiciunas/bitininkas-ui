@@ -2,11 +2,11 @@ import { IsOptional, IsString, MaxLength } from 'class-validator';
 
 export class CreateGroupDto {
   @IsString()
-  @MaxLength(120)
+  @MaxLength(150)
   name: string;
 
   @IsOptional()
   @IsString()
-  @MaxLength(500)
+  @MaxLength(255)
   description?: string;
 }

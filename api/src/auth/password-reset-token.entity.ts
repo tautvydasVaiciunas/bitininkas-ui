@@ -12,27 +12,27 @@ import { User } from '../users/user.entity';
 @Entity({ name: 'password_reset_tokens' })
 export class PasswordResetToken {
   @PrimaryGeneratedColumn('uuid')
-  id: string;
+  id!: string;
 
   @ManyToOne(() => User, (user) => user.passwordResetTokens, {
     onDelete: 'CASCADE',
   })
   @JoinColumn({ name: 'user_id' })
-  user: User;
+  user!: User;
 
   @Column({ name: 'user_id', type: 'uuid' })
   @Index('IDX_password_reset_tokens_user_id')
-  userId: string;
+  userId!: string;
 
-  @Column({ unique: true })
-  token: string;
+  @Column({ type: 'varchar', length: 255, unique: true })
+  token!: string;
 
   @Column({ name: 'expires_at', type: 'timestamptz' })
-  expiresAt: Date;
+  expiresAt!: Date;
 
   @Column({ name: 'used_at', type: 'timestamptz', nullable: true })
-  usedAt?: Date | null;
+  usedAt!: Date | null;
 
   @CreateDateColumn({ name: 'created_at' })
-  createdAt: Date;
+  createdAt!: Date;
 }

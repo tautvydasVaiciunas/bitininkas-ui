@@ -24,6 +24,11 @@ export class ProgressService {
     private readonly activityLog: ActivityLogService,
   ) {}
 
+  private normalizeNullableString(value?: string | null) {
+    const trimmed = value?.trim();
+    return trimmed && trimmed.length > 0 ? trimmed : null;
+  }
+
   private async ensureAssignmentAccess(assignmentId: string, user) {
     const assignment = await this.assignmentsRepository.findOne({ where: { id: assignmentId } });
 
@@ -69,13 +74,21 @@ export class ProgressService {
     });
 
     if (existing) {
-      existing.notes = dto.notes ?? existing.notes;
-      existing.evidenceUrl = dto.evidenceUrl ?? existing.evidenceUrl;
+      if (dto.notes !== undefined) {
+        existing.notes = this.normalizeNullableString(dto.notes);
+      }
+
+      if (dto.evidenceUrl !== undefined) {
+        existing.evidenceUrl = this.normalizeNullableString(dto.evidenceUrl);
+      }
       return this.progressRepository.save(existing);
     }
 
     const progress = this.progressRepository.create({
-      ...dto,
+      assignmentId: dto.assignmentId,
+      taskStepId: dto.taskStepId,
+      notes: this.normalizeNullableString(dto.notes),
+      evidenceUrl: this.normalizeNullableString(dto.evidenceUrl),
     });
 
     const saved = await this.progressRepository.save(progress);
@@ -93,11 +106,11 @@ export class ProgressService {
     await this.ensureAssignmentAccess(progress.assignmentId, user);
 
     if (dto.notes !== undefined) {
-      progress.notes = dto.notes;
+      progress.notes = this.normalizeNullableString(dto.notes);
     }
 
     if (dto.evidenceUrl !== undefined) {
-      progress.evidenceUrl = dto.evidenceUrl;
+      progress.evidenceUrl = this.normalizeNullableString(dto.evidenceUrl);
     }
 
     return this.progressRepository.save(progress);

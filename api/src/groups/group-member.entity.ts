@@ -25,8 +25,8 @@ export class GroupMember {
   @JoinColumn({ name: 'group_id' })
   group: Group;
 
-  @Column({ name: 'group_id' })
-  groupId: string;
+  @Column({ name: 'group_id', type: 'uuid' })
+  groupId!: string;
 
   @ManyToOne(() => User, (user) => user.groupMemberships, {
     eager: false,
@@ -35,10 +35,10 @@ export class GroupMember {
   @JoinColumn({ name: 'user_id' })
   user: User;
 
-  @Column({ name: 'user_id' })
-  userId: string;
+  @Column({ name: 'user_id', type: 'uuid' })
+  userId!: string;
 
-    @Column({
+  @Column({
     name: 'member_role',
     type: 'varchar',
     length: 50,

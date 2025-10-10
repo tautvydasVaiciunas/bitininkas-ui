@@ -6,6 +6,6 @@ export class AddGroupMemberDto {
 
   @IsOptional()
   @IsString()
-  @MaxLength(120)
+  @MaxLength(50)
   role?: string;
 }

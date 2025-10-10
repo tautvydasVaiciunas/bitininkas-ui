@@ -29,8 +29,8 @@ export class Hive {
   @JoinColumn({ name: 'owner_user_id' })
   owner: User;
 
-  @Column({ name: 'owner_user_id' })
-  ownerUserId: string;
+  @Column({ name: 'owner_user_id', type: 'uuid' })
+  ownerUserId!: string;
 
   @ManyToMany(() => User, (user) => user.memberHives, { eager: false })
   @JoinTable({
@@ -40,14 +40,14 @@ export class Hive {
   })
   members: User[];
 
-  @Column()
-  label: string;
+  @Column({ type: 'varchar', length: 150 })
+  label!: string;
 
-  @Column({ nullable: true })
-  location?: string;
+  @Column({ type: 'varchar', length: 255, nullable: true, default: null })
+  location!: string | null;
 
   @Column({ name: 'queen_year', type: 'integer', nullable: true })
-  queenYear?: number;
+  queenYear!: number | null;
 
   @Column({ type: 'enum', enum: HiveStatus, default: HiveStatus.ACTIVE })
   status: HiveStatus;

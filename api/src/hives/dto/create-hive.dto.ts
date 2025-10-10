@@ -1,12 +1,21 @@
-import { IsArray, IsEnum, IsNumber, IsOptional, IsString } from 'class-validator';
+import {
+  IsArray,
+  IsEnum,
+  IsNumber,
+  IsOptional,
+  IsString,
+  MaxLength,
+} from 'class-validator';
 import { HiveStatus } from '../hive.entity';
 
 export class CreateHiveDto {
   @IsString()
+  @MaxLength(150)
   label: string;
 
   @IsOptional()
   @IsString()
+  @MaxLength(255)
   location?: string;
 
   @IsOptional()

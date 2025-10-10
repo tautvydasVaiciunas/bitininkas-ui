@@ -102,6 +102,9 @@ export class AlignColumnTypes1724000000000 implements MigrationInterface {
     );
 
     await queryRunner.query(
+      'ALTER TABLE "activity_logs" ALTER COLUMN "entity" TYPE character varying(255)',
+    );
+    await queryRunner.query(
       'ALTER TABLE "activity_logs" ALTER COLUMN "user_id" SET DEFAULT NULL',
     );
     await queryRunner.query(
@@ -126,6 +129,9 @@ export class AlignColumnTypes1724000000000 implements MigrationInterface {
     );
     await queryRunner.query(
       'ALTER TABLE "activity_logs" ALTER COLUMN "entity" DROP DEFAULT',
+    );
+    await queryRunner.query(
+      'ALTER TABLE "activity_logs" ALTER COLUMN "entity" TYPE text',
     );
     await queryRunner.query(
       'ALTER TABLE "activity_logs" ALTER COLUMN "user_id" DROP DEFAULT',

@@ -24,7 +24,7 @@ export class ActivityLog {
   @Column({ type: 'text' })
   action!: string;
 
-  @Column({ type: 'text', nullable: true, default: null })
+  @Column({ type: 'varchar', length: 255, nullable: true, default: null })
   entity!: string | null;
 
   @Column({ name: 'entity_id', type: 'uuid', nullable: true, default: null })

@@ -30,18 +30,11 @@ services:
       POSTGRES_PASSWORD: ${POSTGRES_PASSWORD}
       JWT_SECRET: ${JWT_SECRET}
       JWT_REFRESH_SECRET: ${JWT_REFRESH_SECRET}
-      # pridėk savo fronto adresą/us (Vite dažnai 5173)
       ALLOWED_ORIGINS: ${ALLOWED_ORIGINS:-http://localhost:5173,http://localhost:3001}
       PORT: 3000
       NODE_ENV: production
     ports:
       - "3000:3000"
-    command: >
-      /bin/sh -c "
-        npm run migration:run &&
-        npm run seed:prod &&
-        npm run start:prod
-      "
     restart: unless-stopped
 
 volumes:

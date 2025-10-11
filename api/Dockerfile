@@ -1,31 +1,40 @@
+# ---------- BUILD STAGE ----------
 FROM node:20-alpine AS builder
 WORKDIR /app
 
-# Copy package manifests explicitly to fail fast if lockfile is missing
+# Builder'io metu priverstinai įjungiame dev režimą, kad gautume devDependencies (Nest CLI)
+ENV NODE_ENV=development
+ENV NPM_CONFIG_PRODUCTION=false
+
+# Manifestai + locko patikra
 COPY package.json package-lock.json ./
 RUN test -s package-lock.json || (echo "ERROR: api/package-lock.json missing or empty" && exit 1)
 RUN node -v && npm -v
+
+# Įdiegiame priklausomybes su devDeps ir buildinam
 RUN npm ci --no-audit --no-fund
-
-# Copy the rest of the API source
 COPY . .
+# Aiškiai kviečiam lokalią Nest CLI
+RUN ./node_modules/.bin/nest build
 
-# Build the NestJS project
-RUN npm run build
-
-# Runtime image
+# ---------- RUNTIME STAGE ----------
 FROM node:20-alpine AS runtime
 WORKDIR /app
 ENV NODE_ENV=production
+ENV NPM_CONFIG_PRODUCTION=true
 
-# Install production dependencies only
-COPY --from=builder /app/package*.json ./
-RUN test -s package-lock.json || (echo "ERROR: api/package-lock.json missing or empty" && exit 1)
+# Į runtime nevilkime builder'io node_modules (kad būtų švarus prod install)
+COPY --from=builder /app/package.json ./package.json
+COPY --from=builder /app/package-lock.json ./package-lock.json
 RUN npm ci --omit=dev --no-audit --no-fund
 
-# Copy built assets and environment example
+# Build artefaktai
 COPY --from=builder /app/dist ./dist
 COPY --from=builder /app/.env.example ./.env.example
 
+# Entrypoint (kopijuojam, sutvarkom CRLF ir suteikiam teisę vykdyti)
+COPY entrypoint.sh ./entrypoint.sh
+RUN sed -i 's/\r$//' ./entrypoint.sh && chmod +x ./entrypoint.sh
+
 EXPOSE 3000
-CMD ["node", "dist/src/main.js"]
+CMD ["sh", "-lc", "./entrypoint.sh"]

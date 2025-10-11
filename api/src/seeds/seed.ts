@@ -24,13 +24,25 @@ async function runSeed(): Promise<void> {
     const progressRepository = dataSource.getRepository(StepProgress);
     const notificationRepository = dataSource.getRepository(Notification);
 
-    await progressRepository.delete({});
-    await assignmentRepository.delete({});
-    await stepRepository.delete({});
-    await notificationRepository.delete({});
-    await taskRepository.delete({});
-    await hiveRepository.delete({});
-    await userRepository.delete({});
+    // --- FK-safe wipe: one TRUNCATE ... CASCADE over all involved tables ---
+    const repos = [
+      progressRepository,   // step_progress
+      assignmentRepository, // assignments
+      stepRepository,       // task_steps (ar faktinis tavo pavadinimas)
+      notificationRepository,
+      taskRepository,
+      hiveRepository,
+      userRepository,
+    ];
+
+    const tableNames = repos
+      .map((r) => `"${r.metadata.tableName}"`)
+      .join(', ');
+
+    await dataSource.query(
+      `TRUNCATE TABLE ${tableNames} RESTART IDENTITY CASCADE;`
+    );
+    // --- end wipe ---
 
     const passwordHash = await bcrypt.hash('password', 10);
 
@@ -145,7 +157,7 @@ async function runSeed(): Promise<void> {
           assignmentId: assignment1.id,
           taskStepId: step.id,
           notes: 'Completed during inspection',
-        }),
+        })
       );
 
     await progressRepository.save(progressEntries);
@@ -168,8 +180,8 @@ async function runSeed(): Promise<void> {
     console.error('Seeding failed', error);
     process.exitCode = 1;
   } finally {
-    if (AppDataSource.isInitialized) {
-      await AppDataSource.destroy();
+    if (dataSource.isInitialized) {
+      await dataSource.destroy();
     }
   }
 }

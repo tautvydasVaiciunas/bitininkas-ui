@@ -43,6 +43,7 @@ export type {
   CreateGroupPayload,
   CreateTaskPayload,
   CreateTaskStepPayload,
+  TaskStepMediaType,
   AddGroupMemberPayload,
   LoginPayload,
   RegisterPayload,
@@ -101,6 +102,8 @@ export const mapTaskStepFromApi = (step: ApiTaskStepResponse): TaskStep => ({
   ...step,
   contentText: step.contentText ?? null,
   mediaUrl: step.mediaUrl ?? null,
+  mediaType: step.mediaType ?? null,
+  requireUserMedia: step.requireUserMedia ?? false,
 });
 
 export const mapTaskFromApi = (task: ApiTaskResponse): Task => ({

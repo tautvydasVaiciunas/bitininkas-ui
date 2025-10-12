@@ -18,7 +18,7 @@ import { ActivityLogService } from '../activity-log/activity-log.service';
 import { TaskStepsService } from './steps/task-steps.service';
 
 type StepInput = Partial<
-  Pick<TaskStep, 'title' | 'contentText' | 'mediaUrl' | 'orderIndex'>
+  Pick<TaskStep, 'title' | 'contentText' | 'mediaUrl' | 'mediaType' | 'requireUserMedia' | 'orderIndex'>
 >;
 
 @Injectable()
@@ -41,6 +41,14 @@ export class TasksService {
   private normalizeNullableString(value?: string | null) {
     const trimmed = value?.trim();
     return trimmed && trimmed.length > 0 ? trimmed : null;
+  }
+
+  private normalizeMediaType(value?: StepInput['mediaType']) {
+    if (!value) {
+      return null;
+    }
+
+    return value;
   }
 
   private extractColumnName(detail?: string) {
@@ -113,6 +121,8 @@ export class TasksService {
       title: step.title ? step.title.trim() : step.title,
       contentText: this.normalizeNullableString(step.contentText),
       mediaUrl: this.normalizeNullableString(step.mediaUrl),
+      mediaType: this.normalizeMediaType(step.mediaType),
+      requireUserMedia: step.requireUserMedia ?? false,
       orderIndex,
     };
   }

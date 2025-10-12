@@ -1,4 +1,5 @@
-import { IsNotEmpty, IsNumber, IsOptional, IsString, MaxLength } from 'class-validator';
+import { IsBoolean, IsIn, IsNotEmpty, IsNumber, IsOptional, IsString, MaxLength } from 'class-validator';
+import type { TaskStepMediaType } from '../steps/task-step.entity';
 
 export class CreateTaskStepInputDto {
   @IsString()
@@ -15,6 +16,14 @@ export class CreateTaskStepInputDto {
   @IsString()
   @MaxLength(500)
   mediaUrl?: string;
+
+  @IsOptional()
+  @IsIn(['image', 'video'])
+  mediaType?: TaskStepMediaType;
+
+  @IsOptional()
+  @IsBoolean()
+  requireUserMedia?: boolean;
 
   @IsOptional()
   @IsNumber()

@@ -87,6 +87,8 @@ export interface HiveSummary {
 
 export type TaskFrequency = 'once' | 'weekly' | 'monthly' | 'seasonal';
 
+export type TaskStepMediaType = 'image' | 'video';
+
 export interface TaskStepResponse {
   id: string;
   taskId: string;
@@ -94,6 +96,8 @@ export interface TaskStepResponse {
   title: string;
   contentText?: string | null;
   mediaUrl?: string | null;
+  mediaType?: TaskStepMediaType | null;
+  requireUserMedia: boolean;
   createdAt: string;
 }
 
@@ -131,6 +135,8 @@ export interface CreateTaskStepPayload {
   title: string;
   contentText?: string | null;
   mediaUrl?: string | null;
+  mediaType?: TaskStepMediaType | null;
+  requireUserMedia?: boolean;
 }
 
 export type UpdateTaskStepPayload = Partial<CreateTaskStepPayload> & {

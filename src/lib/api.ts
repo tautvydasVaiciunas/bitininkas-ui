@@ -59,6 +59,10 @@ export interface NotificationResponse {
   updatedAt: string;
 }
 
+export interface NotificationsUnreadCountResponse {
+  count: number;
+}
+
 export type HiveStatus = 'active' | 'paused' | 'archived';
 
 export interface HiveMemberResponse {
@@ -564,7 +568,8 @@ export const api = {
   },
   notifications: {
     list: () => get<NotificationResponse[]>('/notifications'),
-    markRead: (id: string) => patch<NotificationResponse>(`/notifications/${id}/read`),
+    markRead: (id: string) => patch<{ success: boolean }>(`/notifications/${id}/read`),
+    unreadCount: () => get<NotificationsUnreadCountResponse>('/notifications/unread-count'),
   },
   hives: {
     list: (params?: { status?: HiveStatus }) => get<HiveResponse[]>('/hives', { query: params }),

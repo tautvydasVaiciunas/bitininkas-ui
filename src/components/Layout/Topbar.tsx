@@ -14,25 +14,20 @@ import {
 import { Avatar, AvatarFallback } from '@/components/ui/avatar';
 import { Badge } from '@/components/ui/badge';
 import { useQuery } from '@tanstack/react-query';
-import api from '@/lib/api';
-import { mapNotificationFromApi, type Notification } from '@/lib/types';
+import api, { type NotificationsUnreadCountResponse } from '@/lib/api';
 
 export const Topbar = () => {
   const [theme, setTheme] = useState<'light' | 'dark'>('light');
   const { user, logout } = useAuth();
   const navigate = useNavigate();
 
-  const { data: notifications = [] } = useQuery<Notification[]>({
-    queryKey: ['notifications'],
-    queryFn: async () => {
-      const items = await api.notifications.list();
-      return items
-        .map(mapNotificationFromApi)
-        .filter((item) => !user || item.userId === user.id);
-    },
+  const { data: unreadCountData } = useQuery<NotificationsUnreadCountResponse>({
+    queryKey: ['notifications', 'unread-count'],
+    queryFn: () => api.notifications.unreadCount(),
+    enabled: !!user,
   });
 
-  const unreadCount = notifications.filter((notification) => !notification.readAt).length;
+  const unreadCount = unreadCountData?.count ?? 0;
 
   const toggleTheme = () => {
     const newTheme = theme === 'light' ? 'dark' : 'light';

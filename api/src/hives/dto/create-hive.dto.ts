@@ -1,6 +1,7 @@
 import {
   IsArray,
   IsEnum,
+  IsNotEmpty,
   IsNumber,
   IsOptional,
   IsString,
@@ -10,6 +11,7 @@ import { HiveStatus } from '../hive.entity';
 
 export class CreateHiveDto {
   @IsString()
+  @IsNotEmpty()
   @MaxLength(150)
   label: string;
 

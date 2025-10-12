@@ -2,6 +2,7 @@ import { Type } from 'class-transformer';
 import {
   IsArray,
   IsEnum,
+  IsNotEmpty,
   IsNumber,
   IsOptional,
   IsString,
@@ -15,6 +16,7 @@ import { CreateTaskStepInputDto } from './create-task-step.dto';
 
 export class CreateTaskDto {
   @IsString()
+  @IsNotEmpty()
   @MaxLength(255)
   title: string;
 

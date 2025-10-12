@@ -31,7 +31,7 @@ export const Sidebar = () => {
   ];
 
   const adminItems = [
-    { to: "/admin/users", label: "Vartotojai", icon: Users, show: isManager },
+    { to: "/admin/users", label: "Vartotojai", icon: Users, show: isAdmin },
     { to: "/admin/groups", label: "Grupės", icon: UsersRound, show: isManager },
     { to: "/admin/steps", label: "Žingsniai", icon: ListChecks, show: isManager },
     {

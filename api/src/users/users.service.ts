@@ -1,12 +1,17 @@
-import { ConflictException, Injectable, NotFoundException } from '@nestjs/common';
+import {
+  ConflictException,
+  Injectable,
+  NotFoundException,
+} from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
 import { Repository } from 'typeorm';
 import * as bcrypt from 'bcryptjs';
 
 import { User, UserRole } from './user.entity';
 import { CreateUserDto } from './dto/create-user.dto';
-import { UpdateUserDto } from './dto/update-user.dto';
 import { UpdateProfileDto } from './dto/update-profile.dto';
+import { UpdateUserDto } from './dto/update-user.dto';
+import { UpdateUserRoleDto } from './dto/update-user-role.dto';
 import { ActivityLogService } from '../activity-log/activity-log.service';
 
 @Injectable()
@@ -71,7 +76,11 @@ export class UsersService {
     return user;
   }
 
-  async update(id: string, updateUserDto: UpdateUserDto) {
+  async update(
+    id: string,
+    updateUserDto: UpdateUserDto,
+    actor: { id: string; role: UserRole },
+  ) {
     const user = await this.usersRepository.findOne({ where: { id }, withDeleted: true });
 
     if (!user) {
@@ -90,10 +99,6 @@ export class UsersService {
       }
 
       user.email = email;
-    }
-
-    if (updateUserDto.role) {
-      user.role = updateUserDto.role;
     }
 
     if (updateUserDto.deleted !== undefined) {
@@ -121,11 +126,29 @@ export class UsersService {
     }
 
     const saved = await this.usersRepository.save(user);
-    await this.activityLog.log('user_updated', saved.id, 'user', saved.id);
+    await this.activityLog.log('user_updated', actor.id, 'user', saved.id);
     return saved;
   }
 
-  async remove(id: string) {
+  async updateRole(
+    id: string,
+    updateUserRoleDto: UpdateUserRoleDto,
+    actor: { id: string; role: UserRole },
+  ) {
+    const user = await this.usersRepository.findOne({ where: { id }, withDeleted: true });
+
+    if (!user) {
+      throw new NotFoundException('User not found');
+    }
+
+    user.role = updateUserRoleDto.role;
+
+    const saved = await this.usersRepository.save(user);
+    await this.activityLog.log('user_role_updated', actor.id, 'user', saved.id);
+    return saved;
+  }
+
+  async remove(id: string, actor: { id: string; role: UserRole }) {
     const user = await this.usersRepository.findOne({ where: { id } });
 
     if (!user) {
@@ -133,7 +156,7 @@ export class UsersService {
     }
 
     await this.usersRepository.softDelete(id);
-    await this.activityLog.log('user_deleted', user.id, 'user', id);
+    await this.activityLog.log('user_deleted', actor.id, 'user', id);
     return { success: true };
   }
 

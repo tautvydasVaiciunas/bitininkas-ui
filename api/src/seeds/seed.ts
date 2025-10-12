@@ -5,6 +5,8 @@ import { User, UserRole } from '../users/user.entity';
 import { Hive, HiveStatus } from '../hives/hive.entity';
 import { Task, TaskFrequency } from '../tasks/task.entity';
 import { TaskStep } from '../tasks/steps/task-step.entity';
+import { Template } from '../templates/template.entity';
+import { TemplateStep } from '../templates/template-step.entity';
 import { Assignment, AssignmentStatus } from '../assignments/assignment.entity';
 import { StepProgress } from '../progress/step-progress.entity';
 import { Notification } from '../notifications/notification.entity';
@@ -23,11 +25,15 @@ async function runSeed(): Promise<void> {
     const assignmentRepository = dataSource.getRepository(Assignment);
     const progressRepository = dataSource.getRepository(StepProgress);
     const notificationRepository = dataSource.getRepository(Notification);
+    const templateRepository = dataSource.getRepository(Template);
+    const templateStepRepository = dataSource.getRepository(TemplateStep);
 
     // --- FK-safe wipe: one TRUNCATE ... CASCADE over all involved tables ---
     const repos = [
       progressRepository,   // step_progress
       assignmentRepository, // assignments
+      templateStepRepository, // template_steps
+      templateRepository,   // templates
       stepRepository,       // task_steps (ar faktinis tavo pavadinimas)
       notificationRepository,
       taskRepository,
@@ -128,6 +134,20 @@ async function runSeed(): Promise<void> {
       ...stepsTask1.map((step) => stepRepository.create(step)),
       ...stepsTask2.map((step) => stepRepository.create(step)),
     ]);
+
+    const inspectionTemplate = templateRepository.create({
+      name: 'Spring Inspection Template',
+      steps: savedSteps
+        .filter((step) => step.taskId === task1.id)
+        .map((step, index) =>
+          templateStepRepository.create({
+            taskStepId: step.id,
+            orderIndex: index + 1,
+          }),
+        ),
+    });
+
+    await templateRepository.save(inspectionTemplate);
 
     const assignment1 = assignmentRepository.create({
       hiveId: hive1.id,

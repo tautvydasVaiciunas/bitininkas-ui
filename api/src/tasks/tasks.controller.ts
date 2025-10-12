@@ -13,7 +13,6 @@ import { Roles } from '../common/decorators/roles.decorator';
 import { UserRole } from '../users/user.entity';
 import { CreateTaskDto } from './dto/create-task.dto';
 import { UpdateTaskDto } from './dto/update-task.dto';
-import { ReorderStepsDto } from './steps/dto/reorder-steps.dto';
 import { TasksService } from './tasks.service';
 
 @Controller('tasks')
@@ -50,18 +49,4 @@ export class TasksController {
     return this.tasksService.update(id, dto, req.user);
   }
 
-  @Get(':id/steps')
-  getSteps(@Param('id') id: string) {
-    return this.tasksService.getSteps(id);
-  }
-
-  @Roles(UserRole.MANAGER, UserRole.ADMIN)
-  @Post(':id/steps/reorder')
-  reorder(
-    @Param('id') id: string,
-    @Body() dto: ReorderStepsDto,
-    @Request() req,
-  ) {
-    return this.tasksService.reorderSteps(id, dto, req.user);
-  }
 }

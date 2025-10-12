@@ -12,6 +12,8 @@ import {
 import { Task } from '../task.entity';
 import { StepProgress } from '../../progress/step-progress.entity';
 
+export type TaskStepMediaType = 'image' | 'video';
+
 @Entity({ name: 'task_steps' })
 @Unique(['taskId', 'orderIndex'])
 export class TaskStep {
@@ -48,6 +50,23 @@ export class TaskStep {
     default: null,
   })
   mediaUrl!: string | null;
+
+  @Column({
+    name: 'media_type',
+    type: 'varchar',
+    length: 20,
+    nullable: true,
+    default: null,
+  })
+  mediaType!: TaskStepMediaType | null;
+
+  @Column({
+    name: 'require_user_media',
+    type: 'boolean',
+    nullable: false,
+    default: false,
+  })
+  requireUserMedia!: boolean;
 
   @CreateDateColumn({ name: 'created_at' })
   createdAt!: Date;

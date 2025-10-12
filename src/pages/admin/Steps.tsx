@@ -9,7 +9,15 @@ import { Textarea } from '@/components/ui/textarea';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Badge } from '@/components/ui/badge';
 import api from '@/lib/api';
-import { mapTaskFromApi, mapTaskStepFromApi, type Task, type TaskStep } from '@/lib/types';
+import {
+  mapTaskFromApi,
+  mapTaskStepFromApi,
+  type CreateTaskStepPayload,
+  type Task,
+  type TaskStep,
+  type TaskStepMediaType,
+} from '@/lib/types';
+import { Checkbox } from '@/components/ui/checkbox';
 import { Plus, Search, Edit, Trash2 } from 'lucide-react';
 import { toast } from 'sonner';
 
@@ -17,6 +25,8 @@ export default function AdminSteps() {
   const [searchQuery, setSearchQuery] = useState('');
   const [showForm, setShowForm] = useState(false);
   const [selectedTaskId, setSelectedTaskId] = useState<string>('');
+  const [mediaType, setMediaType] = useState<TaskStepMediaType | ''>('');
+  const [requireUserMedia, setRequireUserMedia] = useState(false);
   const queryClient = useQueryClient();
 
   const { data: tasks = [] } = useQuery<Task[]>({
@@ -40,11 +50,12 @@ export default function AdminSteps() {
   });
 
   const createMutation = useMutation({
-    mutationFn: (payload: { title: string; contentText?: string; mediaUrl?: string }) =>
-      api.tasks.createStep(selectedTaskId!, payload),
+    mutationFn: (payload: CreateTaskStepPayload) => api.tasks.createStep(selectedTaskId!, payload),
     onSuccess: () => {
       toast.success('Žingsnis sukurtas');
       setShowForm(false);
+      setMediaType('');
+      setRequireUserMedia(false);
       void queryClient.invalidateQueries({ queryKey: ['tasks', selectedTaskId, 'steps'] });
     },
     onError: () => {
@@ -78,6 +89,7 @@ export default function AdminSteps() {
     const title = String(formData.get('title') ?? '').trim();
     const description = String(formData.get('description') ?? '').trim();
     const content = String(formData.get('content') ?? '').trim();
+    const mediaUrl = String(formData.get('mediaUrl') ?? '').trim();
 
     if (!title || !selectedTaskId) {
       toast.error('Pasirinkite užduotį ir nurodykite pavadinimą');
@@ -85,10 +97,24 @@ export default function AdminSteps() {
     }
 
     event.currentTarget.reset();
-    createMutation.mutate({
+    setMediaType('');
+    setRequireUserMedia(false);
+    const payload: CreateTaskStepPayload = {
       title,
       contentText: content || description || undefined,
-    });
+    };
+
+    if (mediaUrl) {
+      payload.mediaUrl = mediaUrl;
+    }
+
+    if (mediaType) {
+      payload.mediaType = mediaType;
+    }
+
+    payload.requireUserMedia = requireUserMedia;
+
+    createMutation.mutate(payload);
   };
 
   return (
@@ -146,6 +172,38 @@ export default function AdminSteps() {
                   <div className="space-y-2 md:col-span-2">
                     <Label htmlFor="content">Turinys</Label>
                     <Textarea id="content" name="content" rows={4} />
+                  </div>
+
+                  <div className="space-y-2">
+                    <Label htmlFor="mediaUrl">Media nuoroda</Label>
+                    <Input id="mediaUrl" name="mediaUrl" placeholder="https://..." />
+                  </div>
+
+                  <div className="space-y-2">
+                    <Label>Media tipas</Label>
+                    <Select
+                      value={mediaType || undefined}
+                      onValueChange={(value: TaskStepMediaType) => setMediaType(value)}
+                    >
+                      <SelectTrigger>
+                        <SelectValue placeholder="Pasirinkite tipą" />
+                      </SelectTrigger>
+                      <SelectContent>
+                        <SelectItem value="image">Nuotrauka</SelectItem>
+                        <SelectItem value="video">Vaizdo įrašas</SelectItem>
+                      </SelectContent>
+                    </Select>
+                  </div>
+
+                  <div className="flex items-center gap-2 md:col-span-2">
+                    <Checkbox
+                      id="requireUserMedia"
+                      checked={requireUserMedia}
+                      onCheckedChange={(checked) => setRequireUserMedia(checked === true)}
+                    />
+                    <Label htmlFor="requireUserMedia" className="cursor-pointer">
+                      Reikia vartotojo nuotraukos
+                    </Label>
                   </div>
                 </div>
 
@@ -215,6 +273,8 @@ function StepCard({
   onDelete: () => void;
   disableActions: boolean;
 }) {
+  const mediaTypeLabel = step.mediaType === 'image' ? 'Nuotrauka' : step.mediaType === 'video' ? 'Vaizdo įrašas' : null;
+
   return (
     <Card className="shadow-sm">
       <CardContent className="p-6">
@@ -226,6 +286,24 @@ function StepCard({
             </div>
             {step.contentText && (
               <p className="text-sm text-foreground mt-2 line-clamp-2">{step.contentText}</p>
+            )}
+            {(step.mediaUrl || mediaTypeLabel || step.requireUserMedia) && (
+              <div className="flex flex-wrap gap-2 text-sm mt-3">
+                {step.mediaUrl && (
+                  <a
+                    href={step.mediaUrl}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className="text-primary underline-offset-4 hover:underline"
+                  >
+                    Peržiūrėti media
+                  </a>
+                )}
+                {mediaTypeLabel && <Badge variant="secondary">{mediaTypeLabel}</Badge>}
+                {step.requireUserMedia && (
+                  <Badge variant="secondary">Reikia vartotojo nuotraukos</Badge>
+                )}
+              </div>
             )}
           </div>
           <div className="flex items-center gap-2">

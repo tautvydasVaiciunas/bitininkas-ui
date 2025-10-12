@@ -9,7 +9,7 @@ import { InjectRepository } from '@nestjs/typeorm';
 import { DataSource, QueryFailedError, Repository } from 'typeorm';
 
 import { Task } from '../task.entity';
-import { TaskStep } from './task-step.entity';
+import { TaskStep, type TaskStepMediaType } from './task-step.entity';
 import { ActivityLogService } from '../../activity-log/activity-log.service';
 import { UserRole } from '../../users/user.entity';
 import { CreateTaskStepDto } from './dto/create-task-step.dto';
@@ -35,6 +35,14 @@ export class TaskStepsService {
   private normalizeNullableString(value?: string | null) {
     const trimmed = value?.trim();
     return trimmed && trimmed.length > 0 ? trimmed : null;
+  }
+
+  private normalizeMediaType(value?: TaskStepMediaType | null) {
+    if (!value) {
+      return null;
+    }
+
+    return value;
   }
 
   private extractColumnName(detail?: string) {
@@ -123,6 +131,8 @@ export class TaskStepsService {
       title: dto.title?.trim(),
       contentText: this.normalizeNullableString(dto.contentText),
       mediaUrl: this.normalizeNullableString(dto.mediaUrl),
+      mediaType: this.normalizeMediaType(dto.mediaType),
+      requireUserMedia: dto.requireUserMedia ?? false,
       orderIndex: dto.orderIndex ?? fallbackOrder,
     };
   }
@@ -193,6 +203,14 @@ export class TaskStepsService {
 
     if (dto.mediaUrl !== undefined) {
       step.mediaUrl = this.normalizeNullableString(dto.mediaUrl);
+    }
+
+    if (dto.mediaType !== undefined) {
+      step.mediaType = this.normalizeMediaType(dto.mediaType);
+    }
+
+    if (dto.requireUserMedia !== undefined) {
+      step.requireUserMedia = dto.requireUserMedia;
     }
 
     if (dto.orderIndex !== undefined) {

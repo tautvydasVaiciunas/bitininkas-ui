@@ -230,6 +230,22 @@ export interface StepProgressResponse {
   evidenceUrl?: string | null;
 }
 
+export interface StepProgressCompletedResponse {
+  completed: true;
+  taskStepId: string;
+  progress: StepProgressResponse;
+}
+
+export interface StepProgressRemovedResponse {
+  completed: false;
+  taskStepId: string;
+  progressId: string;
+}
+
+export type StepProgressToggleResponse =
+  | StepProgressCompletedResponse
+  | StepProgressRemovedResponse;
+
 export interface AssignmentDetails {
   assignment: AssignmentResponse;
   task: TaskWithStepsResponse;
@@ -576,7 +592,8 @@ export const api = {
       post<TaskStepResponse[]>(`/tasks/${id}/steps/reorder`, { json: payload }),
   },
   assignments: {
-    list: (params?: { hiveId?: string }) => get<AssignmentResponse[]>('/assignments', { query: params }),
+    list: (params?: { hiveId?: string; status?: AssignmentStatus; groupId?: string }) =>
+      get<AssignmentResponse[]>('/assignments', { query: params }),
     create: (payload: CreateAssignmentPayload) => post<AssignmentResponse>('/assignments', { json: payload }),
     update: (id: string, payload: UpdateAssignmentPayload) =>
       patch<AssignmentResponse>(`/assignments/${id}`, { json: payload }),
@@ -606,7 +623,7 @@ export const api = {
   },
   progress: {
     completeStep: (payload: CompleteStepPayload) =>
-      post<StepProgressResponse>('/progress/step-complete', { json: payload }),
+      post<StepProgressToggleResponse>('/progress/step-complete', { json: payload }),
     update: (id: string, payload: UpdateProgressPayload) =>
       patch<StepProgressResponse>(`/progress/${id}`, { json: payload }),
     listForAssignment: (assignmentId: string) =>

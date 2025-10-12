@@ -7,32 +7,37 @@ import {
   Post,
   Query,
   Request,
-} from "@nestjs/common";
-import { AssignmentsService } from "./assignments.service";
-import { CreateAssignmentDto } from "./dto/create-assignment.dto";
-import { UpdateAssignmentDto } from "./dto/update-assignment.dto";
-import { Roles } from "../common/decorators/roles.decorator";
-import { UserRole } from "../users/user.entity";
-@Controller("assignments")
+} from '@nestjs/common';
+
+import { AssignmentsService } from './assignments.service';
+import { CreateAssignmentDto } from './dto/create-assignment.dto';
+import { UpdateAssignmentDto } from './dto/update-assignment.dto';
+import { Roles } from '../common/decorators/roles.decorator';
+import { UserRole } from '../users/user.entity';
+import { ListAssignmentsQueryDto } from './dto/list-assignments-query.dto';
+
+@Controller('assignments')
 export class AssignmentsController {
   constructor(private readonly assignmentsService: AssignmentsService) {}
-  @Roles(UserRole.MANAGER, UserRole.ADMIN) @Post() create(
-    @Body() dto: CreateAssignmentDto,
-    @Request() req,
-  ) {
+
+  @Roles(UserRole.MANAGER, UserRole.ADMIN)
+  @Post()
+  create(@Body() dto: CreateAssignmentDto, @Request() req) {
     return this.assignmentsService.create(dto, req.user);
   }
-  @Get() findAll(@Request() req, @Query("hiveId") hiveId?: string) {
-    return this.assignmentsService.findAll({ hiveId }, req.user);
+
+  @Get()
+  findAll(@Request() req, @Query() query: ListAssignmentsQueryDto) {
+    return this.assignmentsService.findAll(query, req.user);
   }
-  @Patch(":id") update(
-    @Param("id") id: string,
-    @Body() dto: UpdateAssignmentDto,
-    @Request() req,
-  ) {
+
+  @Patch(':id')
+  update(@Param('id') id: string, @Body() dto: UpdateAssignmentDto, @Request() req) {
     return this.assignmentsService.update(id, dto, req.user);
   }
-  @Get(":id/details") details(@Param("id") id: string, @Request() req) {
+
+  @Get(':id/details')
+  details(@Param('id') id: string, @Request() req) {
     return this.assignmentsService.getDetails(id, req.user);
   }
 }

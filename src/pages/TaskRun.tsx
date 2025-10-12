@@ -14,11 +14,12 @@ import {
   mapAssignmentDetailsFromApi,
   mapAssignmentFromApi,
   mapHiveFromApi,
-  mapStepProgressFromApi,
+  mapStepToggleResponseFromApi,
   type AssignmentDetails,
   type AssignmentStatus,
   type Hive,
   type StepProgress,
+  type StepProgressToggleResult,
   type UpdateProgressPayload,
 } from '@/lib/types';
 import { Calendar, CheckCircle2, ChevronLeft, ChevronRight, Loader2, RotateCcw } from 'lucide-react';
@@ -163,98 +164,105 @@ export default function TaskRun() {
     },
   });
 
-  const completeStepMutation = useMutation({
-    mutationFn: (payload: { taskStepId: string; notes?: string }) =>
+  const toggleStepMutation = useMutation<
+    StepProgressToggleResult,
+    HttpError | Error,
+    { taskStepId: string; notes?: string }
+  >({
+    mutationFn: (payload) =>
       api.progress
         .completeStep({ assignmentId: id!, taskStepId: payload.taskStepId, notes: payload.notes })
-        .then(mapStepProgressFromApi),
-    onSuccess: (progressEntry) => {
-      let previousStatus: AssignmentStatus | undefined;
+        .then(mapStepToggleResponseFromApi),
+    onSuccess: (result) => {
+      if (result.completed) {
+        const progressEntry = result.progress;
+        let previousStatus: AssignmentStatus | undefined;
+        let newCompletion = data?.completion ?? 0;
+        let added = false;
+
+        queryClient.setQueryData<AssignmentDetails | undefined>(
+          ['assignments', id, 'details'],
+          (oldData) => {
+            if (!oldData) return oldData;
+            previousStatus = oldData.assignment.status;
+            if (oldData.progress.some((item) => item.taskStepId === progressEntry.taskStepId)) {
+              newCompletion = oldData.completion;
+              return oldData;
+            }
+
+            added = true;
+            const updatedProgress: StepProgress[] = [...oldData.progress, progressEntry];
+            const totalSteps = oldData.task.steps.length;
+            newCompletion = totalSteps ? Math.round((updatedProgress.length / totalSteps) * 100) : 0;
+
+            return {
+              ...oldData,
+              progress: updatedProgress,
+              completion: newCompletion,
+            };
+          }
+        );
+
+        setStepNotes((prev) => ({ ...prev, [progressEntry.taskStepId]: progressEntry.notes ?? '' }));
+
+        queryClient.invalidateQueries({ queryKey: ['assignments', 'list'] });
+
+        if (added) {
+          toast.success('Žingsnis pažymėtas kaip atliktas');
+
+          if (previousStatus === 'not_started' && newCompletion < 100) {
+            updateAssignmentStatusMutation.mutate('in_progress');
+          }
+
+          if (newCompletion === 100) {
+            updateAssignmentStatusMutation.mutate('done');
+            toast.success('Užduotis užbaigta!');
+            setTimeout(() => navigate('/tasks'), 1500);
+          } else if (currentStepIndex < steps.length - 1) {
+            setCurrentStepIndex((index) => index + 1);
+          }
+        }
+        return;
+      }
+
+      const { progressId, taskStepId } = result;
       let newCompletion = data?.completion ?? 0;
-      let added = false;
+      const previousStatus = data?.assignment.status;
 
       queryClient.setQueryData<AssignmentDetails | undefined>(['assignments', id, 'details'], (oldData) => {
         if (!oldData) return oldData;
-        previousStatus = oldData.assignment.status;
-        if (oldData.progress.some((item) => item.taskStepId === progressEntry.taskStepId)) {
-          newCompletion = oldData.completion;
-          return oldData;
-        }
-
-        added = true;
-        const updatedProgress: StepProgress[] = [...oldData.progress, progressEntry];
+        const progress = oldData.progress.filter(
+          (entry) => entry.id !== progressId && entry.taskStepId !== taskStepId
+        );
         const totalSteps = oldData.task.steps.length;
-        newCompletion = totalSteps ? Math.round((updatedProgress.length / totalSteps) * 100) : 0;
-
-        return {
-          ...oldData,
-          progress: updatedProgress,
-          completion: newCompletion,
-        };
+        newCompletion = totalSteps ? Math.round((progress.length / totalSteps) * 100) : 0;
+        return { ...oldData, progress, completion: newCompletion };
       });
 
-      setStepNotes((prev) => ({ ...prev, [progressEntry.taskStepId]: progressEntry.notes ?? '' }));
+      const existingTimeout = saveTimeouts.current[taskStepId];
+      if (existingTimeout) {
+        clearTimeout(existingTimeout);
+      }
+      delete saveTimeouts.current[taskStepId];
+
+      setStepNotes((prev) => ({ ...prev, [taskStepId]: '' }));
 
       queryClient.invalidateQueries({ queryKey: ['assignments', 'list'] });
 
-      if (added) {
-        toast.success('Žingsnis pažymėtas kaip atliktas');
-
-        if (previousStatus === 'not_started' && newCompletion < 100) {
-          updateAssignmentStatusMutation.mutate('in_progress');
-        }
-
-        if (newCompletion === 100) {
-          updateAssignmentStatusMutation.mutate('done');
-          toast.success('Užduotis užbaigta!');
-          setTimeout(() => navigate('/tasks'), 1500);
-        } else if (currentStepIndex < steps.length - 1) {
-          setCurrentStepIndex((index) => index + 1);
-        }
+      if (newCompletion === 0 && previousStatus !== 'not_started') {
+        updateAssignmentStatusMutation.mutate('not_started');
+      } else if (newCompletion < 100 && previousStatus === 'done') {
+        updateAssignmentStatusMutation.mutate('in_progress');
       }
+
+      toast.success('Žingsnis grąžintas į neįvykdytą');
     },
     onError: (stepError: HttpError | Error) => {
-      toast.error('Nepavyko pažymėti žingsnio', {
+      toast.error('Nepavyko atnaujinti žingsnio būsenos', {
         description: getErrorMessage(stepError),
       });
     },
   });
-
-  const uncompleteStepMutation = useMutation<void, HttpError | Error, { progressId: string; taskStepId: string }>(
-    {
-      mutationFn: ({ progressId }) => api.progress.remove(progressId),
-      onSuccess: (_, variables) => {
-        let newCompletion = data?.completion ?? 0;
-        const previousStatus = data?.assignment.status;
-
-        queryClient.setQueryData<AssignmentDetails | undefined>(['assignments', id, 'details'], (oldData) => {
-          if (!oldData) return oldData;
-          const progress = oldData.progress.filter((entry) => entry.id !== variables.progressId);
-          const totalSteps = oldData.task.steps.length;
-          newCompletion = totalSteps ? Math.round((progress.length / totalSteps) * 100) : 0;
-          return { ...oldData, progress, completion: newCompletion };
-        });
-
-        setStepNotes((prev) => ({ ...prev, [variables.taskStepId]: '' }));
-        delete saveTimeouts.current[variables.taskStepId];
-
-        queryClient.invalidateQueries({ queryKey: ['assignments', 'list'] });
-
-        if (newCompletion === 0 && previousStatus !== 'not_started') {
-          updateAssignmentStatusMutation.mutate('not_started');
-        } else if (newCompletion < 100 && previousStatus === 'done') {
-          updateAssignmentStatusMutation.mutate('in_progress');
-        }
-
-        toast.success('Žingsnis grąžintas į neįvykdytą');
-      },
-      onError: (mutationError: HttpError | Error) => {
-        toast.error('Nepavyko atšaukti žingsnio', {
-          description: getErrorMessage(mutationError),
-        });
-      },
-    }
-  );
 
   if (!id) {
     return (
@@ -313,26 +321,23 @@ export default function TaskRun() {
   };
 
   const handleStepComplete = () => {
-    if (!currentStep || completeStepMutation.isPending) return;
+    if (!currentStep || toggleStepMutation.isPending) return;
     const existingTimeout = saveTimeouts.current[currentStep.id];
     if (existingTimeout) {
       clearTimeout(existingTimeout);
       delete saveTimeouts.current[currentStep.id];
     }
-    completeStepMutation.mutate({ taskStepId: currentStep.id, notes: currentNotes || undefined });
+    toggleStepMutation.mutate({ taskStepId: currentStep.id, notes: currentNotes || undefined });
   };
 
   const handleStepUncomplete = () => {
-    if (!currentProgress || uncompleteStepMutation.isPending) return;
+    if (!currentProgress || toggleStepMutation.isPending) return;
     const existingTimeout = saveTimeouts.current[currentProgress.taskStepId];
     if (existingTimeout) {
       clearTimeout(existingTimeout);
       delete saveTimeouts.current[currentProgress.taskStepId];
     }
-    uncompleteStepMutation.mutate({
-      progressId: currentProgress.id,
-      taskStepId: currentProgress.taskStepId,
-    });
+    toggleStepMutation.mutate({ taskStepId: currentProgress.taskStepId });
   };
 
   return (
@@ -460,9 +465,9 @@ export default function TaskRun() {
                   <Button
                     variant="outline"
                     onClick={handleStepUncomplete}
-                    disabled={uncompleteStepMutation.isPending}
+                    disabled={toggleStepMutation.isPending}
                   >
-                    {uncompleteStepMutation.isPending ? (
+                    {toggleStepMutation.isPending ? (
                       <>
                         <Loader2 className="mr-2 h-4 w-4 animate-spin" />
                         Grąžinama...
@@ -475,9 +480,9 @@ export default function TaskRun() {
                     )}
                   </Button>
                 ) : (
-                  <Button onClick={handleStepComplete} disabled={completeStepMutation.isPending}>
+                  <Button onClick={handleStepComplete} disabled={toggleStepMutation.isPending}>
                     <CheckCircle2 className="mr-2 h-4 w-4" />
-                    {completeStepMutation.isPending ? 'Žymima...' : 'Pažymėti kaip atliktą'}
+                    {toggleStepMutation.isPending ? 'Žymima...' : 'Pažymėti kaip atliktą'}
                   </Button>
                 )}
 

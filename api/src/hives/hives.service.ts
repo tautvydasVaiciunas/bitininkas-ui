@@ -1,6 +1,12 @@
-import { ForbiddenException, Injectable, NotFoundException } from '@nestjs/common';
+import {
+  BadRequestException,
+  ForbiddenException,
+  Injectable,
+  NotFoundException,
+  UnprocessableEntityException,
+} from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
-import { In, Repository } from 'typeorm';
+import { In, QueryFailedError, Repository } from 'typeorm';
 import { Hive, HiveStatus } from './hive.entity';
 import { CreateHiveDto } from './dto/create-hive.dto';
 import { UpdateHiveDto } from './dto/update-hive.dto';
@@ -29,6 +35,70 @@ export class HivesService {
 
     const uniqueIds = Array.from(new Set(memberIds));
     return this.userRepository.find({ where: { id: In(uniqueIds) } });
+  }
+
+  private extractColumnName(detail?: string) {
+    if (!detail) {
+      return undefined;
+    }
+
+    const parenMatch = detail.match(/\(([^)]+)\)=/);
+    if (parenMatch) {
+      return parenMatch[1];
+    }
+
+    const columnMatch = detail.match(/column "([^"]+)"/i);
+    if (columnMatch) {
+      return columnMatch[1];
+    }
+
+    return undefined;
+  }
+
+  private handleDatabaseError(error: unknown, action: string): never {
+    if (error instanceof QueryFailedError) {
+      const driverError = (error as QueryFailedError & { driverError?: any }).driverError ?? {};
+      const code: string | undefined = driverError.code;
+      const detail: string | undefined = driverError.detail ?? driverError.message;
+      const column = this.extractColumnName(detail);
+
+      if (code === '23503') {
+        throw new UnprocessableEntityException(
+          `${action}: ${column ? `${column} not found` : 'related entity missing'}`,
+        );
+      }
+
+      if (code === '23505') {
+        throw new UnprocessableEntityException(
+          `${action}: ${column ? `duplicate value for ${column}` : 'duplicate value'}`,
+        );
+      }
+
+      if (code === '23514') {
+        throw new UnprocessableEntityException(`${action}: constraint violated`);
+      }
+
+      if (code === '23502') {
+        throw new BadRequestException(
+          `${action}: ${column ? `${column} is required` : 'missing required value'}`,
+        );
+      }
+
+      throw new BadRequestException(`${action}: invalid data`);
+    }
+
+    throw error;
+  }
+
+  private async runWithDatabaseErrorHandling<T>(
+    operation: () => Promise<T>,
+    action: string,
+  ): Promise<T> {
+    try {
+      return await operation();
+    } catch (error) {
+      this.handleDatabaseError(error, action);
+    }
   }
 
   private async ensureAccess(hive: Hive, userId: string, role: UserRole) {
@@ -78,7 +148,10 @@ export class HivesService {
       members,
     });
 
-    const saved = await this.hiveRepository.save(hive);
+    const saved = await this.runWithDatabaseErrorHandling(
+      () => this.hiveRepository.save(hive),
+      'Unable to create hive',
+    );
     await this.activityLog.log('hive_created', userId, 'hive', saved.id);
 
     return this.hiveRepository.findOne({
@@ -134,7 +207,10 @@ export class HivesService {
       hive.status = dto.status;
     }
 
-    const saved = await this.hiveRepository.save(hive);
+    const saved = await this.runWithDatabaseErrorHandling(
+      () => this.hiveRepository.save(hive),
+      'Unable to update hive',
+    );
     await this.activityLog.log('hive_updated', userId, 'hive', id);
 
     return this.hiveRepository.findOne({

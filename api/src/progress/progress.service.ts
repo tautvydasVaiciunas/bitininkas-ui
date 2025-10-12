@@ -74,14 +74,14 @@ export class ProgressService {
     });
 
     if (existing) {
-      if (dto.notes !== undefined) {
-        existing.notes = this.normalizeNullableString(dto.notes);
-      }
+      await this.progressRepository.remove(existing);
+      await this.activityLog.log('step_uncompleted', user.id, 'assignment', assignment.id);
 
-      if (dto.evidenceUrl !== undefined) {
-        existing.evidenceUrl = this.normalizeNullableString(dto.evidenceUrl);
-      }
-      return this.progressRepository.save(existing);
+      return {
+        completed: false as const,
+        progressId: existing.id,
+        taskStepId: existing.taskStepId,
+      };
     }
 
     const progress = this.progressRepository.create({
@@ -93,7 +93,7 @@ export class ProgressService {
 
     const saved = await this.progressRepository.save(progress);
     await this.activityLog.log('step_completed', user.id, 'assignment', assignment.id);
-    return saved;
+    return { completed: true as const, progress: saved, taskStepId: saved.taskStepId };
   }
 
   async update(id: string, dto: UpdateProgressDto, user) {

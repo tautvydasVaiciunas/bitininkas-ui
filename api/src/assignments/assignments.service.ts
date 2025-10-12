@@ -4,7 +4,7 @@ import {
   NotFoundException,
 } from "@nestjs/common";
 import { InjectRepository } from "@nestjs/typeorm";
-import { In, Repository } from "typeorm";
+import { Repository } from "typeorm";
 import { Assignment, AssignmentStatus } from "./assignment.entity";
 import { CreateAssignmentDto } from "./dto/create-assignment.dto";
 import { UpdateAssignmentDto } from "./dto/update-assignment.dto";
@@ -14,6 +14,8 @@ import { TaskStep } from "../tasks/steps/task-step.entity";
 import { StepProgress } from "../progress/step-progress.entity";
 import { UserRole } from "../users/user.entity";
 import { ActivityLogService } from "../activity-log/activity-log.service";
+import { Group } from "../groups/group.entity";
+import { GroupMember } from "../groups/group-member.entity";
 @Injectable()
 export class AssignmentsService {
   constructor(
@@ -25,6 +27,10 @@ export class AssignmentsService {
     private readonly stepRepository: Repository<TaskStep>,
     @InjectRepository(StepProgress)
     private readonly progressRepository: Repository<StepProgress>,
+    @InjectRepository(Group)
+    private readonly groupsRepository: Repository<Group>,
+    @InjectRepository(GroupMember)
+    private readonly groupMembersRepository: Repository<GroupMember>,
     private readonly activityLog: ActivityLogService,
   ) {}
   private async getAccessibleHiveIds(userId: string) {
@@ -80,12 +86,25 @@ export class AssignmentsService {
     );
     return saved;
   }
-  async findAll(filter: { hiveId?: string }, user) {
-    const where: any = {};
+  async findAll(
+    filter: { hiveId?: string; status?: AssignmentStatus; groupId?: string },
+    user,
+  ) {
+    const qb = this.assignmentsRepository.createQueryBuilder('assignment');
+
     if (filter.hiveId) {
-      where.hiveId = filter.hiveId;
+      qb.andWhere('assignment.hiveId = :hiveId', { hiveId: filter.hiveId });
     }
+
+    if (filter.status) {
+      qb.andWhere('assignment.status = :status', { status: filter.status });
+    }
+
     if (user.role === UserRole.USER) {
+      if (filter.groupId) {
+        throw new ForbiddenException('Access denied');
+      }
+
       const accessibleIds = await this.getAccessibleHiveIds(user.id);
 
       if (filter.hiveId) {
@@ -96,10 +115,40 @@ export class AssignmentsService {
         if (!accessibleIds.length) {
           return [];
         }
-        where.hiveId = In(accessibleIds);
+
+        qb.andWhere('assignment.hiveId IN (:...accessibleIds)', {
+          accessibleIds,
+        });
       }
+    } else if (filter.groupId) {
+      this.assertManager(user.role);
+
+      const group = await this.groupsRepository.findOne({
+        where: { id: filter.groupId },
+      });
+
+      if (!group) {
+        throw new NotFoundException('Group not found');
+      }
+
+      const hasMembers = await this.groupMembersRepository.exist({
+        where: { groupId: filter.groupId },
+      });
+
+      if (!hasMembers) {
+        return [];
+      }
+
+      qb.innerJoin('assignment.hive', 'hive');
+      qb.innerJoin(
+        GroupMember,
+        'groupMember',
+        'groupMember.groupId = :groupId AND groupMember.userId = hive.ownerUserId',
+        { groupId: filter.groupId },
+      );
     }
-    return this.assignmentsRepository.find({ where });
+
+    return qb.getMany();
   }
   async findOne(id: string, user) {
     const assignment = await this.assignmentsRepository.findOne({

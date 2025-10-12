@@ -1,1 +1,14 @@
-import { IsDateString, IsEnum, IsOptional } from 'class-validator';import { AssignmentStatus } from '../assignment.entity';export class UpdateAssignmentDto {  @IsOptional()  @IsEnum(AssignmentStatus)  status?: AssignmentStatus;  @IsOptional()  @IsDateString()  dueDate?: string;}
+import { IsEnum, IsOptional } from 'class-validator';
+
+import { AssignmentStatus } from '../assignment.entity';
+import { IsDateOnlyString } from '../../common/validators/is-date-only-string.decorator';
+
+export class UpdateAssignmentDto {
+  @IsOptional()
+  @IsEnum(AssignmentStatus)
+  status?: AssignmentStatus;
+
+  @IsOptional()
+  @IsDateOnlyString({ message: 'dueDate must use format YYYY-MM-DD' })
+  dueDate?: string;
+}

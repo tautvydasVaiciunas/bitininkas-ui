@@ -21,6 +21,7 @@ import type {
   AssignmentReportRow as ApiAssignmentReportRow,
   RegisterPayload,
   StepProgressResponse as ApiStepProgressResponse,
+  StepProgressToggleResponse as ApiStepProgressToggleResponse,
   TaskFrequency as ApiTaskFrequency,
   TaskResponse as ApiTaskResponse,
   TaskStepResponse as ApiTaskStepResponse,
@@ -69,6 +70,9 @@ export type Task = ApiTaskResponse;
 export type TaskWithSteps = ApiTaskWithStepsResponse;
 export type TaskStep = ApiTaskStepResponse;
 export type StepProgress = ApiStepProgressResponse;
+export type StepProgressToggleResult =
+  | { completed: true; taskStepId: string; progress: StepProgress }
+  | { completed: false; taskStepId: string; progressId: string };
 export type Notification = ApiNotificationResponse;
 export type HiveSummary = ApiHiveSummary;
 export type TaskFrequency = ApiTaskFrequency;
@@ -125,6 +129,21 @@ export const mapStepProgressFromApi = (progress: ApiStepProgressResponse): StepP
   notes: mapOptionalString(progress.notes),
   evidenceUrl: mapOptionalString(progress.evidenceUrl),
 });
+
+export const mapStepToggleResponseFromApi = (
+  response: ApiStepProgressToggleResponse,
+): StepProgressToggleResult =>
+  response.completed
+    ? {
+        completed: true,
+        taskStepId: response.taskStepId,
+        progress: mapStepProgressFromApi(response.progress),
+      }
+    : {
+        completed: false,
+        taskStepId: response.taskStepId,
+        progressId: response.progressId,
+      };
 
 export const mapAssignmentDetailsFromApi = (details: ApiAssignmentDetails): AssignmentDetails => ({
   assignment: mapAssignmentFromApi(details.assignment),

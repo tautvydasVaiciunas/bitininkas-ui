@@ -4,6 +4,7 @@ import { TooltipProvider } from "@/components/ui/tooltip";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { BrowserRouter, Routes, Route } from "react-router-dom";
 import { AuthProvider } from "@/contexts/AuthContext";
+import { ProtectedRoute } from "@/components/auth/ProtectedRoute";
 import Dashboard from "./pages/Dashboard";
 import Login from "./pages/auth/Login";
 import Register from "./pages/auth/Register";
@@ -36,21 +37,29 @@ const App = () => (
             <Route path="/auth/login" element={<Login />} />
             <Route path="/auth/register" element={<Register />} />
             <Route path="/auth/forgot" element={<ForgotPassword />} />
-            <Route path="/" element={<Dashboard />} />
-            <Route path="/hives" element={<Hives />} />
-            <Route path="/hives/:id" element={<HiveDetail />} />
-            <Route path="/tasks" element={<Tasks />} />
-            <Route path="/tasks/:id" element={<TaskDetail />} />
-            <Route path="/tasks/:id/run" element={<TaskRun />} />
-            <Route path="/notifications" element={<Notifications />} />
-            <Route path="/profile" element={<Profile />} />
-            <Route path="/reports" element={<Reports />} />
-            <Route path="/admin/users" element={<AdminUsers />} />
-            <Route path="/admin/groups" element={<AdminGroups />} />
-            <Route path="/admin/steps" element={<AdminSteps />} />
-            <Route path="/admin/tasks" element={<AdminTasks />} />
-            <Route path="/admin/templates" element={<AdminTemplates />} />
-            <Route path="*" element={<NotFound />} />
+            <Route element={<ProtectedRoute />}>
+              <Route path="/" element={<Dashboard />} />
+              <Route path="/hives" element={<Hives />} />
+              <Route path="/hives/:id" element={<HiveDetail />} />
+              <Route path="/tasks" element={<Tasks />} />
+              <Route path="/tasks/:id" element={<TaskDetail />} />
+              <Route path="/tasks/:id/run" element={<TaskRun />} />
+              <Route path="/notifications" element={<Notifications />} />
+              <Route path="/profile" element={<Profile />} />
+              <Route path="/reports" element={<Reports />} />
+              <Route
+                element={
+                  <ProtectedRoute allowedRoles={["admin", "manager"]} redirectTo="/" />
+                }
+              >
+                <Route path="/admin/users" element={<AdminUsers />} />
+                <Route path="/admin/groups" element={<AdminGroups />} />
+                <Route path="/admin/steps" element={<AdminSteps />} />
+                <Route path="/admin/tasks" element={<AdminTasks />} />
+                <Route path="/admin/templates" element={<AdminTemplates />} />
+              </Route>
+              <Route path="*" element={<NotFound />} />
+            </Route>
           </Routes>
         </BrowserRouter>
       </TooltipProvider>

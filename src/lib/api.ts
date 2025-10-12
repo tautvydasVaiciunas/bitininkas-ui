@@ -250,8 +250,11 @@ export interface CreateUserPayload {
 export interface UpdateUserPayload {
   name?: string | null;
   email?: string;
-  role?: UserRole;
   password?: string;
+}
+
+export interface UpdateUserRolePayload {
+  role: UserRole;
 }
 
 export interface LoginPayload {
@@ -612,6 +615,8 @@ export const api = {
     create: (payload: CreateUserPayload) => post<AdminUserResponse>('/users', { json: payload }),
     update: (id: string, payload: UpdateUserPayload) =>
       patch<AdminUserResponse>(`/users/${id}`, { json: payload }),
+    updateRole: (id: string, payload: UpdateUserRolePayload) =>
+      patch<AdminUserResponse>(`/users/${id}/role`, { json: payload }),
     remove: (id: string) => del<void>(`/users/${id}`),
   },
 };

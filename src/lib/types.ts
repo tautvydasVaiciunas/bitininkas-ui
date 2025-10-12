@@ -32,6 +32,7 @@ import type {
   UpdateTaskStepPayload,
   UpdateProfilePayload,
   UpdateUserPayload,
+  UpdateUserRolePayload,
   UpdateProgressPayload,
   UserRole as ApiUserRole,
 } from './api';
@@ -52,6 +53,7 @@ export type {
   UpdateTaskStepPayload,
   UpdateProfilePayload,
   UpdateUserPayload,
+  UpdateUserRolePayload,
   UpdateProgressPayload,
 } from './api';
 

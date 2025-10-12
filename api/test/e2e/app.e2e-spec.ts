@@ -20,6 +20,9 @@ describe('Hives & Tasks E2E', () => {
   let app: INestApplication;
   let dataSource: DataSource;
   let server: request.SuperTest<request.Test>;
+  let adminUser: User;
+  let managerUser: User;
+  let regularUser: User;
 
   beforeAll(async () => {
     process.env.JWT_SECRET = process.env.JWT_SECRET ?? 'test-secret';
@@ -45,6 +48,11 @@ describe('Hives & Tasks E2E', () => {
 
     await resetDatabase(dataSource);
     await seedDatabase(dataSource);
+
+    const userRepository = dataSource.getRepository(User);
+    adminUser = await userRepository.findOneByOrFail({ email: 'admin@example.com' });
+    managerUser = await userRepository.findOneByOrFail({ email: 'manager@example.com' });
+    regularUser = await userRepository.findOneByOrFail({ email: 'user@example.com' });
 
     server = request(app.getHttpServer());
   });
@@ -87,6 +95,59 @@ describe('Hives & Tasks E2E', () => {
 
     expect(Array.isArray(tasksResponse.body)).toBe(true);
     expect(tasksResponse.body.length).toBeGreaterThan(0);
+  });
+
+  it('prevents unauthorized role management', async () => {
+    const managerLogin = await server
+      .post('/auth/login')
+      .send({ email: 'manager@example.com', password: 'password' })
+      .expect(201);
+
+    const managerToken = managerLogin.body.accessToken;
+
+    await server
+      .patch(`/users/${adminUser.id}/role`)
+      .set('Authorization', `Bearer ${managerToken}`)
+      .send({ role: 'admin' })
+      .expect(403);
+
+    await server
+      .delete(`/users/${regularUser.id}`)
+      .set('Authorization', `Bearer ${managerToken}`)
+      .expect(403);
+
+    const userLogin = await server
+      .post('/auth/login')
+      .send({ email: 'user@example.com', password: 'password' })
+      .expect(201);
+
+    const userToken = userLogin.body.accessToken;
+
+    await server
+      .get('/users')
+      .set('Authorization', `Bearer ${userToken}`)
+      .expect(403);
+
+    const adminLogin = await server
+      .post('/auth/login')
+      .send({ email: 'admin@example.com', password: 'password' })
+      .expect(201);
+
+    const adminToken = adminLogin.body.accessToken;
+
+    const promoteResponse = await server
+      .patch(`/users/${managerUser.id}/role`)
+      .set('Authorization', `Bearer ${adminToken}`)
+      .send({ role: 'admin' })
+      .expect(200);
+
+    expect(promoteResponse.body.role).toBe('admin');
+
+    await server
+      .patch(`/users/${managerUser.id}/role`)
+      .set('Authorization', `Bearer ${adminToken}`)
+      .send({ role: 'manager' })
+      .expect(200);
   });
 });
 
@@ -134,7 +195,14 @@ async function seedDatabase(dataSource: DataSource) {
     name: 'Manager User',
   });
 
-  await userRepository.save([admin, manager]);
+  const regularUser = userRepository.create({
+    email: 'user@example.com',
+    passwordHash,
+    role: UserRole.USER,
+    name: 'Worker Bee',
+  });
+
+  await userRepository.save([admin, manager, regularUser]);
 
   const hive = hiveRepository.create({
     label: 'Seed Hive',

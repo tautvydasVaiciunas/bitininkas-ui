@@ -42,6 +42,7 @@ import {
   SelectTrigger,
   SelectValue,
 } from '@/components/ui/select';
+import { useAuth } from '@/contexts/AuthContext';
 import api, {
   HttpError,
   type AdminUserResponse,
@@ -73,6 +74,8 @@ const defaultFormValues: UserFormState = {
 };
 
 export default function AdminUsers() {
+  const { user } = useAuth();
+  const isAdmin = user?.role === 'admin';
   const [searchQuery, setSearchQuery] = useState('');
   const [userToDelete, setUserToDelete] = useState<string | null>(null);
   const [isCreateOpen, setIsCreateOpen] = useState(false);
@@ -155,14 +158,11 @@ export default function AdminUsers() {
   const updateMutation = useMutation({
     mutationFn: ({ id, payload }: { id: string; payload: UpdateUserPayload }) =>
       api.users.update(id, payload),
-    onSuccess: () => {
-      toast.success('Vartotojo informacija atnaujinta');
-      void queryClient.invalidateQueries({ queryKey: ['users'] });
-      closeForm();
-    },
-    onError: (error: MutationError) => {
-      setFormError(resolveErrorMessage(error));
-    },
+  });
+
+  const updateRoleMutation = useMutation({
+    mutationFn: ({ id, role }: { id: string; role: UserRole }) =>
+      api.users.updateRole(id, { role }),
   });
 
   const filteredUsers = useMemo(() => {
@@ -178,7 +178,8 @@ export default function AdminUsers() {
   }, [searchQuery, users]);
 
   const isFormOpen = isCreateOpen || editingUser !== null;
-  const isSubmitting = createMutation.isPending || updateMutation.isPending;
+  const isSubmitting =
+    createMutation.isPending || updateMutation.isPending || updateRoleMutation.isPending;
 
   const getRoleBadge = (role: UserRole) => {
     const variants: Record<UserRole, 'default' | 'destructive' | 'success' | 'secondary'> = {
@@ -191,7 +192,7 @@ export default function AdminUsers() {
     return <Badge variant={variants[role]}>{label}</Badge>;
   };
 
-  const handleSubmit = (event: FormEvent<HTMLFormElement>) => {
+  const handleSubmit = async (event: FormEvent<HTMLFormElement>) => {
     event.preventDefault();
     setFormError(null);
 
@@ -203,32 +204,73 @@ export default function AdminUsers() {
       return;
     }
 
-    if (editingUser) {
-      const payload: UpdateUserPayload = {
-        email: trimmedEmail,
-        role: formValues.role,
-        name: trimmedName || null,
-      };
+    try {
+      if (editingUser) {
+        const payload: UpdateUserPayload = {};
+        const normalizedExistingName = editingUser.name?.trim() ?? '';
 
-      if (formValues.password) {
-        payload.password = formValues.password;
+        if (trimmedEmail !== editingUser.email) {
+          payload.email = trimmedEmail;
+        }
+
+        if (trimmedName !== normalizedExistingName) {
+          payload.name = trimmedName ? trimmedName : null;
+        }
+
+        if (formValues.password) {
+          if (formValues.password.length < 6) {
+            setFormError('Slaptažodis turi būti bent 6 simbolių.');
+            return;
+          }
+
+          payload.password = formValues.password;
+        }
+
+        let hasChanges = Object.keys(payload).length > 0;
+        let roleChanged = false;
+
+        if (isAdmin && formValues.role !== editingUser.role) {
+          await updateRoleMutation.mutateAsync({
+            id: editingUser.id,
+            role: formValues.role,
+          });
+          roleChanged = true;
+        }
+
+        if (hasChanges) {
+          await updateMutation.mutateAsync({ id: editingUser.id, payload });
+        }
+
+        if (hasChanges || roleChanged) {
+          const message = hasChanges
+            ? 'Vartotojo informacija atnaujinta'
+            : 'Vartotojo rolė atnaujinta';
+          toast.success(message);
+          void queryClient.invalidateQueries({ queryKey: ['users'] });
+          closeForm();
+        } else {
+          toast.info('Pakeitimų nerasta');
+        }
+      } else {
+        if (!formValues.password || formValues.password.length < 6) {
+          setFormError('Slaptažodis turi būti bent 6 simbolių.');
+          return;
+        }
+
+        const payload: CreateUserPayload = {
+          email: trimmedEmail,
+          password: formValues.password,
+          name: trimmedName || undefined,
+        };
+
+        if (isAdmin) {
+          payload.role = formValues.role;
+        }
+
+        await createMutation.mutateAsync(payload);
       }
-
-      updateMutation.mutate({ id: editingUser.id, payload });
-    } else {
-      if (!formValues.password || formValues.password.length < 6) {
-        setFormError('Slaptažodis turi būti bent 6 simbolių.');
-        return;
-      }
-
-      const payload: CreateUserPayload = {
-        email: trimmedEmail,
-        password: formValues.password,
-        role: formValues.role,
-        name: trimmedName || undefined,
-      };
-
-      createMutation.mutate(payload);
+    } catch (error) {
+      setFormError(resolveErrorMessage(error as MutationError));
     }
   };
 
@@ -240,10 +282,12 @@ export default function AdminUsers() {
             <h1 className="text-3xl font-bold">Vartotojai</h1>
             <p className="text-muted-foreground mt-1">Valdykite sistemos vartotojus</p>
           </div>
-          <Button onClick={() => setIsCreateOpen(true)}>
-            <Plus className="mr-2 w-4 h-4" />
-            Pridėti vartotoją
-          </Button>
+          {isAdmin && (
+            <Button onClick={() => setIsCreateOpen(true)}>
+              <Plus className="mr-2 w-4 h-4" />
+              Pridėti vartotoją
+            </Button>
+          )}
         </div>
 
         <Card className="shadow-custom">
@@ -289,23 +333,27 @@ export default function AdminUsers() {
                         <TableCell>{getRoleBadge(user.role)}</TableCell>
                         <TableCell className="text-muted-foreground">—</TableCell>
                         <TableCell className="text-right">
-                          <div className="flex items-center justify-end gap-2">
-                            <Button
-                              variant="ghost"
-                              size="sm"
-                              onClick={() => setEditingUser(user)}
-                            >
-                              <Edit className="w-4 h-4" />
-                            </Button>
-                            <Button
-                              variant="ghost"
-                              size="sm"
-                              onClick={() => setUserToDelete(user.id)}
-                              disabled={deleteMutation.isPending && userToDelete === user.id}
-                            >
-                              <Trash2 className="w-4 h-4 text-destructive" />
-                            </Button>
-                          </div>
+                          {isAdmin ? (
+                            <div className="flex items-center justify-end gap-2">
+                              <Button
+                                variant="ghost"
+                                size="sm"
+                                onClick={() => setEditingUser(user)}
+                              >
+                                <Edit className="w-4 h-4" />
+                              </Button>
+                              <Button
+                                variant="ghost"
+                                size="sm"
+                                onClick={() => setUserToDelete(user.id)}
+                                disabled={deleteMutation.isPending && userToDelete === user.id}
+                              >
+                                <Trash2 className="w-4 h-4 text-destructive" />
+                              </Button>
+                            </div>
+                          ) : (
+                            <span className="text-muted-foreground">—</span>
+                          )}
                         </TableCell>
                       </TableRow>
                     ))
@@ -316,35 +364,38 @@ export default function AdminUsers() {
           </CardContent>
         </Card>
 
-        <AlertDialog open={!!userToDelete} onOpenChange={() => setUserToDelete(null)}>
-          <AlertDialogContent>
-            <AlertDialogHeader>
-              <AlertDialogTitle>Ar tikrai norite ištrinti?</AlertDialogTitle>
-              <AlertDialogDescription>
-                Šis veiksmas negalės būti atšauktas. Vartotojas bus visam laikui ištrintas iš sistemos.
-              </AlertDialogDescription>
-            </AlertDialogHeader>
-            <AlertDialogFooter>
-              <AlertDialogCancel>Atšaukti</AlertDialogCancel>
-              <AlertDialogAction
-                onClick={() => userToDelete && deleteMutation.mutate(userToDelete)}
-                className="bg-destructive hover:bg-destructive/90"
-                disabled={deleteMutation.isPending}
-              >
-                Ištrinti
-              </AlertDialogAction>
-            </AlertDialogFooter>
-          </AlertDialogContent>
-        </AlertDialog>
+        {isAdmin && (
+          <AlertDialog open={!!userToDelete} onOpenChange={() => setUserToDelete(null)}>
+            <AlertDialogContent>
+              <AlertDialogHeader>
+                <AlertDialogTitle>Ar tikrai norite ištrinti?</AlertDialogTitle>
+                <AlertDialogDescription>
+                  Šis veiksmas negalės būti atšauktas. Vartotojas bus visam laikui ištrintas iš sistemos.
+                </AlertDialogDescription>
+              </AlertDialogHeader>
+              <AlertDialogFooter>
+                <AlertDialogCancel>Atšaukti</AlertDialogCancel>
+                <AlertDialogAction
+                  onClick={() => userToDelete && deleteMutation.mutate(userToDelete)}
+                  className="bg-destructive hover:bg-destructive/90"
+                  disabled={deleteMutation.isPending}
+                >
+                  Ištrinti
+                </AlertDialogAction>
+              </AlertDialogFooter>
+            </AlertDialogContent>
+          </AlertDialog>
+        )}
 
-        <Dialog open={isFormOpen} onOpenChange={(open) => (!open ? closeForm() : null)}>
-          <DialogContent>
-            <DialogHeader>
-              <DialogTitle>{editingUser ? 'Redaguoti vartotoją' : 'Naujas vartotojas'}</DialogTitle>
-              <DialogDescription>
-                Užpildykite vartotojo informaciją. Visi laukai, pažymėti *, yra privalomi.
-              </DialogDescription>
-            </DialogHeader>
+        {isAdmin && (
+          <Dialog open={isFormOpen} onOpenChange={(open) => (!open ? closeForm() : null)}>
+            <DialogContent>
+              <DialogHeader>
+                <DialogTitle>{editingUser ? 'Redaguoti vartotoją' : 'Naujas vartotojas'}</DialogTitle>
+                <DialogDescription>
+                  Užpildykite vartotojo informaciją. Visi laukai, pažymėti *, yra privalomi.
+                </DialogDescription>
+              </DialogHeader>
             <form onSubmit={handleSubmit} className="space-y-4">
               <div className="space-y-2">
                 <Label htmlFor="name">Vardas</Label>
@@ -371,6 +422,7 @@ export default function AdminUsers() {
                 <Select
                   value={formValues.role}
                   onValueChange={(value) => handleInputChange('role', value)}
+                  disabled={!isAdmin}
                 >
                   <SelectTrigger id="role">
                     <SelectValue placeholder="Pasirinkite rolę" />
@@ -410,6 +462,7 @@ export default function AdminUsers() {
             </form>
           </DialogContent>
         </Dialog>
+        )}
       </div>
     </MainLayout>
   );

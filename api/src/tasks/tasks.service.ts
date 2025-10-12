@@ -6,7 +6,7 @@ import {
   UnprocessableEntityException,
 } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
-import { In, QueryFailedError, Repository } from 'typeorm';
+import { QueryFailedError, Repository } from 'typeorm';
 
 import { Task, TaskFrequency } from './task.entity';
 import { TaskStep } from './steps/task-step.entity';
@@ -15,6 +15,7 @@ import { UpdateTaskDto } from './dto/update-task.dto';
 import { ReorderStepsDto } from './steps/dto/reorder-steps.dto';
 import { UserRole } from '../users/user.entity';
 import { ActivityLogService } from '../activity-log/activity-log.service';
+import { TaskStepsService } from './steps/task-steps.service';
 
 type StepInput = Partial<
   Pick<TaskStep, 'title' | 'contentText' | 'mediaUrl' | 'orderIndex'>
@@ -27,6 +28,7 @@ export class TasksService {
     private readonly tasksRepository: Repository<Task>,
     @InjectRepository(TaskStep)
     private readonly stepsRepository: Repository<TaskStep>,
+    private readonly taskStepsService: TaskStepsService,
     private readonly activityLog: ActivityLogService,
   ) {}
 
@@ -230,34 +232,11 @@ export class TasksService {
   }
 
   async getSteps(taskId: string) {
-    return this.stepsRepository.find({
-      where: { taskId },
-      order: { orderIndex: 'ASC' },
-    });
+    return this.taskStepsService.findAll(taskId);
   }
 
   async reorderSteps(taskId: string, dto: ReorderStepsDto, user: { id: string; role: UserRole }) {
-    this.assertManager(user.role);
-    const stepIds = dto.steps.map((s) => s.stepId);
-    const steps = await this.stepsRepository.find({
-      where: { id: In(stepIds), taskId },
-    });
-
-    if (steps.length !== dto.steps.length) {
-      throw new NotFoundException('Some steps not found');
-    }
-
-    for (const order of dto.steps) {
-      const step = steps.find((s) => s.id === order.stepId)!;
-      step.orderIndex = order.orderIndex;
-      await this.runWithDatabaseErrorHandling(
-        () => this.stepsRepository.save(step),
-        'Unable to reorder task steps',
-      );
-    }
-
-    await this.activityLog.log('task_steps_reordered', user.id, 'task', taskId);
-    return this.getSteps(taskId);
+    return this.taskStepsService.reorder(taskId, dto.steps, user);
   }
 
   async createSteps(taskId: string, steps: StepInput[]) {

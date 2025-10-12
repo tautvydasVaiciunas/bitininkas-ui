@@ -17,6 +17,7 @@ import { NotificationsModule } from './notifications/notifications.module';
 import { ActivityLogModule } from './activity-log/activity-log.module';
 import { GroupsModule } from './groups/groups.module';
 import { ReportsModule } from './reports/reports.module';
+import { TemplatesModule } from './templates/templates.module';
 
 import ormConfig from './typeorm.config';
 
@@ -49,6 +50,7 @@ import ormConfig from './typeorm.config';
     ActivityLogModule,
     GroupsModule,
     ReportsModule,
+    TemplatesModule,
   ],
   providers: [
     { provide: APP_GUARD, useClass: ThrottlerGuard },

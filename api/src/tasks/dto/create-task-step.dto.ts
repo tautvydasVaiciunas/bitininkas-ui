@@ -1,7 +1,8 @@
-import { IsNumber, IsOptional, IsString, MaxLength } from 'class-validator';
+import { IsNotEmpty, IsNumber, IsOptional, IsString, MaxLength } from 'class-validator';
 
 export class CreateTaskStepInputDto {
   @IsString()
+  @IsNotEmpty()
   @MaxLength(255)
   title: string;
 

@@ -1,18 +1,18 @@
 import { Type } from 'class-transformer';
 import { ArrayMinSize, IsArray, IsInt, IsUUID, ValidateNested } from 'class-validator';
 
-class StepOrderDto {
+class TemplateStepOrderDto {
   @IsUUID()
-  stepId!: string;
+  id!: string;
 
   @IsInt()
   orderIndex!: number;
 }
 
-export class ReorderStepsDto {
+export class ReorderTemplateStepsDto {
   @IsArray()
   @ArrayMinSize(1)
   @ValidateNested({ each: true })
-  @Type(() => StepOrderDto)
-  steps!: StepOrderDto[];
+  @Type(() => TemplateStepOrderDto)
+  steps!: TemplateStepOrderDto[];
 }

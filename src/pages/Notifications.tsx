@@ -1,4 +1,4 @@
-import { useEffect, useMemo } from 'react';
+import { useEffect } from 'react';
 import { MainLayout } from '@/components/Layout/MainLayout';
 import { Card, CardContent } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
@@ -6,7 +6,7 @@ import { Badge } from '@/components/ui/badge';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { useAuth } from '@/contexts/AuthContext';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
-import api from '@/lib/api';
+import api, { type NotificationsUnreadCountResponse } from '@/lib/api';
 import { mapNotificationFromApi, type Notification } from '@/lib/types';
 import { Bell, CheckCheck } from 'lucide-react';
 import { toast } from 'sonner';
@@ -23,15 +23,49 @@ export default function Notifications() {
         .map(mapNotificationFromApi)
         .filter((item) => !user || item.userId === user.id);
     },
+    enabled: !!user,
+    onSuccess: (data) => {
+      const count = data.filter((item) => !item.readAt).length;
+      queryClient.setQueryData<NotificationsUnreadCountResponse>(
+        ['notifications', 'unread-count'],
+        { count },
+      );
+    },
   });
+
+  const { data: unreadCountData } = useQuery<NotificationsUnreadCountResponse>({
+    queryKey: ['notifications', 'unread-count'],
+    queryFn: () => api.notifications.unreadCount(),
+    enabled: !!user,
+  });
+
+  const unreadCount = unreadCountData?.count ?? 0;
 
   const markMutation = useMutation({
     mutationFn: (id: string) => api.notifications.markRead(id),
     onSuccess: (_, id) => {
+      let markedUnread = false;
       queryClient.setQueryData<Notification[]>(['notifications'], (current) => {
         if (!current) return current;
-        return current.map((item) => (item.id === id ? { ...item, readAt: new Date().toISOString() } : item));
+        return current.map((item) => {
+          if (item.id !== id) {
+            return item;
+          }
+
+          if (!item.readAt) {
+            markedUnread = true;
+          }
+
+          return { ...item, readAt: new Date().toISOString() };
+        });
       });
+
+      if (markedUnread) {
+        queryClient.setQueryData<NotificationsUnreadCountResponse | undefined>(
+          ['notifications', 'unread-count'],
+          (current) => ({ count: Math.max(0, (current?.count ?? 0) - 1) }),
+        );
+      }
       toast.success('Pranešimas pažymėtas kaip perskaitytas');
     },
     onError: () => {
@@ -44,11 +78,28 @@ export default function Notifications() {
       await Promise.all(ids.map((notificationId) => api.notifications.markRead(notificationId)));
     },
     onSuccess: (_, ids) => {
+      let markedCount = 0;
       queryClient.setQueryData<Notification[]>(['notifications'], (current) => {
         if (!current) return current;
         const timestamp = new Date().toISOString();
-        return current.map((item) => (ids.includes(item.id) ? { ...item, readAt: timestamp } : item));
+        return current.map((item) => {
+          if (!ids.includes(item.id)) {
+            return item;
+          }
+
+          if (!item.readAt) {
+            markedCount += 1;
+          }
+
+          return { ...item, readAt: timestamp };
+        });
       });
+      if (markedCount > 0) {
+        queryClient.setQueryData<NotificationsUnreadCountResponse | undefined>(
+          ['notifications', 'unread-count'],
+          (current) => ({ count: Math.max(0, (current?.count ?? 0) - markedCount) }),
+        );
+      }
       toast.success('Visi pranešimai pažymėti kaip perskaityti');
     },
     onError: () => {
@@ -56,16 +107,15 @@ export default function Notifications() {
     },
   });
 
-  const unreadCount = useMemo(() => notifications.filter((n) => !n.readAt).length, [notifications]);
-
   useEffect(() => {
+    if (!user) return;
     if (isLoading) return;
     const unreadIds = notifications.filter((notification) => !notification.readAt).map((notification) => notification.id);
     if (unreadIds.length === 0 || markAllMutation.isPending) {
       return;
     }
     markAllMutation.mutate(unreadIds);
-  }, [isLoading, notifications, markAllMutation]);
+  }, [isLoading, notifications, markAllMutation, user]);
 
   const getTypeIcon = (type: string) => {
     const icons: Record<string, React.ReactNode> = {

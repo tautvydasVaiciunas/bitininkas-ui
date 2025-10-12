@@ -1,10 +1,12 @@
 import {
+  BadRequestException,
   ForbiddenException,
   Injectable,
   NotFoundException,
+  UnprocessableEntityException,
 } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
-import { In, Repository } from 'typeorm';
+import { In, QueryFailedError, Repository } from 'typeorm';
 
 import { Task, TaskFrequency } from './task.entity';
 import { TaskStep } from './steps/task-step.entity';
@@ -39,6 +41,70 @@ export class TasksService {
     return trimmed && trimmed.length > 0 ? trimmed : null;
   }
 
+  private extractColumnName(detail?: string) {
+    if (!detail) {
+      return undefined;
+    }
+
+    const parenMatch = detail.match(/\(([^)]+)\)=/);
+    if (parenMatch) {
+      return parenMatch[1];
+    }
+
+    const columnMatch = detail.match(/column "([^"]+)"/i);
+    if (columnMatch) {
+      return columnMatch[1];
+    }
+
+    return undefined;
+  }
+
+  private handleDatabaseError(error: unknown, action: string): never {
+    if (error instanceof QueryFailedError) {
+      const driverError = (error as QueryFailedError & { driverError?: any }).driverError ?? {};
+      const code: string | undefined = driverError.code;
+      const detail: string | undefined = driverError.detail ?? driverError.message;
+      const column = this.extractColumnName(detail);
+
+      if (code === '23503') {
+        throw new UnprocessableEntityException(
+          `${action}: ${column ? `${column} not found` : 'related entity missing'}`,
+        );
+      }
+
+      if (code === '23505') {
+        throw new UnprocessableEntityException(
+          `${action}: ${column ? `duplicate value for ${column}` : 'duplicate value'}`,
+        );
+      }
+
+      if (code === '23514') {
+        throw new UnprocessableEntityException(`${action}: constraint violated`);
+      }
+
+      if (code === '23502') {
+        throw new BadRequestException(
+          `${action}: ${column ? `${column} is required` : 'missing required value'}`,
+        );
+      }
+
+      throw new BadRequestException(`${action}: invalid data`);
+    }
+
+    throw error;
+  }
+
+  private async runWithDatabaseErrorHandling<T>(
+    operation: () => Promise<T>,
+    action: string,
+  ): Promise<T> {
+    try {
+      return await operation();
+    } catch (error) {
+      this.handleDatabaseError(error, action);
+    }
+  }
+
   private normalizeStepInput(step: StepInput, orderIndex: number): StepInput {
     return {
       ...step,
@@ -69,7 +135,10 @@ export class TasksService {
       ),
     });
 
-    const saved = await this.tasksRepository.save(task);
+    const saved = await this.runWithDatabaseErrorHandling(
+      () => this.tasksRepository.save(task),
+      'Unable to create task',
+    );
     await this.activityLog.log('task_created', user.id, 'task', saved.id);
     return saved;
   }
@@ -141,7 +210,10 @@ export class TasksService {
       task.defaultDueDays = taskData.defaultDueDays;
     }
 
-    const saved = await this.tasksRepository.save(task);
+    const saved = await this.runWithDatabaseErrorHandling(
+      () => this.tasksRepository.save(task),
+      'Unable to update task',
+    );
 
     if (steps) {
       await this.updateSteps(
@@ -178,7 +250,10 @@ export class TasksService {
     for (const order of dto.steps) {
       const step = steps.find((s) => s.id === order.stepId)!;
       step.orderIndex = order.orderIndex;
-      await this.stepsRepository.save(step);
+      await this.runWithDatabaseErrorHandling(
+        () => this.stepsRepository.save(step),
+        'Unable to reorder task steps',
+      );
     }
 
     await this.activityLog.log('task_steps_reordered', user.id, 'task', taskId);
@@ -200,7 +275,10 @@ export class TasksService {
         taskId,
       });
 
-      await this.stepsRepository.save(newStep);
+      await this.runWithDatabaseErrorHandling(
+        () => this.stepsRepository.save(newStep),
+        'Unable to create task steps',
+      );
     }
 
     return this.getSteps(taskId);
@@ -218,7 +296,10 @@ export class TasksService {
         taskId,
       });
 
-      await this.stepsRepository.save(newStep);
+      await this.runWithDatabaseErrorHandling(
+        () => this.stepsRepository.save(newStep),
+        'Unable to update task steps',
+      );
     }
 
     await this.activityLog.log('task_steps_updated', user.id, 'task', taskId);

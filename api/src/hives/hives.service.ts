@@ -155,7 +155,7 @@ export class HivesService {
     const label = dto.label?.trim();
     if (!label) {
       console.error('Unable to create hive: label is required');
-      throw new BadRequestException('Neteisingi duomenys');
+      throw new BadRequestException('Pavadinimas privalomas');
     }
 
     const hive = this.hiveRepository.create({

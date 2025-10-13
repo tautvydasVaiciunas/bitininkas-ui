@@ -46,6 +46,7 @@ import { Skeleton } from "@/components/ui/skeleton";
 import { useToast } from "@/components/ui/use-toast";
 import { useAuth } from "@/contexts/AuthContext";
 import api, { HttpError, type AdminUserResponse } from "@/lib/api";
+import { getApiErrorMessage } from "@/lib/errors";
 import {
   mapHiveFromApi,
   type CreateHivePayload,
@@ -113,18 +114,6 @@ const formatDate = (value?: string | null) => {
     month: "long",
     day: "numeric",
   });
-};
-
-const getErrorMessage = (error: unknown) => {
-  if (!error) return undefined;
-  if (error instanceof HttpError) {
-    const data = error.data as { message?: string } | undefined;
-    return data?.message ?? error.message;
-  }
-  if (error instanceof Error) {
-    return error.message;
-  }
-  return undefined;
 };
 
 function HiveCard({
@@ -368,7 +357,7 @@ export default function Hives() {
     setCreateForm({ label: "", location: "", queenYear: "", members: [] });
 
   const showErrorToast = (title: string, errorValue: unknown) => {
-    const description = getErrorMessage(errorValue);
+    const description = getApiErrorMessage(errorValue);
     toast({
       title,
       description,
@@ -385,7 +374,7 @@ export default function Hives() {
     onSuccess: (createdHive) => {
       queryClient.invalidateQueries({ queryKey: ["hives"] });
       toast({
-        title: ltMessages.hives.createSuccess,
+        title: "Avilys sukurtas",
         description: `Avilys „${createdHive.label}“ sėkmingai pridėtas.`,
       });
       setIsCreateDialogOpen(false);
@@ -690,8 +679,7 @@ export default function Hives() {
             <CardContent className="p-12 text-center space-y-4">
               <h3 className="text-lg font-semibold">{ltMessages.hives.loadError}</h3>
               <p className="text-muted-foreground">
-                {getErrorMessage(error) ??
-                  "Įvyko nenumatyta klaida bandant gauti avilių sąrašą."}
+                {getApiErrorMessage(error)}
               </p>
               <Button onClick={() => refetch()} variant="outline">
                 Bandyti iš naujo

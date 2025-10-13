@@ -443,6 +443,7 @@ const safeParse = async (response: Response): Promise<unknown> => {
 };
 
 const statusErrorMessages: Record<number, string> = {
+  400: 'Neteisingi duomenys',
   401: ltMessages.errors.invalidCredentials,
   403: ltMessages.errors.forbidden,
   422: ltMessages.errors.invalidInput,

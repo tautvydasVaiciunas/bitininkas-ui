@@ -5,6 +5,7 @@ import {
   IsNotEmpty,
   IsOptional,
   IsString,
+  Matches,
   MaxLength,
   Min,
 } from 'class-validator';
@@ -24,6 +25,9 @@ export class CreateTaskStepInputDto {
   @IsOptional()
   @IsString({ message: 'Nuoroda turi būti tekstas' })
   @MaxLength(500, { message: 'Nuoroda gali būti iki 500 simbolių' })
+  @Matches(/^(?:\/uploads\/|https?:\/\/).+/i, {
+    message: 'Nuoroda turi prasidėti /uploads/ arba http(s):// adresu',
+  })
   mediaUrl?: string;
 
   @IsOptional()

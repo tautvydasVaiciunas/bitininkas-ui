@@ -107,6 +107,10 @@ export interface TaskStepResponse {
   createdAt: string;
 }
 
+export interface MediaUploadResponse {
+  url: string;
+}
+
 export interface TemplateStepResponse {
   id: string;
   templateId: string;
@@ -641,6 +645,13 @@ export const del = <T>(path: string, options?: RequestOptions) =>
   request<T>('DELETE', path, options);
 
 export const api = {
+  media: {
+    upload: (file: File) => {
+      const formData = new FormData();
+      formData.append('file', file);
+      return post<MediaUploadResponse>('/media/upload', { body: formData });
+    },
+  },
   auth: {
     login: async (payload: LoginPayload) => {
       const result = await post<AuthResponse>('/auth/login', {

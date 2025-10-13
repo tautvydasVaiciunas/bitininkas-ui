@@ -42,7 +42,7 @@ export class TasksController {
     const task = await this.tasksService.create(dto, req.user);
 
     if (this.isDevEnvironment()) {
-      this.logger.debug(`Sukurta užduotis: ${task.id}`);
+      this.logger.debug('tasks create', { id: task.id });
     }
 
     return task;
@@ -72,7 +72,7 @@ export class TasksController {
     });
 
     if (this.isDevEnvironment()) {
-      this.logger.debug(`Grąžinamos ${tasks.length} užduotys`);
+      this.logger.debug('tasks list', { count: tasks.length });
     }
 
     return tasks;

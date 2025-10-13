@@ -41,7 +41,7 @@ export class HivesController {
     const hive = await this.hivesService.create(dto, req.user.id, req.user.role);
 
     if (this.isDevEnvironment()) {
-      this.logger.debug(`Sukurtas avilys: ${hive.id}`);
+      this.logger.debug('hives create', { id: hive.id });
     }
 
     return hive;
@@ -52,7 +52,7 @@ export class HivesController {
     const hives = await this.hivesService.findAll(req.user.id, req.user.role, status);
 
     if (this.isDevEnvironment()) {
-      this.logger.debug(`Grąžinami ${hives.length} aviliai`);
+      this.logger.debug('hives list', { count: hives.length });
     }
 
     return hives;

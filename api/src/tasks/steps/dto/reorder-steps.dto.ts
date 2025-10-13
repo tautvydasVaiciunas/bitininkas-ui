@@ -2,7 +2,7 @@ import { Type } from 'class-transformer';
 import { ArrayMinSize, IsArray, IsInt, IsUUID, Min, ValidateNested } from 'class-validator';
 
 class StepOrderDto {
-  @IsUUID()
+  @IsUUID('4', { message: 'Žingsnio ID turi būti teisingas UUID' })
   stepId!: string;
 
   @IsInt({ message: 'Eilės numeris turi būti sveikas skaičius' })
@@ -11,8 +11,8 @@ class StepOrderDto {
 }
 
 export class ReorderStepsDto {
-  @IsArray()
-  @ArrayMinSize(1)
+  @IsArray({ message: 'Reikia pateikti žingsnių sąrašą' })
+  @ArrayMinSize(1, { message: 'Turi būti bent vienas žingsnis' })
   @ValidateNested({ each: true })
   @Type(() => StepOrderDto)
   steps!: StepOrderDto[];

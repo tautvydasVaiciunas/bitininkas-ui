@@ -1,4 +1,15 @@
-import { Body, Controller, Delete, Get, Param, Patch, Post, Request } from '@nestjs/common';
+import {
+  Body,
+  Controller,
+  Delete,
+  Get,
+  HttpCode,
+  HttpStatus,
+  Param,
+  Patch,
+  Post,
+  Request,
+} from '@nestjs/common';
 
 import { Roles } from '../../common/decorators/roles.decorator';
 import { UserRole } from '../../users/user.entity';
@@ -44,6 +55,7 @@ export class TaskStepsController {
 
   @Roles(UserRole.MANAGER, UserRole.ADMIN)
   @Delete(':stepId')
+  @HttpCode(HttpStatus.NO_CONTENT)
   remove(@Param('taskId') taskId: string, @Param('stepId') stepId: string, @Request() req) {
     return this.taskStepsService.remove(taskId, stepId, req.user);
   }

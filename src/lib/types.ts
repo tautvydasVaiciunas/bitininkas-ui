@@ -86,7 +86,10 @@ export type Task = ApiTaskResponse;
 export type TaskWithSteps = ApiTaskWithStepsResponse;
 export type TaskStep = ApiTaskStepResponse;
 export type TemplateStep = Omit<ApiTemplateStepResponse, 'taskStep'> & { taskStep: TaskStep };
-export type Template = Omit<ApiTemplateResponse, 'steps'> & { steps: TemplateStep[] };
+export type Template = Omit<ApiTemplateResponse, 'steps' | 'comment'> & {
+  comment: string | null;
+  steps: TemplateStep[];
+};
 export type StepProgress = ApiStepProgressResponse;
 export type StepProgressToggleResult =
   | { completed: true; taskStepId: string; progress: StepProgress }
@@ -145,6 +148,7 @@ export const mapTemplateStepFromApi = (step: ApiTemplateStepResponse): TemplateS
 
 export const mapTemplateFromApi = (template: ApiTemplateResponse): Template => ({
   ...template,
+  comment: template.comment ?? null,
   steps: Array.isArray(template.steps) ? template.steps.map(mapTemplateStepFromApi) : [],
 });
 

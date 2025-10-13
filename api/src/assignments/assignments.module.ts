@@ -14,6 +14,9 @@ import { Group } from '../groups/group.entity';
 import { GroupMember } from '../groups/group-member.entity';
 import { Template } from '../templates/template.entity';
 import { TemplateStep } from '../templates/template-step.entity';
+import { NotificationsModule } from '../notifications/notifications.module';
+import { AssignmentsScheduler } from './assignments.scheduler';
+import { Notification } from '../notifications/notification.entity';
 
 @Module({
   imports: [
@@ -27,11 +30,13 @@ import { TemplateStep } from '../templates/template-step.entity';
       GroupMember,
       Template,
       TemplateStep,
+      Notification,
     ]),
     ActivityLogModule,
+    NotificationsModule,
     forwardRef(() => HivesModule),
   ],
-  providers: [AssignmentsService],
+  providers: [AssignmentsService, AssignmentsScheduler],
   controllers: [AssignmentsController],
   exports: [AssignmentsService],
 })

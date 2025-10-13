@@ -1,20 +1,17 @@
-import {
-  BadRequestException,
-  ForbiddenException,
-  Injectable,
-  NotFoundException,
-  UnprocessableEntityException,
-} from '@nestjs/common';
+import { BadRequestException, ForbiddenException, Injectable, Logger, NotFoundException } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
-import { In, QueryFailedError, Repository } from 'typeorm';
+import { In, Repository } from 'typeorm';
 import { Hive, HiveStatus } from './hive.entity';
 import { CreateHiveDto } from './dto/create-hive.dto';
 import { UpdateHiveDto } from './dto/update-hive.dto';
 import { User, UserRole } from '../users/user.entity';
 import { ActivityLogService } from '../activity-log/activity-log.service';
+import { runWithDatabaseErrorHandling } from '../common/errors/database-error.util';
 
 @Injectable()
 export class HivesService {
+  private readonly logger = new Logger(HivesService.name);
+
   constructor(
     @InjectRepository(Hive)
     private readonly hiveRepository: Repository<Hive>,
@@ -35,82 +32,6 @@ export class HivesService {
 
     const uniqueIds = Array.from(new Set(memberIds));
     return this.userRepository.find({ where: { id: In(uniqueIds) } });
-  }
-
-  private extractColumnName(detail?: string) {
-    if (!detail) {
-      return undefined;
-    }
-
-    const parenMatch = detail.match(/\(([^)]+)\)=/);
-    if (parenMatch) {
-      return parenMatch[1];
-    }
-
-    const columnMatch = detail.match(/column "([^"]+)"/i);
-    if (columnMatch) {
-      return columnMatch[1];
-    }
-
-    return undefined;
-  }
-
-  private getDatabaseErrorMessage(code: string | undefined, column: string | undefined, action: string) {
-    if (code === '23503') {
-      return `${action}: ${column ? `${column} not found` : 'related entity missing'}`;
-    }
-
-    if (code === '23505') {
-      return `${action}: ${column ? `duplicate value for ${column}` : 'duplicate value'}`;
-    }
-
-    if (code === '23514') {
-      return `${action}: constraint violated`;
-    }
-
-    if (code === '23502') {
-      return `${action}: ${column ? `${column} is required` : 'missing required value'}`;
-    }
-
-    return `${action}: invalid data`;
-  }
-
-  private handleDatabaseError(
-    error: unknown,
-    action: string,
-    errorMessage: string,
-  ): never {
-    if (error instanceof QueryFailedError) {
-      const driverError =
-        (error as QueryFailedError & { driverError?: Record<string, unknown> }).driverError ?? {};
-      const codeValue = driverError.code;
-      const detailValue = (driverError.detail ?? driverError.message) as unknown;
-      const code = typeof codeValue === 'string' ? codeValue : undefined;
-      const detail = typeof detailValue === 'string' ? detailValue : undefined;
-      const column = this.extractColumnName(detail);
-      const englishMessage = this.getDatabaseErrorMessage(code, column, action);
-
-      console.error(englishMessage, error);
-      throw new BadRequestException({ message: errorMessage, details: englishMessage });
-    }
-
-    if (error instanceof BadRequestException || error instanceof UnprocessableEntityException) {
-      throw error;
-    }
-
-    throw error;
-  }
-
-  private async runWithDatabaseErrorHandling<T>(
-    operation: () => Promise<T>,
-    action: string,
-    errorMessage = 'Neteisingi duomenys',
-  ): Promise<T> {
-    try {
-      return await operation();
-    } catch (error) {
-      this.handleDatabaseError(error, action, errorMessage);
-    }
   }
 
   private async ensureAccess(hive: Hive, userId: string, role: UserRole) {
@@ -169,7 +90,7 @@ export class HivesService {
 
     const label = dto.label?.trim();
     if (!label) {
-      console.error('Nepavyko sukurti avilio: pavadinimas privalomas');
+      this.logger.warn('Nepavyko sukurti avilio: pavadinimas privalomas');
       throw new BadRequestException({
         message: 'Nepavyko sukurti avilio',
         details: 'Pavadinimas privalomas',
@@ -187,7 +108,7 @@ export class HivesService {
 
     const memberIds = allCandidateIds.filter((id) => id !== ownerUserId);
 
-    const saved = await this.runWithDatabaseErrorHandling(
+    const saved = await runWithDatabaseErrorHandling(
       () =>
         this.hiveRepository.manager.transaction(async (manager) => {
           const hiveRepo = manager.getRepository(Hive);
@@ -223,8 +144,7 @@ export class HivesService {
 
           return hiveRepo.save(hive);
         }),
-      'create hive',
-      'Nepavyko sukurti avilio',
+      { message: 'Nepavyko sukurti avilio' },
     );
 
     await this.activityLog.log('hive_created', userId, 'hive', saved.id);
@@ -283,10 +203,9 @@ export class HivesService {
       hive.status = dto.status;
     }
 
-    const saved = await this.runWithDatabaseErrorHandling(
+    const saved = await runWithDatabaseErrorHandling(
       () => this.hiveRepository.save(hive),
-      'update hive',
-      'Nepavyko atnaujinti avilio',
+      { message: 'Nepavyko atnaujinti avilio' },
     );
     await this.activityLog.log('hive_updated', userId, 'hive', id);
 

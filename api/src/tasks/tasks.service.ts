@@ -1,12 +1,6 @@
-import {
-  BadRequestException,
-  ForbiddenException,
-  Injectable,
-  NotFoundException,
-  UnprocessableEntityException,
-} from '@nestjs/common';
+import { BadRequestException, ForbiddenException, Injectable, Logger, NotFoundException } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
-import { QueryFailedError, Repository } from 'typeorm';
+import { Repository } from 'typeorm';
 
 import { Task, TaskFrequency } from './task.entity';
 import { TaskStep } from './steps/task-step.entity';
@@ -16,6 +10,7 @@ import { ReorderStepsDto } from './steps/dto/reorder-steps.dto';
 import { UserRole } from '../users/user.entity';
 import { ActivityLogService } from '../activity-log/activity-log.service';
 import { TaskStepsService } from './steps/task-steps.service';
+import { runWithDatabaseErrorHandling } from '../common/errors/database-error.util';
 
 type StepInput = Partial<
   Pick<TaskStep, 'title' | 'contentText' | 'mediaUrl' | 'mediaType' | 'requireUserMedia' | 'orderIndex'>
@@ -23,6 +18,8 @@ type StepInput = Partial<
 
 @Injectable()
 export class TasksService {
+  private readonly logger = new Logger(TasksService.name);
+
   constructor(
     @InjectRepository(Task)
     private readonly tasksRepository: Repository<Task>,
@@ -51,82 +48,6 @@ export class TasksService {
     return value;
   }
 
-  private extractColumnName(detail?: string) {
-    if (!detail) {
-      return undefined;
-    }
-
-    const parenMatch = detail.match(/\(([^)]+)\)=/);
-    if (parenMatch) {
-      return parenMatch[1];
-    }
-
-    const columnMatch = detail.match(/column "([^"]+)"/i);
-    if (columnMatch) {
-      return columnMatch[1];
-    }
-
-    return undefined;
-  }
-
-  private getDatabaseErrorMessage(code: string | undefined, column: string | undefined, action: string) {
-    if (code === '23503') {
-      return `${action}: ${column ? `${column} not found` : 'related entity missing'}`;
-    }
-
-    if (code === '23505') {
-      return `${action}: ${column ? `duplicate value for ${column}` : 'duplicate value'}`;
-    }
-
-    if (code === '23514') {
-      return `${action}: constraint violated`;
-    }
-
-    if (code === '23502') {
-      return `${action}: ${column ? `${column} is required` : 'missing required value'}`;
-    }
-
-    return `${action}: invalid data`;
-  }
-
-  private handleDatabaseError(
-    error: unknown,
-    action: string,
-    errorMessage: string,
-  ): never {
-    if (error instanceof QueryFailedError) {
-      const driverError =
-        (error as QueryFailedError & { driverError?: Record<string, unknown> }).driverError ?? {};
-      const codeValue = driverError.code;
-      const detailValue = (driverError.detail ?? driverError.message) as unknown;
-      const code = typeof codeValue === 'string' ? codeValue : undefined;
-      const detail = typeof detailValue === 'string' ? detailValue : undefined;
-      const column = this.extractColumnName(detail);
-      const englishMessage = this.getDatabaseErrorMessage(code, column, action);
-
-      console.error(englishMessage, error);
-      throw new BadRequestException({ message: errorMessage, details: englishMessage });
-    }
-
-    if (error instanceof BadRequestException || error instanceof UnprocessableEntityException) {
-      throw error;
-    }
-
-    throw error;
-  }
-
-  private async runWithDatabaseErrorHandling<T>(
-    operation: () => Promise<T>,
-    action: string,
-    errorMessage = 'Neteisingi duomenys',
-  ): Promise<T> {
-    try {
-      return await operation();
-    } catch (error) {
-      this.handleDatabaseError(error, action, errorMessage);
-    }
-  }
-
   private normalizeStepInput(step: StepInput, orderIndex: number): StepInput {
     return {
       ...step,
@@ -143,15 +64,22 @@ export class TasksService {
     const task = await this.tasksRepository.findOne({
       where: { id },
       relations: { steps: true },
+      order: { steps: { orderIndex: 'ASC' } },
     });
 
     if (!task) {
       return null;
     }
 
+    const seasonMonths = Array.isArray(task.seasonMonths) ? task.seasonMonths : [];
+    const steps = Array.isArray(task.steps)
+      ? [...task.steps].sort((a, b) => a.orderIndex - b.orderIndex)
+      : [];
+
     return {
       ...task,
-      seasonMonths: Array.isArray(task.seasonMonths) ? task.seasonMonths : [],
+      seasonMonths,
+      steps,
     };
   }
 
@@ -162,7 +90,7 @@ export class TasksService {
 
     const title = dto.title?.trim();
     if (!title) {
-      console.error('Nepavyko sukurti užduoties: pavadinimas privalomas');
+      this.logger.warn('Nepavyko sukurti užduoties: pavadinimas privalomas');
       throw new BadRequestException({
         message: 'Nepavyko sukurti užduoties',
         details: 'Pavadinimas privalomas',
@@ -170,7 +98,7 @@ export class TasksService {
     }
 
     if (taskData.defaultDueDays !== undefined && taskData.defaultDueDays < 0) {
-      console.error('Nepavyko sukurti užduoties: defaultDueDays turi būti neneigiamas');
+      this.logger.warn('Nepavyko sukurti užduoties: defaultDueDays turi būti neneigiamas');
       throw new BadRequestException({
         message: 'Nepavyko sukurti užduoties',
         details: 'Numatytas terminas turi būti neneigiamas',
@@ -195,10 +123,9 @@ export class TasksService {
       ),
     });
 
-    const saved = await this.runWithDatabaseErrorHandling(
+    const saved = await runWithDatabaseErrorHandling(
       () => this.tasksRepository.save(task),
-      'create task',
-      'Nepavyko sukurti užduoties',
+      { message: 'Nepavyko sukurti užduoties' },
     );
     await this.activityLog.log('task_created', user.id, 'task', saved.id);
     const fullTask = await this.getTaskWithRelations(saved.id);
@@ -309,10 +236,9 @@ export class TasksService {
       task.defaultDueDays = taskData.defaultDueDays;
     }
 
-    const saved = await this.runWithDatabaseErrorHandling(
+    const saved = await runWithDatabaseErrorHandling(
       () => this.tasksRepository.save(task),
-      'update task',
-      'Nepavyko atnaujinti užduoties',
+      { message: 'Nepavyko atnaujinti užduoties' },
     );
 
     if (steps) {
@@ -326,6 +252,12 @@ export class TasksService {
     }
 
     await this.activityLog.log('task_updated', user.id, 'task', id);
+
+    const fullTask = await this.getTaskWithRelations(id);
+    if (fullTask) {
+      return fullTask;
+    }
+
     return {
       ...saved,
       seasonMonths: Array.isArray(saved.seasonMonths) ? saved.seasonMonths : [],
@@ -355,9 +287,9 @@ export class TasksService {
         taskId,
       });
 
-      await this.runWithDatabaseErrorHandling(
+      await runWithDatabaseErrorHandling(
         () => this.stepsRepository.save(newStep),
-        'Unable to create task steps',
+        { message: 'Nepavyko sukurti užduoties žingsnių' },
       );
     }
 
@@ -376,9 +308,9 @@ export class TasksService {
         taskId,
       });
 
-      await this.runWithDatabaseErrorHandling(
+      await runWithDatabaseErrorHandling(
         () => this.stepsRepository.save(newStep),
-        'Unable to update task steps',
+        { message: 'Nepavyko atnaujinti užduoties žingsnių' },
       );
     }
 

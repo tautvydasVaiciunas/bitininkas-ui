@@ -1,6 +1,6 @@
-import { BadRequestException, ForbiddenException, Injectable, NotFoundException } from '@nestjs/common';
+import { BadRequestException, ForbiddenException, Injectable, Logger, NotFoundException } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
-import { DataSource, QueryFailedError, Repository } from 'typeorm';
+import { DataSource, Repository } from 'typeorm';
 
 import { Task } from '../task.entity';
 import { TaskStep, type TaskStepMediaType } from './task-step.entity';
@@ -8,9 +8,12 @@ import { ActivityLogService } from '../../activity-log/activity-log.service';
 import { UserRole } from '../../users/user.entity';
 import { CreateTaskStepDto } from './dto/create-task-step.dto';
 import { UpdateTaskStepDto } from './dto/update-task-step.dto';
+import { runWithDatabaseErrorHandling } from '../../common/errors/database-error.util';
 
 @Injectable()
 export class TaskStepsService {
+  private readonly logger = new Logger(TaskStepsService.name);
+
   constructor(
     @InjectRepository(TaskStep)
     private readonly stepsRepository: Repository<TaskStep>,
@@ -37,73 +40,6 @@ export class TaskStepsService {
     }
 
     return value;
-  }
-
-  private extractColumnName(detail?: string) {
-    if (!detail) {
-      return undefined;
-    }
-
-    const parenMatch = detail.match(/\(([^)]+)\)=/);
-    if (parenMatch) {
-      return parenMatch[1];
-    }
-
-    const columnMatch = detail.match(/column "([^"]+)"/i);
-    if (columnMatch) {
-      return columnMatch[1];
-    }
-
-    return undefined;
-  }
-
-  private handleDatabaseError(error: unknown, action: string): never {
-    if (error instanceof QueryFailedError) {
-      const driverError = (error as QueryFailedError & {
-        driverError?: { code?: unknown; detail?: unknown; message?: unknown };
-      }).driverError ?? {};
-      const code = typeof driverError.code === 'string' ? driverError.code : undefined;
-      const detailCandidate = driverError.detail ?? driverError.message;
-      const detail = typeof detailCandidate === 'string' ? detailCandidate : undefined;
-      const column = this.extractColumnName(detail);
-
-      if (code === '23503') {
-        throw new BadRequestException(
-          `${action}: ${column ? `susijęs laukas „${column}“ nerastas` : 'susijęs įrašas nerastas'}`,
-        );
-      }
-
-      if (code === '23505') {
-        throw new BadRequestException(
-          `${action}: ${column ? `laukas „${column}“ dubliuojasi` : 'pasikartojanti reikšmė'}`,
-        );
-      }
-
-      if (code === '23514') {
-        throw new BadRequestException(`${action}: pažeisti duomenų apribojimai`);
-      }
-
-      if (code === '23502') {
-        throw new BadRequestException(
-          `${action}: ${column ? `laukas „${column}“ privalomas` : 'trūksta privalomos reikšmės'}`,
-        );
-      }
-
-      throw new BadRequestException(`${action}: neteisingi duomenys`);
-    }
-
-    throw error;
-  }
-
-  private async runWithDatabaseErrorHandling<T>(
-    operation: () => Promise<T>,
-    action: string,
-  ): Promise<T> {
-    try {
-      return await operation();
-    } catch (error) {
-      this.handleDatabaseError(error, action);
-    }
   }
 
   private async ensureTaskExists(taskId: string) {
@@ -140,7 +76,10 @@ export class TaskStepsService {
     action: string,
   ) {
     if (payload.length !== expectedLength) {
-      throw new BadRequestException(`${action}: turi būti pateikti visi žingsniai`);
+      throw new BadRequestException({
+        message: action,
+        details: 'Turi būti pateikti visi žingsniai',
+      });
     }
 
     const indexes = [...payload.map((item) => item.orderIndex)].sort((a, b) => a - b);
@@ -148,9 +87,10 @@ export class TaskStepsService {
     indexes.forEach((value, index) => {
       const expected = index + 1;
       if (value !== expected) {
-        throw new BadRequestException(
-          `${action}: žingsnių eiliškumas turi būti 1..${expectedLength} be praleidimų`,
-        );
+        throw new BadRequestException({
+          message: action,
+          details: `Žingsnių eiliškumas turi būti 1..${expectedLength} be praleidimų`,
+        });
       }
     });
   }
@@ -181,7 +121,11 @@ export class TaskStepsService {
     const fallbackOrder = await this.getNextOrderIndex(taskId);
     const normalized = this.normalizeStepInput(dto, fallbackOrder);
     if (!normalized.title) {
-      throw new BadRequestException('Nepavyko sukurti žingsnio: pavadinimas privalomas');
+      this.logger.warn('Nepavyko sukurti žingsnio: pavadinimas privalomas');
+      throw new BadRequestException({
+        message: 'Nepavyko sukurti žingsnio',
+        details: 'Pavadinimas privalomas',
+      });
     }
 
     const step = this.stepsRepository.create({
@@ -189,9 +133,9 @@ export class TaskStepsService {
       taskId,
     });
 
-    const saved = await this.runWithDatabaseErrorHandling(
+    const saved = await runWithDatabaseErrorHandling(
       () => this.stepsRepository.save(step),
-      'Nepavyko sukurti žingsnio',
+      { message: 'Nepavyko sukurti žingsnio' },
     );
 
     await this.activityLog.log('task_step_created', user.id, 'task', taskId);
@@ -210,7 +154,11 @@ export class TaskStepsService {
     if (dto.title !== undefined) {
       const title = dto.title.trim();
       if (!title) {
-        throw new BadRequestException('Nepavyko atnaujinti žingsnio: pavadinimas privalomas');
+        this.logger.warn('Nepavyko atnaujinti žingsnio: pavadinimas privalomas');
+        throw new BadRequestException({
+          message: 'Nepavyko atnaujinti žingsnio',
+          details: 'Pavadinimas privalomas',
+        });
       }
       step.title = title;
     }
@@ -235,9 +183,9 @@ export class TaskStepsService {
       step.orderIndex = dto.orderIndex;
     }
 
-    const saved = await this.runWithDatabaseErrorHandling(
+    const saved = await runWithDatabaseErrorHandling(
       () => this.stepsRepository.save(step),
-      'Nepavyko atnaujinti žingsnio',
+      { message: 'Nepavyko atnaujinti žingsnio' },
     );
 
     await this.activityLog.log('task_step_updated', user.id, 'task', taskId);
@@ -248,9 +196,9 @@ export class TaskStepsService {
     this.assertManager(user.role);
     const step = await this.findOne(taskId, stepId);
 
-    await this.runWithDatabaseErrorHandling(
+    await runWithDatabaseErrorHandling(
       () => this.stepsRepository.remove(step),
-      'Nepavyko ištrinti žingsnio',
+      { message: 'Nepavyko ištrinti žingsnio' },
     );
 
     await this.activityLog.log('task_step_deleted', user.id, 'task', taskId);
@@ -265,12 +213,18 @@ export class TaskStepsService {
     this.assertManager(user.role);
 
     if (!payload.length) {
-      throw new BadRequestException('Nepavyko perrikiuoti žingsnių: sąrašas tuščias');
+      throw new BadRequestException({
+        message: 'Nepavyko perrikiuoti žingsnių',
+        details: 'Sąrašas tuščias',
+      });
     }
 
     const uniqueIds = new Set(payload.map((step) => step.stepId));
     if (uniqueIds.size !== payload.length) {
-      throw new BadRequestException('Nepavyko perrikiuoti žingsnių: yra pasikartojančių žingsnių');
+      throw new BadRequestException({
+        message: 'Nepavyko perrikiuoti žingsnių',
+        details: 'Yra pasikartojančių žingsnių',
+      });
     }
 
     await this.ensureTaskExists(taskId);
@@ -286,14 +240,14 @@ export class TaskStepsService {
 
     this.validateOrderSequence(payload, steps.length, 'Nepavyko perrikiuoti žingsnių');
 
-    await this.runWithDatabaseErrorHandling(
+    await runWithDatabaseErrorHandling(
       () =>
         this.dataSource.transaction(async (manager) => {
           for (const { stepId, orderIndex } of payload) {
             await manager.update(TaskStep, { id: stepId }, { orderIndex });
           }
         }),
-      'Nepavyko perrikiuoti žingsnių',
+      { message: 'Nepavyko perrikiuoti žingsnių' },
     );
 
     await this.activityLog.log('task_steps_reordered', user.id, 'task', taskId);

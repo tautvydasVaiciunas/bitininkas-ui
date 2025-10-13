@@ -192,6 +192,22 @@ export default function AdminUsers() {
     return <Badge variant={variants[role]}>{label}</Badge>;
   };
 
+  const renderUserGroups = (groups: AdminUserResponse['groups']) => {
+    if (!groups?.length) {
+      return <span className="text-muted-foreground">—</span>;
+    }
+
+    return (
+      <div className="flex flex-wrap gap-1">
+        {groups.map((group) => (
+          <Badge key={group.id} variant="secondary" className="text-xs font-medium">
+            {group.name}
+          </Badge>
+        ))}
+      </div>
+    );
+  };
+
   const handleSubmit = async (event: FormEvent<HTMLFormElement>) => {
     event.preventDefault();
     setFormError(null);
@@ -331,7 +347,7 @@ export default function AdminUsers() {
                         <TableCell className="font-medium">{user.name ?? '—'}</TableCell>
                         <TableCell>{user.email}</TableCell>
                         <TableCell>{getRoleBadge(user.role)}</TableCell>
-                        <TableCell className="text-muted-foreground">—</TableCell>
+                        <TableCell>{renderUserGroups(user.groups)}</TableCell>
                         <TableCell className="text-right">
                           {isAdmin ? (
                             <div className="flex items-center justify-end gap-2">

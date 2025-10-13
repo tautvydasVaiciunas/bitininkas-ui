@@ -301,6 +301,11 @@ export interface AssignmentDetails {
   completion: number;
 }
 
+export interface AdminUserGroup {
+  id: string;
+  name: string;
+}
+
 export interface AdminUserResponse {
   id: string;
   email: string;
@@ -308,6 +313,7 @@ export interface AdminUserResponse {
   role: UserRole;
   createdAt: string;
   updatedAt?: string;
+  groups: AdminUserGroup[];
 }
 
 export interface CreateUserPayload {

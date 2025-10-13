@@ -9,6 +9,7 @@ import type {
   CreateHivePayload,
   CreateTaskPayload,
   CreateTaskStepPayload,
+  CreateTemplatePayload,
   GroupMemberResponse as ApiGroupMemberResponse,
   GroupResponse as ApiGroupResponse,
   HiveMemberResponse as ApiHiveMemberResponse,
@@ -27,17 +28,21 @@ import type {
   TaskResponse as ApiTaskResponse,
   TaskStepResponse as ApiTaskStepResponse,
   TaskWithStepsResponse as ApiTaskWithStepsResponse,
+  TemplateResponse as ApiTemplateResponse,
+  TemplateStepResponse as ApiTemplateStepResponse,
   UpdateAssignmentPayload,
   UpdateGroupPayload,
   UpdateHivePayload,
   UpdateTaskPayload,
   UpdateTaskStepPayload,
+  UpdateTemplatePayload,
   UpdateProfilePayload,
-  ChangePasswordPayload,
   UpdateUserPayload,
   UpdateUserRolePayload,
   UpdateProgressPayload,
   UserRole as ApiUserRole,
+  TemplateStepInputPayload,
+  ReorderTemplateStepsPayload,
 } from './api';
 
 export type {
@@ -55,6 +60,10 @@ export type {
   UpdateHivePayload,
   UpdateTaskPayload,
   UpdateTaskStepPayload,
+  CreateTemplatePayload,
+  TemplateStepInputPayload,
+  UpdateTemplatePayload,
+  ReorderTemplateStepsPayload,
   UpdateProfilePayload,
   ChangePasswordPayload,
   UpdateUserPayload,
@@ -72,6 +81,8 @@ export type HiveStatus = ApiHiveStatus;
 export type Task = ApiTaskResponse;
 export type TaskWithSteps = ApiTaskWithStepsResponse;
 export type TaskStep = ApiTaskStepResponse;
+export type TemplateStep = Omit<ApiTemplateStepResponse, 'taskStep'> & { taskStep: TaskStep };
+export type Template = Omit<ApiTemplateResponse, 'steps'> & { steps: TemplateStep[] };
 export type StepProgress = ApiStepProgressResponse;
 export type StepProgressToggleResult =
   | { completed: true; taskStepId: string; progress: StepProgress }
@@ -121,6 +132,16 @@ export const mapTaskFromApi = (task: ApiTaskResponse): Task => ({
 export const mapTaskWithStepsFromApi = (task: ApiTaskWithStepsResponse): TaskWithSteps => ({
   ...mapTaskFromApi(task),
   steps: task.steps.map(mapTaskStepFromApi),
+});
+
+export const mapTemplateStepFromApi = (step: ApiTemplateStepResponse): TemplateStep => ({
+  ...step,
+  taskStep: mapTaskStepFromApi(step.taskStep),
+});
+
+export const mapTemplateFromApi = (template: ApiTemplateResponse): Template => ({
+  ...template,
+  steps: Array.isArray(template.steps) ? template.steps.map(mapTemplateStepFromApi) : [],
 });
 
 export const mapAssignmentFromApi = (assignment: ApiAssignmentResponse): Assignment => ({

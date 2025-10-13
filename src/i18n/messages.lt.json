@@ -18,5 +18,29 @@
   "tasks": {
     "createSuccess": "Užduotis sėkmingai sukurta",
     "createError": "Nepavyko sukurti užduoties: neteisingi duomenys"
+  },
+  "steps": {
+    "createSuccess": "Žingsnis sukurtas",
+    "createError": "Nepavyko sukurti žingsnio",
+    "updateSuccess": "Žingsnis atnaujintas",
+    "updateError": "Nepavyko atnaujinti žingsnio",
+    "deleteSuccess": "Žingsnis ištrintas",
+    "deleteError": "Nepavyko ištrinti žingsnio",
+    "reorderSuccess": "Žingsniai perrikiuoti",
+    "reorderError": "Nepavyko perrikiuoti žingsnių",
+    "validationError": "Pasirinkite užduotį ir nurodykite pavadinimą"
+  },
+  "templates": {
+    "createSuccess": "Šablonas sukurtas",
+    "createError": "Nepavyko sukurti šablono",
+    "updateSuccess": "Šablonas atnaujintas",
+    "updateError": "Nepavyko atnaujinti šablono",
+    "deleteSuccess": "Šablonas ištrintas",
+    "deleteError": "Nepavyko ištrinti šablono",
+    "reorderSuccess": "Šablono žingsniai perrikiuoti",
+    "reorderError": "Nepavyko perrikiuoti šablono žingsnių",
+    "stepAdded": "Žingsnis pridėtas prie šablono",
+    "stepExists": "Šis žingsnis jau pridėtas",
+    "noName": "Įveskite šablono pavadinimą"
   }
 }

@@ -107,6 +107,24 @@ export interface TaskStepResponse {
   createdAt: string;
 }
 
+export interface TemplateStepResponse {
+  id: string;
+  templateId: string;
+  taskStepId: string;
+  orderIndex: number;
+  taskStep: TaskStepResponse;
+  createdAt: string;
+  updatedAt: string;
+}
+
+export interface TemplateResponse {
+  id: string;
+  name: string;
+  createdAt: string;
+  updatedAt: string;
+  steps: TemplateStepResponse[];
+}
+
 export interface TaskResponse {
   id: string;
   title: string;
@@ -148,6 +166,25 @@ export interface CreateTaskStepPayload {
 export type UpdateTaskStepPayload = Partial<CreateTaskStepPayload> & {
   orderIndex?: number;
 };
+
+export interface TemplateStepInputPayload {
+  taskStepId: string;
+  orderIndex?: number;
+}
+
+export interface CreateTemplatePayload {
+  name: string;
+  steps?: TemplateStepInputPayload[];
+}
+
+export interface UpdateTemplatePayload {
+  name?: string;
+  steps?: TemplateStepInputPayload[];
+}
+
+export interface ReorderTemplateStepsPayload {
+  steps: { id: string; orderIndex: number }[];
+}
 
 export type AssignmentStatus = 'not_started' | 'in_progress' | 'done';
 
@@ -645,8 +682,20 @@ export const api = {
     updateStep: (taskId: string, stepId: string, payload: UpdateTaskStepPayload) =>
       patch<TaskStepResponse>(`/tasks/${taskId}/steps/${stepId}`, { json: payload }),
     deleteStep: (taskId: string, stepId: string) => del<void>(`/tasks/${taskId}/steps/${stepId}`),
-    reorderSteps: (id: string, payload: { stepIds: string[] }) =>
-      post<TaskStepResponse[]>(`/tasks/${id}/steps/reorder`, { json: payload }),
+    reorderSteps: (
+      id: string,
+      payload: { steps: { stepId: string; orderIndex: number }[] },
+    ) => post<TaskStepResponse[]>(`/tasks/${id}/steps/reorder`, { json: payload }),
+  },
+  templates: {
+    list: () => get<TemplateResponse[]>('/templates'),
+    get: (id: string) => get<TemplateResponse>(`/templates/${id}`),
+    create: (payload: CreateTemplatePayload) => post<TemplateResponse>('/templates', { json: payload }),
+    update: (id: string, payload: UpdateTemplatePayload) =>
+      patch<TemplateResponse>(`/templates/${id}`, { json: payload }),
+    remove: (id: string) => del<void>(`/templates/${id}`),
+    reorderSteps: (id: string, payload: ReorderTemplateStepsPayload) =>
+      post<TemplateResponse>(`/templates/${id}/steps/reorder`, { json: payload }),
   },
   assignments: {
     list: (params?: { hiveId?: string; status?: AssignmentStatus; groupId?: string }) =>

@@ -1,12 +1,6 @@
-import {
-  BadRequestException,
-  ForbiddenException,
-  Injectable,
-  NotFoundException,
-  UnprocessableEntityException,
-} from '@nestjs/common';
+import { BadRequestException, ForbiddenException, Injectable, NotFoundException } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
-import { DataSource, In, QueryFailedError, Repository } from 'typeorm';
+import { DataSource, EntityManager, In, QueryFailedError, Repository } from 'typeorm';
 
 import { ActivityLogService } from '../activity-log/activity-log.service';
 import { UserRole } from '../users/user.entity';
@@ -31,14 +25,14 @@ export class TemplatesService {
 
   private assertManager(role: UserRole) {
     if (![UserRole.MANAGER, UserRole.ADMIN].includes(role)) {
-      throw new ForbiddenException('Requires manager or admin role');
+      throw new ForbiddenException('Reikia vadybininko arba administratoriaus teisių');
     }
   }
 
   private normalizeName(value: string) {
     const trimmed = value.trim();
     if (!trimmed) {
-      throw new BadRequestException('Name is required');
+      throw new BadRequestException('Šablono pavadinimas privalomas');
     }
 
     return trimmed;
@@ -64,34 +58,37 @@ export class TemplatesService {
 
   private handleDatabaseError(error: unknown, action: string): never {
     if (error instanceof QueryFailedError) {
-      const driverError = (error as QueryFailedError & { driverError?: any }).driverError ?? {};
-      const code: string | undefined = driverError.code;
-      const detail: string | undefined = driverError.detail ?? driverError.message;
+      const driverError = (error as QueryFailedError & {
+        driverError?: { code?: unknown; detail?: unknown; message?: unknown };
+      }).driverError ?? {};
+      const code = typeof driverError.code === 'string' ? driverError.code : undefined;
+      const detailCandidate = driverError.detail ?? driverError.message;
+      const detail = typeof detailCandidate === 'string' ? detailCandidate : undefined;
       const column = this.extractColumnName(detail);
 
       if (code === '23503') {
-        throw new UnprocessableEntityException(
-          `${action}: ${column ? `${column} not found` : 'related entity missing'}`,
+        throw new BadRequestException(
+          `${action}: ${column ? `susijęs laukas „${column}“ nerastas` : 'susijęs įrašas nerastas'}`,
         );
       }
 
       if (code === '23505') {
-        throw new UnprocessableEntityException(
-          `${action}: ${column ? `duplicate value for ${column}` : 'duplicate value'}`,
+        throw new BadRequestException(
+          `${action}: ${column ? `laukas „${column}“ dubliuojasi` : 'pasikartojanti reikšmė'}`,
         );
       }
 
       if (code === '23514') {
-        throw new UnprocessableEntityException(`${action}: constraint violated`);
+        throw new BadRequestException(`${action}: pažeisti duomenų apribojimai`);
       }
 
       if (code === '23502') {
         throw new BadRequestException(
-          `${action}: ${column ? `${column} is required` : 'missing required value'}`,
+          `${action}: ${column ? `laukas „${column}“ privalomas` : 'trūksta privalomos reikšmės'}`,
         );
       }
 
-      throw new BadRequestException(`${action}: invalid data`);
+      throw new BadRequestException(`${action}: neteisingi duomenys`);
     }
 
     throw error;
@@ -108,37 +105,52 @@ export class TemplatesService {
     }
   }
 
-  private async ensureTemplate(id: string) {
-    const template = await this.templateRepository.findOne({
+  private getTemplateRepository(manager?: EntityManager) {
+    return manager ? manager.getRepository(Template) : this.templateRepository;
+  }
+
+  private getTemplateStepRepository(manager?: EntityManager) {
+    return manager ? manager.getRepository(TemplateStep) : this.templateStepRepository;
+  }
+
+  private getTaskStepRepository(manager?: EntityManager) {
+    return manager ? manager.getRepository(TaskStep) : this.taskStepRepository;
+  }
+
+  private async ensureTemplate(id: string, manager?: EntityManager) {
+    const repository = this.getTemplateRepository(manager);
+    const template = await repository.findOne({
       where: { id },
       relations: { steps: true },
       order: { steps: { orderIndex: 'ASC' } },
     });
 
     if (!template) {
-      throw new NotFoundException('Template not found');
+      throw new NotFoundException('Šablonas nerastas');
     }
 
     return template;
   }
 
-  private async ensureTaskStepsExist(taskStepIds: string[]) {
+  private async ensureTaskStepsExist(taskStepIds: string[], manager?: EntityManager) {
     if (!taskStepIds.length) {
       return;
     }
 
-    const found = await this.taskStepRepository.find({ where: { id: In(taskStepIds) } });
+    const repository = this.getTaskStepRepository(manager);
+    const found = await repository.find({ where: { id: In(taskStepIds) } });
     if (found.length !== taskStepIds.length) {
-      throw new NotFoundException('Task step not found');
+      throw new NotFoundException('Žingsnis nerastas');
     }
   }
 
   private buildTemplateSteps(
+    repository: Repository<TemplateStep>,
     template: Template,
     steps: { taskStepId: string; orderIndex?: number }[],
   ) {
     return steps.map((step, index) =>
-      this.templateStepRepository.create({
+      repository.create({
         template,
         taskStepId: step.taskStepId,
         orderIndex: step.orderIndex ?? index + 1,
@@ -160,101 +172,124 @@ export class TemplatesService {
   async create(dto: CreateTemplateDto, user: { id: string; role: UserRole }) {
     this.assertManager(user.role);
 
-    const template = this.templateRepository.create({
-      name: this.normalizeName(dto.name),
-    });
+    const template = await this.runWithDatabaseErrorHandling(
+      () =>
+        this.dataSource.transaction(async (manager) => {
+          const templateRepo = this.getTemplateRepository(manager);
+          const stepRepo = this.getTemplateStepRepository(manager);
+          const created = templateRepo.create({
+            name: this.normalizeName(dto.name),
+          });
 
-    if (dto.steps?.length) {
-      const stepIds = dto.steps.map((step) => step.taskStepId);
-      await this.ensureTaskStepsExist(stepIds);
-      template.steps = this.buildTemplateSteps(template, dto.steps);
-    }
+          if (dto.steps?.length) {
+            const stepIds = dto.steps.map((step) => step.taskStepId);
+            await this.ensureTaskStepsExist(stepIds, manager);
+            created.steps = this.buildTemplateSteps(stepRepo, created, dto.steps);
+          }
 
-    const saved = await this.runWithDatabaseErrorHandling(
-      () => this.templateRepository.save(template),
-      'Unable to create template',
+          const saved = await templateRepo.save(created);
+          return this.ensureTemplate(saved.id, manager);
+        }),
+      'Nepavyko sukurti šablono',
     );
 
-    await this.activityLog.log('template_created', user.id, 'template', saved.id);
-    return this.findOne(saved.id);
+    await this.activityLog.log('template_created', user.id, 'template', template.id);
+    return template;
   }
 
   async update(id: string, dto: UpdateTemplateDto, user: { id: string; role: UserRole }) {
     this.assertManager(user.role);
-    const template = await this.ensureTemplate(id);
 
-    if (dto.name !== undefined) {
-      template.name = this.normalizeName(dto.name);
-    }
+    const template = await this.runWithDatabaseErrorHandling(
+      () =>
+        this.dataSource.transaction(async (manager) => {
+          const templateRepo = this.getTemplateRepository(manager);
+          const stepRepo = this.getTemplateStepRepository(manager);
+          const templateEntity = await this.ensureTemplate(id, manager);
 
-    if (dto.steps !== undefined) {
-      const stepIds = dto.steps.map((step) => step.taskStepId);
-      await this.ensureTaskStepsExist(stepIds);
-      template.steps = this.buildTemplateSteps(template, dto.steps);
-    }
+          if (dto.name !== undefined) {
+            templateEntity.name = this.normalizeName(dto.name);
+          }
 
-    const saved = await this.runWithDatabaseErrorHandling(
-      () => this.templateRepository.save(template),
-      'Unable to update template',
+          if (dto.steps !== undefined) {
+            const stepIds = dto.steps.map((step) => step.taskStepId);
+            await this.ensureTaskStepsExist(stepIds, manager);
+            templateEntity.steps = this.buildTemplateSteps(stepRepo, templateEntity, dto.steps);
+          }
+
+          const saved = await templateRepo.save(templateEntity);
+          return this.ensureTemplate(saved.id, manager);
+        }),
+      'Nepavyko atnaujinti šablono',
     );
 
-    await this.activityLog.log('template_updated', user.id, 'template', saved.id);
-    return this.findOne(id);
+    await this.activityLog.log('template_updated', user.id, 'template', template.id);
+    return template;
   }
 
   async remove(id: string, user: { id: string; role: UserRole }) {
     this.assertManager(user.role);
-    const template = await this.ensureTemplate(id);
 
     await this.runWithDatabaseErrorHandling(
-      () => this.templateRepository.remove(template),
-      'Unable to delete template',
+      () =>
+        this.dataSource.transaction(async (manager) => {
+          const templateRepo = this.getTemplateRepository(manager);
+          const template = await this.ensureTemplate(id, manager);
+          await templateRepo.remove(template);
+        }),
+      'Nepavyko ištrinti šablono',
     );
 
     await this.activityLog.log('template_deleted', user.id, 'template', id);
     return { deleted: true };
   }
 
-  async reorderSteps(
-    id: string,
-    payload: { id: string; orderIndex: number }[],
-    user: { id: string; role: UserRole },
-  ) {
+  async reorderSteps(id: string, payload: { id: string; orderIndex: number }[], user: {
+    id: string;
+    role: UserRole;
+  }) {
     this.assertManager(user.role);
 
     if (!payload.length) {
-      throw new BadRequestException('Unable to reorder template steps: payload is empty');
+      throw new BadRequestException('Nepavyko perrikiuoti šablono žingsnių: sąrašas tuščias');
     }
 
     const uniqueIds = new Set(payload.map((step) => step.id));
     if (uniqueIds.size !== payload.length) {
-      throw new BadRequestException('Unable to reorder template steps: duplicate ids provided');
+      throw new BadRequestException('Nepavyko perrikiuoti šablono žingsnių: yra pasikartojančių žingsnių');
     }
 
-    const template = await this.ensureTemplate(id);
-    const stepMap = new Map(template.steps.map((step) => [step.id, step] as const));
-
-    for (const item of payload) {
-      if (!stepMap.has(item.id)) {
-        throw new NotFoundException('Template step not found');
-      }
-    }
-
-    if (payload.length !== template.steps.length) {
-      throw new BadRequestException('Unable to reorder template steps: all steps must be provided');
-    }
-
-    await this.runWithDatabaseErrorHandling(
+    const template = await this.runWithDatabaseErrorHandling(
       () =>
         this.dataSource.transaction(async (manager) => {
-          for (const { id: stepId, orderIndex } of payload) {
-            await manager.update(TemplateStep, { id: stepId }, { orderIndex });
+          const templateEntity = await this.ensureTemplate(id, manager);
+          const stepMap = new Map(templateEntity.steps.map((step) => [step.id, step] as const));
+
+          for (const item of payload) {
+            if (!stepMap.has(item.id)) {
+              throw new NotFoundException('Šablono žingsnis nerastas');
+            }
           }
+
+          if (payload.length !== templateEntity.steps.length) {
+            throw new BadRequestException(
+              'Nepavyko perrikiuoti šablono žingsnių: turi būti pateikti visi žingsniai',
+            );
+          }
+
+          await Promise.all(
+            payload.map(({ id: stepId, orderIndex }) =>
+              manager.update(TemplateStep, { id: stepId }, { orderIndex }),
+            ),
+          );
+
+          return this.ensureTemplate(id, manager);
         }),
-      'Unable to reorder template steps',
+      'Nepavyko perrikiuoti šablono žingsnių',
     );
 
     await this.activityLog.log('template_steps_reordered', user.id, 'template', id);
-    return this.findOne(id);
+    return template;
   }
 }
+

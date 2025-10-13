@@ -1,4 +1,4 @@
-import { FormEvent, useEffect, useMemo, useState } from 'react';
+import { ChangeEvent, FormEvent, useEffect, useMemo, useRef, useState } from 'react';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { ArrowDown, ArrowUp, Edit, Plus, Search, Trash2, X } from 'lucide-react';
 import { toast } from 'sonner';
@@ -33,6 +33,9 @@ export default function AdminSteps() {
   const [mediaType, setMediaType] = useState<TaskStepMediaType | ''>('');
   const [requireUserMedia, setRequireUserMedia] = useState(false);
   const [editingStepId, setEditingStepId] = useState<string | null>(null);
+  const mediaUrlInputRef = useRef<HTMLInputElement | null>(null);
+  const mediaFileInputRef = useRef<HTMLInputElement | null>(null);
+  const [isUploadingMedia, setIsUploadingMedia] = useState(false);
   const queryClient = useQueryClient();
 
   const invalidateSteps = () => {
@@ -164,6 +167,35 @@ export default function AdminSteps() {
     createMutation.mutate(payload);
   };
 
+  const handleMediaFileChange = async (event: ChangeEvent<HTMLInputElement>) => {
+    const file = event.target.files?.[0];
+    if (!file) return;
+
+    setIsUploadingMedia(true);
+    try {
+      const response = await api.media.upload(file);
+      if (mediaUrlInputRef.current) {
+        mediaUrlInputRef.current.value = response.url;
+      }
+
+      if (!mediaType) {
+        setMediaType(file.type === 'video/mp4' ? 'video' : 'image');
+      }
+
+      toast.success('Failas įkeltas');
+    } catch (error) {
+      console.error('Failed to upload media', error);
+      toast.error('Nepavyko įkelti failo');
+    } finally {
+      setIsUploadingMedia(false);
+      event.target.value = '';
+    }
+  };
+
+  const openMediaFileDialog = () => {
+    mediaFileInputRef.current?.click();
+  };
+
   const handleReorder = (stepId: string, direction: 'up' | 'down') => {
     if (!selectedTaskId || reorderMutation.isLoading) {
       return;
@@ -249,7 +281,32 @@ export default function AdminSteps() {
 
                   <div className="space-y-2">
                     <Label htmlFor="mediaUrl">Media nuoroda</Label>
-                    <Input id="mediaUrl" name="mediaUrl" placeholder="https://..." disabled={createMutation.isLoading} />
+                    <div className="flex flex-col gap-2 sm:flex-row">
+                      <Input
+                        id="mediaUrl"
+                        name="mediaUrl"
+                        placeholder="https://..."
+                        disabled={createMutation.isLoading}
+                        ref={mediaUrlInputRef}
+                      />
+                      <div className="flex gap-2">
+                        <Button
+                          type="button"
+                          variant="outline"
+                          onClick={openMediaFileDialog}
+                          disabled={createMutation.isLoading || isUploadingMedia}
+                        >
+                          {isUploadingMedia ? 'Įkeliama...' : 'Įkelti failą'}
+                        </Button>
+                      </div>
+                    </div>
+                    <input
+                      type="file"
+                      ref={mediaFileInputRef}
+                      className="hidden"
+                      accept="image/jpeg,image/png,video/mp4"
+                      onChange={handleMediaFileChange}
+                    />
                   </div>
 
                   <div className="space-y-2">
@@ -388,6 +445,8 @@ function StepCard({
   const [mediaType, setMediaType] = useState<TaskStepMediaType | ''>(step.mediaType ?? '');
   const [requireUserMedia, setRequireUserMedia] = useState(step.requireUserMedia);
   const [isSaving, setIsSaving] = useState(false);
+  const [isUploading, setIsUploading] = useState(false);
+  const fileInputRef = useRef<HTMLInputElement | null>(null);
 
   useEffect(() => {
     if (isEditing) {
@@ -424,6 +483,29 @@ function StepCard({
     }
   };
 
+  const handleFileUpload = async (event: ChangeEvent<HTMLInputElement>) => {
+    const file = event.target.files?.[0];
+    if (!file) return;
+
+    setIsUploading(true);
+    try {
+      const response = await api.media.upload(file);
+      setMediaUrl(response.url);
+      setMediaType(file.type === 'video/mp4' ? 'video' : 'image');
+      toast.success('Failas įkeltas');
+    } catch (error) {
+      console.error('Failed to upload media', error);
+      toast.error('Nepavyko įkelti failo');
+    } finally {
+      setIsUploading(false);
+      event.target.value = '';
+    }
+  };
+
+  const openFileDialog = () => {
+    fileInputRef.current?.click();
+  };
+
   return (
     <Card className="shadow-sm">
       <CardContent className="p-6 space-y-4">
@@ -447,11 +529,30 @@ function StepCard({
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                   <div className="space-y-2">
                     <Label>Media nuoroda</Label>
-                    <Input
-                      value={mediaUrl}
-                      onChange={(event) => setMediaUrl(event.target.value)}
-                      placeholder="https://..."
-                      disabled={isSaving}
+                    <div className="flex flex-col gap-2 sm:flex-row">
+                      <Input
+                        value={mediaUrl}
+                        onChange={(event) => setMediaUrl(event.target.value)}
+                        placeholder="https://..."
+                        disabled={isSaving}
+                      />
+                      <div className="flex gap-2">
+                        <Button
+                          type="button"
+                          variant="outline"
+                          onClick={openFileDialog}
+                          disabled={isSaving || isUploading}
+                        >
+                          {isUploading ? 'Įkeliama...' : 'Įkelti failą'}
+                        </Button>
+                      </div>
+                    </div>
+                    <input
+                      type="file"
+                      ref={fileInputRef}
+                      className="hidden"
+                      accept="image/jpeg,image/png,video/mp4"
+                      onChange={handleFileUpload}
                     />
                   </div>
                   <div className="space-y-2">
@@ -483,10 +584,15 @@ function StepCard({
                   </Label>
                 </div>
                 <div className="flex gap-2">
-                  <Button onClick={handleSave} disabled={isSaving}>
+                  <Button onClick={handleSave} disabled={isSaving || isUploading}>
                     {isSaving ? 'Saugoma...' : 'Išsaugoti'}
                   </Button>
-                  <Button type="button" variant="outline" onClick={onCancelEdit} disabled={isSaving}>
+                  <Button
+                    type="button"
+                    variant="outline"
+                    onClick={onCancelEdit}
+                    disabled={isSaving || isUploading}
+                  >
                     Atšaukti
                   </Button>
                 </div>

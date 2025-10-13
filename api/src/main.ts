@@ -1,12 +1,14 @@
 import { NestFactory } from '@nestjs/core';
-import { AppModule } from './app.module';
+import { NestExpressApplication } from '@nestjs/platform-express';
 import { BadRequestException, ValidationPipe } from '@nestjs/common';
-import helmet from 'helmet';
 import { ConfigService } from '@nestjs/config';
+import helmet from 'helmet';
+
+import { AppModule } from './app.module';
 
 
 async function bootstrap() {
-  const app = await NestFactory.create(AppModule);
+  const app = await NestFactory.create<NestExpressApplication>(AppModule);
   const configService = app.get(ConfigService);
 
   const allowedOrigins = (configService.get<string>('ALLOWED_ORIGINS') || '')
@@ -28,6 +30,10 @@ async function bootstrap() {
       exceptionFactory: () => new BadRequestException('Neteisingi duomenys'),
     }),
   );
+
+  app.useStaticAssets('/app/uploads', {
+    prefix: '/uploads',
+  });
 
   const port = Number(configService.get('PORT') || 3000);
   await app.listen(port);

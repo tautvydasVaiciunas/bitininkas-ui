@@ -6,6 +6,7 @@ import {
   IsOptional,
   IsString,
   MaxLength,
+  MinLength,
 } from 'class-validator';
 import { Transform } from 'class-transformer';
 import { HiveStatus } from '../hive.entity';
@@ -13,12 +14,14 @@ import { HiveStatus } from '../hive.entity';
 export class CreateHiveDto {
   @IsString()
   @Transform(({ value }) => (typeof value === 'string' ? value.trim() : value))
-  @IsNotEmpty()
+  @IsNotEmpty({ message: 'Pavadinimas privalomas' })
+  @MinLength(1, { message: 'Pavadinimas privalomas' })
   @MaxLength(150)
   label: string;
 
   @IsOptional()
   @IsString()
+  @Transform(({ value }) => (typeof value === 'string' ? value.trim() : value))
   @MaxLength(255)
   location?: string;
 

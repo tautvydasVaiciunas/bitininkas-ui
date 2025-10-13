@@ -148,8 +148,16 @@ export class TasksService {
     const title = dto.title?.trim();
     if (!title) {
       console.error('Unable to create task: title is required');
+      throw new BadRequestException('Nepavyko sukurti užduoties: pavadinimas privalomas');
+    }
+
+    if (taskData.defaultDueDays !== undefined && taskData.defaultDueDays < 0) {
+      console.error('Unable to create task: default due days must be non-negative');
       throw new BadRequestException('Nepavyko sukurti užduoties: neteisingi duomenys');
     }
+
+    const defaultDueDays =
+      taskData.defaultDueDays !== undefined ? taskData.defaultDueDays : 7;
 
     const task = this.tasksRepository.create({
       title,
@@ -157,7 +165,7 @@ export class TasksService {
       category: this.normalizeNullableString(taskData.category),
       seasonMonths: taskData.seasonMonths ?? [],
       frequency: taskData.frequency ?? TaskFrequency.ONCE,
-      defaultDueDays: taskData.defaultDueDays ?? 7,
+      defaultDueDays,
       createdByUserId: user.id,
       steps: steps.map((step, index) =>
         this.stepsRepository.create(
@@ -173,7 +181,19 @@ export class TasksService {
     );
     await this.activityLog.log('task_created', user.id, 'task', saved.id);
     const fullTask = await this.tasksRepository.findOne({ where: { id: saved.id } });
-    return fullTask ?? saved;
+    if (fullTask) {
+      return {
+        ...fullTask,
+        seasonMonths: Array.isArray(fullTask.seasonMonths)
+          ? fullTask.seasonMonths
+          : [],
+      };
+    }
+
+    return {
+      ...saved,
+      seasonMonths: Array.isArray(saved.seasonMonths) ? saved.seasonMonths : [],
+    };
   }
 
   async findAll(
@@ -214,7 +234,13 @@ export class TasksService {
       });
     }
 
-    return qb.getMany();
+    qb.orderBy('task.createdAt', 'DESC');
+
+    const tasks = await qb.getMany();
+    return tasks.map((task) => ({
+      ...task,
+      seasonMonths: Array.isArray(task.seasonMonths) ? task.seasonMonths : [],
+    }));
   }
 
   async findOne(id: string) {
@@ -224,7 +250,10 @@ export class TasksService {
       throw new NotFoundException('Task not found');
     }
 
-    return task;
+    return {
+      ...task,
+      seasonMonths: Array.isArray(task.seasonMonths) ? task.seasonMonths : [],
+    };
   }
 
   async update(id: string, dto: UpdateTaskDto, user: { id: string; role: UserRole }) {
@@ -253,6 +282,9 @@ export class TasksService {
     }
 
     if (taskData.defaultDueDays !== undefined) {
+      if (taskData.defaultDueDays < 0) {
+        throw new BadRequestException('Nepavyko atnaujinti užduoties: neteisingi duomenys');
+      }
       task.defaultDueDays = taskData.defaultDueDays;
     }
 
@@ -272,7 +304,10 @@ export class TasksService {
     }
 
     await this.activityLog.log('task_updated', user.id, 'task', id);
-    return saved;
+    return {
+      ...saved,
+      seasonMonths: Array.isArray(saved.seasonMonths) ? saved.seasonMonths : [],
+    };
   }
 
   async getSteps(taskId: string) {

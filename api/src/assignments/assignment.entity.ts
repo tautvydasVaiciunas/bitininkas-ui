@@ -51,6 +51,9 @@ export class Assignment {
   @Column({ name: 'due_date', type: 'date' })
   dueDate!: string;
 
+  @Column({ name: 'start_date', type: 'date', nullable: true, default: null })
+  startDate!: string | null;
+
   @Column({
     type: 'enum',
     enum: AssignmentStatus,

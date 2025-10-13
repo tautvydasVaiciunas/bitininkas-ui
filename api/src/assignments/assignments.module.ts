@@ -12,6 +12,8 @@ import { ActivityLogModule } from '../activity-log/activity-log.module';
 import { HivesModule } from '../hives/hives.module';
 import { Group } from '../groups/group.entity';
 import { GroupMember } from '../groups/group-member.entity';
+import { Template } from '../templates/template.entity';
+import { TemplateStep } from '../templates/template-step.entity';
 
 @Module({
   imports: [
@@ -23,6 +25,8 @@ import { GroupMember } from '../groups/group-member.entity';
       StepProgress,
       Group,
       GroupMember,
+      Template,
+      TemplateStep,
     ]),
     ActivityLogModule,
     forwardRef(() => HivesModule),

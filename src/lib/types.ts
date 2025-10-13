@@ -3,6 +3,8 @@ import type {
   AssignmentResponse as ApiAssignmentResponse,
   AssignmentStatus as ApiAssignmentStatus,
   AuthenticatedUser as ApiAuthenticatedUser,
+  BulkAssignmentsFromTemplatePayload,
+  BulkAssignmentsFromTemplateResponse,
   AddGroupMemberPayload,
   CreateAssignmentPayload,
   CreateGroupPayload,
@@ -69,6 +71,8 @@ export type {
   UpdateUserPayload,
   UpdateUserRolePayload,
   UpdateProgressPayload,
+  BulkAssignmentsFromTemplatePayload,
+  BulkAssignmentsFromTemplateResponse,
 } from './api';
 
 export type AuthenticatedUser = ApiAuthenticatedUser;
@@ -146,6 +150,7 @@ export const mapTemplateFromApi = (template: ApiTemplateResponse): Template => (
 
 export const mapAssignmentFromApi = (assignment: ApiAssignmentResponse): Assignment => ({
   ...assignment,
+  startDate: assignment.startDate ?? null,
 });
 
 export const mapStepProgressFromApi = (progress: ApiStepProgressResponse): StepProgress => ({

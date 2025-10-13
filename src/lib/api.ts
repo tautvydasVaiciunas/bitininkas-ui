@@ -1,3 +1,5 @@
+import ltMessages from '@/i18n/messages.lt.json';
+
 const rawBaseUrl = import.meta.env.VITE_API_BASE_URL ?? '';
 const API_BASE_URL = rawBaseUrl.replace(/\/$/, '');
 
@@ -225,6 +227,11 @@ export interface UpdateProfilePayload {
   address?: string | null;
 }
 
+export interface ChangePasswordPayload {
+  oldPassword: string;
+  newPassword: string;
+}
+
 export interface StepProgressResponse {
   id: string;
   assignmentId: string;
@@ -370,6 +377,43 @@ const safeParse = async (response: Response): Promise<unknown> => {
   return text;
 };
 
+const statusErrorMessages: Record<number, string> = {
+  401: ltMessages.errors.invalidCredentials,
+  403: ltMessages.errors.forbidden,
+  422: ltMessages.errors.invalidInput,
+  500: ltMessages.errors.serverError,
+};
+
+const getErrorMessage = (status: number, data: unknown, fallback?: string) => {
+  if (data && typeof data === 'object') {
+    const possibleMessage = (data as { message?: unknown }).message;
+    if (typeof possibleMessage === 'string' && possibleMessage.trim().length > 0) {
+      return possibleMessage;
+    }
+
+    if (Array.isArray(possibleMessage)) {
+      const filtered = possibleMessage.filter((item): item is string => typeof item === 'string');
+      if (filtered.length > 0) {
+        return filtered.join('\n');
+      }
+    }
+  }
+
+  if (typeof data === 'string' && data.trim().length > 0) {
+    return data;
+  }
+
+  if (status in statusErrorMessages) {
+    return statusErrorMessages[status];
+  }
+
+  if (status >= 500) {
+    return ltMessages.errors.serverError;
+  }
+
+  return fallback ?? ltMessages.errors.unexpected;
+};
+
 const persistUser = (user: AuthenticatedUser | undefined) => {
   if (!isBrowser) return;
   if (user) {
@@ -504,12 +548,20 @@ const request = async <T>(
     clearCredentials();
     redirectToLogin();
     const errorData = await safeParse(response);
-    throw new HttpError(response.status, errorData, 'Unauthorized');
+    throw new HttpError(
+      response.status,
+      errorData,
+      getErrorMessage(response.status, errorData, 'Unauthorized'),
+    );
   }
 
   const data = await safeParse(response);
   if (!response.ok) {
-    throw new HttpError(response.status, data, response.statusText);
+    throw new HttpError(
+      response.status,
+      data,
+      getErrorMessage(response.status, data, response.statusText),
+    );
   }
 
   return data as T;
@@ -606,6 +658,8 @@ export const api = {
   },
   profile: {
     update: (payload: UpdateProfilePayload) => patch<ProfileResponse>('/profile', { json: payload }),
+    changePassword: (payload: ChangePasswordPayload) =>
+      patch<{ success: boolean }>('/profile/password', { json: payload }),
   },
   groups: {
     list: () => get<GroupResponse[]>('/groups'),

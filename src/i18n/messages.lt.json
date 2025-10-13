@@ -1,0 +1,13 @@
+{
+  "errors": {
+    "invalidCredentials": "Neteisingi prisijungimo duomenys",
+    "forbidden": "Uždrausta",
+    "invalidInput": "Neteisingas įvesties formatas",
+    "serverError": "Įvyko serverio klaida",
+    "unexpected": "Įvyko nenumatyta klaida"
+  },
+  "profile": {
+    "passwordChanged": "Slaptažodis sėkmingai pakeistas",
+    "passwordChangeFailed": "Nepavyko pakeisti slaptažodžio"
+  }
+}

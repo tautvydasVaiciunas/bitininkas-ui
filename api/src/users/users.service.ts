@@ -1,4 +1,5 @@
 import {
+  BadRequestException,
   ConflictException,
   Injectable,
   NotFoundException,
@@ -13,6 +14,7 @@ import { UpdateProfileDto } from './dto/update-profile.dto';
 import { UpdateUserDto } from './dto/update-user.dto';
 import { UpdateUserRoleDto } from './dto/update-user-role.dto';
 import { ActivityLogService } from '../activity-log/activity-log.service';
+import { UpdatePasswordDto } from './dto/update-password.dto';
 
 @Injectable()
 export class UsersService {
@@ -196,5 +198,25 @@ export class UsersService {
     const saved = await this.usersRepository.save(user);
     await this.activityLog.log('profile_updated', saved.id, 'user', saved.id);
     return saved;
+  }
+
+  async updatePassword(id: string, { oldPassword, newPassword }: UpdatePasswordDto) {
+    const user = await this.usersRepository.findOne({ where: { id } });
+
+    if (!user) {
+      throw new NotFoundException('User not found');
+    }
+
+    const matches = await bcrypt.compare(oldPassword, user.passwordHash);
+
+    if (!matches) {
+      throw new BadRequestException('Neteisingas dabartinis slaptažodis');
+    }
+
+    user.passwordHash = await bcrypt.hash(newPassword, 10);
+    await this.usersRepository.save(user);
+    await this.activityLog.log('password_changed', user.id, 'user', user.id);
+
+    return { success: true };
   }
 }

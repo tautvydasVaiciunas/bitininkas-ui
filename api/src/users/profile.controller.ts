@@ -1,6 +1,7 @@
 import { Body, Controller, Patch, Request } from '@nestjs/common';
 import { UsersService } from './users.service';
 import { UpdateProfileDto } from './dto/update-profile.dto';
+import { UpdatePasswordDto } from './dto/update-password.dto';
 
 @Controller('profile')
 export class ProfileController {
@@ -18,5 +19,10 @@ export class ProfileController {
       createdAt: user.createdAt,
       updatedAt: user.updatedAt,
     }));
+  }
+
+  @Patch('password')
+  updatePassword(@Body() dto: UpdatePasswordDto, @Request() req) {
+    return this.usersService.updatePassword(req.user.id, dto);
   }
 }

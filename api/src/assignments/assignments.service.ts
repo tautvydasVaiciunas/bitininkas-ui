@@ -1,10 +1,11 @@
 import {
+  BadRequestException,
   ForbiddenException,
   Injectable,
   NotFoundException,
 } from "@nestjs/common";
 import { InjectRepository } from "@nestjs/typeorm";
-import { Repository } from "typeorm";
+import { DataSource, In, Repository } from "typeorm";
 import { Assignment, AssignmentStatus } from "./assignment.entity";
 import { CreateAssignmentDto } from "./dto/create-assignment.dto";
 import { UpdateAssignmentDto } from "./dto/update-assignment.dto";
@@ -16,6 +17,9 @@ import { UserRole } from "../users/user.entity";
 import { ActivityLogService } from "../activity-log/activity-log.service";
 import { Group } from "../groups/group.entity";
 import { GroupMember } from "../groups/group-member.entity";
+import { Template } from "../templates/template.entity";
+import { TemplateStep } from "../templates/template-step.entity";
+import { BulkFromTemplateDto } from "./dto/bulk-from-template.dto";
 @Injectable()
 export class AssignmentsService {
   constructor(
@@ -31,8 +35,16 @@ export class AssignmentsService {
     private readonly groupsRepository: Repository<Group>,
     @InjectRepository(GroupMember)
     private readonly groupMembersRepository: Repository<GroupMember>,
+    private readonly dataSource: DataSource,
     private readonly activityLog: ActivityLogService,
   ) {}
+  private getTodayDateString() {
+    const now = new Date();
+    const year = now.getUTCFullYear();
+    const month = String(now.getUTCMonth() + 1).padStart(2, '0');
+    const day = String(now.getUTCDate()).padStart(2, '0');
+    return `${year}-${month}-${day}`;
+  }
   private async getAccessibleHiveIds(userId: string) {
     const rows = await this.hiveRepository
       .createQueryBuilder('hive')
@@ -54,9 +66,17 @@ export class AssignmentsService {
 
     return Boolean(accessible);
   }
+  private assertValidDateRange(
+    startDate: string | null | undefined,
+    dueDate: string | null | undefined,
+  ) {
+    if (startDate && dueDate && startDate > dueDate) {
+      throw new BadRequestException('Pradžios data negali būti vėlesnė nei pabaigos data');
+    }
+  }
   private assertManager(role: UserRole) {
     if (![UserRole.MANAGER, UserRole.ADMIN].includes(role)) {
-      throw new ForbiddenException("Requires manager or admin role");
+      throw new ForbiddenException('Neleidžiama');
     }
   }
   async create(dto: CreateAssignmentDto, user) {
@@ -73,9 +93,11 @@ export class AssignmentsService {
     if (!task) {
       throw new NotFoundException("Task not found");
     }
+    this.assertValidDateRange(dto.startDate ?? null, dto.dueDate);
     const assignment = this.assignmentsRepository.create({
       ...dto,
       createdByUserId: user.id,
+      startDate: dto.startDate ?? null,
     });
     const saved = await this.assignmentsRepository.save(assignment);
     await this.activityLog.log(
@@ -86,8 +108,140 @@ export class AssignmentsService {
     );
     return saved;
   }
+  async createBulkFromTemplate(dto: BulkFromTemplateDto, user) {
+    this.assertManager(user.role);
+
+    const trimmedTitle = dto.title.trim();
+    if (!trimmedTitle) {
+      throw new BadRequestException('Pavadinimas privalomas');
+    }
+
+    this.assertValidDateRange(dto.startDate ?? null, dto.dueDate);
+
+    const uniqueGroupIds = Array.from(new Set(dto.groupIds));
+
+    const { task, assignments } = await this.dataSource.transaction(async (manager) => {
+      const templateRepo = manager.getRepository(Template);
+      const groupRepo = manager.getRepository(Group);
+      const groupMemberRepo = manager.getRepository(GroupMember);
+      const hiveRepo = manager.getRepository(Hive);
+      const taskRepo = manager.getRepository(Task);
+      const taskStepRepo = manager.getRepository(TaskStep);
+      const assignmentRepo = manager.getRepository(Assignment);
+
+      const template = await templateRepo.findOne({
+        where: { id: dto.templateId },
+        relations: { steps: true },
+        order: { steps: { orderIndex: 'ASC' } },
+      });
+
+      if (!template) {
+        throw new NotFoundException('Šablonas nerastas');
+      }
+
+      const groups = await groupRepo.find({ where: { id: In(uniqueGroupIds) } });
+      if (groups.length !== uniqueGroupIds.length) {
+        throw new BadRequestException('Neteisingi duomenys');
+      }
+
+      const memberships = await groupMemberRepo.find({
+        where: { groupId: In(uniqueGroupIds) },
+      });
+
+      const userIds = Array.from(new Set(memberships.map((membership) => membership.userId)));
+
+      const hives = userIds.length
+        ? await hiveRepo.find({ where: { ownerUserId: In(userIds) } })
+        : [];
+
+      const hiveIdsByOwner = new Map<string, string[]>();
+      for (const hive of hives) {
+        const list = hiveIdsByOwner.get(hive.ownerUserId) ?? [];
+        list.push(hive.id);
+        hiveIdsByOwner.set(hive.ownerUserId, list);
+      }
+
+      const taskEntity = taskRepo.create({
+        title: trimmedTitle,
+        description: dto.description?.trim() ?? '',
+        createdByUserId: user.id,
+      });
+      const savedTask = await taskRepo.save(taskEntity);
+
+      const templateSteps = (template.steps ?? []).slice().sort((a, b) => a.orderIndex - b.orderIndex);
+
+      if (templateSteps.length) {
+        const stepEntities = templateSteps.map((step: TemplateStep) => {
+          const source = step.taskStep;
+          if (!source) {
+            throw new BadRequestException('Neteisingi duomenys');
+          }
+          return taskStepRepo.create({
+            taskId: savedTask.id,
+            orderIndex: step.orderIndex,
+            title: source.title,
+            contentText: source.contentText ?? null,
+            mediaUrl: source.mediaUrl ?? null,
+            mediaType: source.mediaType ?? null,
+            requireUserMedia: source.requireUserMedia ?? false,
+          });
+        });
+
+        await taskStepRepo.save(stepEntities);
+      }
+
+      const assignmentsToSave: Assignment[] = [];
+      const uniqueHiveIds = new Set<string>();
+      const startDate = dto.startDate ?? null;
+
+      for (const userId of userIds) {
+        const userHiveIds = hiveIdsByOwner.get(userId) ?? [];
+        for (const hiveId of userHiveIds) {
+          if (uniqueHiveIds.has(hiveId)) {
+            continue;
+          }
+          uniqueHiveIds.add(hiveId);
+          assignmentsToSave.push(
+            assignmentRepo.create({
+              hiveId,
+              taskId: savedTask.id,
+              createdByUserId: user.id,
+              status: AssignmentStatus.NOT_STARTED,
+              dueDate: dto.dueDate,
+              startDate,
+            }),
+          );
+        }
+      }
+
+      const savedAssignments = assignmentsToSave.length
+        ? await assignmentRepo.save(assignmentsToSave)
+        : [];
+
+      return { task: savedTask, assignments: savedAssignments };
+    });
+
+    if (assignments.length) {
+      await Promise.all(
+        assignments.map((assignment) =>
+          this.activityLog.log('assignment_created', user.id, 'assignment', assignment.id),
+        ),
+      );
+    }
+
+    return {
+      taskId: task.id,
+      createdAssignments: assignments.length,
+      assignmentIdsPreview: assignments.slice(0, 10).map((assignment) => assignment.id),
+    };
+  }
   async findAll(
-    filter: { hiveId?: string; status?: AssignmentStatus; groupId?: string },
+    filter: {
+      hiveId?: string;
+      status?: AssignmentStatus;
+      groupId?: string;
+      availableNow?: boolean;
+    },
     user,
   ) {
     const qb = this.assignmentsRepository.createQueryBuilder('assignment');
@@ -100,9 +254,19 @@ export class AssignmentsService {
       qb.andWhere('assignment.status = :status', { status: filter.status });
     }
 
+    const shouldFilterByAvailability =
+      user.role === UserRole.USER || Boolean(filter.availableNow);
+
+    if (shouldFilterByAvailability) {
+      const today = this.getTodayDateString();
+      qb.andWhere('(assignment.startDate IS NULL OR assignment.startDate <= :today)', {
+        today,
+      });
+    }
+
     if (user.role === UserRole.USER) {
       if (filter.groupId) {
-        throw new ForbiddenException('Access denied');
+        throw new ForbiddenException('Neleidžiama');
       }
 
       const accessibleIds = await this.getAccessibleHiveIds(user.id);
@@ -160,7 +324,13 @@ export class AssignmentsService {
     if (user.role === UserRole.USER) {
       const allowed = await this.ensureUserCanAccessHive(assignment.hiveId, user.id);
       if (!allowed) {
-        throw new ForbiddenException("Access denied");
+        throw new ForbiddenException('Neleidžiama');
+      }
+      if (
+        assignment.startDate &&
+        assignment.startDate > this.getTodayDateString()
+      ) {
+        throw new ForbiddenException('Neleidžiama');
       }
     }
     return assignment;
@@ -170,7 +340,24 @@ export class AssignmentsService {
     if (dto.status && !Object.values(AssignmentStatus).includes(dto.status)) {
       throw new ForbiddenException("Invalid status");
     }
-    Object.assign(assignment, dto);
+    const nextStartDate =
+      dto.startDate !== undefined ? dto.startDate ?? null : assignment.startDate;
+    const nextDueDate = dto.dueDate ?? assignment.dueDate;
+
+    this.assertValidDateRange(nextStartDate, nextDueDate);
+
+    if (dto.status) {
+      assignment.status = dto.status;
+    }
+
+    if (dto.dueDate !== undefined) {
+      assignment.dueDate = dto.dueDate;
+    }
+
+    if (dto.startDate !== undefined) {
+      assignment.startDate = dto.startDate ?? null;
+    }
+
     const saved = await this.assignmentsRepository.save(assignment);
     await this.activityLog.log("assignment_updated", user.id, "assignment", id);
     return saved;
@@ -204,7 +391,7 @@ export class AssignmentsService {
     if (user.role === UserRole.USER) {
       const allowed = await this.ensureUserCanAccessHive(hiveId, user.id);
       if (!allowed) {
-        throw new ForbiddenException("Access denied");
+        throw new ForbiddenException('Neleidžiama');
       }
     }
     const assignments = await this.assignmentsRepository.find({

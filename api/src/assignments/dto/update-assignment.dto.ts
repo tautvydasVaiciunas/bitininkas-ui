@@ -9,6 +9,10 @@ export class UpdateAssignmentDto {
   status?: AssignmentStatus;
 
   @IsOptional()
-  @IsDateOnlyString({ message: 'dueDate must use format YYYY-MM-DD' })
+  @IsDateOnlyString({ message: 'Pabaigos data turi būti formato YYYY-MM-DD' })
   dueDate?: string;
+
+  @IsOptional()
+  @IsDateOnlyString({ message: 'Pradžios data turi būti formato YYYY-MM-DD' })
+  startDate?: string;
 }

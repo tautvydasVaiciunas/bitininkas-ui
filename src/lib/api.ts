@@ -194,6 +194,7 @@ export interface AssignmentResponse {
   taskId: string;
   createdByUserId: string;
   dueDate: string;
+  startDate?: string | null;
   status: AssignmentStatus;
   createdAt: string;
   updatedAt: string;
@@ -360,11 +361,28 @@ export interface CreateAssignmentPayload {
   taskId: string;
   dueDate: string;
   status?: AssignmentStatus;
+  startDate?: string | null;
 }
 
 export interface UpdateAssignmentPayload {
   status?: AssignmentStatus;
   dueDate?: string;
+  startDate?: string | null;
+}
+
+export interface BulkAssignmentsFromTemplatePayload {
+  templateId: string;
+  groupIds: string[];
+  title: string;
+  description?: string;
+  startDate?: string | null;
+  dueDate: string;
+}
+
+export interface BulkAssignmentsFromTemplateResponse {
+  taskId: string;
+  createdAssignments: number;
+  assignmentIdsPreview: string[];
 }
 
 export interface CompleteStepPayload {
@@ -704,12 +722,19 @@ export const api = {
       post<TemplateResponse>(`/templates/${id}/steps/reorder`, { json: payload }),
   },
   assignments: {
-    list: (params?: { hiveId?: string; status?: AssignmentStatus; groupId?: string }) =>
+    list: (params?: {
+      hiveId?: string;
+      status?: AssignmentStatus;
+      groupId?: string;
+      availableNow?: boolean;
+    }) =>
       get<AssignmentResponse[]>('/assignments', { query: params }),
     create: (payload: CreateAssignmentPayload) => post<AssignmentResponse>('/assignments', { json: payload }),
     update: (id: string, payload: UpdateAssignmentPayload) =>
       patch<AssignmentResponse>(`/assignments/${id}`, { json: payload }),
     details: (id: string) => get<AssignmentDetails>(`/assignments/${id}/details`),
+    bulkFromTemplate: (payload: BulkAssignmentsFromTemplatePayload) =>
+      post<BulkAssignmentsFromTemplateResponse>('/assignments/bulk-from-template', { json: payload }),
   },
   profile: {
     update: (payload: UpdateProfilePayload) => patch<ProfileResponse>('/profile', { json: payload }),

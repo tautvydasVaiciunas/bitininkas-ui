@@ -12,10 +12,14 @@ export class CreateAssignmentDto {
   @IsUUID()
   taskId!: string;
 
-  @IsDateOnlyString({ message: 'dueDate must use format YYYY-MM-DD' })
+  @IsDateOnlyString({ message: 'Pabaigos data turi būti formato YYYY-MM-DD' })
   dueDate!: string;
 
   @IsOptional()
   @IsEnum(AssignmentStatus)
   status?: AssignmentStatus;
+
+  @IsOptional()
+  @IsDateOnlyString({ message: 'Pradžios data turi būti formato YYYY-MM-DD' })
+  startDate?: string;
 }

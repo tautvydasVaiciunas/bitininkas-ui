@@ -2,6 +2,7 @@ import {
   Body,
   Controller,
   Get,
+  Logger,
   Param,
   Patch,
   Post,
@@ -20,30 +21,42 @@ import { TaskCreateBadRequestFilter } from './filters/task-create-bad-request.fi
 
 @Controller('tasks')
 export class TasksController {
+  private readonly logger = new Logger(TasksController.name);
+
   constructor(private readonly tasksService: TasksService) {}
+
+  private isDevEnvironment() {
+    return process.env.NODE_ENV !== 'production';
+  }
 
   @Roles(UserRole.MANAGER, UserRole.ADMIN)
   @Post()
   @UseFilters(TaskCreateBadRequestFilter)
-  create(
+  async create(
     @Body() dto: CreateTaskDto,
     @Request()
     req: {
       user: { id: string; role: UserRole };
     },
   ) {
-    return this.tasksService.create(dto, req.user);
+    const task = await this.tasksService.create(dto, req.user);
+
+    if (this.isDevEnvironment()) {
+      this.logger.debug(`Sukurta užduotis: ${task.id}`);
+    }
+
+    return task;
   }
 
   @Get()
-  findAll(
-    @Query('category') category?: string,
-    @Query('frequency') frequency?: string,
-    @Query('seasonMonth') seasonMonth?: string,
+  async findAll(
     @Request()
     req: {
       user: { id: string; role: UserRole };
     },
+    @Query('category') category?: string,
+    @Query('frequency') frequency?: string,
+    @Query('seasonMonth') seasonMonth?: string,
   ) {
     const normalizedFrequency =
       frequency && Object.values(TaskFrequency).includes(frequency as TaskFrequency)
@@ -52,11 +65,17 @@ export class TasksController {
     const parsedSeasonMonth = seasonMonth ? parseInt(seasonMonth, 10) : undefined;
     const normalizedSeasonMonth = Number.isNaN(parsedSeasonMonth) ? undefined : parsedSeasonMonth;
 
-    return this.tasksService.findAll(req.user, {
+    const tasks = await this.tasksService.findAll(req.user, {
       category,
       frequency: normalizedFrequency,
       seasonMonth: normalizedSeasonMonth,
     });
+
+    if (this.isDevEnvironment()) {
+      this.logger.debug(`Grąžinamos ${tasks.length} užduotys`);
+    }
+
+    return tasks;
   }
 
   @Get(':id')

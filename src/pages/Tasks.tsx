@@ -11,6 +11,7 @@ import { Progress } from '@/components/ui/progress';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { useAuth } from '@/contexts/AuthContext';
 import api, { HttpError } from '@/lib/api';
+import { getApiErrorMessage } from '@/lib/errors';
 import {
   mapAssignmentFromApi,
   mapHiveFromApi,
@@ -143,8 +144,8 @@ export default function Tasks() {
     mutationFn: (payload) => api.tasks.create(payload).then(mapTaskFromApi),
     onSuccess: (createdTask) => {
       toast({
-        title: ltMessages.tasks.createSuccess,
-        description: `Užduotis „${createdTask.title}“ sėkmingai išsaugota.`,
+        title: 'Užduotis sukurta',
+        description: `Užduotis „${createdTask.title}“ sėkmingai sukurta.`,
       });
       resetCreateForm();
       resetBulkForm();
@@ -156,7 +157,7 @@ export default function Tasks() {
     onError: (error: HttpError | Error) => {
       toast({
         title: ltMessages.tasks.createError,
-        description: error instanceof Error ? error.message : undefined,
+        description: getApiErrorMessage(error),
         variant: 'destructive',
       });
     },
@@ -197,7 +198,7 @@ export default function Tasks() {
     onError: (error: HttpError | Error) => {
       toast({
         title: 'Nepavyko sukurti užduoties iš šablono',
-        description: error instanceof Error ? error.message : undefined,
+        description: getApiErrorMessage(error),
         variant: 'destructive',
       });
     },
@@ -367,12 +368,12 @@ export default function Tasks() {
     bulkFromTemplateMutation.mutate(payload);
   };
 
-  const { data, isLoading, isError } = useQuery<{
+  const { data, isLoading, isError, error } = useQuery<{
     assignments: Assignment[];
     hives: Hive[];
     tasks: Task[];
     completionMap: Record<string, number>;
-  }>({
+  }, HttpError | Error>({
     queryKey: ['assignments', 'list', { availableNow: onlyAvailableNow }],
     queryFn: async () => {
       const assignmentResponse = await api.assignments.list(
@@ -800,8 +801,9 @@ export default function Tasks() {
           </Card>
         ) : isError ? (
           <Card className="shadow-custom">
-            <CardContent className="p-12 text-center text-destructive">
-              Nepavyko įkelti užduočių. Pabandykite dar kartą.
+            <CardContent className="p-12 text-center space-y-2">
+              <p className="text-destructive font-medium">Nepavyko įkelti užduočių.</p>
+              <p className="text-muted-foreground">{getApiErrorMessage(error)}</p>
             </CardContent>
           </Card>
         ) : filteredAssignments.length === 0 ? (

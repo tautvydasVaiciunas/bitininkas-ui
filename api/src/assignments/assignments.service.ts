@@ -1,7 +1,9 @@
 import {
   BadRequestException,
   ForbiddenException,
+  Inject,
   Injectable,
+  Logger,
   NotFoundException,
 } from "@nestjs/common";
 import { InjectRepository } from "@nestjs/typeorm";
@@ -20,8 +22,11 @@ import { GroupMember } from "../groups/group-member.entity";
 import { Template } from "../templates/template.entity";
 import { TemplateStep } from "../templates/template-step.entity";
 import { BulkFromTemplateDto } from "./dto/bulk-from-template.dto";
+import { MAILER_PORT, MailerPort } from "../notifications/mailer.service";
 @Injectable()
 export class AssignmentsService {
+  private readonly logger = new Logger(AssignmentsService.name);
+
   constructor(
     @InjectRepository(Assignment)
     private readonly assignmentsRepository: Repository<Assignment>,
@@ -37,6 +42,7 @@ export class AssignmentsService {
     private readonly groupMembersRepository: Repository<GroupMember>,
     private readonly dataSource: DataSource,
     private readonly activityLog: ActivityLogService,
+    @Inject(MAILER_PORT) private readonly mailer: MailerPort,
   ) {}
   private getTodayDateString() {
     const now = new Date();
@@ -77,6 +83,73 @@ export class AssignmentsService {
   private assertManager(role: UserRole) {
     if (![UserRole.MANAGER, UserRole.ADMIN].includes(role)) {
       throw new ForbiddenException('Neleidžiama');
+    }
+  }
+
+  private async sendBulkCreationSummary(
+    assignments: Assignment[],
+    taskTitle: string,
+    dueDate: string | null,
+  ) {
+    const hiveIds = Array.from(new Set(assignments.map((assignment) => assignment.hiveId)));
+
+    if (!hiveIds.length) {
+      return;
+    }
+
+    const hives = await this.hiveRepository.find({
+      where: { id: In(hiveIds) },
+      relations: { owner: true },
+    });
+
+    const hiveById = new Map(hives.map((hive) => [hive.id, hive]));
+    const assignmentsByUser = new Map<
+      string,
+      { assignmentIds: string[]; count: number; taskId: string | null }
+    >();
+
+    for (const assignment of assignments) {
+      const hive = hiveById.get(assignment.hiveId);
+      const ownerId = hive?.ownerUserId;
+
+      if (!ownerId) {
+        continue;
+      }
+
+      const current = assignmentsByUser.get(ownerId) ?? {
+        assignmentIds: [],
+        count: 0,
+        taskId: assignment.taskId ?? null,
+      };
+
+      current.assignmentIds.push(assignment.id);
+      current.count += 1;
+      current.taskId = current.taskId ?? assignment.taskId ?? null;
+      assignmentsByUser.set(ownerId, current);
+    }
+
+    const dueDateLabel = dueDate ?? 'nenurodytas';
+
+    for (const [userId, summary] of assignmentsByUser.entries()) {
+      try {
+        await this.mailer.send({
+          userId,
+          subject: `Sukurtos naujos užduotys: ${taskTitle}`,
+          body: `Pavadinimas: ${taskTitle}\nPriskirtos užduotys: ${summary.count}\nTerminas: ${dueDateLabel}`,
+          payload: {
+            dueDate,
+            assignmentIds: summary.assignmentIds,
+            assignmentCount: summary.count,
+            taskId: summary.taskId,
+          },
+        });
+      } catch (error) {
+        const details = error instanceof Error ? error.message : String(error);
+        this.logger.error(
+          `Nepavyko išsiųsti užduočių suvestinės vartotojui ${userId}: ${details}`,
+          error instanceof Error ? error.stack : undefined,
+        );
+      }
     }
   }
   async create(dto: CreateAssignmentDto, user) {
@@ -227,6 +300,9 @@ export class AssignmentsService {
           this.activityLog.log('assignment_created', user.id, 'assignment', assignment.id),
         ),
       );
+
+      const summaryDueDate = dto.dueDate ?? assignments[0]?.dueDate ?? null;
+      await this.sendBulkCreationSummary(assignments, trimmedTitle, summaryDueDate);
     }
 
     return {

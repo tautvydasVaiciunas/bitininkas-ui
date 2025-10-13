@@ -7,6 +7,7 @@ import {
   Post,
   Query,
   Request,
+  UseFilters,
 } from '@nestjs/common';
 
 import { Roles } from '../common/decorators/roles.decorator';
@@ -14,6 +15,8 @@ import { UserRole } from '../users/user.entity';
 import { CreateTaskDto } from './dto/create-task.dto';
 import { UpdateTaskDto } from './dto/update-task.dto';
 import { TasksService } from './tasks.service';
+import { TaskFrequency } from './task.entity';
+import { TaskCreateBadRequestFilter } from './filters/task-create-bad-request.filter';
 
 @Controller('tasks')
 export class TasksController {
@@ -21,7 +24,14 @@ export class TasksController {
 
   @Roles(UserRole.MANAGER, UserRole.ADMIN)
   @Post()
-  create(@Body() dto: CreateTaskDto, @Request() req) {
+  @UseFilters(TaskCreateBadRequestFilter)
+  create(
+    @Body() dto: CreateTaskDto,
+    @Request()
+    req: {
+      user: { id: string; role: UserRole };
+    },
+  ) {
     return this.tasksService.create(dto, req.user);
   }
 
@@ -30,11 +40,22 @@ export class TasksController {
     @Query('category') category?: string,
     @Query('frequency') frequency?: string,
     @Query('seasonMonth') seasonMonth?: string,
+    @Request()
+    req: {
+      user: { id: string; role: UserRole };
+    },
   ) {
-    return this.tasksService.findAll({
+    const normalizedFrequency =
+      frequency && Object.values(TaskFrequency).includes(frequency as TaskFrequency)
+        ? (frequency as TaskFrequency)
+        : undefined;
+    const parsedSeasonMonth = seasonMonth ? parseInt(seasonMonth, 10) : undefined;
+    const normalizedSeasonMonth = Number.isNaN(parsedSeasonMonth) ? undefined : parsedSeasonMonth;
+
+    return this.tasksService.findAll(req.user, {
       category,
-      frequency: frequency as any,
-      seasonMonth: seasonMonth ? parseInt(seasonMonth, 10) : undefined,
+      frequency: normalizedFrequency,
+      seasonMonth: normalizedSeasonMonth,
     });
   }
 

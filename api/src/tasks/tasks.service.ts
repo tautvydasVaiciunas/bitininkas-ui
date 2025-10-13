@@ -69,36 +69,48 @@ export class TasksService {
     return undefined;
   }
 
-  private handleDatabaseError(error: unknown, action: string): never {
+  private getDatabaseErrorMessage(code: string | undefined, column: string | undefined, action: string) {
+    if (code === '23503') {
+      return `${action}: ${column ? `${column} not found` : 'related entity missing'}`;
+    }
+
+    if (code === '23505') {
+      return `${action}: ${column ? `duplicate value for ${column}` : 'duplicate value'}`;
+    }
+
+    if (code === '23514') {
+      return `${action}: constraint violated`;
+    }
+
+    if (code === '23502') {
+      return `${action}: ${column ? `${column} is required` : 'missing required value'}`;
+    }
+
+    return `${action}: invalid data`;
+  }
+
+  private handleDatabaseError(
+    error: unknown,
+    action: string,
+    errorMessage: string,
+  ): never {
     if (error instanceof QueryFailedError) {
-      const driverError = (error as QueryFailedError & { driverError?: any }).driverError ?? {};
-      const code: string | undefined = driverError.code;
-      const detail: string | undefined = driverError.detail ?? driverError.message;
+      const driverError =
+        (error as QueryFailedError & { driverError?: Record<string, unknown> }).driverError ?? {};
+      const codeValue = driverError.code;
+      const detailValue = (driverError.detail ?? driverError.message) as unknown;
+      const code = typeof codeValue === 'string' ? codeValue : undefined;
+      const detail = typeof detailValue === 'string' ? detailValue : undefined;
       const column = this.extractColumnName(detail);
+      const englishMessage = this.getDatabaseErrorMessage(code, column, action);
 
-      if (code === '23503') {
-        throw new UnprocessableEntityException(
-          `${action}: ${column ? `${column} not found` : 'related entity missing'}`,
-        );
-      }
+      console.error(englishMessage, error);
+      throw new BadRequestException(errorMessage);
+    }
 
-      if (code === '23505') {
-        throw new UnprocessableEntityException(
-          `${action}: ${column ? `duplicate value for ${column}` : 'duplicate value'}`,
-        );
-      }
-
-      if (code === '23514') {
-        throw new UnprocessableEntityException(`${action}: constraint violated`);
-      }
-
-      if (code === '23502') {
-        throw new BadRequestException(
-          `${action}: ${column ? `${column} is required` : 'missing required value'}`,
-        );
-      }
-
-      throw new BadRequestException(`${action}: invalid data`);
+    if (error instanceof BadRequestException || error instanceof UnprocessableEntityException) {
+      console.error(`${action}: ${error.message}`, error);
+      throw new BadRequestException(errorMessage);
     }
 
     throw error;
@@ -107,11 +119,12 @@ export class TasksService {
   private async runWithDatabaseErrorHandling<T>(
     operation: () => Promise<T>,
     action: string,
+    errorMessage = 'Neteisingi duomenys',
   ): Promise<T> {
     try {
       return await operation();
     } catch (error) {
-      this.handleDatabaseError(error, action);
+      this.handleDatabaseError(error, action, errorMessage);
     }
   }
 
@@ -132,8 +145,14 @@ export class TasksService {
 
     const { steps = [], ...taskData } = dto;
 
+    const title = dto.title?.trim();
+    if (!title) {
+      console.error('Unable to create task: title is required');
+      throw new BadRequestException('Nepavyko sukurti užduoties: neteisingi duomenys');
+    }
+
     const task = this.tasksRepository.create({
-      title: dto.title.trim(),
+      title,
       description: this.normalizeNullableString(taskData.description),
       category: this.normalizeNullableString(taskData.category),
       seasonMonths: taskData.seasonMonths ?? [],
@@ -150,17 +169,32 @@ export class TasksService {
     const saved = await this.runWithDatabaseErrorHandling(
       () => this.tasksRepository.save(task),
       'Unable to create task',
+      'Nepavyko sukurti užduoties: neteisingi duomenys',
     );
     await this.activityLog.log('task_created', user.id, 'task', saved.id);
-    return saved;
+    const fullTask = await this.tasksRepository.findOne({ where: { id: saved.id } });
+    return fullTask ?? saved;
   }
 
-  async findAll(query: {
-    category?: string;
-    frequency?: TaskFrequency;
-    seasonMonth?: number;
-  }) {
+  async findAll(
+    user: { id: string; role: UserRole },
+    query: {
+      category?: string;
+      frequency?: TaskFrequency;
+      seasonMonth?: number;
+    },
+  ) {
     const qb = this.tasksRepository.createQueryBuilder('task');
+
+    if (user.role === UserRole.USER) {
+      qb.innerJoin('task.assignments', 'assignment');
+      qb.innerJoin('assignment.hive', 'hive');
+      qb.leftJoin('hive.members', 'member');
+      qb.andWhere('(hive.ownerUserId = :userId OR member.id = :userId)', {
+        userId: user.id,
+      });
+      qb.distinct(true);
+    }
 
     if (query.category) {
       qb.andWhere('task.category = :category', {

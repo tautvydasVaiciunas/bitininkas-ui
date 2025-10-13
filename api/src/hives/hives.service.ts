@@ -55,36 +55,48 @@ export class HivesService {
     return undefined;
   }
 
-  private handleDatabaseError(error: unknown, action: string): never {
+  private getDatabaseErrorMessage(code: string | undefined, column: string | undefined, action: string) {
+    if (code === '23503') {
+      return `${action}: ${column ? `${column} not found` : 'related entity missing'}`;
+    }
+
+    if (code === '23505') {
+      return `${action}: ${column ? `duplicate value for ${column}` : 'duplicate value'}`;
+    }
+
+    if (code === '23514') {
+      return `${action}: constraint violated`;
+    }
+
+    if (code === '23502') {
+      return `${action}: ${column ? `${column} is required` : 'missing required value'}`;
+    }
+
+    return `${action}: invalid data`;
+  }
+
+  private handleDatabaseError(
+    error: unknown,
+    action: string,
+    errorMessage: string,
+  ): never {
     if (error instanceof QueryFailedError) {
-      const driverError = (error as QueryFailedError & { driverError?: any }).driverError ?? {};
-      const code: string | undefined = driverError.code;
-      const detail: string | undefined = driverError.detail ?? driverError.message;
+      const driverError =
+        (error as QueryFailedError & { driverError?: Record<string, unknown> }).driverError ?? {};
+      const codeValue = driverError.code;
+      const detailValue = (driverError.detail ?? driverError.message) as unknown;
+      const code = typeof codeValue === 'string' ? codeValue : undefined;
+      const detail = typeof detailValue === 'string' ? detailValue : undefined;
       const column = this.extractColumnName(detail);
+      const englishMessage = this.getDatabaseErrorMessage(code, column, action);
 
-      if (code === '23503') {
-        throw new UnprocessableEntityException(
-          `${action}: ${column ? `${column} not found` : 'related entity missing'}`,
-        );
-      }
+      console.error(englishMessage, error);
+      throw new BadRequestException(errorMessage);
+    }
 
-      if (code === '23505') {
-        throw new UnprocessableEntityException(
-          `${action}: ${column ? `duplicate value for ${column}` : 'duplicate value'}`,
-        );
-      }
-
-      if (code === '23514') {
-        throw new UnprocessableEntityException(`${action}: constraint violated`);
-      }
-
-      if (code === '23502') {
-        throw new BadRequestException(
-          `${action}: ${column ? `${column} is required` : 'missing required value'}`,
-        );
-      }
-
-      throw new BadRequestException(`${action}: invalid data`);
+    if (error instanceof BadRequestException || error instanceof UnprocessableEntityException) {
+      console.error(`${action}: ${error.message}`, error);
+      throw new BadRequestException(errorMessage);
     }
 
     throw error;
@@ -93,11 +105,12 @@ export class HivesService {
   private async runWithDatabaseErrorHandling<T>(
     operation: () => Promise<T>,
     action: string,
+    errorMessage = 'Neteisingi duomenys',
   ): Promise<T> {
     try {
       return await operation();
     } catch (error) {
-      this.handleDatabaseError(error, action);
+      this.handleDatabaseError(error, action, errorMessage);
     }
   }
 
@@ -139,8 +152,14 @@ export class HivesService {
         : userId;
     const members = await this.loadMembers(dto.members);
 
+    const label = dto.label?.trim();
+    if (!label) {
+      console.error('Unable to create hive: label is required');
+      throw new BadRequestException('Neteisingi duomenys');
+    }
+
     const hive = this.hiveRepository.create({
-      label: dto.label.trim(),
+      label,
       location: this.normalizeNullableString(dto.location),
       queenYear: dto.queenYear ?? null,
       status: dto.status ?? HiveStatus.ACTIVE,
@@ -151,6 +170,7 @@ export class HivesService {
     const saved = await this.runWithDatabaseErrorHandling(
       () => this.hiveRepository.save(hive),
       'Unable to create hive',
+      'Neteisingi duomenys',
     );
     await this.activityLog.log('hive_created', userId, 'hive', saved.id);
 

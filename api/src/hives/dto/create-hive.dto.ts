@@ -7,10 +7,12 @@ import {
   IsString,
   MaxLength,
 } from 'class-validator';
+import { Transform } from 'class-transformer';
 import { HiveStatus } from '../hive.entity';
 
 export class CreateHiveDto {
   @IsString()
+  @Transform(({ value }) => (typeof value === 'string' ? value.trim() : value))
   @IsNotEmpty()
   @MaxLength(150)
   label: string;

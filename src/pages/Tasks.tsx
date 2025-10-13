@@ -1,6 +1,7 @@
 import { useMemo, useState } from 'react';
 import { Link } from 'react-router-dom';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
+import ltMessages from '@/i18n/messages.lt.json';
 import { MainLayout } from '@/components/Layout/MainLayout';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
@@ -99,7 +100,7 @@ export default function Tasks() {
     mutationFn: (payload) => api.tasks.create(payload).then(mapTaskFromApi),
     onSuccess: (createdTask) => {
       toast({
-        title: 'Užduotis sukurta',
+        title: ltMessages.tasks.createSuccess,
         description: `Užduotis „${createdTask.title}“ sėkmingai išsaugota.`,
       });
       resetCreateForm();
@@ -109,8 +110,8 @@ export default function Tasks() {
     },
     onError: (error: HttpError | Error) => {
       toast({
-        title: 'Nepavyko sukurti užduoties',
-        description: error instanceof Error ? error.message : 'Įvyko nenumatyta klaida',
+        title: ltMessages.tasks.createError,
+        description: error instanceof Error ? error.message : undefined,
         variant: 'destructive',
       });
     },

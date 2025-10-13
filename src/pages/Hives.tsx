@@ -1,6 +1,7 @@
 import { useMemo, useState } from "react";
 import { Link } from "react-router-dom";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
+import ltMessages from "@/i18n/messages.lt.json";
 import {
   AlertDialog,
   AlertDialogAction,
@@ -384,14 +385,14 @@ export default function Hives() {
     onSuccess: (createdHive) => {
       queryClient.invalidateQueries({ queryKey: ["hives"] });
       toast({
-        title: "Avilys sukurtas",
+        title: ltMessages.hives.createSuccess,
         description: `Avilys „${createdHive.label}“ sėkmingai pridėtas.`,
       });
       setIsCreateDialogOpen(false);
       resetCreateForm();
     },
     onError: (err) => {
-      showErrorToast("Nepavyko sukurti avilio", err);
+      showErrorToast(ltMessages.hives.createError, err);
     },
   });
 
@@ -687,7 +688,7 @@ export default function Hives() {
         {isError ? (
           <Card className="shadow-custom">
             <CardContent className="p-12 text-center space-y-4">
-              <h3 className="text-lg font-semibold">Nepavyko įkelti avilių</h3>
+              <h3 className="text-lg font-semibold">{ltMessages.hives.loadError}</h3>
               <p className="text-muted-foreground">
                 {getErrorMessage(error) ??
                   "Įvyko nenumatyta klaida bandant gauti avilių sąrašą."}

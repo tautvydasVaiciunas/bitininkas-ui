@@ -9,5 +9,14 @@
   "profile": {
     "passwordChanged": "Slaptažodis sėkmingai pakeistas",
     "passwordChangeFailed": "Nepavyko pakeisti slaptažodžio"
+  },
+  "hives": {
+    "createSuccess": "Avilys sėkmingai sukurtas",
+    "createError": "Nepavyko sukurti avilio: neteisingi duomenys",
+    "loadError": "Nepavyko įkelti avilių duomenų. Pabandykite dar kartą."
+  },
+  "tasks": {
+    "createSuccess": "Užduotis sėkmingai sukurta",
+    "createError": "Nepavyko sukurti užduoties: neteisingi duomenys"
   }
 }

@@ -1,7 +1,7 @@
 import { IsInt, IsOptional, IsUUID, Min } from 'class-validator';
 
 export class TemplateStepInputDto {
-  @IsUUID()
+  @IsUUID('4', { message: 'Žingsnio ID turi būti teisingas UUID' })
   taskStepId!: string;
 
   @IsOptional()

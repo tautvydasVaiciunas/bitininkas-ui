@@ -17,6 +17,9 @@ export class Template {
   @Column({ type: 'varchar', length: 255 })
   name!: string;
 
+  @Column({ type: 'varchar', length: 1000, nullable: true, default: null })
+  comment!: string | null;
+
   @OneToMany(() => TemplateStep, (step) => step.template, {
     cascade: true,
     eager: false,

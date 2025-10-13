@@ -13,7 +13,7 @@ import { Label } from '@/components/ui/label';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Textarea } from '@/components/ui/textarea';
 import ltMessages from '@/i18n/messages.lt.json';
-import api from '@/lib/api';
+import api, { HttpError } from '@/lib/api';
 import {
   mapTaskFromApi,
   mapTaskStepFromApi,
@@ -38,12 +38,6 @@ export default function AdminSteps() {
   const [isUploadingMedia, setIsUploadingMedia] = useState(false);
   const queryClient = useQueryClient();
 
-  const invalidateSteps = () => {
-    if (!selectedTaskId) return;
-    void queryClient.invalidateQueries({ queryKey: ['tasks', selectedTaskId, 'steps'] });
-    void queryClient.invalidateQueries({ queryKey: ['templates'] });
-  };
-
   const { data: tasks = [] } = useQuery<Task[]>({
     queryKey: ['tasks', 'for-steps'],
     queryFn: async () => {
@@ -59,6 +53,23 @@ export default function AdminSteps() {
   }, [tasks, selectedTaskId]);
 
   const stepsQueryKey = ['tasks', selectedTaskId, 'steps'] as const;
+
+  const invalidateSteps = () => {
+    if (!selectedTaskId) return;
+    void queryClient.invalidateQueries({ queryKey: stepsQueryKey });
+    void queryClient.invalidateQueries({
+      queryKey: ['tasks', selectedTaskId, 'steps', 'for-template'],
+    });
+    void queryClient.invalidateQueries({ queryKey: ['templates'] });
+  };
+
+  const showError = (error: unknown, fallback: string) => {
+    if (error instanceof HttpError) {
+      toast.error(error.message);
+      return;
+    }
+    toast.error(fallback);
+  };
   const {
     data: steps = [],
     isLoading,
@@ -75,52 +86,76 @@ export default function AdminSteps() {
   );
 
   const createMutation = useMutation({
-    mutationFn: (payload: CreateTaskStepPayload) => api.tasks.createStep(selectedTaskId!, payload),
-    onSuccess: () => {
+    mutationFn: async (payload: CreateTaskStepPayload) => {
+      const response = await api.tasks.createStep(selectedTaskId!, payload);
+      return mapTaskStepFromApi(response);
+    },
+    onSuccess: (createdStep) => {
       toast.success(messages.createSuccess);
       setShowForm(false);
       setMediaType('');
       setRequireUserMedia(false);
+      queryClient.setQueryData<TaskStep[]>(stepsQueryKey, (current = []) => {
+        const withoutDuplicate = current.filter((step) => step.id !== createdStep.id);
+        return [...withoutDuplicate, createdStep].sort((a, b) => a.orderIndex - b.orderIndex);
+      });
       invalidateSteps();
     },
-    onError: () => {
-      toast.error(messages.createError);
+    onError: (error) => {
+      showError(error, messages.createError);
     },
   });
 
   const updateMutation = useMutation({
-    mutationFn: ({ stepId, payload }: { stepId: string; payload: UpdateTaskStepPayload }) =>
-      api.tasks.updateStep(selectedTaskId!, stepId, payload),
-    onSuccess: () => {
+    mutationFn: async ({ stepId, payload }: { stepId: string; payload: UpdateTaskStepPayload }) => {
+      const response = await api.tasks.updateStep(selectedTaskId!, stepId, payload);
+      return mapTaskStepFromApi(response);
+    },
+    onSuccess: (updatedStep) => {
       toast.success(messages.updateSuccess);
       setEditingStepId(null);
+      queryClient.setQueryData<TaskStep[]>(stepsQueryKey, (current = []) => {
+        const updated = current.map((step) => (step.id === updatedStep.id ? updatedStep : step));
+        return updated.sort((a, b) => a.orderIndex - b.orderIndex);
+      });
       invalidateSteps();
     },
-    onError: () => {
-      toast.error(messages.updateError);
+    onError: (error) => {
+      showError(error, messages.updateError);
     },
   });
 
   const deleteMutation = useMutation({
-    mutationFn: (stepId: string) => api.tasks.deleteStep(selectedTaskId!, stepId),
-    onSuccess: () => {
+    mutationFn: async (stepId: string) => {
+      await api.tasks.deleteStep(selectedTaskId!, stepId);
+      return stepId;
+    },
+    onSuccess: (deletedStepId) => {
       toast.success(messages.deleteSuccess);
+      queryClient.setQueryData<TaskStep[]>(stepsQueryKey, (current = []) =>
+        current.filter((step) => step.id !== deletedStepId),
+      );
       invalidateSteps();
     },
-    onError: () => {
-      toast.error(messages.deleteError);
+    onError: (error) => {
+      showError(error, messages.deleteError);
     },
   });
 
   const reorderMutation = useMutation({
-    mutationFn: (payload: { stepId: string; orderIndex: number }[]) =>
-      api.tasks.reorderSteps(selectedTaskId!, { steps: payload }),
-    onSuccess: () => {
+    mutationFn: async (payload: { stepId: string; orderIndex: number }[]) => {
+      const response = await api.tasks.reorderSteps(selectedTaskId!, { steps: payload });
+      return response.map(mapTaskStepFromApi);
+    },
+    onSuccess: (reordered) => {
       toast.success(messages.reorderSuccess);
+      queryClient.setQueryData<TaskStep[]>(stepsQueryKey, () =>
+        [...reordered].sort((a, b) => a.orderIndex - b.orderIndex),
+      );
       invalidateSteps();
     },
-    onError: () => {
-      toast.error(messages.reorderError);
+    onError: (error) => {
+      showError(error, messages.reorderError);
     },
   });
 

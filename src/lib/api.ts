@@ -124,6 +124,7 @@ export interface TemplateStepResponse {
 export interface TemplateResponse {
   id: string;
   name: string;
+  comment?: string | null;
   createdAt: string;
   updatedAt: string;
   steps: TemplateStepResponse[];
@@ -178,12 +179,16 @@ export interface TemplateStepInputPayload {
 
 export interface CreateTemplatePayload {
   name: string;
+  comment?: string | null;
   steps?: TemplateStepInputPayload[];
+  stepIds?: string[];
 }
 
 export interface UpdateTemplatePayload {
   name?: string;
+  comment?: string | null;
   steps?: TemplateStepInputPayload[];
+  stepIds?: string[];
 }
 
 export interface ReorderTemplateStepsPayload {

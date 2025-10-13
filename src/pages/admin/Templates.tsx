@@ -1,4 +1,4 @@
-import { useMemo, useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { ArrowDown, ArrowUp, Edit, Plus, Search, Trash2 } from 'lucide-react';
 import { toast } from 'sonner';
@@ -10,8 +10,9 @@ import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
+import { Textarea } from '@/components/ui/textarea';
 import ltMessages from '@/i18n/messages.lt.json';
-import api from '@/lib/api';
+import api, { HttpError } from '@/lib/api';
 import {
   mapTaskFromApi,
   mapTaskStepFromApi,
@@ -35,6 +36,7 @@ interface TemplateStepDraft {
 
 interface TemplateFormValues {
   name: string;
+  comment: string;
   steps: TemplateStepDraft[];
 }
 
@@ -44,8 +46,18 @@ export default function AdminTemplates() {
   const [templateToEdit, setTemplateToEdit] = useState<Template | null>(null);
   const queryClient = useQueryClient();
 
+  const templatesQueryKey = ['templates'] as const;
+
   const invalidateTemplates = () => {
-    void queryClient.invalidateQueries({ queryKey: ['templates'] });
+    void queryClient.invalidateQueries({ queryKey: templatesQueryKey });
+  };
+
+  const showError = (error: unknown, fallback: string) => {
+    if (error instanceof HttpError) {
+      toast.error(error.message);
+      return;
+    }
+    toast.error(fallback);
   };
 
   const { data: templates = [], isLoading, isError } = useQuery<Template[]>({
@@ -73,52 +85,71 @@ export default function AdminTemplates() {
   }, [tasks]);
 
   const createMutation = useMutation({
-    mutationFn: (payload: CreateTemplatePayload) => api.templates.create(payload).then(mapTemplateFromApi),
-    onSuccess: () => {
+    mutationFn: (payload: CreateTemplatePayload) =>
+      api.templates.create(payload).then(mapTemplateFromApi),
+    onSuccess: (createdTemplate) => {
       toast.success(messages.createSuccess);
       setIsFormOpen(false);
       setTemplateToEdit(null);
+      queryClient.setQueryData<Template[]>(templatesQueryKey, (current = []) => {
+        const withoutDuplicate = current.filter((item) => item.id !== createdTemplate.id);
+        return [...withoutDuplicate, createdTemplate].sort((a, b) => a.name.localeCompare(b.name));
+      });
       invalidateTemplates();
     },
-    onError: () => {
-      toast.error(messages.createError);
+    onError: (error) => {
+      showError(error, messages.createError);
     },
   });
 
   const updateMutation = useMutation({
     mutationFn: ({ id, payload }: { id: string; payload: UpdateTemplatePayload }) =>
       api.templates.update(id, payload).then(mapTemplateFromApi),
-    onSuccess: () => {
+    onSuccess: (updatedTemplate) => {
       toast.success(messages.updateSuccess);
       setIsFormOpen(false);
       setTemplateToEdit(null);
+      queryClient.setQueryData<Template[]>(templatesQueryKey, (current = []) => {
+        const updated = current.map((item) => (item.id === updatedTemplate.id ? updatedTemplate : item));
+        return updated.sort((a, b) => a.name.localeCompare(b.name));
+      });
       invalidateTemplates();
     },
-    onError: () => {
-      toast.error(messages.updateError);
+    onError: (error) => {
+      showError(error, messages.updateError);
     },
   });
 
   const deleteMutation = useMutation({
-    mutationFn: (id: string) => api.templates.remove(id),
-    onSuccess: () => {
+    mutationFn: async (id: string) => {
+      await api.templates.remove(id);
+      return id;
+    },
+    onSuccess: (deletedId) => {
       toast.success(messages.deleteSuccess);
+      queryClient.setQueryData<Template[]>(templatesQueryKey, (current = []) =>
+        current.filter((template) => template.id !== deletedId),
+      );
       invalidateTemplates();
     },
-    onError: () => {
-      toast.error(messages.deleteError);
+    onError: (error) => {
+      showError(error, messages.deleteError);
     },
   });
 
   const reorderMutation = useMutation({
     mutationFn: ({ id, steps }: { id: string; steps: ReorderTemplateStepsPayload['steps'] }) =>
       api.templates.reorderSteps(id, { steps }).then(mapTemplateFromApi),
-    onSuccess: () => {
+    onSuccess: (updatedTemplate) => {
       toast.success(messages.reorderSuccess);
+      queryClient.setQueryData<Template[]>(templatesQueryKey, (current = []) => {
+        const updated = current.map((item) => (item.id === updatedTemplate.id ? updatedTemplate : item));
+        return updated.sort((a, b) => a.name.localeCompare(b.name));
+      });
       invalidateTemplates();
     },
-    onError: () => {
-      toast.error(messages.reorderError);
+    onError: (error) => {
+      showError(error, messages.reorderError);
     },
   });
 
@@ -151,15 +182,25 @@ export default function AdminTemplates() {
       return;
     }
 
+    const commentText = values.comment.trim();
+    const comment = commentText.length > 0 ? commentText : null;
+
     const steps: TemplateStepInputPayload[] = values.steps.map((step, index) => ({
       taskStepId: step.taskStepId,
       orderIndex: index + 1,
     }));
 
     if (templateToEdit) {
-      await updateMutation.mutateAsync({ id: templateToEdit.id, payload: { name, steps } });
+      await updateMutation.mutateAsync({
+        id: templateToEdit.id,
+        payload: { name, comment, steps: steps.length ? steps : undefined },
+      });
     } else {
-      await createMutation.mutateAsync({ name, steps: steps.length ? steps : undefined });
+      await createMutation.mutateAsync({
+        name,
+        comment: comment ?? undefined,
+        steps: steps.length ? steps : undefined,
+      });
     }
   };
 
@@ -264,6 +305,7 @@ interface TemplateFormProps {
 function TemplateForm({ tasks, template, onCancel, onSubmit, isSubmitting }: TemplateFormProps) {
   const [name, setName] = useState(template?.name ?? '');
   const [selectedTaskId, setSelectedTaskId] = useState<string>('');
+  const [comment, setComment] = useState(template?.comment ?? '');
   const [templateSteps, setTemplateSteps] = useState<TemplateStepDraft[]>(
     template?.steps.map((step) => ({
       id: step.id,
@@ -271,6 +313,18 @@ function TemplateForm({ tasks, template, onCancel, onSubmit, isSubmitting }: Tem
       taskStep: step.taskStep,
     })) ?? [],
   );
+
+  useEffect(() => {
+    setName(template?.name ?? '');
+    setComment(template?.comment ?? '');
+    setTemplateSteps(
+      template?.steps.map((step) => ({
+        id: step.id,
+        taskStepId: step.taskStepId,
+        taskStep: step.taskStep,
+      })) ?? [],
+    );
+  }, [template]);
 
   const availableTasks = useMemo(
     () => [...tasks].sort((a, b) => a.title.localeCompare(b.title)),
@@ -316,7 +370,7 @@ function TemplateForm({ tasks, template, onCancel, onSubmit, isSubmitting }: Tem
   };
 
   const handleSubmit = async () => {
-    await onSubmit({ name, steps: templateSteps });
+    await onSubmit({ name, comment, steps: templateSteps });
   };
 
   return (
@@ -329,6 +383,16 @@ function TemplateForm({ tasks, template, onCancel, onSubmit, isSubmitting }: Tem
           <div className="space-y-2">
             <Label>Pavadinimas</Label>
             <Input value={name} onChange={(event) => setName(event.target.value)} disabled={isSubmitting} />
+          </div>
+
+          <div className="space-y-2">
+            <Label>Komentaras</Label>
+            <Textarea
+              value={comment}
+              onChange={(event) => setComment(event.target.value)}
+              disabled={isSubmitting}
+              rows={3}
+            />
           </div>
 
           <div className="space-y-2">
@@ -460,6 +524,9 @@ function TemplateCard({ template, onEdit, onDelete, onReorder, disableActions, t
           <div className="flex-1 space-y-2">
             <div>
               <h3 className="text-lg font-semibold mb-1">{template.name}</h3>
+              {template.comment && (
+                <p className="text-sm text-muted-foreground whitespace-pre-line">{template.comment}</p>
+              )}
               <p className="text-sm text-muted-foreground">Žingsniai: {orderedSteps.length}</p>
             </div>
 

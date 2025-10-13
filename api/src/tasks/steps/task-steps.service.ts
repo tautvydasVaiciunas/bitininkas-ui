@@ -134,6 +134,27 @@ export class TaskStepsService {
     };
   }
 
+  private validateOrderSequence(
+    payload: { stepId: string; orderIndex: number }[],
+    expectedLength: number,
+    action: string,
+  ) {
+    if (payload.length !== expectedLength) {
+      throw new BadRequestException(`${action}: turi būti pateikti visi žingsniai`);
+    }
+
+    const indexes = [...payload.map((item) => item.orderIndex)].sort((a, b) => a - b);
+
+    indexes.forEach((value, index) => {
+      const expected = index + 1;
+      if (value !== expected) {
+        throw new BadRequestException(
+          `${action}: žingsnių eiliškumas turi būti 1..${expectedLength} be praleidimų`,
+        );
+      }
+    });
+  }
+
   async findAll(taskId: string) {
     await this.ensureTaskExists(taskId);
     return this.stepsRepository.find({
@@ -174,7 +195,7 @@ export class TaskStepsService {
     );
 
     await this.activityLog.log('task_step_created', user.id, 'task', taskId);
-    return saved;
+    return this.findOne(taskId, saved.id);
   }
 
   async update(
@@ -220,7 +241,7 @@ export class TaskStepsService {
     );
 
     await this.activityLog.log('task_step_updated', user.id, 'task', taskId);
-    return saved;
+    return this.findOne(taskId, saved.id);
   }
 
   async remove(taskId: string, stepId: string, user: { id: string; role: UserRole }) {
@@ -233,7 +254,7 @@ export class TaskStepsService {
     );
 
     await this.activityLog.log('task_step_deleted', user.id, 'task', taskId);
-    return step;
+    return;
   }
 
   async reorder(
@@ -263,9 +284,7 @@ export class TaskStepsService {
       }
     }
 
-    if (payload.length !== steps.length) {
-      throw new BadRequestException('Nepavyko perrikiuoti žingsnių: turi būti pateikti visi žingsniai');
-    }
+    this.validateOrderSequence(payload, steps.length, 'Nepavyko perrikiuoti žingsnių');
 
     await this.runWithDatabaseErrorHandling(
       () =>

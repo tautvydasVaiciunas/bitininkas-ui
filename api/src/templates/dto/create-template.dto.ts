@@ -5,6 +5,7 @@ import {
   IsNotEmpty,
   IsOptional,
   IsString,
+  IsUUID,
   MaxLength,
   ValidateNested,
 } from 'class-validator';
@@ -18,9 +19,20 @@ export class CreateTemplateDto {
   name!: string;
 
   @IsOptional()
-  @IsArray()
-  @ArrayMinSize(1)
+  @IsString({ message: 'Komentaras turi būti tekstas' })
+  @MaxLength(1000, { message: 'Komentaras gali būti iki 1000 simbolių' })
+  comment?: string | null;
+
+  @IsOptional()
+  @IsArray({ message: 'Žingsniai turi būti masyvas' })
+  @ArrayMinSize(1, { message: 'Turi būti bent vienas žingsnis' })
   @ValidateNested({ each: true })
   @Type(() => TemplateStepInputDto)
   steps?: TemplateStepInputDto[];
+
+  @IsOptional()
+  @IsArray({ message: 'Žingsnių ID turi būti masyvas' })
+  @ArrayMinSize(1, { message: 'Turi būti bent vienas žingsnis' })
+  @IsUUID('4', { each: true, message: 'Žingsnio ID turi būti teisingas UUID' })
+  stepIds?: string[];
 }

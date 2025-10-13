@@ -1,4 +1,15 @@
-import { Body, Controller, Delete, Get, Param, Patch, Post, Request } from '@nestjs/common';
+import {
+  Body,
+  Controller,
+  Delete,
+  Get,
+  HttpCode,
+  HttpStatus,
+  Param,
+  Patch,
+  Post,
+  Request,
+} from '@nestjs/common';
 
 import { Roles } from '../common/decorators/roles.decorator';
 import { UserRole } from '../users/user.entity';
@@ -35,6 +46,7 @@ export class TemplatesController {
 
   @Roles(UserRole.MANAGER, UserRole.ADMIN)
   @Delete(':id')
+  @HttpCode(HttpStatus.NO_CONTENT)
   remove(@Param('id') id: string, @Request() req) {
     return this.templatesService.remove(id, req.user);
   }

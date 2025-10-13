@@ -38,6 +38,11 @@ export class TemplatesService {
     return trimmed;
   }
 
+  private normalizeComment(value?: string | null) {
+    const trimmed = value?.trim();
+    return trimmed && trimmed.length > 0 ? trimmed : null;
+  }
+
   private extractColumnName(detail?: string) {
     if (!detail) {
       return undefined;
@@ -144,16 +149,76 @@ export class TemplatesService {
     }
   }
 
+  private ensureUniqueStepIds(taskStepIds: string[], action: string) {
+    const unique = new Set(taskStepIds);
+    if (unique.size !== taskStepIds.length) {
+      throw new BadRequestException(`${action}: žingsniai neturi kartotis`);
+    }
+  }
+
+  private validateOrderSequence(orderIndexes: number[], expectedLength: number, action: string) {
+    if (orderIndexes.length !== expectedLength) {
+      throw new BadRequestException(`${action}: turi būti pateikti visi žingsniai`);
+    }
+
+    const sorted = [...orderIndexes].sort((a, b) => a - b);
+    sorted.forEach((value, index) => {
+      const expected = index + 1;
+      if (value !== expected) {
+        throw new BadRequestException(
+          `${action}: žingsnių eiliškumas turi būti 1..${expectedLength} be praleidimų`,
+        );
+      }
+    });
+  }
+
+  private normalizeStepsInput(
+    action: string,
+    steps?: { taskStepId: string; orderIndex?: number }[],
+    stepIds?: string[],
+  ) {
+    const providedSteps = steps?.length ? steps : undefined;
+    const providedIds = !providedSteps && stepIds?.length ? stepIds : undefined;
+
+    if (!providedSteps && !providedIds) {
+      return [] as { taskStepId: string; orderIndex: number }[];
+    }
+
+    if (providedSteps) {
+      const normalized = providedSteps.map((step, index) => ({
+        taskStepId: step.taskStepId,
+        orderIndex: step.orderIndex ?? index + 1,
+      }));
+      this.ensureUniqueStepIds(
+        normalized.map((step) => step.taskStepId),
+        action,
+      );
+      this.validateOrderSequence(
+        normalized.map((step) => step.orderIndex),
+        normalized.length,
+        action,
+      );
+      return normalized;
+    }
+
+    const normalizedFromIds = providedIds!.map((taskStepId, index) => ({
+      taskStepId,
+      orderIndex: index + 1,
+    }));
+    this.ensureUniqueStepIds(providedIds!, action);
+    return normalizedFromIds;
+  }
+
   private buildTemplateSteps(
     repository: Repository<TemplateStep>,
     template: Template,
-    steps: { taskStepId: string; orderIndex?: number }[],
+    steps: { taskStepId: string; orderIndex: number }[],
   ) {
-    return steps.map((step, index) =>
+    return steps.map((step) =>
       repository.create({
         template,
         taskStepId: step.taskStepId,
-        orderIndex: step.orderIndex ?? index + 1,
+        orderIndex: step.orderIndex,
       }),
     );
   }
@@ -177,14 +242,21 @@ export class TemplatesService {
         this.dataSource.transaction(async (manager) => {
           const templateRepo = this.getTemplateRepository(manager);
           const stepRepo = this.getTemplateStepRepository(manager);
+          const normalizedSteps = this.normalizeStepsInput(
+            'Nepavyko sukurti šablono',
+            dto.steps,
+            dto.stepIds,
+          );
+
           const created = templateRepo.create({
             name: this.normalizeName(dto.name),
+            comment: this.normalizeComment(dto.comment ?? null),
           });
 
-          if (dto.steps?.length) {
-            const stepIds = dto.steps.map((step) => step.taskStepId);
+          if (normalizedSteps.length) {
+            const stepIds = normalizedSteps.map((step) => step.taskStepId);
             await this.ensureTaskStepsExist(stepIds, manager);
-            created.steps = this.buildTemplateSteps(stepRepo, created, dto.steps);
+            created.steps = this.buildTemplateSteps(stepRepo, created, normalizedSteps);
           }
 
           const saved = await templateRepo.save(created);
@@ -211,10 +283,20 @@ export class TemplatesService {
             templateEntity.name = this.normalizeName(dto.name);
           }
 
-          if (dto.steps !== undefined) {
-            const stepIds = dto.steps.map((step) => step.taskStepId);
+          if (dto.comment !== undefined) {
+            templateEntity.comment = this.normalizeComment(dto.comment ?? null);
+          }
+
+          if (dto.steps !== undefined || dto.stepIds !== undefined) {
+            const normalizedSteps = this.normalizeStepsInput(
+              'Nepavyko atnaujinti šablono',
+              dto.steps,
+              dto.stepIds,
+            );
+
+            const stepIds = normalizedSteps.map((step) => step.taskStepId);
             await this.ensureTaskStepsExist(stepIds, manager);
-            templateEntity.steps = this.buildTemplateSteps(stepRepo, templateEntity, dto.steps);
+            templateEntity.steps = this.buildTemplateSteps(stepRepo, templateEntity, normalizedSteps);
           }
 
           const saved = await templateRepo.save(templateEntity);
@@ -241,7 +323,7 @@ export class TemplatesService {
     );
 
     await this.activityLog.log('template_deleted', user.id, 'template', id);
-    return { deleted: true };
+    return;
   }
 
   async reorderSteps(id: string, payload: { id: string; orderIndex: number }[], user: {
@@ -271,11 +353,11 @@ export class TemplatesService {
             }
           }
 
-          if (payload.length !== templateEntity.steps.length) {
-            throw new BadRequestException(
-              'Nepavyko perrikiuoti šablono žingsnių: turi būti pateikti visi žingsniai',
-            );
-          }
+          this.validateOrderSequence(
+            payload.map((item) => item.orderIndex),
+            templateEntity.steps.length,
+            'Nepavyko perrikiuoti šablono žingsnių',
+          );
 
           await Promise.all(
             payload.map(({ id: stepId, orderIndex }) =>

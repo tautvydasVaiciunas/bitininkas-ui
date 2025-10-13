@@ -1,10 +1,4 @@
-import {
-  BadRequestException,
-  ForbiddenException,
-  Injectable,
-  NotFoundException,
-  UnprocessableEntityException,
-} from '@nestjs/common';
+import { BadRequestException, ForbiddenException, Injectable, NotFoundException } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
 import { DataSource, QueryFailedError, Repository } from 'typeorm';
 
@@ -28,7 +22,7 @@ export class TaskStepsService {
 
   private assertManager(role: UserRole) {
     if (![UserRole.MANAGER, UserRole.ADMIN].includes(role)) {
-      throw new ForbiddenException('Requires manager or admin role');
+      throw new ForbiddenException('Reikia vadybininko arba administratoriaus teisių');
     }
   }
 
@@ -65,34 +59,37 @@ export class TaskStepsService {
 
   private handleDatabaseError(error: unknown, action: string): never {
     if (error instanceof QueryFailedError) {
-      const driverError = (error as QueryFailedError & { driverError?: any }).driverError ?? {};
-      const code: string | undefined = driverError.code;
-      const detail: string | undefined = driverError.detail ?? driverError.message;
+      const driverError = (error as QueryFailedError & {
+        driverError?: { code?: unknown; detail?: unknown; message?: unknown };
+      }).driverError ?? {};
+      const code = typeof driverError.code === 'string' ? driverError.code : undefined;
+      const detailCandidate = driverError.detail ?? driverError.message;
+      const detail = typeof detailCandidate === 'string' ? detailCandidate : undefined;
       const column = this.extractColumnName(detail);
 
       if (code === '23503') {
-        throw new UnprocessableEntityException(
-          `${action}: ${column ? `${column} not found` : 'related entity missing'}`,
+        throw new BadRequestException(
+          `${action}: ${column ? `susijęs laukas „${column}“ nerastas` : 'susijęs įrašas nerastas'}`,
         );
       }
 
       if (code === '23505') {
-        throw new UnprocessableEntityException(
-          `${action}: ${column ? `duplicate value for ${column}` : 'duplicate value'}`,
+        throw new BadRequestException(
+          `${action}: ${column ? `laukas „${column}“ dubliuojasi` : 'pasikartojanti reikšmė'}`,
         );
       }
 
       if (code === '23514') {
-        throw new UnprocessableEntityException(`${action}: constraint violated`);
+        throw new BadRequestException(`${action}: pažeisti duomenų apribojimai`);
       }
 
       if (code === '23502') {
         throw new BadRequestException(
-          `${action}: ${column ? `${column} is required` : 'missing required value'}`,
+          `${action}: ${column ? `laukas „${column}“ privalomas` : 'trūksta privalomos reikšmės'}`,
         );
       }
 
-      throw new BadRequestException(`${action}: invalid data`);
+      throw new BadRequestException(`${action}: neteisingi duomenys`);
     }
 
     throw error;
@@ -113,7 +110,7 @@ export class TaskStepsService {
     const taskExists = await this.tasksRepository.exist({ where: { id: taskId } });
 
     if (!taskExists) {
-      throw new NotFoundException('Task not found');
+      throw new NotFoundException('Užduotis nerasta');
     }
   }
 
@@ -150,7 +147,7 @@ export class TaskStepsService {
     const step = await this.stepsRepository.findOne({ where: { id: stepId, taskId } });
 
     if (!step) {
-      throw new NotFoundException('Task step not found');
+      throw new NotFoundException('Žingsnis nerastas');
     }
 
     return step;
@@ -163,7 +160,7 @@ export class TaskStepsService {
     const fallbackOrder = await this.getNextOrderIndex(taskId);
     const normalized = this.normalizeStepInput(dto, fallbackOrder);
     if (!normalized.title) {
-      throw new BadRequestException('Unable to create task step: title is required');
+      throw new BadRequestException('Nepavyko sukurti žingsnio: pavadinimas privalomas');
     }
 
     const step = this.stepsRepository.create({
@@ -173,7 +170,7 @@ export class TaskStepsService {
 
     const saved = await this.runWithDatabaseErrorHandling(
       () => this.stepsRepository.save(step),
-      'Unable to create task step',
+      'Nepavyko sukurti žingsnio',
     );
 
     await this.activityLog.log('task_step_created', user.id, 'task', taskId);
@@ -192,7 +189,7 @@ export class TaskStepsService {
     if (dto.title !== undefined) {
       const title = dto.title.trim();
       if (!title) {
-        throw new BadRequestException('Unable to update task step: title is required');
+        throw new BadRequestException('Nepavyko atnaujinti žingsnio: pavadinimas privalomas');
       }
       step.title = title;
     }
@@ -219,7 +216,7 @@ export class TaskStepsService {
 
     const saved = await this.runWithDatabaseErrorHandling(
       () => this.stepsRepository.save(step),
-      'Unable to update task step',
+      'Nepavyko atnaujinti žingsnio',
     );
 
     await this.activityLog.log('task_step_updated', user.id, 'task', taskId);
@@ -232,11 +229,11 @@ export class TaskStepsService {
 
     await this.runWithDatabaseErrorHandling(
       () => this.stepsRepository.remove(step),
-      'Unable to delete task step',
+      'Nepavyko ištrinti žingsnio',
     );
 
     await this.activityLog.log('task_step_deleted', user.id, 'task', taskId);
-    return { deleted: true };
+    return step;
   }
 
   async reorder(
@@ -247,12 +244,12 @@ export class TaskStepsService {
     this.assertManager(user.role);
 
     if (!payload.length) {
-      throw new BadRequestException('Unable to reorder task steps: payload is empty');
+      throw new BadRequestException('Nepavyko perrikiuoti žingsnių: sąrašas tuščias');
     }
 
     const uniqueIds = new Set(payload.map((step) => step.stepId));
     if (uniqueIds.size !== payload.length) {
-      throw new BadRequestException('Unable to reorder task steps: duplicate step ids provided');
+      throw new BadRequestException('Nepavyko perrikiuoti žingsnių: yra pasikartojančių žingsnių');
     }
 
     await this.ensureTaskExists(taskId);
@@ -262,12 +259,12 @@ export class TaskStepsService {
 
     for (const item of payload) {
       if (!stepsMap.has(item.stepId)) {
-        throw new NotFoundException('Task step not found');
+        throw new NotFoundException('Žingsnis nerastas');
       }
     }
 
     if (payload.length !== steps.length) {
-      throw new BadRequestException('Unable to reorder task steps: all steps must be provided');
+      throw new BadRequestException('Nepavyko perrikiuoti žingsnių: turi būti pateikti visi žingsniai');
     }
 
     await this.runWithDatabaseErrorHandling(
@@ -277,7 +274,7 @@ export class TaskStepsService {
             await manager.update(TaskStep, { id: stepId }, { orderIndex });
           }
         }),
-      'Unable to reorder task steps',
+      'Nepavyko perrikiuoti žingsnių',
     );
 
     await this.activityLog.log('task_steps_reordered', user.id, 'task', taskId);

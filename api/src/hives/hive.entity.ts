@@ -32,7 +32,7 @@ export class Hive {
   @Column({ name: 'owner_user_id', type: 'uuid' })
   ownerUserId!: string;
 
-  @ManyToMany(() => User, (user) => user.memberHives, { eager: false })
+  @ManyToMany(() => User, (user) => user.memberHives, { eager: false, cascade: false })
   @JoinTable({
     name: 'hive_members',
     joinColumn: { name: 'hive_id', referencedColumnName: 'id' },

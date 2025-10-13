@@ -31,7 +31,7 @@ export class HivesService {
     }
 
     const uniqueIds = Array.from(new Set(memberIds));
-    return this.userRepository.find({ where: { id: In(uniqueIds) } });
+    return this.userRepository.findBy({ id: In(uniqueIds) });
   }
 
   private async ensureAccess(hive: Hive, userId: string, role: UserRole) {
@@ -92,21 +92,19 @@ export class HivesService {
     if (!label) {
       this.logger.warn('Nepavyko sukurti avilio: pavadinimas privalomas');
       throw new BadRequestException({
-        message: 'Nepavyko sukurti avilio',
+        message: 'Neteisingi duomenys',
         details: 'Pavadinimas privalomas',
       });
     }
 
-    const normalizedUserIds = this.normalizeUserIds(dto.userIds);
-    const memberCandidates = this.normalizeUserIds(dto.members);
-    const allCandidateIds = Array.from(new Set([...normalizedUserIds, ...memberCandidates]));
+    const normalizedUserIds = this.normalizeUserIds(dto.userIds ?? dto.members);
 
     const ownerUserId =
       role === UserRole.ADMIN || role === UserRole.MANAGER
-        ? dto.ownerUserId ?? allCandidateIds[0] ?? userId
+        ? dto.ownerUserId ?? normalizedUserIds[0] ?? userId
         : userId;
 
-    const memberIds = allCandidateIds.filter((id) => id !== ownerUserId);
+    const memberIds = normalizedUserIds.filter((id) => id !== ownerUserId);
 
     const saved = await runWithDatabaseErrorHandling(
       () =>
@@ -117,19 +115,8 @@ export class HivesService {
           const owner = await userRepo.findOne({ where: { id: ownerUserId } });
           if (!owner) {
             throw new BadRequestException({
-              message: 'Nepavyko sukurti avilio',
+              message: 'Neteisingi duomenys',
               details: 'Savininkas nerastas',
-            });
-          }
-
-          const members = memberIds.length
-            ? await userRepo.find({ where: { id: In(memberIds) } })
-            : [];
-
-          if (members.length !== memberIds.length) {
-            throw new BadRequestException({
-              message: 'Nepavyko sukurti avilio',
-              details: 'Kai kurie priskirti naudotojai nerasti',
             });
           }
 
@@ -139,12 +126,25 @@ export class HivesService {
             queenYear: dto.queenYear ?? null,
             status: dto.status ?? HiveStatus.ACTIVE,
             ownerUserId,
-            members,
+            members: [],
           });
+
+          if (memberIds.length) {
+            const members = await userRepo.findBy({ id: In(memberIds) });
+
+            if (members.length !== memberIds.length) {
+              throw new BadRequestException({
+                message: 'Neteisingi duomenys',
+                details: 'Kai kurie priskirti naudotojai nerasti',
+              });
+            }
+
+            hive.members = members;
+          }
 
           return hiveRepo.save(hive);
         }),
-      { message: 'Nepavyko sukurti avilio' },
+      { message: 'Neteisingi duomenys' },
     );
 
     await this.activityLog.log('hive_created', userId, 'hive', saved.id);
@@ -160,7 +160,9 @@ export class HivesService {
 
   async findAll(userId: string, role: UserRole, status?: HiveStatus) {
     const qb = this.buildListQuery(userId, role, status);
-    return qb.getMany();
+    return runWithDatabaseErrorHandling(() => qb.getMany(), {
+      message: 'Neteisingi duomenys',
+    });
   }
 
   async findOne(id: string, userId: string, role: UserRole): Promise<Hive> {
@@ -205,7 +207,7 @@ export class HivesService {
 
     const saved = await runWithDatabaseErrorHandling(
       () => this.hiveRepository.save(hive),
-      { message: 'Nepavyko atnaujinti avilio' },
+      { message: 'Neteisingi duomenys' },
     );
     await this.activityLog.log('hive_updated', userId, 'hive', id);
 

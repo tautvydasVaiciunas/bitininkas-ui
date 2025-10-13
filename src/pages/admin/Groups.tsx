@@ -100,7 +100,12 @@ export default function AdminGroups() {
   const resetEditForm = () => setEditForm(defaultFormState);
 
   const invalidateGroups = () => {
-    queryClient.invalidateQueries({ queryKey: ["groups"] });
+    void queryClient.invalidateQueries({ queryKey: ["groups"] });
+  };
+
+  const invalidateUsers = () => {
+    void queryClient.invalidateQueries({ queryKey: ["users"] });
+    void queryClient.invalidateQueries({ queryKey: ["users", "all"] });
   };
 
   const showErrorToast = (title: string, description?: string) => {
@@ -172,10 +177,10 @@ export default function AdminGroups() {
       api.groups.members.add(groupId, { userId }),
     onSuccess: () => {
       toast({
-        title: "Narys pridėtas",
-        description: "Pasirinktas vartotojas pridėtas į grupę.",
+        title: "Vartotojas pridėtas į grupę",
       });
       invalidateGroups();
+      invalidateUsers();
       setMemberToAdd(undefined);
     },
     onError: (err: unknown) => {
@@ -190,10 +195,10 @@ export default function AdminGroups() {
       api.groups.members.remove(groupId, userId),
     onSuccess: () => {
       toast({
-        title: "Narys pašalintas",
-        description: "Vartotojas pašalintas iš grupės.",
+        title: "Vartotojas pašalintas iš grupės",
       });
       invalidateGroups();
+      invalidateUsers();
     },
     onError: (err: unknown) => {
       const message =

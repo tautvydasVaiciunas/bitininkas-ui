@@ -16,6 +16,24 @@ import { UpdateUserRoleDto } from './dto/update-user-role.dto';
 import { ActivityLogService } from '../activity-log/activity-log.service';
 import { UpdatePasswordDto } from './dto/update-password.dto';
 
+type UserGroupDto = {
+  id: string;
+  name: string;
+};
+
+type UserWithGroups = {
+  id: string;
+  email: string;
+  name: string | null;
+  role: UserRole;
+  phone: string | null;
+  address: string | null;
+  createdAt: Date;
+  updatedAt: Date;
+  deletedAt?: Date;
+  groups: UserGroupDto[];
+};
+
 @Injectable()
 export class UsersService {
   constructor(
@@ -56,8 +74,46 @@ export class UsersService {
     return saved;
   }
 
-  async findAll() {
-    return this.usersRepository.find({ withDeleted: true });
+  private mapUserGroups(user: User): UserGroupDto[] {
+    if (!user.groupMemberships?.length) {
+      return [];
+    }
+
+    return user.groupMemberships
+      .map((membership) => membership.group)
+      .filter((group): group is NonNullable<typeof group> => Boolean(group))
+      .map((group) => ({
+        id: group.id,
+        name: group.name,
+      }));
+  }
+
+  private toUserWithGroups(user: User): UserWithGroups {
+    return {
+      id: user.id,
+      email: user.email,
+      name: user.name ?? null,
+      role: user.role,
+      phone: user.phone ?? null,
+      address: user.address ?? null,
+      createdAt: user.createdAt,
+      updatedAt: user.updatedAt,
+      deletedAt: user.deletedAt,
+      groups: this.mapUserGroups(user),
+    };
+  }
+
+  async findAll(): Promise<UserWithGroups[]> {
+    const users = await this.usersRepository.find({
+      withDeleted: true,
+      relations: {
+        groupMemberships: {
+          group: true,
+        },
+      },
+    });
+
+    return users.map((user) => this.toUserWithGroups(user));
   }
 
   async findByEmail(email: string) {

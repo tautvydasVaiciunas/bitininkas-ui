@@ -12,7 +12,7 @@
   },
   "hives": {
     "createSuccess": "Avilys sėkmingai sukurtas",
-    "createError": "Nepavyko sukurti avilio: neteisingi duomenys",
+    "createError": "Nepavyko sukurti avilio",
     "loadError": "Nepavyko įkelti avilių duomenų. Pabandykite dar kartą."
   },
   "tasks": {

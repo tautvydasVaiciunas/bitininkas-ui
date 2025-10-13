@@ -9,15 +9,21 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Avatar, AvatarFallback } from '@/components/ui/avatar';
 import { Badge } from '@/components/ui/badge';
 import { useAuth } from '@/contexts/AuthContext';
-import api from '@/lib/api';
-import { mapProfileFromApi } from '@/lib/types';
+import api, { HttpError } from '@/lib/api';
+import { mapProfileFromApi, type ChangePasswordPayload } from '@/lib/types';
 import { User, Mail, Edit2, Lock } from 'lucide-react';
 import { toast } from 'sonner';
+import ltMessages from '@/i18n/messages.lt.json';
 
 export default function Profile() {
   const { user, updateUserProfile } = useAuth();
   const [isEditing, setIsEditing] = useState(false);
   const [formValues, setFormValues] = useState({ name: user?.name ?? '', email: user?.email ?? '' });
+  const [passwordForm, setPasswordForm] = useState({
+    current: '',
+    next: '',
+    confirm: '',
+  });
 
   const updateMutation = useMutation({
     mutationFn: async (payload: { name: string; email: string }) => {
@@ -36,6 +42,23 @@ export default function Profile() {
     },
     onError: () => {
       toast.error('Nepavyko atnaujinti profilio');
+    },
+  });
+
+  const changePasswordMutation = useMutation({
+    mutationFn: async (payload: ChangePasswordPayload) => {
+      return api.profile.changePassword(payload);
+    },
+    onSuccess: () => {
+      toast.success(ltMessages.profile.passwordChanged);
+      setPasswordForm({ current: '', next: '', confirm: '' });
+    },
+    onError: (error: unknown) => {
+      const message =
+        error instanceof HttpError
+          ? error.message
+          : ltMessages.profile.passwordChangeFailed;
+      toast.error(message || ltMessages.profile.passwordChangeFailed);
     },
   });
 
@@ -65,6 +88,32 @@ export default function Profile() {
 
   const handleSave = () => {
     updateMutation.mutate(formValues);
+  };
+
+  const handlePasswordChange = () => {
+    if (changePasswordMutation.isLoading) {
+      return;
+    }
+
+    if (!passwordForm.current || !passwordForm.next || !passwordForm.confirm) {
+      toast.error('Užpildykite visus laukus');
+      return;
+    }
+
+    if (passwordForm.next.length < 6) {
+      toast.error('Slaptažodis turi būti bent 6 simbolių');
+      return;
+    }
+
+    if (passwordForm.next !== passwordForm.confirm) {
+      toast.error('Nauji slaptažodžiai nesutampa');
+      return;
+    }
+
+    changePasswordMutation.mutate({
+      oldPassword: passwordForm.current,
+      newPassword: passwordForm.next,
+    });
   };
 
   if (!user) {
@@ -186,6 +235,11 @@ export default function Profile() {
                       id="current-password"
                       type="password"
                       placeholder="••••••••"
+                      value={passwordForm.current}
+                      autoComplete="current-password"
+                      onChange={(event) =>
+                        setPasswordForm((prev) => ({ ...prev, current: event.target.value }))
+                      }
                     />
                   </div>
 
@@ -195,6 +249,11 @@ export default function Profile() {
                       id="new-password"
                       type="password"
                       placeholder="••••••••"
+                      value={passwordForm.next}
+                      autoComplete="new-password"
+                      onChange={(event) =>
+                        setPasswordForm((prev) => ({ ...prev, next: event.target.value }))
+                      }
                     />
                   </div>
 
@@ -204,12 +263,17 @@ export default function Profile() {
                       id="confirm-password"
                       type="password"
                       placeholder="••••••••"
+                      value={passwordForm.confirm}
+                      autoComplete="new-password"
+                      onChange={(event) =>
+                        setPasswordForm((prev) => ({ ...prev, confirm: event.target.value }))
+                      }
                     />
                   </div>
 
-                  <Button onClick={() => toast.success('Slaptažodis pakeistas')}>
+                  <Button onClick={handlePasswordChange} disabled={changePasswordMutation.isLoading}>
                     <Lock className="mr-2 w-4 h-4" />
-                    Pakeisti slaptažodį
+                    {changePasswordMutation.isLoading ? 'Keičiama...' : 'Pakeisti slaptažodį'}
                   </Button>
                 </div>
               </CardContent>

@@ -4,6 +4,7 @@ import {
   Delete,
   Get,
   Inject,
+  Logger,
   Param,
   Patch,
   Post,
@@ -22,21 +23,39 @@ import { UserRole } from '../users/user.entity';
 
 @Controller("hives")
 export class HivesController {
+  private readonly logger = new Logger(HivesController.name);
+
   constructor(
     private readonly hivesService: HivesService,
     @Inject(forwardRef(() => AssignmentsService))
     private readonly assignmentsService: AssignmentsService,
   ) {}
 
+  private isDevEnvironment() {
+    return process.env.NODE_ENV !== 'production';
+  }
+
   @Roles(UserRole.MANAGER, UserRole.ADMIN)
   @Post()
   async create(@Body() dto: CreateHiveDto, @Request() req) {
-    return this.hivesService.create(dto, req.user.id, req.user.role);
+    const hive = await this.hivesService.create(dto, req.user.id, req.user.role);
+
+    if (this.isDevEnvironment()) {
+      this.logger.debug(`Sukurtas avilys: ${hive.id}`);
+    }
+
+    return hive;
   }
 
   @Get()
   async findAll(@Request() req, @Query("status") status?: HiveStatus) {
-    return this.hivesService.findAll(req.user.id, req.user.role, status);
+    const hives = await this.hivesService.findAll(req.user.id, req.user.role, status);
+
+    if (this.isDevEnvironment()) {
+      this.logger.debug(`Grąžinami ${hives.length} aviliai`);
+    }
+
+    return hives;
   }
 
   @Get(":id")

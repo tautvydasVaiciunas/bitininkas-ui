@@ -91,12 +91,11 @@ export class HivesService {
       const englishMessage = this.getDatabaseErrorMessage(code, column, action);
 
       console.error(englishMessage, error);
-      throw new BadRequestException(errorMessage);
+      throw new BadRequestException({ message: errorMessage, details: englishMessage });
     }
 
     if (error instanceof BadRequestException || error instanceof UnprocessableEntityException) {
-      console.error(`${action}: ${error.message}`, error);
-      throw new BadRequestException(errorMessage);
+      throw error;
     }
 
     throw error;
@@ -120,15 +119,34 @@ export class HivesService {
       const isMember = hive.members?.some((member) => member.id === userId) ?? false;
 
       if (!isOwner && !isMember) {
-        throw new ForbiddenException('Access denied');
+        throw new ForbiddenException('Prieiga uždrausta');
       }
     }
+  }
+
+  private normalizeUserIds(values?: string[]) {
+    if (!Array.isArray(values)) {
+      return [];
+    }
+
+    return Array.from(
+      new Set(values.filter((value) => typeof value === 'string' && value.trim().length > 0)),
+    );
+  }
+
+  private async getHiveWithRelations(id: string): Promise<Hive | null> {
+    return this.hiveRepository.findOne({
+      where: { id },
+      relations: { members: true, owner: true },
+    });
   }
 
   private buildListQuery(userId: string, role: UserRole, status?: HiveStatus) {
     const qb = this.hiveRepository
       .createQueryBuilder('hive')
       .leftJoinAndSelect('hive.members', 'member')
+      .leftJoinAndSelect('hive.owner', 'owner')
+      .where('hive.deletedAt IS NULL')
       .distinct(true);
 
     if (role === UserRole.USER) {
@@ -139,45 +157,85 @@ export class HivesService {
       qb.andWhere('hive.status = :status', { status });
     }
 
+    qb.orderBy('hive.createdAt', 'DESC');
+
     return qb;
   }
 
-  async create(dto: CreateHiveDto, userId: string, role: UserRole) {
+  async create(dto: CreateHiveDto, userId: string, role: UserRole): Promise<Hive> {
     if (role === UserRole.USER) {
-      throw new ForbiddenException('Requires manager or admin role');
+      throw new ForbiddenException('Reikia vadybininko arba administratoriaus rolės');
     }
-    const ownerUserId =
-      role === UserRole.ADMIN || role === UserRole.MANAGER
-        ? dto.ownerUserId ?? userId
-        : userId;
-    const members = await this.loadMembers(dto.members);
 
     const label = dto.label?.trim();
     if (!label) {
-      console.error('Unable to create hive: label is required');
-      throw new BadRequestException('Pavadinimas privalomas');
+      console.error('Nepavyko sukurti avilio: pavadinimas privalomas');
+      throw new BadRequestException({
+        message: 'Nepavyko sukurti avilio',
+        details: 'Pavadinimas privalomas',
+      });
     }
 
-    const hive = this.hiveRepository.create({
-      label,
-      location: this.normalizeNullableString(dto.location),
-      queenYear: dto.queenYear ?? null,
-      status: dto.status ?? HiveStatus.ACTIVE,
-      ownerUserId,
-      members,
-    });
+    const normalizedUserIds = this.normalizeUserIds(dto.userIds);
+    const memberCandidates = this.normalizeUserIds(dto.members);
+    const allCandidateIds = Array.from(new Set([...normalizedUserIds, ...memberCandidates]));
+
+    const ownerUserId =
+      role === UserRole.ADMIN || role === UserRole.MANAGER
+        ? dto.ownerUserId ?? allCandidateIds[0] ?? userId
+        : userId;
+
+    const memberIds = allCandidateIds.filter((id) => id !== ownerUserId);
 
     const saved = await this.runWithDatabaseErrorHandling(
-      () => this.hiveRepository.save(hive),
-      'Unable to create hive',
-      'Neteisingi duomenys',
+      () =>
+        this.hiveRepository.manager.transaction(async (manager) => {
+          const hiveRepo = manager.getRepository(Hive);
+          const userRepo = manager.getRepository(User);
+
+          const owner = await userRepo.findOne({ where: { id: ownerUserId } });
+          if (!owner) {
+            throw new BadRequestException({
+              message: 'Nepavyko sukurti avilio',
+              details: 'Savininkas nerastas',
+            });
+          }
+
+          const members = memberIds.length
+            ? await userRepo.find({ where: { id: In(memberIds) } })
+            : [];
+
+          if (members.length !== memberIds.length) {
+            throw new BadRequestException({
+              message: 'Nepavyko sukurti avilio',
+              details: 'Kai kurie priskirti naudotojai nerasti',
+            });
+          }
+
+          const hive = hiveRepo.create({
+            label,
+            location: this.normalizeNullableString(dto.location),
+            queenYear: dto.queenYear ?? null,
+            status: dto.status ?? HiveStatus.ACTIVE,
+            ownerUserId,
+            members,
+          });
+
+          return hiveRepo.save(hive);
+        }),
+      'create hive',
+      'Nepavyko sukurti avilio',
     );
+
     await this.activityLog.log('hive_created', userId, 'hive', saved.id);
 
-    return this.hiveRepository.findOne({
-      where: { id: saved.id },
-      relations: { members: true },
-    });
+    const hiveWithRelations = await this.getHiveWithRelations(saved.id);
+
+    if (!hiveWithRelations) {
+      throw new NotFoundException('Avilys nerastas');
+    }
+
+    return hiveWithRelations;
   }
 
   async findAll(userId: string, role: UserRole, status?: HiveStatus) {
@@ -185,14 +243,11 @@ export class HivesService {
     return qb.getMany();
   }
 
-  async findOne(id: string, userId: string, role: UserRole) {
-    const hive = await this.hiveRepository.findOne({
-      where: { id },
-      relations: { members: true },
-    });
+  async findOne(id: string, userId: string, role: UserRole): Promise<Hive> {
+    const hive = await this.getHiveWithRelations(id);
 
     if (!hive) {
-      throw new NotFoundException('Hive not found');
+      throw new NotFoundException('Avilys nerastas');
     }
 
     await this.ensureAccess(hive, userId, role);
@@ -200,15 +255,16 @@ export class HivesService {
     return hive;
   }
 
-  async update(id: string, dto: UpdateHiveDto, userId: string, role: UserRole) {
+  async update(id: string, dto: UpdateHiveDto, userId: string, role: UserRole): Promise<Hive> {
     const hive = await this.findOne(id, userId, role);
 
     if (dto.ownerUserId && role !== UserRole.USER) {
       hive.ownerUserId = dto.ownerUserId;
     }
 
-    if (dto.members !== undefined) {
-      hive.members = await this.loadMembers(dto.members);
+    if (dto.members !== undefined || dto.userIds !== undefined) {
+      const normalized = this.normalizeUserIds(dto.userIds ?? dto.members ?? []);
+      hive.members = await this.loadMembers(normalized.filter((id) => id !== hive.ownerUserId));
     }
 
     if (dto.label !== undefined) {
@@ -229,19 +285,23 @@ export class HivesService {
 
     const saved = await this.runWithDatabaseErrorHandling(
       () => this.hiveRepository.save(hive),
-      'Unable to update hive',
+      'update hive',
+      'Nepavyko atnaujinti avilio',
     );
     await this.activityLog.log('hive_updated', userId, 'hive', id);
 
-    return this.hiveRepository.findOne({
-      where: { id: saved.id },
-      relations: { members: true },
-    });
+    const updatedHive = await this.getHiveWithRelations(saved.id);
+
+    if (!updatedHive) {
+      throw new NotFoundException('Avilys nerastas');
+    }
+
+    return updatedHive;
   }
 
   async remove(id: string, userId: string, role: UserRole) {
     if (role === UserRole.USER) {
-      throw new ForbiddenException('Requires manager or admin role');
+      throw new ForbiddenException('Reikia vadybininko arba administratoriaus rolės');
     }
     const hive = await this.findOne(id, userId, role);
     await this.hiveRepository.softDelete(id);

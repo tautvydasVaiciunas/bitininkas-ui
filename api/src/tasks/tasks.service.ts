@@ -34,7 +34,7 @@ export class TasksService {
 
   private assertManager(role: UserRole) {
     if (![UserRole.MANAGER, UserRole.ADMIN].includes(role)) {
-      throw new ForbiddenException('Requires manager or admin role');
+      throw new ForbiddenException('Reikia vadybininko arba administratoriaus rolės');
     }
   }
 
@@ -105,12 +105,11 @@ export class TasksService {
       const englishMessage = this.getDatabaseErrorMessage(code, column, action);
 
       console.error(englishMessage, error);
-      throw new BadRequestException(errorMessage);
+      throw new BadRequestException({ message: errorMessage, details: englishMessage });
     }
 
     if (error instanceof BadRequestException || error instanceof UnprocessableEntityException) {
-      console.error(`${action}: ${error.message}`, error);
-      throw new BadRequestException(errorMessage);
+      throw error;
     }
 
     throw error;
@@ -140,6 +139,22 @@ export class TasksService {
     };
   }
 
+  private async getTaskWithRelations(id: string) {
+    const task = await this.tasksRepository.findOne({
+      where: { id },
+      relations: { steps: true },
+    });
+
+    if (!task) {
+      return null;
+    }
+
+    return {
+      ...task,
+      seasonMonths: Array.isArray(task.seasonMonths) ? task.seasonMonths : [],
+    };
+  }
+
   async create(dto: CreateTaskDto, user: { id: string; role: UserRole }) {
     this.assertManager(user.role);
 
@@ -147,13 +162,19 @@ export class TasksService {
 
     const title = dto.title?.trim();
     if (!title) {
-      console.error('Unable to create task: title is required');
-      throw new BadRequestException('Nepavyko sukurti užduoties: pavadinimas privalomas');
+      console.error('Nepavyko sukurti užduoties: pavadinimas privalomas');
+      throw new BadRequestException({
+        message: 'Nepavyko sukurti užduoties',
+        details: 'Pavadinimas privalomas',
+      });
     }
 
     if (taskData.defaultDueDays !== undefined && taskData.defaultDueDays < 0) {
-      console.error('Unable to create task: default due days must be non-negative');
-      throw new BadRequestException('Nepavyko sukurti užduoties: neteisingi duomenys');
+      console.error('Nepavyko sukurti užduoties: defaultDueDays turi būti neneigiamas');
+      throw new BadRequestException({
+        message: 'Nepavyko sukurti užduoties',
+        details: 'Numatytas terminas turi būti neneigiamas',
+      });
     }
 
     const defaultDueDays =
@@ -176,18 +197,13 @@ export class TasksService {
 
     const saved = await this.runWithDatabaseErrorHandling(
       () => this.tasksRepository.save(task),
-      'Unable to create task',
-      'Nepavyko sukurti užduoties: neteisingi duomenys',
+      'create task',
+      'Nepavyko sukurti užduoties',
     );
     await this.activityLog.log('task_created', user.id, 'task', saved.id);
-    const fullTask = await this.tasksRepository.findOne({ where: { id: saved.id } });
+    const fullTask = await this.getTaskWithRelations(saved.id);
     if (fullTask) {
-      return {
-        ...fullTask,
-        seasonMonths: Array.isArray(fullTask.seasonMonths)
-          ? fullTask.seasonMonths
-          : [],
-      };
+      return fullTask;
     }
 
     return {
@@ -204,7 +220,9 @@ export class TasksService {
       seasonMonth?: number;
     },
   ) {
-    const qb = this.tasksRepository.createQueryBuilder('task');
+    const qb = this.tasksRepository
+      .createQueryBuilder('task')
+      .where('task.deletedAt IS NULL');
 
     if (user.role === UserRole.USER) {
       qb.innerJoin('task.assignments', 'assignment');
@@ -247,7 +265,7 @@ export class TasksService {
     const task = await this.tasksRepository.findOne({ where: { id } });
 
     if (!task) {
-      throw new NotFoundException('Task not found');
+      throw new NotFoundException('Užduotis nerasta');
     }
 
     return {
@@ -283,14 +301,18 @@ export class TasksService {
 
     if (taskData.defaultDueDays !== undefined) {
       if (taskData.defaultDueDays < 0) {
-        throw new BadRequestException('Nepavyko atnaujinti užduoties: neteisingi duomenys');
+        throw new BadRequestException({
+          message: 'Nepavyko atnaujinti užduoties',
+          details: 'Numatytas terminas turi būti neneigiamas',
+        });
       }
       task.defaultDueDays = taskData.defaultDueDays;
     }
 
     const saved = await this.runWithDatabaseErrorHandling(
       () => this.tasksRepository.save(task),
-      'Unable to update task',
+      'update task',
+      'Nepavyko atnaujinti užduoties',
     );
 
     if (steps) {

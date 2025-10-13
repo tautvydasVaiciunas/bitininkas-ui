@@ -8,7 +8,7 @@ import {
   MaxLength,
   MinLength,
 } from 'class-validator';
-import { Transform } from 'class-transformer';
+import { Transform, Type } from 'class-transformer';
 import { HiveStatus } from '../hive.entity';
 
 export class CreateHiveDto {
@@ -26,6 +26,7 @@ export class CreateHiveDto {
   location?: string;
 
   @IsOptional()
+  @Type(() => Number)
   @IsNumber()
   queenYear?: number;
 
@@ -41,4 +42,9 @@ export class CreateHiveDto {
   @IsArray()
   @IsString({ each: true })
   members?: string[];
+
+  @IsOptional()
+  @IsArray()
+  @IsString({ each: true })
+  userIds?: string[];
 }

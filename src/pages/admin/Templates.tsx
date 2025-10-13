@@ -1,12 +1,20 @@
-import { useEffect, useMemo, useState } from 'react';
+import { FormEvent, useEffect, useMemo, useState } from 'react';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
-import { ArrowDown, ArrowUp, Edit, Plus, Search, Trash2 } from 'lucide-react';
+import { ArrowDown, ArrowUp, Edit, Loader2, Plus, Search, Trash2 } from 'lucide-react';
 import { toast } from 'sonner';
 
 import { MainLayout } from '@/components/Layout/MainLayout';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogFooter,
+  DialogHeader,
+  DialogTitle,
+} from '@/components/ui/dialog';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
@@ -42,7 +50,7 @@ interface TemplateFormValues {
 
 export default function AdminTemplates() {
   const [searchQuery, setSearchQuery] = useState('');
-  const [isFormOpen, setIsFormOpen] = useState(false);
+  const [isDialogOpen, setIsDialogOpen] = useState(false);
   const [templateToEdit, setTemplateToEdit] = useState<Template | null>(null);
   const queryClient = useQueryClient();
 
@@ -50,6 +58,11 @@ export default function AdminTemplates() {
 
   const invalidateTemplates = () => {
     void queryClient.invalidateQueries({ queryKey: templatesQueryKey });
+  };
+
+  const closeDialog = () => {
+    setIsDialogOpen(false);
+    setTemplateToEdit(null);
   };
 
   const showError = (error: unknown, fallback: string) => {
@@ -89,8 +102,7 @@ export default function AdminTemplates() {
       api.templates.create(payload).then(mapTemplateFromApi),
     onSuccess: (createdTemplate) => {
       toast.success(messages.createSuccess);
-      setIsFormOpen(false);
-      setTemplateToEdit(null);
+      closeDialog();
       queryClient.setQueryData<Template[]>(templatesQueryKey, (current = []) => {
         const withoutDuplicate = current.filter((item) => item.id !== createdTemplate.id);
         return [...withoutDuplicate, createdTemplate].sort((a, b) => a.name.localeCompare(b.name));
@@ -107,8 +119,7 @@ export default function AdminTemplates() {
       api.templates.update(id, payload).then(mapTemplateFromApi),
     onSuccess: (updatedTemplate) => {
       toast.success(messages.updateSuccess);
-      setIsFormOpen(false);
-      setTemplateToEdit(null);
+      closeDialog();
       queryClient.setQueryData<Template[]>(templatesQueryKey, (current = []) => {
         const updated = current.map((item) => (item.id === updatedTemplate.id ? updatedTemplate : item));
         return updated.sort((a, b) => a.name.localeCompare(b.name));
@@ -167,12 +178,12 @@ export default function AdminTemplates() {
 
   const handleOpenCreate = () => {
     setTemplateToEdit(null);
-    setIsFormOpen(true);
+    setIsDialogOpen(true);
   };
 
   const handleEdit = (template: Template) => {
     setTemplateToEdit(template);
-    setIsFormOpen(true);
+    setIsDialogOpen(true);
   };
 
   const handleFormSubmit = async (values: TemplateFormValues) => {
@@ -226,6 +237,8 @@ export default function AdminTemplates() {
     reorderMutation.mutate({ id: template.id, steps });
   };
 
+  const isSubmitting = createMutation.isLoading || updateMutation.isLoading;
+
   return (
     <MainLayout>
       <div className="space-y-6">
@@ -234,24 +247,43 @@ export default function AdminTemplates() {
             <h1 className="text-3xl font-bold">Šablonai</h1>
             <p className="text-muted-foreground mt-1">Kurkite ir tvarkykite šablonus su žingsniais</p>
           </div>
-          <Button onClick={handleOpenCreate}>
-            <Plus className="mr-2 w-4 h-4" />
-            Sukurti šabloną
+          <Button onClick={handleOpenCreate} disabled={isSubmitting}>
+            {createMutation.isLoading ? (
+              <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+            ) : (
+              <Plus className="mr-2 w-4 h-4" />
+            )}
+            {createMutation.isLoading ? 'Kuriama...' : 'Sukurti šabloną'}
           </Button>
         </div>
 
-        {isFormOpen && (
-          <TemplateForm
-            tasks={tasks}
-            template={templateToEdit}
-            onCancel={() => {
-              setIsFormOpen(false);
+        <Dialog
+          open={isDialogOpen}
+          onOpenChange={(open) => {
+            setIsDialogOpen(open);
+            if (!open) {
               setTemplateToEdit(null);
-            }}
-            onSubmit={handleFormSubmit}
-            isSubmitting={createMutation.isLoading || updateMutation.isLoading}
-          />
-        )}
+            }
+          }}
+        >
+          <DialogContent className="max-h-[90vh] overflow-y-auto sm:max-w-4xl">
+            <DialogHeader>
+              <DialogTitle>{templateToEdit ? 'Redaguoti šabloną' : 'Naujas šablonas'}</DialogTitle>
+              <DialogDescription>
+                {templateToEdit
+                  ? 'Atnaujinkite šablono informaciją.'
+                  : 'Pasirinkite žingsnius ir sukurkite naują šabloną.'}
+              </DialogDescription>
+            </DialogHeader>
+            <TemplateForm
+              tasks={tasks}
+              template={templateToEdit}
+              onCancel={closeDialog}
+              onSubmit={handleFormSubmit}
+              isSubmitting={isSubmitting}
+            />
+          </DialogContent>
+        </Dialog>
 
         <Card className="shadow-custom">
           <CardHeader>
@@ -369,139 +401,142 @@ function TemplateForm({ tasks, template, onCancel, onSubmit, isSubmitting }: Tem
     });
   };
 
-  const handleSubmit = async () => {
+  const handleSubmit = async (event: FormEvent<HTMLFormElement>) => {
+    event.preventDefault();
     await onSubmit({ name, comment, steps: templateSteps });
   };
 
   return (
-    <Card className="shadow-custom">
-      <CardHeader>
-        <CardTitle>{template ? 'Redaguoti šabloną' : 'Naujas šablonas'}</CardTitle>
-      </CardHeader>
-      <CardContent className="space-y-6">
-        <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-          <div className="space-y-2">
-            <Label>Pavadinimas</Label>
-            <Input value={name} onChange={(event) => setName(event.target.value)} disabled={isSubmitting} />
-          </div>
-
-          <div className="space-y-2">
-            <Label>Komentaras</Label>
-            <Textarea
-              value={comment}
-              onChange={(event) => setComment(event.target.value)}
-              disabled={isSubmitting}
-              rows={3}
-            />
-          </div>
-
-          <div className="space-y-2">
-            <Label>Pasirinkite užduotį</Label>
-            <Select value={selectedTaskId} onValueChange={setSelectedTaskId} disabled={isSubmitting}>
-              <SelectTrigger>
-                <SelectValue placeholder="Pasirinkite užduotį" />
-              </SelectTrigger>
-              <SelectContent>
-                {availableTasks.map((task) => (
-                  <SelectItem key={task.id} value={task.id}>
-                    {task.title}
-                  </SelectItem>
-                ))}
-              </SelectContent>
-            </Select>
-          </div>
+    <form onSubmit={handleSubmit} className="space-y-6">
+      <div className="grid grid-cols-1 gap-6 md:grid-cols-2">
+        <div className="space-y-2">
+          <Label>Pavadinimas</Label>
+          <Input value={name} onChange={(event) => setName(event.target.value)} disabled={isSubmitting} />
         </div>
 
-        {selectedTaskId && (
-          <div className="space-y-3">
-            <h3 className="text-sm font-semibold text-muted-foreground">Pasiekiami žingsniai</h3>
-            {availableSteps.length === 0 ? (
-              <div className="text-sm text-muted-foreground">Ši užduotis neturi žingsnių</div>
-            ) : (
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
-                {availableSteps.map((step) => (
-                  <Card key={step.id} className="border-muted shadow-none">
-                    <CardContent className="p-3 space-y-2">
-                      <div className="text-sm font-medium">{step.title}</div>
-                      {step.contentText && (
-                        <p className="text-xs text-muted-foreground line-clamp-2">{step.contentText}</p>
-                      )}
-                      <Button size="sm" onClick={() => handleAddStep(step)} disabled={isSubmitting}>
-                        Pridėti
-                      </Button>
-                    </CardContent>
-                  </Card>
-                ))}
-              </div>
-            )}
-          </div>
-        )}
+        <div className="space-y-2">
+          <Label>Komentaras</Label>
+          <Textarea
+            value={comment}
+            onChange={(event) => setComment(event.target.value)}
+            disabled={isSubmitting}
+            rows={3}
+          />
+        </div>
 
+        <div className="space-y-2">
+          <Label>Pasirinkite užduotį</Label>
+          <Select value={selectedTaskId} onValueChange={setSelectedTaskId} disabled={isSubmitting}>
+            <SelectTrigger>
+              <SelectValue placeholder="Pasirinkite užduotį" />
+            </SelectTrigger>
+            <SelectContent>
+              {availableTasks.map((task) => (
+                <SelectItem key={task.id} value={task.id}>
+                  {task.title}
+                </SelectItem>
+              ))}
+            </SelectContent>
+          </Select>
+        </div>
+      </div>
+
+      {selectedTaskId && (
         <div className="space-y-3">
-          <h3 className="text-sm font-semibold text-muted-foreground">Šablono žingsniai</h3>
-          {templateSteps.length === 0 ? (
-            <div className="text-sm text-muted-foreground">Dar nepasirinkta žingsnių</div>
+          <h3 className="text-sm font-semibold text-muted-foreground">Pasiekiami žingsniai</h3>
+          {availableSteps.length === 0 ? (
+            <div className="text-sm text-muted-foreground">Ši užduotis neturi žingsnių</div>
           ) : (
-            <div className="space-y-3">
-              {templateSteps.map((step, index) => (
-                <Card key={step.taskStepId} className="border-muted shadow-none">
-                  <CardContent className="p-4 flex flex-col gap-3">
-                    <div className="flex items-start justify-between gap-3">
-                      <div className="space-y-1">
-                        <div className="font-medium">{step.taskStep.title}</div>
-                        {step.taskStep.contentText && (
-                          <p className="text-sm text-muted-foreground line-clamp-2">
-                            {step.taskStep.contentText}
-                          </p>
-                        )}
-                      </div>
-                      <div className="flex flex-col gap-1">
-                        <div className="flex gap-1">
-                          <Button
-                            variant="ghost"
-                            size="icon"
-                            onClick={() => handleReorder(step.taskStepId, 'up')}
-                            disabled={isSubmitting || index === 0}
-                          >
-                            <ArrowUp className="h-4 w-4" />
-                          </Button>
-                          <Button
-                            variant="ghost"
-                            size="icon"
-                            onClick={() => handleReorder(step.taskStepId, 'down')}
-                            disabled={isSubmitting || index === templateSteps.length - 1}
-                          >
-                            <ArrowDown className="h-4 w-4" />
-                          </Button>
-                        </div>
-                        <Button
-                          variant="ghost"
-                          size="sm"
-                          onClick={() => handleRemoveStep(step.taskStepId)}
-                          disabled={isSubmitting}
-                        >
-                          <Trash2 className="h-4 w-4 text-destructive" />
-                        </Button>
-                      </div>
-                    </div>
-                    <Badge variant="outline">#{index + 1}</Badge>
+            <div className="grid grid-cols-1 gap-3 md:grid-cols-2">
+              {availableSteps.map((step) => (
+                <Card key={step.id} className="border-muted shadow-none">
+                  <CardContent className="p-3 space-y-2">
+                    <div className="text-sm font-medium">{step.title}</div>
+                    {step.contentText && (
+                      <p className="text-xs text-muted-foreground line-clamp-2">{step.contentText}</p>
+                    )}
+                    <Button size="sm" onClick={() => handleAddStep(step)} disabled={isSubmitting}>
+                      Pridėti
+                    </Button>
                   </CardContent>
                 </Card>
               ))}
             </div>
           )}
         </div>
+      )}
 
-        <div className="flex gap-2">
-          <Button onClick={handleSubmit} disabled={isSubmitting}>
-            {isSubmitting ? 'Saugoma...' : 'Išsaugoti'}
-          </Button>
-          <Button type="button" variant="outline" onClick={onCancel} disabled={isSubmitting}>
-            Atšaukti
-          </Button>
-        </div>
-      </CardContent>
-    </Card>
+      <div className="space-y-3">
+        <h3 className="text-sm font-semibold text-muted-foreground">Šablono žingsniai</h3>
+        {templateSteps.length === 0 ? (
+          <div className="text-sm text-muted-foreground">Dar nepasirinkta žingsnių</div>
+        ) : (
+          <div className="space-y-3">
+            {templateSteps.map((step, index) => (
+              <Card key={step.taskStepId} className="border-muted shadow-none">
+                <CardContent className="flex flex-col gap-3 p-4">
+                  <div className="flex items-start justify-between gap-3">
+                    <div className="space-y-1">
+                      <div className="font-medium">{step.taskStep.title}</div>
+                      {step.taskStep.contentText && (
+                        <p className="text-sm text-muted-foreground line-clamp-2">
+                          {step.taskStep.contentText}
+                        </p>
+                      )}
+                    </div>
+                    <div className="flex flex-col gap-1">
+                      <div className="flex gap-1">
+                        <Button
+                          variant="ghost"
+                          size="icon"
+                          onClick={() => handleReorder(step.taskStepId, 'up')}
+                          disabled={isSubmitting || index === 0}
+                        >
+                          <ArrowUp className="h-4 w-4" />
+                        </Button>
+                        <Button
+                          variant="ghost"
+                          size="icon"
+                          onClick={() => handleReorder(step.taskStepId, 'down')}
+                          disabled={isSubmitting || index === templateSteps.length - 1}
+                        >
+                          <ArrowDown className="h-4 w-4" />
+                        </Button>
+                      </div>
+                      <Button
+                        variant="ghost"
+                        size="sm"
+                        onClick={() => handleRemoveStep(step.taskStepId)}
+                        disabled={isSubmitting}
+                      >
+                        <Trash2 className="h-4 w-4 text-destructive" />
+                      </Button>
+                    </div>
+                  </div>
+                  <Badge variant="outline">#{index + 1}</Badge>
+                </CardContent>
+              </Card>
+            ))}
+          </div>
+        )}
+      </div>
+
+      <DialogFooter className="flex flex-col gap-2 sm:flex-row sm:justify-end">
+        <Button type="submit" disabled={isSubmitting}>
+          {isSubmitting ? (
+            <>
+              <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+              Saugoma...
+            </>
+          ) : (
+            'Išsaugoti'
+          )}
+        </Button>
+        <Button type="button" variant="outline" onClick={onCancel} disabled={isSubmitting}>
+          Atšaukti
+        </Button>
+      </DialogFooter>
+    </form>
   );
 }
 

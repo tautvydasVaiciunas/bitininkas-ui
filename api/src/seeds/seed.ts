@@ -95,6 +95,15 @@ async function runSeed(): Promise<void> {
 
     await hiveRepository.save([hive1, hive2, hive3]);
 
+    await dataSource.query(
+      `
+        INSERT INTO "hive_members" ("hive_id", "user_id")
+        VALUES ($1, $2), ($3, $4), ($5, $6)
+        ON CONFLICT DO NOTHING
+      `,
+      [hive1.id, user.id, hive2.id, user.id, hive3.id, user.id],
+    );
+
     const task1 = taskRepository.create({
       title: 'Spring Inspection',
       description: 'Inspect hives after winter',

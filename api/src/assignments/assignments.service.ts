@@ -54,8 +54,8 @@ export class AssignmentsService {
   private async getAccessibleHiveIds(userId: string) {
     const rows = await this.hiveRepository
       .createQueryBuilder('hive')
-      .leftJoin('hive.members', 'member')
-      .where('hive.ownerUserId = :userId OR member.id = :userId', { userId })
+      .leftJoin('hive_members', 'hm', 'hm.hive_id = hive.id')
+      .where('hive.ownerUserId = :userId OR hm.user_id = :userId', { userId })
       .select('DISTINCT hive.id', 'id')
       .getRawMany();
 
@@ -65,9 +65,9 @@ export class AssignmentsService {
   private async ensureUserCanAccessHive(hiveId: string, userId: string) {
     const accessible = await this.hiveRepository
       .createQueryBuilder('hive')
-      .leftJoin('hive.members', 'member')
+      .leftJoin('hive_members', 'hm', 'hm.hive_id = hive.id')
       .where('hive.id = :hiveId', { hiveId })
-      .andWhere('hive.ownerUserId = :userId OR member.id = :userId', { userId })
+      .andWhere('hive.ownerUserId = :userId OR hm.user_id = :userId', { userId })
       .getOne();
 
     return Boolean(accessible);

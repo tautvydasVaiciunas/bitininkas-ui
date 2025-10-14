@@ -67,11 +67,12 @@ export class HivesService {
       .createQueryBuilder('hive')
       .leftJoinAndSelect('hive.members', 'member')
       .leftJoinAndSelect('hive.owner', 'owner')
+      .leftJoin('hive_members', 'hm', 'hm.hive_id = hive.id')
       .where('hive.deletedAt IS NULL')
       .distinct(true);
 
-    if (role === UserRole.USER) {
-      qb.andWhere('(hive.ownerUserId = :userId OR member.id = :userId)', { userId });
+    if (role !== UserRole.ADMIN) {
+      qb.andWhere('(hive.ownerUserId = :userId OR hm.user_id = :userId)', { userId });
     }
 
     if (status) {

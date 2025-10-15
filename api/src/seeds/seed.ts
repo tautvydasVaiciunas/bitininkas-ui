@@ -208,6 +208,7 @@ async function runSeed(): Promise<void> {
       comment: 'Pilnas pavasarinės avilio apžiūros planas',
       steps: savedSteps
         .filter((step) => step.taskId === task1.id)
+        .slice(0, 3)
         .map((step, index) =>
           templateStepRepository.create({
             taskStepId: step.id,

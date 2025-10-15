@@ -397,14 +397,17 @@ export interface BulkAssignmentsFromTemplatePayload {
   groupIds: string[];
   title: string;
   description?: string;
-  startDate?: string | null;
+  startDate: string;
   dueDate: string;
+  notify?: boolean;
 }
 
 export interface BulkAssignmentsFromTemplateResponse {
-  taskId: string;
-  createdAssignments: number;
-  assignmentIdsPreview: string[];
+  created: number;
+  groups: number;
+  templateId: string;
+  startDate: string;
+  dueDate: string;
 }
 
 export interface CompleteStepPayload {
@@ -751,19 +754,6 @@ export const api = {
     remove: (id: string) => del<void>(`/templates/${id}`),
     reorderSteps: (id: string, payload: ReorderTemplateStepsPayload) =>
       patch<TemplateResponse>(`/templates/${id}/steps/reorder`, { json: payload }),
-  },
-  steps: {
-    list: (params?: { taskId?: string; tagId?: string }) => get<TaskStepResponse[]>('/steps', { query: params }),
-    listGlobal: (params?: { tagId?: string }) => get<TaskStepResponse[]>('/steps/global', { query: params }),
-    create: (payload: CreateGlobalTaskStepPayload) => post<TaskStepResponse>('/steps', { json: payload }),
-    update: (id: string, payload: UpdateTaskStepPayload) => patch<TaskStepResponse>(`/steps/${id}`, { json: payload }),
-    remove: (id: string) => del<void>(`/steps/${id}`),
-  },
-  tags: {
-    list: () => get<TagResponse[]>('/tags'),
-    create: (payload: { name: string }) => post<TagResponse>('/tags', { json: payload }),
-    update: (id: string, payload: { name: string }) => patch<TagResponse>(`/tags/${id}`, { json: payload }),
-    remove: (id: string) => del<void>(`/tags/${id}`),
   },
   steps: {
     list: (params?: { taskId?: string; tagId?: string }) => get<TaskStepResponse[]>('/steps', { query: params }),

@@ -72,12 +72,9 @@ export class AssignmentsService {
 
     return Boolean(accessible);
   }
-  private assertValidDateRange(
-    startDate: string | null | undefined,
-    dueDate: string | null | undefined,
-  ) {
+  private assertValidDateRange(startDate: string | null | undefined, dueDate: string | null) {
     if (startDate && dueDate && startDate > dueDate) {
-      throw new BadRequestException('Pradžios data negali būti vėlesnė nei pabaigos data');
+      throw new BadRequestException('Pabaigos data negali būti ankstesnė už pradžios datą');
     }
   }
   private assertManager(role: UserRole) {
@@ -192,6 +189,7 @@ export class AssignmentsService {
     this.assertValidDateRange(dto.startDate ?? null, dto.dueDate);
 
     const uniqueGroupIds = Array.from(new Set(dto.groupIds));
+    const shouldNotify = dto.notify !== false;
 
     const { task, assignments } = await this.dataSource.transaction(async (manager) => {
       const templateRepo = manager.getRepository(Template);
@@ -301,14 +299,18 @@ export class AssignmentsService {
         ),
       );
 
-      const summaryDueDate = dto.dueDate ?? assignments[0]?.dueDate ?? null;
-      await this.sendBulkCreationSummary(assignments, trimmedTitle, summaryDueDate);
+      if (shouldNotify) {
+        const summaryDueDate = dto.dueDate ?? assignments[0]?.dueDate ?? null;
+        await this.sendBulkCreationSummary(assignments, trimmedTitle, summaryDueDate);
+      }
     }
 
     return {
-      taskId: task.id,
-      createdAssignments: assignments.length,
-      assignmentIdsPreview: assignments.slice(0, 10).map((assignment) => assignment.id),
+      created: assignments.length,
+      groups: uniqueGroupIds.length,
+      templateId: dto.templateId,
+      startDate: dto.startDate,
+      dueDate: dto.dueDate,
     };
   }
   async findAll(

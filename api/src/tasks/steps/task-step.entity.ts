@@ -3,6 +3,8 @@ import {
   CreateDateColumn,
   Entity,
   JoinColumn,
+  JoinTable,
+  ManyToMany,
   ManyToOne,
   OneToMany,
   PrimaryGeneratedColumn,
@@ -11,6 +13,7 @@ import {
 
 import { Task } from '../task.entity';
 import { StepProgress } from '../../progress/step-progress.entity';
+import { Tag } from '../tags/tag.entity';
 
 export type TaskStepMediaType = 'image' | 'video';
 
@@ -73,4 +76,12 @@ export class TaskStep {
 
   @OneToMany(() => StepProgress, (progress) => progress.taskStep)
   progress!: StepProgress[];
+
+  @ManyToMany(() => Tag, (tag) => tag.steps, { cascade: false })
+  @JoinTable({
+    name: 'task_step_tags',
+    joinColumn: { name: 'step_id' },
+    inverseJoinColumn: { name: 'tag_id' },
+  })
+  tags!: Tag[];
 }

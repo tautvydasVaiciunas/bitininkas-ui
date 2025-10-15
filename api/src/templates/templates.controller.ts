@@ -52,12 +52,8 @@ export class TemplatesController {
   }
 
   @Roles(UserRole.MANAGER, UserRole.ADMIN)
-  @Post(':id/steps/reorder')
+  @Patch(':id/steps/reorder')
   reorder(@Param('id') id: string, @Body() dto: ReorderTemplateStepsDto, @Request() req) {
-    return this.templatesService.reorderSteps(
-      id,
-      dto.steps.map((step) => ({ id: step.id, orderIndex: step.orderIndex })),
-      req.user,
-    );
+    return this.templatesService.reorderSteps(id, dto.stepIds, req.user);
   }
 }

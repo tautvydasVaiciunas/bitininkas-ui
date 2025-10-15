@@ -1,14 +1,22 @@
-import { BadRequestException, ForbiddenException, Injectable, Logger, NotFoundException } from '@nestjs/common';
+import {
+  BadRequestException,
+  ForbiddenException,
+  Injectable,
+  Logger,
+  NotFoundException,
+} from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
-import { DataSource, Repository } from 'typeorm';
+import { DataSource, In, Repository } from 'typeorm';
 
 import { Task } from '../task.entity';
 import { TaskStep, type TaskStepMediaType } from './task-step.entity';
 import { ActivityLogService } from '../../activity-log/activity-log.service';
 import { UserRole } from '../../users/user.entity';
 import { CreateTaskStepDto } from './dto/create-task-step.dto';
+import { CreateGlobalTaskStepDto } from './dto/create-global-task-step.dto';
 import { UpdateTaskStepDto } from './dto/update-task-step.dto';
 import { runWithDatabaseErrorHandling } from '../../common/errors/database-error.util';
+import { Tag } from '../tags/tag.entity';
 
 @Injectable()
 export class TaskStepsService {
@@ -19,6 +27,8 @@ export class TaskStepsService {
     private readonly stepsRepository: Repository<TaskStep>,
     @InjectRepository(Task)
     private readonly tasksRepository: Repository<Task>,
+    @InjectRepository(Tag)
+    private readonly tagsRepository: Repository<Tag>,
     private readonly dataSource: DataSource,
     private readonly activityLog: ActivityLogService,
   ) {}
@@ -40,6 +50,54 @@ export class TaskStepsService {
     }
 
     return value;
+  }
+
+  private normalizeTagIds(tagIds?: string[] | null) {
+    if (!Array.isArray(tagIds)) {
+      return [];
+    }
+
+    return Array.from(
+      new Set(
+        tagIds
+          .filter((id): id is string => typeof id === 'string')
+          .map((id) => id.trim())
+          .filter((id) => id.length > 0),
+      ),
+    );
+  }
+
+  private async syncStepTags(stepId: string, tagIds?: string[] | null) {
+    if (tagIds === undefined) {
+      return;
+    }
+
+    const normalizedIds = this.normalizeTagIds(tagIds);
+
+    if (normalizedIds.length > 0) {
+      const existing = await this.tagsRepository.find({
+        where: { id: In(normalizedIds) },
+      });
+
+      if (existing.length !== normalizedIds.length) {
+        throw new BadRequestException({
+          message: 'Neteisingi duomenys',
+          details: 'Pasirinkta žymė nerasta',
+        });
+      }
+    }
+
+    await this.stepsRepository
+      .createQueryBuilder()
+      .relation(TaskStep, 'tags')
+      .of(stepId)
+      .set(normalizedIds);
+  }
+
+  private createBaseQueryBuilder() {
+    return this.stepsRepository
+      .createQueryBuilder('step')
+      .leftJoinAndSelect('step.tags', 'tag');
   }
 
   private async ensureTaskExists(taskId: string) {
@@ -95,23 +153,54 @@ export class TaskStepsService {
     });
   }
 
-  async findAll(taskId: string) {
+  async findAll(taskId: string, tagId?: string) {
     await this.ensureTaskExists(taskId);
-    return this.stepsRepository.find({
-      where: { taskId },
-      order: { orderIndex: 'ASC' },
-    });
+
+    const query = this.createBaseQueryBuilder()
+      .where('step.taskId = :taskId', { taskId })
+      .orderBy('step.orderIndex', 'ASC');
+
+    if (tagId) {
+      query.andWhere('tag.id = :tagId', { tagId });
+    }
+
+    return query.getMany();
   }
 
   async findOne(taskId: string, stepId: string) {
     await this.ensureTaskExists(taskId);
-    const step = await this.stepsRepository.findOne({ where: { id: stepId, taskId } });
+    const step = await this.createBaseQueryBuilder()
+      .where('step.id = :stepId', { stepId })
+      .andWhere('step.taskId = :taskId', { taskId })
+      .getOne();
 
     if (!step) {
       throw new NotFoundException('Žingsnis nerastas');
     }
 
     return step;
+  }
+
+  async findById(stepId: string) {
+    const step = await this.createBaseQueryBuilder()
+      .where('step.id = :stepId', { stepId })
+      .getOne();
+
+    if (!step) {
+      throw new NotFoundException('Žingsnis nerastas');
+    }
+
+    return step;
+  }
+
+  async findAllGlobal(tagId?: string) {
+    const query = this.createBaseQueryBuilder().orderBy('step.title', 'ASC').addOrderBy('step.createdAt', 'DESC');
+
+    if (tagId) {
+      query.andWhere('tag.id = :tagId', { tagId });
+    }
+
+    return query.getMany();
   }
 
   async create(taskId: string, dto: CreateTaskStepDto, user: { id: string; role: UserRole }) {
@@ -138,6 +227,7 @@ export class TaskStepsService {
       { message: 'Nepavyko sukurti žingsnio' },
     );
 
+    await this.syncStepTags(saved.id, dto.tagIds ?? []);
     await this.activityLog.log('task_step_created', user.id, 'task', taskId);
     return this.findOne(taskId, saved.id);
   }
@@ -150,6 +240,7 @@ export class TaskStepsService {
   ) {
     this.assertManager(user.role);
     const step = await this.findOne(taskId, stepId);
+    const shouldUpdateTags = dto.tagIds !== undefined;
 
     if (dto.title !== undefined) {
       const title = dto.title.trim();
@@ -188,8 +279,27 @@ export class TaskStepsService {
       { message: 'Nepavyko atnaujinti žingsnio' },
     );
 
+    if (shouldUpdateTags) {
+      await this.syncStepTags(saved.id, dto.tagIds ?? []);
+    }
+
     await this.activityLog.log('task_step_updated', user.id, 'task', taskId);
     return this.findOne(taskId, saved.id);
+  }
+
+  async createGlobal(dto: CreateGlobalTaskStepDto, user: { id: string; role: UserRole }) {
+    const { taskId, ...rest } = dto;
+    return this.create(taskId, rest as CreateTaskStepDto, user);
+  }
+
+  async updateGlobal(stepId: string, dto: UpdateTaskStepDto, user: { id: string; role: UserRole }) {
+    const step = await this.findById(stepId);
+    return this.update(step.taskId, stepId, dto, user);
+  }
+
+  async removeGlobal(stepId: string, user: { id: string; role: UserRole }) {
+    const step = await this.findById(stepId);
+    return this.remove(step.taskId, step.id, user);
   }
 
   async remove(taskId: string, stepId: string, user: { id: string; role: UserRole }) {

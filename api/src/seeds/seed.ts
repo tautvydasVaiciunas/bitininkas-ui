@@ -5,6 +5,7 @@ import { User, UserRole } from '../users/user.entity';
 import { Hive, HiveStatus } from '../hives/hive.entity';
 import { Task, TaskFrequency } from '../tasks/task.entity';
 import { TaskStep } from '../tasks/steps/task-step.entity';
+import { Tag } from '../tasks/tags/tag.entity';
 import { Template } from '../templates/template.entity';
 import { TemplateStep } from '../templates/template-step.entity';
 import { Assignment, AssignmentStatus } from '../assignments/assignment.entity';
@@ -22,6 +23,7 @@ async function runSeed(): Promise<void> {
     const hiveRepository = dataSource.getRepository(Hive);
     const taskRepository = dataSource.getRepository(Task);
     const stepRepository = dataSource.getRepository(TaskStep);
+    const tagRepository = dataSource.getRepository(Tag);
     const assignmentRepository = dataSource.getRepository(Assignment);
     const progressRepository = dataSource.getRepository(StepProgress);
     const notificationRepository = dataSource.getRepository(Notification);
@@ -35,6 +37,7 @@ async function runSeed(): Promise<void> {
       templateStepRepository, // template_steps
       templateRepository,   // templates
       stepRepository,       // task_steps (ar faktinis tavo pavadinimas)
+      tagRepository,        // tags
       notificationRepository,
       taskRepository,
       hiveRepository,
@@ -126,6 +129,10 @@ async function runSeed(): Promise<void> {
 
     await taskRepository.save([task1, task2]);
 
+    const generalTag = tagRepository.create({ name: 'Bendri darbai' });
+    const springTag = tagRepository.create({ name: 'Pavasaris' });
+    await tagRepository.save([generalTag, springTag]);
+
     const stepsTask1 = [
       { title: 'Prepare tools', orderIndex: 1, taskId: task1.id },
       { title: 'Inspect brood frames', orderIndex: 2, taskId: task1.id },
@@ -144,6 +151,52 @@ async function runSeed(): Promise<void> {
       ...stepsTask2.map((step) => stepRepository.create(step)),
     ]);
 
+    const prepareToolsStep = savedSteps.find((step) => step.title === 'Prepare tools');
+    const addEmptySupersStep = savedSteps.find((step) => step.title === 'Add empty supers');
+    const inspectBroodFramesStep = savedSteps.find((step) => step.title === 'Inspect brood frames');
+    const collectFullSupersStep = savedSteps.find((step) => step.title === 'Collect full supers');
+    const extractHoneyStep = savedSteps.find((step) => step.title === 'Extract honey');
+
+    if (prepareToolsStep) {
+      await dataSource
+        .createQueryBuilder()
+        .relation(TaskStep, 'tags')
+        .of(prepareToolsStep.id)
+        .add(generalTag.id);
+    }
+
+    if (addEmptySupersStep) {
+      await dataSource
+        .createQueryBuilder()
+        .relation(TaskStep, 'tags')
+        .of(addEmptySupersStep.id)
+        .add(springTag.id);
+    }
+
+    if (inspectBroodFramesStep) {
+      await dataSource
+        .createQueryBuilder()
+        .relation(TaskStep, 'tags')
+        .of(inspectBroodFramesStep.id)
+        .add(springTag.id);
+    }
+
+    if (collectFullSupersStep) {
+      await dataSource
+        .createQueryBuilder()
+        .relation(TaskStep, 'tags')
+        .of(collectFullSupersStep.id)
+        .add(generalTag.id);
+    }
+
+    if (extractHoneyStep) {
+      await dataSource
+        .createQueryBuilder()
+        .relation(TaskStep, 'tags')
+        .of(extractHoneyStep.id)
+        .add(generalTag.id);
+    }
+
     const inspectionTemplate = templateRepository.create({
       name: 'Spring Inspection Template',
       steps: savedSteps
@@ -157,6 +210,22 @@ async function runSeed(): Promise<void> {
     });
 
     await templateRepository.save(inspectionTemplate);
+
+    const harvestTemplate = templateRepository.create({
+      name: 'Honey Harvest Template',
+      comment: 'Paruoškite medų žingsnis po žingsnio',
+      steps: savedSteps
+        .filter((step) => step.taskId === task2.id)
+        .slice(0, 4)
+        .map((step, index) =>
+          templateStepRepository.create({
+            taskStepId: step.id,
+            orderIndex: index + 1,
+          }),
+        ),
+    });
+
+    await templateRepository.save(harvestTemplate);
 
     const assignment1 = assignmentRepository.create({
       hiveId: hive1.id,

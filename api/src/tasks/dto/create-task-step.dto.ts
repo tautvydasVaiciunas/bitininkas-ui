@@ -1,10 +1,13 @@
 import {
+  ArrayUnique,
+  IsArray,
   IsBoolean,
   IsIn,
   IsInt,
   IsNotEmpty,
   IsOptional,
   IsString,
+  IsUUID,
   Matches,
   MaxLength,
   Min,
@@ -42,4 +45,10 @@ export class CreateTaskStepInputDto {
   @IsInt({ message: 'Eilės numeris turi būti sveikas skaičius' })
   @Min(1, { message: 'Eilės numeris turi būti teigiamas' })
   orderIndex?: number;
+
+  @IsOptional()
+  @IsArray({ message: 'Žymės turi būti sąrašas' })
+  @ArrayUnique({ message: 'Žymės negali kartotis' })
+  @IsUUID('4', { each: true, message: 'Žymės turi būti teisingi ID' })
+  tagIds?: string[];
 }

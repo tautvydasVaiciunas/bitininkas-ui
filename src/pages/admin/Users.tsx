@@ -242,7 +242,7 @@ export default function AdminUsers() {
           payload.password = formValues.password;
         }
 
-        let hasChanges = Object.keys(payload).length > 0;
+        const hasChanges = Object.keys(payload).length > 0;
         let roleChanged = false;
 
         if (isAdmin && formValues.role !== editingUser.role) {

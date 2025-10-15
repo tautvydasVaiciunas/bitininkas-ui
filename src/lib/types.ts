@@ -45,6 +45,8 @@ import type {
   UserRole as ApiUserRole,
   TemplateStepInputPayload,
   ReorderTemplateStepsPayload,
+  TagResponse as ApiTagResponse,
+  CreateGlobalTaskStepPayload,
 } from './api';
 
 export type {
@@ -73,6 +75,7 @@ export type {
   UpdateProgressPayload,
   BulkAssignmentsFromTemplatePayload,
   BulkAssignmentsFromTemplateResponse,
+  CreateGlobalTaskStepPayload,
 } from './api';
 
 export type AuthenticatedUser = ApiAuthenticatedUser;
@@ -85,6 +88,7 @@ export type HiveStatus = ApiHiveStatus;
 export type Task = ApiTaskResponse;
 export type TaskWithSteps = ApiTaskWithStepsResponse;
 export type TaskStep = ApiTaskStepResponse;
+export type Tag = ApiTagResponse;
 export type TemplateStep = Omit<ApiTemplateStepResponse, 'taskStep'> & { taskStep: TaskStep };
 export type Template = Omit<ApiTemplateResponse, 'steps' | 'comment'> & {
   comment: string | null;
@@ -129,6 +133,7 @@ export const mapTaskStepFromApi = (step: ApiTaskStepResponse): TaskStep => ({
   mediaUrl: step.mediaUrl ?? null,
   mediaType: step.mediaType ?? null,
   requireUserMedia: step.requireUserMedia ?? false,
+  tags: Array.isArray(step.tags) ? step.tags.map((tag) => ({ ...tag })) : [],
 });
 
 export const mapTaskFromApi = (task: ApiTaskResponse): Task => ({

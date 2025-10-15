@@ -17,7 +17,17 @@
   },
   "tasks": {
     "createSuccess": "Užduotis sėkmingai sukurta",
-    "createError": "Nepavyko sukurti užduoties: neteisingi duomenys"
+    "createError": "Nepavyko sukurti užduoties: neteisingi duomenys",
+    "bulkSuccess": "Sukurta {count} priskyrimų {groups} grupėms",
+    "bulkError": "Nepavyko sukurti užduoties",
+    "validationTitle": "Įveskite užduoties pavadinimą",
+    "validationTemplate": "Pasirinkite šabloną",
+    "validationGroups": "Pasirinkite bent vieną grupę",
+    "validationDatesRequired": "Pasirinkite pradžios ir pabaigos datas",
+    "validationDateRange": "Pabaigos data negali būti ankstesnė už pradžios datą",
+    "templatePlaceholder": "Pasirinkite šabloną",
+    "notifyLabel": "Siųsti el. laiškus dalyviams",
+    "notifyHint": "Pranešimai bus išsiųsti visiems priskirtų avilių savininkams."
   },
   "steps": {
     "createSuccess": "Žingsnis sukurtas",

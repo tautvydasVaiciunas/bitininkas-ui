@@ -1,13 +1,12 @@
 import { FormEvent, useMemo, useState } from 'react';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
-import { Plus, Search, Edit, Archive, Loader2 } from 'lucide-react';
+import { Archive, Edit, Loader2, Plus, Search } from 'lucide-react';
 import { toast } from 'sonner';
 
 import { MainLayout } from '@/components/Layout/MainLayout';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
-import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
-import { Checkbox } from '@/components/ui/checkbox';
+import { Card, CardContent } from '@/components/ui/card';
 import {
   Dialog,
   DialogContent,
@@ -21,130 +20,60 @@ import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Textarea } from '@/components/ui/textarea';
+import { Checkbox } from '@/components/ui/checkbox';
+import { ScrollArea } from '@/components/ui/scroll-area';
 import ltMessages from '@/i18n/messages.lt.json';
 import api, { HttpError } from '@/lib/api';
-import { mapTaskFromApi, type CreateTaskPayload, type Task, type TaskFrequency } from '@/lib/types';
+import {
+  mapGroupFromApi,
+  mapTaskFromApi,
+  mapTemplateFromApi,
+  type BulkAssignmentsFromTemplatePayload,
+  type Group,
+  type Task,
+  type Template,
+} from '@/lib/types';
 
 const messages = ltMessages.tasks;
 
-const monthOptions = [
-  { value: 1, label: 'Sausis' },
-  { value: 2, label: 'Vasaris' },
-  { value: 3, label: 'Kovas' },
-  { value: 4, label: 'Balandis' },
-  { value: 5, label: 'Gegužė' },
-  { value: 6, label: 'Birželis' },
-  { value: 7, label: 'Liepa' },
-  { value: 8, label: 'Rugpjūtis' },
-  { value: 9, label: 'Rugsėjis' },
-  { value: 10, label: 'Spalis' },
-  { value: 11, label: 'Lapkritis' },
-  { value: 12, label: 'Gruodis' },
-];
-
-const frequencyOptions: { value: TaskFrequency; label: string }[] = [
-  { value: 'once', label: 'Vienkartinė' },
-  { value: 'weekly', label: 'Kas savaitę' },
-  { value: 'monthly', label: 'Kas mėnesį' },
-  { value: 'seasonal', label: 'Sezoninė' },
-];
-
-type CreateTaskFormState = {
-  title: string;
-  description: string;
-  category: string;
-  frequency: TaskFrequency;
-  defaultDueDays: string;
-  seasonMonths: number[];
-};
-
 const adminTasksQueryKey = ['tasks', 'admin', 'overview'] as const;
+const templatesQueryKey = ['templates'] as const;
+const groupsQueryKey = ['groups'] as const;
+
+const buildDefaultFormState = () => ({
+  title: '',
+  description: '',
+  templateId: '',
+  groupIds: [] as string[],
+  startDate: '',
+  dueDate: '',
+  notify: true,
+});
+
+type CreateAssignmentFormState = ReturnType<typeof buildDefaultFormState>;
 
 export default function AdminTasks() {
   const queryClient = useQueryClient();
   const [searchQuery, setSearchQuery] = useState('');
   const [categoryFilter, setCategoryFilter] = useState<string>('all');
   const [isCreateDialogOpen, setIsCreateDialogOpen] = useState(false);
-  const buildDefaultFormState = (): CreateTaskFormState => ({
-    title: '',
-    description: '',
-    category: '',
-    frequency: 'once',
-    defaultDueDays: '7',
-    seasonMonths: [],
-  });
-  const [createForm, setCreateForm] = useState<CreateTaskFormState>(buildDefaultFormState);
+  const [createForm, setCreateForm] = useState<CreateAssignmentFormState>(buildDefaultFormState);
 
-  const resetCreateForm = () => {
-    setCreateForm(buildDefaultFormState());
-  };
-
-  const invalidateTaskQueries = () => {
-    void queryClient.invalidateQueries({ queryKey: adminTasksQueryKey });
-    void queryClient.invalidateQueries({ queryKey: ['tasks'] });
-    void queryClient.invalidateQueries({ queryKey: ['tasks', 'for-steps'] });
-    void queryClient.invalidateQueries({ queryKey: ['tasks', 'for-templates'] });
-  };
-
-  const createMutation = useMutation({
-    mutationFn: async (payload: CreateTaskPayload) => {
-      const response = await api.tasks.create(payload);
-      return mapTaskFromApi(response);
-    },
-    onSuccess: (createdTask) => {
-      toast.success(messages.createSuccess);
-      setIsCreateDialogOpen(false);
-      resetCreateForm();
-      queryClient.setQueryData<Task[]>(adminTasksQueryKey, (current = []) => {
-        const withoutDuplicate = current.filter((task) => task.id !== createdTask.id);
-        return [...withoutDuplicate, createdTask].sort((a, b) => a.title.localeCompare(b.title));
-      });
-      invalidateTaskQueries();
-    },
-    onError: (error) => {
-      if (error instanceof HttpError) {
-        toast.error(error.message);
-        return;
-      }
-      toast.error(messages.createError);
+  const { data: templates = [], isLoading: areTemplatesLoading } = useQuery<Template[]>({
+    queryKey: templatesQueryKey,
+    queryFn: async () => {
+      const response = await api.templates.list();
+      return response.map(mapTemplateFromApi);
     },
   });
 
-  const toggleSeasonMonth = (value: number, checked: boolean) => {
-    setCreateForm((prev) => {
-      const seasonMonths = checked
-        ? Array.from(new Set([...prev.seasonMonths, value])).sort((a, b) => a - b)
-        : prev.seasonMonths.filter((month) => month !== value);
-      return { ...prev, seasonMonths };
-    });
-  };
-
-  const handleCreateSubmit = async (event: FormEvent<HTMLFormElement>) => {
-    event.preventDefault();
-
-    const trimmedTitle = createForm.title.trim();
-    if (!trimmedTitle) {
-      toast.error('Įveskite užduoties pavadinimą');
-      return;
-    }
-
-    const parsedDueDays = Number(createForm.defaultDueDays);
-    if (!Number.isFinite(parsedDueDays) || parsedDueDays <= 0) {
-      toast.error('Įveskite galiojantį numatytą terminą');
-      return;
-    }
-
-    const payload: CreateTaskPayload = {
-      title: trimmedTitle,
-      description: createForm.description.trim() || undefined,
-      category: createForm.category.trim() || undefined,
-      frequency: createForm.frequency,
-      defaultDueDays: parsedDueDays,
-      seasonMonths: createForm.seasonMonths,
-    };
-
-    await createMutation.mutateAsync(payload);
-  };
+  const { data: groups = [], isLoading: areGroupsLoading } = useQuery<Group[]>({
+    queryKey: groupsQueryKey,
+    queryFn: async () => {
+      const response = await api.groups.list();
+      return response.map(mapGroupFromApi);
+    },
+  });
 
   const { data: tasks = [], isLoading, isError } = useQuery<Task[]>({
     queryKey: adminTasksQueryKey,
@@ -167,6 +96,96 @@ export default function AdminTasks() {
     });
   }, [tasks, searchQuery, categoryFilter]);
 
+  const resetCreateForm = () => {
+    setCreateForm(buildDefaultFormState());
+  };
+
+  const invalidateQueries = () => {
+    void queryClient.invalidateQueries({ queryKey: adminTasksQueryKey });
+    void queryClient.invalidateQueries({ queryKey: ['tasks'] });
+    void queryClient.invalidateQueries({ queryKey: ['assignments'] });
+    void queryClient.invalidateQueries({ queryKey: ['notifications'] });
+  };
+
+  const createMutation = useMutation({
+    mutationFn: async (payload: BulkAssignmentsFromTemplatePayload) => {
+      return api.assignments.bulkFromTemplate(payload);
+    },
+    onSuccess: (result) => {
+      toast.success(
+        messages.bulkSuccess
+          .replace('{count}', String(result.created))
+          .replace('{groups}', String(result.groups)),
+      );
+      setIsCreateDialogOpen(false);
+      resetCreateForm();
+      invalidateQueries();
+    },
+    onError: (error) => {
+      if (error instanceof HttpError) {
+        toast.error(error.message);
+        return;
+      }
+      toast.error(messages.bulkError);
+    },
+  });
+
+  const handleToggleGroup = (groupId: string, checked: boolean) => {
+    setCreateForm((prev) => {
+      const nextGroupIds = checked
+        ? Array.from(new Set([...prev.groupIds, groupId]))
+        : prev.groupIds.filter((id) => id !== groupId);
+      return { ...prev, groupIds: nextGroupIds };
+    });
+  };
+
+  const handleCreateSubmit = async (event: FormEvent<HTMLFormElement>) => {
+    event.preventDefault();
+
+    const trimmedTitle = createForm.title.trim();
+    if (!trimmedTitle) {
+      toast.error(messages.validationTitle);
+      return;
+    }
+
+    if (!createForm.templateId) {
+      toast.error(messages.validationTemplate);
+      return;
+    }
+
+    if (!createForm.groupIds.length) {
+      toast.error(messages.validationGroups);
+      return;
+    }
+
+    if (!createForm.startDate || !createForm.dueDate) {
+      toast.error(messages.validationDatesRequired);
+      return;
+    }
+
+    if (createForm.startDate > createForm.dueDate) {
+      toast.error(messages.validationDateRange);
+      return;
+    }
+
+    const payload: BulkAssignmentsFromTemplatePayload = {
+      templateId: createForm.templateId,
+      groupIds: createForm.groupIds,
+      title: trimmedTitle,
+      description: createForm.description.trim() || undefined,
+      startDate: createForm.startDate,
+      dueDate: createForm.dueDate,
+      notify: createForm.notify,
+    };
+
+    await createMutation.mutateAsync(payload);
+  };
+
+  const selectedTemplate = useMemo(
+    () => templates.find((template) => template.id === createForm.templateId),
+    [templates, createForm.templateId],
+  );
+
   const getFrequencyLabel = (frequency: Task['frequency']) => {
     const labels: Record<Task['frequency'], string> = {
       once: 'Vienkartinė',
@@ -183,7 +202,7 @@ export default function AdminTasks() {
     return months
       .map((month) => {
         const date = new Date();
-        date.setMonth(month - 1);
+        date.setUTCMonth(month - 1);
         return formatter.format(date);
       })
       .join(', ');
@@ -195,7 +214,7 @@ export default function AdminTasks() {
         <div className="flex items-center justify-between">
           <div>
             <h1 className="text-3xl font-bold">Užduotys</h1>
-            <p className="text-muted-foreground mt-1">Valdykite užduočių šablonus</p>
+            <p className="text-muted-foreground mt-1">Priskirkite šablonus grupėms ir stebėkite eigą</p>
           </div>
           <Dialog
             open={isCreateDialogOpen}
@@ -216,13 +235,15 @@ export default function AdminTasks() {
                 {createMutation.isLoading ? 'Saugoma...' : 'Sukurti užduotį'}
               </Button>
             </DialogTrigger>
-            <DialogContent className="max-h-[90vh] overflow-y-auto sm:max-w-3xl">
+            <DialogContent className="max-h-[90vh] overflow-y-auto sm:max-w-4xl">
               <DialogHeader>
                 <DialogTitle>Nauja užduotis</DialogTitle>
-                <DialogDescription>Užpildykite informaciją apie užduotį.</DialogDescription>
+                <DialogDescription>
+                  Pasirinkite šabloną ir priskirkite jį pasirinktų grupių aviliams.
+                </DialogDescription>
               </DialogHeader>
               <form onSubmit={handleCreateSubmit} className="space-y-6">
-                <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
+                <div className="grid gap-4 md:grid-cols-2">
                   <div className="space-y-2 md:col-span-2">
                     <Label htmlFor="task-title">Pavadinimas</Label>
                     <Input
@@ -231,7 +252,7 @@ export default function AdminTasks() {
                       onChange={(event) =>
                         setCreateForm((prev) => ({ ...prev, title: event.target.value }))
                       }
-                      placeholder="Pvz., Patikrinti avilį"
+                      placeholder="Pvz., Pavasarinė apžiūra"
                       disabled={createMutation.isLoading}
                       required
                     />
@@ -244,84 +265,134 @@ export default function AdminTasks() {
                       onChange={(event) =>
                         setCreateForm((prev) => ({ ...prev, description: event.target.value }))
                       }
-                      placeholder="Trumpai aprašykite užduotį"
+                      placeholder="Trumpai aprašykite, ką turėtų atlikti bitininkai"
                       disabled={createMutation.isLoading}
                       rows={3}
                     />
                   </div>
                   <div className="space-y-2">
-                    <Label htmlFor="task-category">Kategorija</Label>
-                    <Input
-                      id="task-category"
-                      value={createForm.category}
-                      onChange={(event) =>
-                        setCreateForm((prev) => ({ ...prev, category: event.target.value }))
-                      }
-                      placeholder="Pvz., Sezoninės priežiūros"
-                      disabled={createMutation.isLoading}
-                    />
-                  </div>
-                  <div className="space-y-2">
-                    <Label>Dažnumas</Label>
+                    <Label>Šablonas</Label>
                     <Select
-                      value={createForm.frequency}
+                      value={createForm.templateId}
                       onValueChange={(value) =>
-                        setCreateForm((prev) => ({ ...prev, frequency: value as TaskFrequency }))
+                        setCreateForm((prev) => ({ ...prev, templateId: value }))
                       }
-                      disabled={createMutation.isLoading}
+                      disabled={
+                        createMutation.isLoading ||
+                        areTemplatesLoading ||
+                        templates.length === 0
+                      }
                     >
                       <SelectTrigger>
-                        <SelectValue placeholder="Pasirinkite dažnumą" />
+                        <SelectValue placeholder={messages.templatePlaceholder} />
                       </SelectTrigger>
                       <SelectContent>
-                        {frequencyOptions.map((option) => (
-                          <SelectItem key={option.value} value={option.value}>
-                            {option.label}
+                        {templates.map((template) => (
+                          <SelectItem key={template.id} value={template.id}>
+                            {template.name}
                           </SelectItem>
                         ))}
                       </SelectContent>
                     </Select>
+                    {areTemplatesLoading && (
+                      <p className="text-sm text-muted-foreground">Įkeliami šablonai...</p>
+                    )}
+                    {!areTemplatesLoading && templates.length === 0 && (
+                      <p className="text-sm text-destructive">Nėra sukurtų šablonų.</p>
+                    )}
                   </div>
                   <div className="space-y-2">
-                    <Label htmlFor="task-default-due">Numatytasis terminas (dienomis)</Label>
+                    <Label>Grupės</Label>
+                    <div className="rounded-md border">
+                      <ScrollArea className="h-40">
+                        <div className="p-3 space-y-2">
+                          {areGroupsLoading ? (
+                            <p className="text-sm text-muted-foreground">Įkeliamos grupės...</p>
+                          ) : groups.length === 0 ? (
+                            <p className="text-sm text-destructive">Nėra galimų grupių.</p>
+                          ) : (
+                            groups.map((group) => {
+                              const checked = createForm.groupIds.includes(group.id);
+                              return (
+                                <label
+                                  key={group.id}
+                                  htmlFor={`group-${group.id}`}
+                                  className="flex items-center gap-2 text-sm font-medium"
+                                >
+                                  <Checkbox
+                                    id={`group-${group.id}`}
+                                    checked={checked}
+                                    onCheckedChange={(state) =>
+                                      handleToggleGroup(group.id, state === true)
+                                    }
+                                    disabled={createMutation.isLoading}
+                                  />
+                                  <span>{group.name}</span>
+                                </label>
+                              );
+                            })
+                          )}
+                        </div>
+                      </ScrollArea>
+                    </div>
+                    {createForm.groupIds.length > 0 && (
+                      <p className="text-xs text-muted-foreground">
+                        Pasirinkta grupių: {createForm.groupIds.length}
+                      </p>
+                    )}
+                  </div>
+                  <div className="space-y-2">
+                    <Label htmlFor="task-start-date">Pradžios data</Label>
                     <Input
-                      id="task-default-due"
-                      type="number"
-                      min={1}
-                      value={createForm.defaultDueDays}
+                      id="task-start-date"
+                      type="date"
+                      value={createForm.startDate}
                       onChange={(event) =>
-                        setCreateForm((prev) => ({ ...prev, defaultDueDays: event.target.value }))
+                        setCreateForm((prev) => ({ ...prev, startDate: event.target.value }))
                       }
                       disabled={createMutation.isLoading}
+                      required
                     />
+                  </div>
+                  <div className="space-y-2">
+                    <Label htmlFor="task-due-date">Pabaigos data</Label>
+                    <Input
+                      id="task-due-date"
+                      type="date"
+                      value={createForm.dueDate}
+                      onChange={(event) =>
+                        setCreateForm((prev) => ({ ...prev, dueDate: event.target.value }))
+                      }
+                      disabled={createMutation.isLoading}
+                      required
+                    />
+                  </div>
+                  <div className="space-y-2 md:col-span-2">
+                    <label className="flex items-center gap-2 text-sm font-medium">
+                      <Checkbox
+                        checked={createForm.notify}
+                        onCheckedChange={(state) =>
+                          setCreateForm((prev) => ({ ...prev, notify: state !== false }))
+                        }
+                        disabled={createMutation.isLoading}
+                      />
+                      <span>{messages.notifyLabel}</span>
+                    </label>
+                    <p className="text-xs text-muted-foreground">{messages.notifyHint}</p>
                   </div>
                 </div>
 
-                <div className="space-y-2">
-                  <Label>Sezoniniai mėnesiai</Label>
-                  <div className="grid grid-cols-2 gap-2 sm:grid-cols-3">
-                    {monthOptions.map((month) => {
-                      const checked = createForm.seasonMonths.includes(month.value);
-                      return (
-                        <label
-                          key={month.value}
-                          htmlFor={`month-${month.value}`}
-                          className="flex items-center gap-2 text-sm font-medium"
-                        >
-                          <Checkbox
-                            id={`month-${month.value}`}
-                            checked={checked}
-                            onCheckedChange={(state) =>
-                              toggleSeasonMonth(month.value, state === true)
-                            }
-                            disabled={createMutation.isLoading}
-                          />
-                          {month.label}
-                        </label>
-                      );
-                    })}
+                {selectedTemplate && (
+                  <div className="rounded-lg border bg-muted/30 p-4 space-y-1">
+                    <h3 className="font-semibold text-sm">Pasirinkto šablono informacija</h3>
+                    <p className="text-sm text-muted-foreground">
+                      Žingsnių skaičius: {selectedTemplate.steps.length}
+                    </p>
+                    {selectedTemplate.comment && (
+                      <p className="text-sm text-muted-foreground">{selectedTemplate.comment}</p>
+                    )}
                   </div>
-                </div>
+                )}
 
                 <DialogFooter className="flex flex-col gap-2 sm:flex-row sm:justify-end">
                   <Button
@@ -342,7 +413,7 @@ export default function AdminTasks() {
                         Saugoma...
                       </>
                     ) : (
-                      'Išsaugoti'
+                      'Sukurti'
                     )}
                   </Button>
                 </DialogFooter>

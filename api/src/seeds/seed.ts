@@ -59,39 +59,39 @@ async function runSeed(): Promise<void> {
       email: 'admin@example.com',
       passwordHash,
       role: UserRole.ADMIN,
-      name: 'Admin User',
+      name: 'Administratorius',
     });
 
     const manager = userRepository.create({
       email: 'manager@example.com',
       passwordHash,
       role: UserRole.MANAGER,
-      name: 'Manager User',
+      name: 'Vadovas',
     });
 
     const user = userRepository.create({
       email: 'jonas@example.com',
       passwordHash,
       role: UserRole.USER,
-      name: 'Jonas',
+      name: 'Bitininkas Jonas',
     });
 
     await userRepository.save([admin, manager, user]);
 
     const hive1 = hiveRepository.create({
-      label: 'Hive Alpha',
+      label: 'Avilys Alfa',
       ownerUserId: user.id,
       status: HiveStatus.ACTIVE,
     });
 
     const hive2 = hiveRepository.create({
-      label: 'Hive Beta',
+      label: 'Avilys Beta',
       ownerUserId: user.id,
       status: HiveStatus.PAUSED,
     });
 
     const hive3 = hiveRepository.create({
-      label: 'Hive Gamma',
+      label: 'Avilys Gama',
       ownerUserId: user.id,
       status: HiveStatus.ACTIVE,
     });
@@ -108,8 +108,8 @@ async function runSeed(): Promise<void> {
     );
 
     const task1 = taskRepository.create({
-      title: 'Spring Inspection',
-      description: 'Inspect hives after winter',
+      title: 'Pavasarinė apžiūra',
+      description: 'Patikrinkite avilius po žiemos',
       category: 'inspection',
       seasonMonths: [3, 4],
       frequency: TaskFrequency.ONCE,
@@ -118,8 +118,8 @@ async function runSeed(): Promise<void> {
     });
 
     const task2 = taskRepository.create({
-      title: 'Honey Harvest',
-      description: 'Harvest honey from supers',
+      title: 'Medunešio derlius',
+      description: 'Surinkite medų iš meduvių',
       category: 'harvest',
       seasonMonths: [7, 8],
       frequency: TaskFrequency.MONTHLY,
@@ -134,16 +134,16 @@ async function runSeed(): Promise<void> {
     await tagRepository.save([generalTag, springTag]);
 
     const stepsTask1 = [
-      { title: 'Prepare tools', orderIndex: 1, taskId: task1.id },
-      { title: 'Inspect brood frames', orderIndex: 2, taskId: task1.id },
-      { title: 'Check food stores', orderIndex: 3, taskId: task1.id },
+      { title: 'Paruošti įrankius', orderIndex: 1, taskId: task1.id },
+      { title: 'Apžiūrėti perų rėmus', orderIndex: 2, taskId: task1.id },
+      { title: 'Įvertinti maisto atsargas', orderIndex: 3, taskId: task1.id },
     ];
 
     const stepsTask2 = [
-      { title: 'Add empty supers', orderIndex: 1, taskId: task2.id },
-      { title: 'Collect full supers', orderIndex: 2, taskId: task2.id },
-      { title: 'Extract honey', orderIndex: 3, taskId: task2.id },
-      { title: 'Bottle honey', orderIndex: 4, taskId: task2.id },
+      { title: 'Pridėti tuščias meduves', orderIndex: 1, taskId: task2.id },
+      { title: 'Surinkti pilnas meduves', orderIndex: 2, taskId: task2.id },
+      { title: 'Išsukti medų', orderIndex: 3, taskId: task2.id },
+      { title: 'Supilstyti medų į indus', orderIndex: 4, taskId: task2.id },
     ];
 
     const savedSteps = await stepRepository.save([
@@ -151,11 +151,17 @@ async function runSeed(): Promise<void> {
       ...stepsTask2.map((step) => stepRepository.create(step)),
     ]);
 
-    const prepareToolsStep = savedSteps.find((step) => step.title === 'Prepare tools');
-    const addEmptySupersStep = savedSteps.find((step) => step.title === 'Add empty supers');
-    const inspectBroodFramesStep = savedSteps.find((step) => step.title === 'Inspect brood frames');
-    const collectFullSupersStep = savedSteps.find((step) => step.title === 'Collect full supers');
-    const extractHoneyStep = savedSteps.find((step) => step.title === 'Extract honey');
+    const prepareToolsStep = savedSteps.find((step) => step.title === 'Paruošti įrankius');
+    const addEmptySupersStep = savedSteps.find(
+      (step) => step.title === 'Pridėti tuščias meduves',
+    );
+    const inspectBroodFramesStep = savedSteps.find(
+      (step) => step.title === 'Apžiūrėti perų rėmus',
+    );
+    const collectFullSupersStep = savedSteps.find(
+      (step) => step.title === 'Surinkti pilnas meduves',
+    );
+    const extractHoneyStep = savedSteps.find((step) => step.title === 'Išsukti medų');
 
     if (prepareToolsStep) {
       await dataSource
@@ -198,7 +204,8 @@ async function runSeed(): Promise<void> {
     }
 
     const inspectionTemplate = templateRepository.create({
-      name: 'Spring Inspection Template',
+      name: 'Pavasarinės apžiūros šablonas',
+      comment: 'Pilnas pavasarinės avilio apžiūros planas',
       steps: savedSteps
         .filter((step) => step.taskId === task1.id)
         .map((step, index) =>
@@ -209,7 +216,35 @@ async function runSeed(): Promise<void> {
         ),
     });
 
-    await templateRepository.save(inspectionTemplate);
+    const harvestTemplate = templateRepository.create({
+      name: 'Medunešio derliaus šablonas',
+      comment: 'Paruoškite medų žingsnis po žingsnio',
+      steps: savedSteps
+        .filter((step) => step.taskId === task2.id)
+        .slice(0, 4)
+        .map((step, index) =>
+          templateStepRepository.create({
+            taskStepId: step.id,
+            orderIndex: index + 1,
+          }),
+        ),
+    });
+
+    const quickCheckTemplate = templateRepository.create({
+      name: 'Greitos patikros šablonas',
+      comment: 'Trumpa apžiūra prieš sezono pradžią',
+      steps: savedSteps
+        .filter((step) => step.taskId === task1.id)
+        .slice(0, 3)
+        .map((step, index) =>
+          templateStepRepository.create({
+            taskStepId: step.id,
+            orderIndex: index + 1,
+          }),
+        ),
+    });
+
+    await templateRepository.save([inspectionTemplate, harvestTemplate, quickCheckTemplate]);
 
     const harvestTemplate = templateRepository.create({
       name: 'Honey Harvest Template',
@@ -254,7 +289,7 @@ async function runSeed(): Promise<void> {
         progressRepository.create({
           assignmentId: assignment1.id,
           taskStepId: step.id,
-          notes: 'Completed during inspection',
+          notes: 'Žingsnis atliktas pavasarinės apžiūros metu',
         })
       );
 
@@ -273,9 +308,9 @@ async function runSeed(): Promise<void> {
       }),
     ]);
 
-    console.log('Seed data inserted successfully');
+    console.log('Sėklos sėkmingai įkeltos');
   } catch (error) {
-    console.error('Seeding failed', error);
+    console.error('Sėklų įkėlimas nepavyko', error);
     process.exitCode = 1;
   } finally {
     if (dataSource.isInitialized) {

@@ -57,12 +57,7 @@ import {
 
 const messages = ltMessages.steps;
 
-const tagMessages = {
-  createSuccess: 'Žymė sukurta',
-  updateSuccess: 'Žymė atnaujinta',
-  deleteSuccess: 'Žymė ištrinta',
-  errorFallback: 'Įvyko klaida. Bandykite dar kartą.',
-};
+const tagMessages = ltMessages.tags;
 
 type StepFormState = {
   title: string;
@@ -443,7 +438,7 @@ export default function AdminSteps() {
 
     const parsedOrderIndex = Number(editForm.orderIndex);
     if (!Number.isFinite(parsedOrderIndex) || parsedOrderIndex <= 0) {
-      toast.error('Įveskite teisingą žingsnio eiliškumą');
+      toast.error(messages.orderIndexInvalid);
       return;
     }
 
@@ -478,10 +473,10 @@ export default function AdminSteps() {
           mediaType: file.type === 'video/mp4' ? 'video' : 'image',
         }));
       }
-      toast.success('Failas įkeltas');
+      toast.success(messages.uploadSuccess);
     } catch (error) {
       console.error('Failed to upload media', error);
-      toast.error('Nepavyko įkelti failo');
+      toast.error(messages.uploadError);
     } finally {
       setIsUploadingCreateMedia(false);
       event.target.value = '';
@@ -500,10 +495,10 @@ export default function AdminSteps() {
         mediaUrl: response.url,
         mediaType: prev.mediaType || (file.type === 'video/mp4' ? 'video' : 'image'),
       }));
-      toast.success('Failas įkeltas');
+      toast.success(messages.uploadSuccess);
     } catch (error) {
       console.error('Failed to upload media', error);
-      toast.error('Nepavyko įkelti failo');
+      toast.error(messages.uploadError);
     } finally {
       setIsUploadingEditMedia(false);
       event.target.value = '';

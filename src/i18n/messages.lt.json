@@ -38,7 +38,10 @@
     "deleteError": "Nepavyko ištrinti žingsnio",
     "reorderSuccess": "Žingsniai perrikiuoti",
     "reorderError": "Nepavyko perrikiuoti žingsnių",
-    "validationError": "Pasirinkite užduotį ir nurodykite pavadinimą"
+    "validationError": "Pasirinkite užduotį ir nurodykite pavadinimą",
+    "orderIndexInvalid": "Įveskite teisingą žingsnio eiliškumą",
+    "uploadSuccess": "Failas įkeltas",
+    "uploadError": "Nepavyko įkelti failo"
   },
   "templates": {
     "createSuccess": "Šablonas sukurtas",
@@ -52,5 +55,11 @@
     "stepAdded": "Žingsnis pridėtas prie šablono",
     "stepExists": "Šis žingsnis jau pridėtas",
     "noName": "Įveskite šablono pavadinimą"
+  },
+  "tags": {
+    "createSuccess": "Žymė sukurta",
+    "updateSuccess": "Žymė atnaujinta",
+    "deleteSuccess": "Žymė ištrinta",
+    "errorFallback": "Įvyko klaida. Bandykite dar kartą."
   }
 }

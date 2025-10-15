@@ -765,6 +765,19 @@ export const api = {
     update: (id: string, payload: { name: string }) => patch<TagResponse>(`/tags/${id}`, { json: payload }),
     remove: (id: string) => del<void>(`/tags/${id}`),
   },
+  steps: {
+    list: (params?: { taskId?: string; tagId?: string }) => get<TaskStepResponse[]>('/steps', { query: params }),
+    listGlobal: (params?: { tagId?: string }) => get<TaskStepResponse[]>('/steps/global', { query: params }),
+    create: (payload: CreateGlobalTaskStepPayload) => post<TaskStepResponse>('/steps', { json: payload }),
+    update: (id: string, payload: UpdateTaskStepPayload) => patch<TaskStepResponse>(`/steps/${id}`, { json: payload }),
+    remove: (id: string) => del<void>(`/steps/${id}`),
+  },
+  tags: {
+    list: () => get<TagResponse[]>('/tags'),
+    create: (payload: { name: string }) => post<TagResponse>('/tags', { json: payload }),
+    update: (id: string, payload: { name: string }) => patch<TagResponse>(`/tags/${id}`, { json: payload }),
+    remove: (id: string) => del<void>(`/tags/${id}`),
+  },
   assignments: {
     list: (params?: {
       hiveId?: string;

@@ -326,42 +326,39 @@ export class TemplatesService {
     return;
   }
 
-  async reorderSteps(id: string, payload: { id: string; orderIndex: number }[], user: {
+  async reorderSteps(id: string, stepIds: string[], user: {
     id: string;
     role: UserRole;
   }) {
     this.assertManager(user.role);
 
-    if (!payload.length) {
+    if (!stepIds.length) {
       throw new BadRequestException('Nepavyko perrikiuoti šablono žingsnių: sąrašas tuščias');
     }
 
-    const uniqueIds = new Set(payload.map((step) => step.id));
-    if (uniqueIds.size !== payload.length) {
-      throw new BadRequestException('Nepavyko perrikiuoti šablono žingsnių: yra pasikartojančių žingsnių');
-    }
+    this.ensureUniqueStepIds(stepIds, 'Nepavyko perrikiuoti šablono žingsnių');
 
     const template = await this.runWithDatabaseErrorHandling(
       () =>
         this.dataSource.transaction(async (manager) => {
           const templateEntity = await this.ensureTemplate(id, manager);
+          if (templateEntity.steps.length !== stepIds.length) {
+            throw new BadRequestException(
+              'Nepavyko perrikiuoti šablono žingsnių: turi būti pateikti visi žingsniai',
+            );
+          }
+
           const stepMap = new Map(templateEntity.steps.map((step) => [step.id, step] as const));
 
-          for (const item of payload) {
-            if (!stepMap.has(item.id)) {
+          for (const stepId of stepIds) {
+            if (!stepMap.has(stepId)) {
               throw new NotFoundException('Šablono žingsnis nerastas');
             }
           }
 
-          this.validateOrderSequence(
-            payload.map((item) => item.orderIndex),
-            templateEntity.steps.length,
-            'Nepavyko perrikiuoti šablono žingsnių',
-          );
-
           await Promise.all(
-            payload.map(({ id: stepId, orderIndex }) =>
-              manager.update(TemplateStep, { id: stepId }, { orderIndex }),
+            stepIds.map((stepId, index) =>
+              manager.update(TemplateStep, { id: stepId }, { orderIndex: index + 1 }),
             ),
           );
 

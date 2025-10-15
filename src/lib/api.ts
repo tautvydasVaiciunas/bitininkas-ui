@@ -205,7 +205,7 @@ export interface UpdateTemplatePayload {
 }
 
 export interface ReorderTemplateStepsPayload {
-  steps: { id: string; orderIndex: number }[];
+  stepIds: string[];
 }
 
 export type AssignmentStatus = 'not_started' | 'in_progress' | 'done';
@@ -750,7 +750,20 @@ export const api = {
       patch<TemplateResponse>(`/templates/${id}`, { json: payload }),
     remove: (id: string) => del<void>(`/templates/${id}`),
     reorderSteps: (id: string, payload: ReorderTemplateStepsPayload) =>
-      post<TemplateResponse>(`/templates/${id}/steps/reorder`, { json: payload }),
+      patch<TemplateResponse>(`/templates/${id}/steps/reorder`, { json: payload }),
+  },
+  steps: {
+    list: (params?: { taskId?: string; tagId?: string }) => get<TaskStepResponse[]>('/steps', { query: params }),
+    listGlobal: (params?: { tagId?: string }) => get<TaskStepResponse[]>('/steps/global', { query: params }),
+    create: (payload: CreateGlobalTaskStepPayload) => post<TaskStepResponse>('/steps', { json: payload }),
+    update: (id: string, payload: UpdateTaskStepPayload) => patch<TaskStepResponse>(`/steps/${id}`, { json: payload }),
+    remove: (id: string) => del<void>(`/steps/${id}`),
+  },
+  tags: {
+    list: () => get<TagResponse[]>('/tags'),
+    create: (payload: { name: string }) => post<TagResponse>('/tags', { json: payload }),
+    update: (id: string, payload: { name: string }) => patch<TagResponse>(`/tags/${id}`, { json: payload }),
+    remove: (id: string) => del<void>(`/tags/${id}`),
   },
   steps: {
     list: (params?: { taskId?: string; tagId?: string }) => get<TaskStepResponse[]>('/steps', { query: params }),

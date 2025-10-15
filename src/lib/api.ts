@@ -95,6 +95,13 @@ export type TaskFrequency = 'once' | 'weekly' | 'monthly' | 'seasonal';
 
 export type TaskStepMediaType = 'image' | 'video';
 
+export interface TagResponse {
+  id: string;
+  name: string;
+  createdAt: string;
+  updatedAt: string;
+}
+
 export interface TaskStepResponse {
   id: string;
   taskId: string;
@@ -105,6 +112,7 @@ export interface TaskStepResponse {
   mediaType?: TaskStepMediaType | null;
   requireUserMedia: boolean;
   createdAt: string;
+  tags: TagResponse[];
 }
 
 export interface MediaUploadResponse {
@@ -166,11 +174,16 @@ export interface CreateTaskStepPayload {
   mediaUrl?: string | null;
   mediaType?: TaskStepMediaType | null;
   requireUserMedia?: boolean;
+  tagIds?: string[];
 }
 
 export type UpdateTaskStepPayload = Partial<CreateTaskStepPayload> & {
   orderIndex?: number;
 };
+
+export interface CreateGlobalTaskStepPayload extends CreateTaskStepPayload {
+  taskId: string;
+}
 
 export interface TemplateStepInputPayload {
   taskStepId: string;
@@ -714,7 +727,8 @@ export const api = {
     list: (params?: { category?: string; frequency?: TaskFrequency; seasonMonth?: number }) =>
       get<TaskResponse[]>('/tasks', { query: params }),
     get: (id: string) => get<TaskResponse>(`/tasks/${id}`),
-    getSteps: (id: string) => get<TaskStepResponse[]>(`/tasks/${id}/steps`),
+    getSteps: (id: string, params?: { tagId?: string }) =>
+      get<TaskStepResponse[]>(`/tasks/${id}/steps`, { query: params }),
     create: (payload: CreateTaskPayload) => post<TaskResponse>('/tasks', { json: payload }),
     update: (id: string, payload: UpdateTaskPayload) =>
       patch<TaskResponse>(`/tasks/${id}`, { json: payload }),
@@ -737,6 +751,19 @@ export const api = {
     remove: (id: string) => del<void>(`/templates/${id}`),
     reorderSteps: (id: string, payload: ReorderTemplateStepsPayload) =>
       post<TemplateResponse>(`/templates/${id}/steps/reorder`, { json: payload }),
+  },
+  steps: {
+    list: (params?: { taskId?: string; tagId?: string }) => get<TaskStepResponse[]>('/steps', { query: params }),
+    listGlobal: (params?: { tagId?: string }) => get<TaskStepResponse[]>('/steps/global', { query: params }),
+    create: (payload: CreateGlobalTaskStepPayload) => post<TaskStepResponse>('/steps', { json: payload }),
+    update: (id: string, payload: UpdateTaskStepPayload) => patch<TaskStepResponse>(`/steps/${id}`, { json: payload }),
+    remove: (id: string) => del<void>(`/steps/${id}`),
+  },
+  tags: {
+    list: () => get<TagResponse[]>('/tags'),
+    create: (payload: { name: string }) => post<TagResponse>('/tags', { json: payload }),
+    update: (id: string, payload: { name: string }) => patch<TagResponse>(`/tags/${id}`, { json: payload }),
+    remove: (id: string) => del<void>(`/tags/${id}`),
   },
   assignments: {
     list: (params?: {

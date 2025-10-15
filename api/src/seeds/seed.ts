@@ -5,6 +5,7 @@ import { User, UserRole } from '../users/user.entity';
 import { Hive, HiveStatus } from '../hives/hive.entity';
 import { Task, TaskFrequency } from '../tasks/task.entity';
 import { TaskStep } from '../tasks/steps/task-step.entity';
+import { Tag } from '../tasks/tags/tag.entity';
 import { Template } from '../templates/template.entity';
 import { TemplateStep } from '../templates/template-step.entity';
 import { Assignment, AssignmentStatus } from '../assignments/assignment.entity';
@@ -22,6 +23,7 @@ async function runSeed(): Promise<void> {
     const hiveRepository = dataSource.getRepository(Hive);
     const taskRepository = dataSource.getRepository(Task);
     const stepRepository = dataSource.getRepository(TaskStep);
+    const tagRepository = dataSource.getRepository(Tag);
     const assignmentRepository = dataSource.getRepository(Assignment);
     const progressRepository = dataSource.getRepository(StepProgress);
     const notificationRepository = dataSource.getRepository(Notification);
@@ -35,6 +37,7 @@ async function runSeed(): Promise<void> {
       templateStepRepository, // template_steps
       templateRepository,   // templates
       stepRepository,       // task_steps (ar faktinis tavo pavadinimas)
+      tagRepository,        // tags
       notificationRepository,
       taskRepository,
       hiveRepository,
@@ -126,6 +129,10 @@ async function runSeed(): Promise<void> {
 
     await taskRepository.save([task1, task2]);
 
+    const generalTag = tagRepository.create({ name: 'Bendri darbai' });
+    const springTag = tagRepository.create({ name: 'Pavasaris' });
+    await tagRepository.save([generalTag, springTag]);
+
     const stepsTask1 = [
       { title: 'Prepare tools', orderIndex: 1, taskId: task1.id },
       { title: 'Inspect brood frames', orderIndex: 2, taskId: task1.id },
@@ -143,6 +150,25 @@ async function runSeed(): Promise<void> {
       ...stepsTask1.map((step) => stepRepository.create(step)),
       ...stepsTask2.map((step) => stepRepository.create(step)),
     ]);
+
+    const prepareToolsStep = savedSteps.find((step) => step.title === 'Prepare tools');
+    const addEmptySupersStep = savedSteps.find((step) => step.title === 'Add empty supers');
+
+    if (prepareToolsStep) {
+      await dataSource
+        .createQueryBuilder()
+        .relation(TaskStep, 'tags')
+        .of(prepareToolsStep.id)
+        .add(generalTag.id);
+    }
+
+    if (addEmptySupersStep) {
+      await dataSource
+        .createQueryBuilder()
+        .relation(TaskStep, 'tags')
+        .of(addEmptySupersStep.id)
+        .add(springTag.id);
+    }
 
     const inspectionTemplate = templateRepository.create({
       name: 'Spring Inspection Template',

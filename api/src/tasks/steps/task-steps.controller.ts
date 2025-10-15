@@ -8,6 +8,7 @@ import {
   Param,
   Patch,
   Post,
+  Query,
   Request,
 } from '@nestjs/common';
 
@@ -23,8 +24,8 @@ export class TaskStepsController {
   constructor(private readonly taskStepsService: TaskStepsService) {}
 
   @Get()
-  findAll(@Param('taskId') taskId: string) {
-    return this.taskStepsService.findAll(taskId);
+  findAll(@Param('taskId') taskId: string, @Query('tagId') tagId?: string) {
+    return this.taskStepsService.findAll(taskId, tagId);
   }
 
   @Get(':stepId')

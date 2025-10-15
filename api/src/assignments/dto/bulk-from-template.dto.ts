@@ -1,4 +1,12 @@
-import { ArrayNotEmpty, IsArray, IsNotEmpty, IsOptional, IsString, IsUUID } from 'class-validator';
+import {
+  ArrayNotEmpty,
+  IsArray,
+  IsBoolean,
+  IsNotEmpty,
+  IsOptional,
+  IsString,
+  IsUUID,
+} from 'class-validator';
 
 import { IsDateOnlyString } from '../../common/validators/is-date-only-string.decorator';
 
@@ -19,10 +27,13 @@ export class BulkFromTemplateDto {
   @IsString({ message: 'Neteisingi duomenys' })
   description?: string;
 
-  @IsOptional()
   @IsDateOnlyString({ message: 'Pradžios data turi būti formato YYYY-MM-DD' })
-  startDate?: string;
+  startDate!: string;
 
   @IsDateOnlyString({ message: 'Pabaigos data turi būti formato YYYY-MM-DD' })
   dueDate!: string;
+
+  @IsOptional()
+  @IsBoolean({ message: 'Neteisingi duomenys' })
+  notify?: boolean;
 }

@@ -138,6 +138,39 @@ export interface TemplateResponse {
   steps: TemplateStepResponse[];
 }
 
+export interface NewsGroupResponse {
+  id: string;
+  name: string;
+}
+
+export interface NewsPostResponse {
+  id: string;
+  title: string;
+  body: string;
+  imageUrl: string | null;
+  targetAll: boolean;
+  groups: NewsGroupResponse[];
+  createdAt: string;
+  updatedAt: string;
+}
+
+export interface PaginatedNewsResponse {
+  items: NewsPostResponse[];
+  page: number;
+  limit: number;
+  hasMore: boolean;
+}
+
+export interface CreateNewsPayload {
+  title: string;
+  body: string;
+  imageUrl?: string | null;
+  targetAll: boolean;
+  groupIds?: string[];
+}
+
+export type UpdateNewsPayload = Partial<CreateNewsPayload>;
+
 export interface TaskResponse {
   id: string;
   title: string;
@@ -716,6 +749,21 @@ export const api = {
     list: () => get<NotificationResponse[]>('/notifications'),
     markRead: (id: string) => patch<{ success: boolean }>(`/notifications/${id}/read`),
     unreadCount: () => get<NotificationsUnreadCountResponse>('/notifications/unread-count'),
+  },
+  news: {
+    list: (params?: { page?: number; limit?: number }) =>
+      get<PaginatedNewsResponse>('/news', { query: params }),
+    get: (id: string) => get<NewsPostResponse>(`/news/${id}`),
+    admin: {
+      list: (params?: { page?: number; limit?: number }) =>
+        get<PaginatedNewsResponse>('/admin/news', { query: params }),
+      get: (id: string) => get<NewsPostResponse>(`/admin/news/${id}`),
+      create: (payload: CreateNewsPayload) =>
+        post<NewsPostResponse>('/admin/news', { json: payload }),
+      update: (id: string, payload: UpdateNewsPayload) =>
+        patch<NewsPostResponse>(`/admin/news/${id}`, { json: payload }),
+      remove: (id: string) => del<{ success: boolean }>(`/admin/news/${id}`),
+    },
   },
   hives: {
     list: (params?: { status?: HiveStatus }) => get<HiveResponse[]>('/hives', { query: params }),

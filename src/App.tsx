@@ -2,10 +2,11 @@ import { Toaster } from "@/components/ui/toaster";
 import { Toaster as Sonner } from "@/components/ui/sonner";
 import { TooltipProvider } from "@/components/ui/tooltip";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
-import { BrowserRouter, Routes, Route } from "react-router-dom";
+import { BrowserRouter, Routes, Route, Navigate } from "react-router-dom";
 import { AuthProvider } from "@/contexts/AuthContext";
 import { ProtectedRoute } from "@/components/auth/ProtectedRoute";
-import Dashboard from "./pages/Dashboard";
+import News from "./pages/News";
+import NewsDetail from "./pages/NewsDetail";
 import Login from "./pages/auth/Login";
 import Register from "./pages/auth/Register";
 import ForgotPassword from "./pages/auth/ForgotPassword";
@@ -22,6 +23,7 @@ import AdminGroups from "./pages/admin/Groups";
 import AdminSteps from "./pages/admin/Steps";
 import AdminTasks from "./pages/admin/Tasks";
 import AdminTemplates from "./pages/admin/Templates";
+import AdminNews from "./pages/admin/News";
 import NotFound from "./pages/NotFound";
 
 const queryClient = new QueryClient();
@@ -38,7 +40,9 @@ const App = () => (
             <Route path="/auth/register" element={<Register />} />
             <Route path="/auth/forgot" element={<ForgotPassword />} />
             <Route element={<ProtectedRoute />}>
-              <Route path="/" element={<Dashboard />} />
+              <Route path="/" element={<Navigate to="/news" replace />} />
+              <Route path="/news" element={<News />} />
+              <Route path="/news/:id" element={<NewsDetail />} />
               <Route path="/hives" element={<Hives />} />
               <Route path="/hives/:id" element={<HiveDetail />} />
               <Route path="/tasks" element={<Tasks />} />
@@ -57,6 +61,7 @@ const App = () => (
                 <Route path="/admin/steps" element={<AdminSteps />} />
                 <Route path="/admin/tasks" element={<AdminTasks />} />
                 <Route path="/admin/templates" element={<AdminTemplates />} />
+                <Route path="/admin/news" element={<AdminNews />} />
               </Route>
               <Route path="*" element={<NotFound />} />
             </Route>

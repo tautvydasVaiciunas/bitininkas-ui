@@ -1,6 +1,5 @@
 import { NavLink } from "react-router-dom";
 import {
-  LayoutDashboard,
   Box,
   ListTodo,
   Bell,
@@ -11,6 +10,7 @@ import {
   ClipboardList,
   FileStack,
   BarChart3,
+  Newspaper,
 } from "lucide-react";
 import { useAuth } from "@/contexts/AuthContext";
 import { cn } from "@/lib/utils";
@@ -22,7 +22,7 @@ export const Sidebar = () => {
   const isManager = user?.role === "manager" || isAdmin;
 
   const navItems = [
-    { to: "/", label: "Apžvalga", icon: LayoutDashboard, show: true },
+    { to: "/news", label: "Naujienos", icon: Newspaper, show: true },
     { to: "/hives", label: "Aviliai", icon: Box, show: true },
     { to: "/tasks", label: "Užduotys", icon: ListTodo, show: true },
     { to: "/notifications", label: "Pranešimai", icon: Bell, show: true },
@@ -43,6 +43,12 @@ export const Sidebar = () => {
       to: "/admin/templates",
       label: "Šablonai",
       icon: FileStack,
+      show: isManager,
+    },
+    {
+      to: "/admin/news",
+      label: "Naujienos",
+      icon: Newspaper,
       show: isManager,
     },
     {

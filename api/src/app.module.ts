@@ -20,6 +20,7 @@ import { GroupsModule } from './groups/groups.module';
 import { ReportsModule } from './reports/reports.module';
 import { TemplatesModule } from './templates/templates.module';
 import { MediaModule } from './media/media.module';
+import { NewsModule } from './news/news.module';
 
 import ormConfig from './typeorm.config';
 
@@ -55,6 +56,7 @@ import ormConfig from './typeorm.config';
     ReportsModule,
     TemplatesModule,
     MediaModule,
+    NewsModule,
   ],
   providers: [
     { provide: APP_GUARD, useClass: ThrottlerGuard },

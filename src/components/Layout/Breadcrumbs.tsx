@@ -2,10 +2,12 @@ import { Link, useLocation } from 'react-router-dom';
 import { ChevronRight } from 'lucide-react';
 import { Fragment, useCallback, useMemo } from 'react';
 import { useQueryClient } from '@tanstack/react-query';
-import type { Hive } from '@/lib/types';
+import type { InfiniteData } from '@tanstack/react-query';
+import type { Hive, PaginatedNews } from '@/lib/types';
 
 const routeLabels: Record<string, string> = {
-  '': 'Apžvalga',
+  '': 'Naujienos',
+  news: 'Naujienos',
   hives: 'Aviliai',
   tasks: 'Užduotys',
   notifications: 'Pranešimai',
@@ -39,6 +41,27 @@ export const Breadcrumbs = () => {
     [queryClient]
   );
 
+  const getNewsLabel = useCallback(
+    (segment: string) => {
+      const cached = queryClient.getQueryData<InfiniteData<PaginatedNews>>([
+        'news',
+        'list',
+      ]);
+
+      if (cached?.pages) {
+        for (const page of cached.pages) {
+          const found = page.items.find((item) => item.id === segment);
+          if (found) {
+            return found.title;
+          }
+        }
+      }
+
+      return undefined;
+    },
+    [queryClient]
+  );
+
   const breadcrumbs = useMemo(
     () =>
       pathSegments.map((segment, index) => {
@@ -52,6 +75,10 @@ export const Breadcrumbs = () => {
           label = getHiveLabel(segment) ?? formatIdentifier(segment);
         }
 
+        if (!label && previous === 'news') {
+          label = getNewsLabel(segment) ?? 'Naujiena';
+        }
+
         if (!label) {
           label = routeLabels[segment] || segment;
         }
@@ -62,7 +89,7 @@ export const Breadcrumbs = () => {
           isLast,
         };
       }),
-    [getHiveLabel, pathSegments]
+    [getHiveLabel, getNewsLabel, pathSegments]
   );
 
   if (pathSegments.length === 0) {
@@ -71,8 +98,8 @@ export const Breadcrumbs = () => {
 
   return (
     <nav className="flex items-center gap-2 text-sm text-muted-foreground mb-6">
-      <Link to="/" className="hover:text-foreground transition-colors">
-        Apžvalga
+      <Link to="/news" className="hover:text-foreground transition-colors">
+        Naujienos
       </Link>
       {breadcrumbs.map((crumb) => (
         <Fragment key={crumb.path}>

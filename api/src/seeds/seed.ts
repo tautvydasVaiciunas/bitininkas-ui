@@ -11,6 +11,9 @@ import { TemplateStep } from '../templates/template-step.entity';
 import { Assignment, AssignmentStatus } from '../assignments/assignment.entity';
 import { StepProgress } from '../progress/step-progress.entity';
 import { Notification } from '../notifications/notification.entity';
+import { Group } from '../groups/group.entity';
+import { GroupMember } from '../groups/group-member.entity';
+import { NewsPost } from '../news/news-post.entity';
 import * as bcrypt from 'bcryptjs';
 
 async function runSeed(): Promise<void> {
@@ -29,6 +32,9 @@ async function runSeed(): Promise<void> {
     const notificationRepository = dataSource.getRepository(Notification);
     const templateRepository = dataSource.getRepository(Template);
     const templateStepRepository = dataSource.getRepository(TemplateStep);
+    const groupRepository = dataSource.getRepository(Group);
+    const groupMemberRepository = dataSource.getRepository(GroupMember);
+    const newsRepository = dataSource.getRepository(NewsPost);
 
     // --- FK-safe wipe: one TRUNCATE ... CASCADE over all involved tables ---
     const repos = [
@@ -39,6 +45,9 @@ async function runSeed(): Promise<void> {
       stepRepository,       // task_steps (ar faktinis tavo pavadinimas)
       tagRepository,        // tags
       notificationRepository,
+      newsRepository,
+      groupMemberRepository,
+      groupRepository,
       taskRepository,
       hiveRepository,
       userRepository,
@@ -77,6 +86,25 @@ async function runSeed(): Promise<void> {
     });
 
     await userRepository.save([admin, manager, user]);
+
+    const communityGroup = groupRepository.create({
+      name: 'Bendrystės klubas',
+      description: 'Bitininkų bendruomenės grupė',
+    });
+
+    const forestGroup = groupRepository.create({
+      name: 'Miško bitininkai',
+      description: 'Grupė darbui miškuose',
+    });
+
+    await groupRepository.save([communityGroup, forestGroup]);
+
+    await groupMemberRepository.save([
+      groupMemberRepository.create({ groupId: communityGroup.id, userId: admin.id }),
+      groupMemberRepository.create({ groupId: communityGroup.id, userId: manager.id }),
+      groupMemberRepository.create({ groupId: communityGroup.id, userId: user.id }),
+      groupMemberRepository.create({ groupId: forestGroup.id, userId: manager.id }),
+    ]);
 
     const hive1 = hiveRepository.create({
       label: 'Avilys Alfa',
@@ -292,6 +320,23 @@ async function runSeed(): Promise<void> {
         payload: { assignmentId: assignment1.id },
       }),
     ]);
+
+    const seasonNews = newsRepository.create({
+      title: 'Pavasario sezonas prasideda',
+      body: 'Patikrinkite avilius, papildykite pašarus ir suplanuokite pirmuosius darbus.',
+      targetAll: true,
+      imageUrl: null,
+    });
+
+    const forestNews = newsRepository.create({
+      title: 'Miško bitininkų susitikimas',
+      body: 'Miško bitininkų grupės nariai kviečiami į susitikimą aptarti pavasario darbus.',
+      targetAll: false,
+      imageUrl: null,
+      groups: [forestGroup],
+    });
+
+    await newsRepository.save([seasonNews, forestNews]);
 
     console.log('Sėklos sėkmingai įkeltos');
   } catch (error) {

@@ -61,5 +61,15 @@
     "updateSuccess": "Žymė atnaujinta",
     "deleteSuccess": "Žymė ištrinta",
     "errorFallback": "Įvyko klaida. Bandykite dar kartą."
+  },
+  "news": {
+    "createSuccess": "Naujiena sukurta",
+    "updateSuccess": "Naujiena atnaujinta",
+    "deleteSuccess": "Naujiena pašalinta",
+    "createError": "Nepavyko sukurti naujienos",
+    "updateError": "Nepavyko atnaujinti naujienos",
+    "deleteError": "Nepavyko pašalinti naujienos",
+    "loadError": "Nepavyko įkelti naujienų",
+    "uploadError": "Nepavyko įkelti paveikslėlio"
   }
 }

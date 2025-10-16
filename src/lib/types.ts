@@ -47,6 +47,11 @@ import type {
   ReorderTemplateStepsPayload,
   TagResponse as ApiTagResponse,
   CreateGlobalTaskStepPayload,
+  CreateNewsPayload,
+  UpdateNewsPayload,
+  NewsPostResponse as ApiNewsPostResponse,
+  PaginatedNewsResponse as ApiPaginatedNewsResponse,
+  NewsGroupResponse as ApiNewsGroupResponse,
 } from './api';
 
 export type {
@@ -76,6 +81,8 @@ export type {
   BulkAssignmentsFromTemplatePayload,
   BulkAssignmentsFromTemplateResponse,
   CreateGlobalTaskStepPayload,
+  CreateNewsPayload,
+  UpdateNewsPayload,
 } from './api';
 
 export type AuthenticatedUser = ApiAuthenticatedUser;
@@ -106,6 +113,14 @@ export type GroupMember = ApiGroupMemberResponse;
 export type Group = Omit<ApiGroupResponse, 'members'> & { members: GroupMember[] };
 export type AssignmentReportItem = ApiAssignmentReportRow;
 export type Profile = ApiProfileResponse;
+export type NewsGroup = ApiNewsGroupResponse;
+export type NewsPost = ApiNewsPostResponse;
+export interface PaginatedNews {
+  items: NewsPost[];
+  page: number;
+  limit: number;
+  hasMore: boolean;
+}
 
 export interface User extends ApiAuthenticatedUser {
   phone?: string | null;
@@ -197,6 +212,23 @@ export const mapNotificationFromApi = (notification: ApiNotificationResponse): N
   scheduledAt: mapOptionalString(notification.scheduledAt),
   sentAt: mapOptionalString(notification.sentAt),
   readAt: mapOptionalString(notification.readAt),
+});
+
+export const mapNewsPostFromApi = (post: ApiNewsPostResponse): NewsPost => ({
+  ...post,
+  imageUrl: post.imageUrl ?? null,
+  groups: Array.isArray(post.groups)
+    ? post.groups.map((group) => ({ id: group.id, name: group.name }))
+    : [],
+});
+
+export const mapPaginatedNewsFromApi = (
+  response: ApiPaginatedNewsResponse,
+): PaginatedNews => ({
+  items: response.items.map(mapNewsPostFromApi),
+  page: response.page,
+  limit: response.limit,
+  hasMore: response.hasMore,
 });
 
 export const mapUserFromApi = (user: ApiAuthenticatedUser): User => ({

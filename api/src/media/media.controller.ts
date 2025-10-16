@@ -4,7 +4,7 @@ import { diskStorage } from 'multer';
 import { extname } from 'node:path';
 import { existsSync, mkdirSync } from 'node:fs';
 import { randomUUID } from 'node:crypto';
-import type { Express } from 'express';
+import { Express } from 'express';
 
 import { Roles } from '../common/decorators/roles.decorator';
 import { UserRole } from '../users/user.entity';

@@ -38,7 +38,7 @@ function isValidDateOnly(value: string): boolean {
 }
 
 export function IsDateOnlyString(validationOptions?: ValidationOptions) {
-  return function (object: Record<string, unknown>, propertyName: string) {
+  return function (object: any, propertyName: string) {
     registerDecorator({
       name: 'isDateOnlyString',
       target: object.constructor,

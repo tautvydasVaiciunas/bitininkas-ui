@@ -63,12 +63,16 @@ export const Sidebar = () => {
     <aside className="fixed left-0 top-0 h-screen w-64 bg-sidebar border-r border-sidebar-border flex flex-col">
       <div className="p-6 border-b border-sidebar-border">
         <div className="flex items-center gap-3">
-          <div className="w-10 h-10 rounded-lg bg-primary flex items-center justify-center">
-            <Box className="w-6 h-6 text-primary-foreground" />
+          <div className="w-10 h-10 flex items-center justify-center shrink-0">
+            <img
+              src="https://static.wixstatic.com/media/453317_cb9f63ff26714a80828d532ffc091160~mv2.png"
+              alt="Bus medaus logotipas"
+              className="h-10 w-auto max-w-full object-contain"
+            />
           </div>
           <div>
             <h1 className="text-lg font-semibold text-sidebar-foreground">
-              Bitininkas
+              Bus medaus
             </h1>
             <p className="text-xs text-muted-foreground">
               Bitininkystės sistema

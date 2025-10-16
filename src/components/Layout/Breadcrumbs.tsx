@@ -3,7 +3,7 @@ import { ChevronRight } from 'lucide-react';
 import { Fragment, useCallback, useMemo } from 'react';
 import { useQueryClient } from '@tanstack/react-query';
 import type { InfiniteData } from '@tanstack/react-query';
-import type { Hive, PaginatedNews } from '@/lib/types';
+import type { Assignment, AssignmentDetails, Hive, PaginatedNews, Task } from '@/lib/types';
 
 const routeLabels: Record<string, string> = {
   '': 'Naujienos',
@@ -37,6 +37,44 @@ export const Breadcrumbs = () => {
       const cachedList = queryClient.getQueryData<Hive[]>(['hives']);
       const matched = cachedList?.find((item) => item.id === segment);
       return matched?.label;
+    },
+    [queryClient]
+  );
+
+  const getTaskLabel = useCallback(
+    (segment: string) => {
+      const cachedDetail = queryClient.getQueryData<AssignmentDetails>([
+        'assignments',
+        segment,
+        'details',
+      ]);
+
+      if (cachedDetail?.task?.title) {
+        return cachedDetail.task.title;
+      }
+
+      const cachedLists = queryClient.getQueriesData<{
+        assignments?: Assignment[];
+        tasks?: Task[];
+      }>({ queryKey: ['assignments'] });
+
+      for (const [, data] of cachedLists) {
+        if (!data?.assignments?.length) continue;
+
+        const foundAssignment = data.assignments.find((item) => item.id === segment);
+        if (!foundAssignment) continue;
+
+        if (data.tasks?.length) {
+          const matchedTask = data.tasks.find((task) => task.id === foundAssignment.taskId);
+          if (matchedTask?.title) {
+            return matchedTask.title;
+          }
+        }
+
+        break;
+      }
+
+      return undefined;
     },
     [queryClient]
   );
@@ -79,6 +117,10 @@ export const Breadcrumbs = () => {
           label = getNewsLabel(segment) ?? 'Naujiena';
         }
 
+        if (!label && previous === 'tasks') {
+          label = getTaskLabel(segment) ?? 'Užduotis';
+        }
+
         if (!label) {
           label = routeLabels[segment] || segment;
         }
@@ -89,7 +131,7 @@ export const Breadcrumbs = () => {
           isLast,
         };
       }),
-    [getHiveLabel, getNewsLabel, pathSegments]
+    [getHiveLabel, getNewsLabel, getTaskLabel, pathSegments]
   );
 
   if (pathSegments.length === 0) {

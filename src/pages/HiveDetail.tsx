@@ -137,6 +137,7 @@ export default function HiveDetail() {
   };
 
   const friendlyId = hive ? `HIVE-${hive.id.slice(0, 8).toUpperCase()}` : '';
+  const showFriendlyId = import.meta.env.MODE === 'development';
 
   const updateHiveMutation = useMutation<Hive, HttpError | Error, UpdateHivePayload>({
     mutationFn: async (payload) => {
@@ -260,7 +261,7 @@ export default function HiveDetail() {
                     : 'Archyvuota'}
               </Badge>
             </div>
-            {friendlyId ? (
+            {showFriendlyId && friendlyId ? (
               <p className="text-sm font-mono text-muted-foreground">{friendlyId}</p>
             ) : null}
             <div className="flex items-center gap-4 text-muted-foreground">
@@ -296,10 +297,12 @@ export default function HiveDetail() {
           </CardHeader>
           <CardContent>
             <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
-              <div>
-                <p className="text-sm text-muted-foreground mb-1">Identifikatorius</p>
-                <p className="font-medium font-mono">{friendlyId || '—'}</p>
-              </div>
+              {showFriendlyId ? (
+                <div>
+                  <p className="text-sm text-muted-foreground mb-1">Identifikatorius</p>
+                  <p className="font-medium font-mono">{friendlyId || '—'}</p>
+                </div>
+              ) : null}
               <div>
                 <p className="text-sm text-muted-foreground mb-1">Pavadinimas</p>
                 <p className="font-medium">{hive.label}</p>

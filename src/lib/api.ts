@@ -215,9 +215,7 @@ export type UpdateTaskStepPayload = Partial<CreateTaskStepPayload> & {
   orderIndex?: number;
 };
 
-export interface CreateGlobalTaskStepPayload extends CreateTaskStepPayload {
-  taskId: string;
-}
+export type CreateGlobalTaskStepPayload = CreateTaskStepPayload;
 
 export interface TemplateStepInputPayload {
   taskStepId: string;

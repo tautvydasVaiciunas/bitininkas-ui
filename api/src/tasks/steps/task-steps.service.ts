@@ -8,7 +8,7 @@ import {
 import { InjectRepository } from '@nestjs/typeorm';
 import { DataSource, In, Repository } from 'typeorm';
 
-import { Task } from '../task.entity';
+import { Task, TaskFrequency } from '../task.entity';
 import { TaskStep, type TaskStepMediaType } from './task-step.entity';
 import { ActivityLogService } from '../../activity-log/activity-log.service';
 import { UserRole } from '../../users/user.entity';
@@ -21,6 +21,9 @@ import { Tag } from '../tags/tag.entity';
 @Injectable()
 export class TaskStepsService {
   private readonly logger = new Logger(TaskStepsService.name);
+  private readonly globalTaskTitle = '__GLOBAL_STEP_CONTAINER__';
+  private readonly globalTaskCategory = '__internal_global_steps__';
+  private globalTaskIdPromise: Promise<string | null> | null = null;
 
   constructor(
     @InjectRepository(TaskStep)
@@ -98,6 +101,69 @@ export class TaskStepsService {
     return this.stepsRepository
       .createQueryBuilder('step')
       .leftJoinAndSelect('step.tags', 'tag');
+  }
+
+  private async findGlobalTask(withDeleted = true) {
+    const qb = this.tasksRepository.createQueryBuilder('task');
+
+    if (withDeleted) {
+      qb.withDeleted();
+    }
+
+    qb.where('task.title = :title', { title: this.globalTaskTitle }).andWhere('task.category = :category', {
+      category: this.globalTaskCategory,
+    });
+
+    return qb.getOne();
+  }
+
+  private async ensureGlobalTask(userId: string) {
+    const existing = await this.findGlobalTask();
+    if (existing) {
+      return existing.id;
+    }
+
+    const task = this.tasksRepository.create({
+      title: this.globalTaskTitle,
+      description: null,
+      category: this.globalTaskCategory,
+      seasonMonths: [],
+      frequency: TaskFrequency.ONCE,
+      defaultDueDays: 0,
+      createdByUserId: userId,
+    });
+
+    const saved = await this.tasksRepository.save(task);
+    await this.tasksRepository.softRemove(saved);
+
+    return saved.id;
+  }
+
+  private async getGlobalTaskId(userId?: string) {
+    if (!this.globalTaskIdPromise) {
+      this.globalTaskIdPromise = (async () => {
+        const existing = await this.findGlobalTask();
+        if (existing) {
+          return existing.id;
+        }
+
+        if (!userId) {
+          return null;
+        }
+
+        return this.ensureGlobalTask(userId);
+      })();
+    }
+
+    const id = await this.globalTaskIdPromise;
+
+    if (!id && userId) {
+      // Re-run with user id to create container if it was previously null
+      this.globalTaskIdPromise = this.ensureGlobalTask(userId).then((value) => value);
+      return this.globalTaskIdPromise;
+    }
+
+    return id;
   }
 
   private async ensureTaskExists(taskId: string) {
@@ -194,7 +260,16 @@ export class TaskStepsService {
   }
 
   async findAllGlobal(tagId?: string) {
-    const query = this.createBaseQueryBuilder().orderBy('step.title', 'ASC').addOrderBy('step.createdAt', 'DESC');
+    const globalTaskId = await this.getGlobalTaskId();
+
+    if (!globalTaskId) {
+      return [];
+    }
+
+    const query = this.createBaseQueryBuilder()
+      .where('step.taskId = :taskId', { taskId: globalTaskId })
+      .orderBy('step.title', 'ASC')
+      .addOrderBy('step.createdAt', 'DESC');
 
     if (tagId) {
       query.andWhere('tag.id = :tagId', { tagId });
@@ -288,8 +363,43 @@ export class TaskStepsService {
   }
 
   async createGlobal(dto: CreateGlobalTaskStepDto, user: { id: string; role: UserRole }) {
-    const { taskId, ...rest } = dto;
-    return this.create(taskId, rest as CreateTaskStepDto, user);
+    this.assertManager(user.role);
+
+    const globalTaskId = await this.getGlobalTaskId(user.id);
+
+    if (!globalTaskId) {
+      this.logger.error('Globalių žingsnių konteineris nesukurtas');
+      throw new BadRequestException({
+        message: 'Nepavyko sukurti žingsnio',
+        details: 'Globalių žingsnių konteineris nerastas',
+      });
+    }
+
+    const fallbackOrder = await this.getNextOrderIndex(globalTaskId);
+    const normalized = this.normalizeStepInput(dto, fallbackOrder);
+
+    if (!normalized.title) {
+      this.logger.warn('Nepavyko sukurti žingsnio: pavadinimas privalomas');
+      throw new BadRequestException({
+        message: 'Nepavyko sukurti žingsnio',
+        details: 'Pavadinimas privalomas',
+      });
+    }
+
+    const step = this.stepsRepository.create({
+      ...normalized,
+      taskId: globalTaskId,
+    });
+
+    const saved = await runWithDatabaseErrorHandling(
+      () => this.stepsRepository.save(step),
+      { message: 'Nepavyko sukurti žingsnio' },
+    );
+
+    await this.syncStepTags(saved.id, dto.tagIds ?? []);
+    await this.activityLog.log('task_step_created', user.id, 'task', globalTaskId);
+
+    return this.findById(saved.id);
   }
 
   async updateGlobal(stepId: string, dto: UpdateTaskStepDto, user: { id: string; role: UserRole }) {

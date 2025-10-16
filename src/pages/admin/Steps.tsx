@@ -35,7 +35,7 @@ const defaultCreateForm = () => ({
   title: '',
   description: '',
   mediaUrl: '',
-  mediaType: '' as TaskStepMediaType | '',
+  mediaType: undefined as TaskStepMediaType | undefined,
   requireUserMedia: false,
   tagIds: [] as string[],
 });
@@ -86,15 +86,20 @@ export default function AdminSteps() {
     },
   });
 
+  const availableTasks = useMemo(
+    () => tasks.filter((task) => typeof task.id === 'string' && task.id.length > 0),
+    [tasks],
+  );
+
   useEffect(() => {
     if (!isCreateOpen) {
       return;
     }
 
-    if (!createForm.taskId && tasks.length > 0) {
-      setCreateForm((prev) => ({ ...prev, taskId: tasks[0]!.id }));
+    if (!createForm.taskId && availableTasks.length > 0) {
+      setCreateForm((prev) => ({ ...prev, taskId: availableTasks[0]!.id }));
     }
-  }, [createForm.taskId, isCreateOpen, tasks]);
+  }, [availableTasks, createForm.taskId, isCreateOpen]);
 
   const taskTitleMap = useMemo(
     () => new Map(tasks.map((task) => [task.id, task.title] as const)),
@@ -107,14 +112,14 @@ export default function AdminSteps() {
   });
 
   const tagOptions: TagMultiSelectOption[] = useMemo(
-    () => tags.map((tag) => ({ id: tag.id, name: tag.name })),
+    () =>
+      tags
+        .filter((tag) => typeof tag.id === 'string' && tag.id.length > 0)
+        .map((tag) => ({ id: tag.id, name: tag.name })),
     [tags],
   );
 
-  const tagFilterOptions = useMemo(
-    () => [{ id: '', name: 'Visos žymos' }, ...tagOptions],
-    [tagOptions],
-  );
+  const tagFilterSelectValue = tagFilter === '' ? 'all' : tagFilter;
 
   const stepsQueryKey = useMemo(() => ['steps', tagFilter || 'all'] as const, [tagFilter]);
 
@@ -315,9 +320,10 @@ export default function AdminSteps() {
       title: step.title,
       description: step.contentText ?? '',
       mediaUrl: step.mediaUrl ?? '',
-      mediaType: step.mediaType ?? '',
+      mediaType: step.mediaType ?? undefined,
       requireUserMedia: step.requireUserMedia ?? false,
-      tagIds: step.tags?.map((tag) => tag.id) ?? [],
+      tagIds:
+        step.tags?.map((tag) => tag.id).filter((id): id is string => typeof id === 'string' && id.length > 0) ?? [],
       orderIndex: step.orderIndex ? String(step.orderIndex) : '',
     });
     setIsEditOpen(true);
@@ -350,13 +356,17 @@ export default function AdminSteps() {
           <div className="space-y-4">
             <div className="space-y-2">
               <Label htmlFor="tag-filter">Filtruoti pagal žymą</Label>
-              <Select value={tagFilter} onValueChange={setTagFilter}>
+              <Select
+                value={tagFilterSelectValue}
+                onValueChange={(value) => setTagFilter(value === 'all' ? '' : value)}
+              >
                 <SelectTrigger id="tag-filter">
                   <SelectValue placeholder="Pasirinkite žymą" />
                 </SelectTrigger>
                 <SelectContent>
-                  {tagFilterOptions.map((tag) => (
-                    <SelectItem key={tag.id || 'all'} value={tag.id}>
+                  <SelectItem value="all">Visos žymos</SelectItem>
+                  {tagOptions.map((tag) => (
+                    <SelectItem key={tag.id} value={tag.id}>
                       {tag.name}
                     </SelectItem>
                   ))}
@@ -430,7 +440,7 @@ export default function AdminSteps() {
                 <div className="space-y-2">
                   <Label htmlFor="create-step-task">Užduotis</Label>
                   <Select
-                    value={createForm.taskId}
+                    value={createForm.taskId || undefined}
                     onValueChange={(value) => setCreateForm((prev) => ({ ...prev, taskId: value }))}
                     disabled={createFormDisabled || tasksLoading}
                   >
@@ -438,7 +448,7 @@ export default function AdminSteps() {
                       <SelectValue placeholder={tasksLoading ? 'Kraunama…' : 'Pasirinkite užduotį'} />
                     </SelectTrigger>
                     <SelectContent>
-                      {tasks.map((task) => (
+                      {availableTasks.map((task) => (
                         <SelectItem key={task.id} value={task.id}>
                           {task.title}
                         </SelectItem>

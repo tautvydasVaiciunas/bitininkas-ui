@@ -97,21 +97,28 @@ const News = () => {
         </div>
 
         {isLoading ? (
-          <div className="grid grid-cols-1 gap-6 md:grid-cols-2">
-            {Array.from({ length: 4 }).map((_, index) => (
+          <div className="space-y-6">
+            {Array.from({ length: 3 }).map((_, index) => (
               <Card key={index} className="overflow-hidden">
-                <Skeleton className="h-48 w-full" />
-                <CardHeader className="space-y-2">
-                  <Skeleton className="h-5 w-1/2" />
-                  <Skeleton className="h-6 w-3/4" />
-                </CardHeader>
-                <CardContent className="space-y-3">
-                  <Skeleton className="h-4 w-full" />
-                  <Skeleton className="h-4 w-2/3" />
-                </CardContent>
-                <CardFooter>
-                  <Skeleton className="h-10 w-32" />
-                </CardFooter>
+                <div className="flex flex-col md:flex-row">
+                  <div className="md:w-2/5 lg:w-1/3">
+                    <Skeleton className="h-48 w-full md:h-full" />
+                  </div>
+                  <div className="flex flex-1 flex-col">
+                    <CardHeader className="space-y-3">
+                      <Skeleton className="h-4 w-1/3" />
+                      <Skeleton className="h-6 w-3/4" />
+                    </CardHeader>
+                    <CardContent className="space-y-3">
+                      <Skeleton className="h-4 w-full" />
+                      <Skeleton className="h-4 w-5/6" />
+                      <Skeleton className="h-4 w-2/3" />
+                    </CardContent>
+                    <CardFooter className="mt-auto flex justify-end border-t border-border/60 bg-muted/10 p-6">
+                      <Skeleton className="h-10 w-32" />
+                    </CardFooter>
+                  </div>
+                </div>
               </Card>
             ))}
           </div>
@@ -134,31 +141,46 @@ const News = () => {
           </div>
         ) : (
           <div className="space-y-8">
-            <div className="grid grid-cols-1 gap-6 md:grid-cols-2">
+            <div className="space-y-6">
               {newsItems.map((post) => (
-                <Card key={post.id} className="flex h-full flex-col overflow-hidden">
-                  {post.imageUrl ? (
-                    <div className="h-48 w-full overflow-hidden">
-                      <img
-                        src={post.imageUrl}
-                        alt={post.title}
-                        className="h-full w-full object-cover"
-                        loading="lazy"
-                      />
+                <Card key={post.id} className="overflow-hidden">
+                  <div className="flex flex-col md:flex-row">
+                    {post.imageUrl ? (
+                      <div className="md:w-2/5 lg:w-1/3">
+                        <img
+                          src={post.imageUrl}
+                          alt={post.title}
+                          className="h-56 w-full object-cover md:h-full"
+                          loading="lazy"
+                        />
+                      </div>
+                    ) : null}
+                    <div className="flex flex-1 flex-col">
+                      <CardHeader className="space-y-3 md:space-y-4">
+                        <span className="text-sm font-medium uppercase tracking-wide text-muted-foreground">
+                          {formatDate(post.createdAt)}
+                        </span>
+                        <CardTitle className="text-2xl leading-tight md:text-3xl">{post.title}</CardTitle>
+                      </CardHeader>
+                      <CardContent className="flex-1">
+                        <p className="text-base text-muted-foreground md:text-lg">
+                          {buildSnippet(post.body)}
+                        </p>
+                      </CardContent>
+                      <CardFooter className="mt-auto flex flex-col gap-3 border-t border-border/60 bg-muted/10 p-6 md:flex-row md:items-center md:justify-between">
+                        <div className="text-sm text-muted-foreground">
+                          {post.targetAll
+                            ? 'Matoma visiems nariams'
+                            : post.groups.length > 0
+                              ? `Matoma grupėms: ${post.groups.map((group) => group.name).join(', ')}`
+                              : 'Matoma pasirinktoms grupėms'}
+                        </div>
+                        <Button asChild>
+                          <Link to={`/news/${post.id}`}>Skaityti</Link>
+                        </Button>
+                      </CardFooter>
                     </div>
-                  ) : null}
-                  <CardHeader className="space-y-3">
-                    <span className="text-sm text-muted-foreground">{formatDate(post.createdAt)}</span>
-                    <CardTitle className="text-2xl leading-tight">{post.title}</CardTitle>
-                  </CardHeader>
-                  <CardContent className="flex-1">
-                    <p className="text-muted-foreground">{buildSnippet(post.body)}</p>
-                  </CardContent>
-                  <CardFooter>
-                    <Button asChild>
-                      <Link to={`/news/${post.id}`}>Skaityti</Link>
-                    </Button>
-                  </CardFooter>
+                  </div>
                 </Card>
               ))}
             </div>

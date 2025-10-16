@@ -159,6 +159,7 @@ export interface PaginatedNewsResponse {
   page: number;
   limit: number;
   hasMore: boolean;
+  total: number;
 }
 
 export interface CreateNewsPayload {

@@ -1,7 +1,9 @@
 import {
   BadRequestException,
+  HttpException,
   Inject,
   Injectable,
+  InternalServerErrorException,
   Logger,
   NotFoundException,
 } from '@nestjs/common';
@@ -39,6 +41,7 @@ export interface PaginatedNewsResponse {
   page: number;
   limit: number;
   hasMore: boolean;
+  total: number;
 }
 
 @Injectable()
@@ -183,6 +186,7 @@ export class NewsService {
     page: number,
     limit: number,
     hasMore: boolean,
+    total: number,
   ): PaginatedNewsResponse {
     const sorted = [...posts].sort(
       (a, b) => b.createdAt.getTime() - a.createdAt.getTime(),
@@ -193,6 +197,7 @@ export class NewsService {
       page,
       limit,
       hasMore,
+      total,
     };
   }
 
@@ -206,51 +211,113 @@ export class NewsService {
 
     const normalizedUserId = typeof userId === 'string' && userId ? userId : null;
 
-    const memberships = normalizedUserId
-      ? await this.groupMembersRepository.find({
-          where: { userId: normalizedUserId },
-          select: ['groupId'],
-        })
-      : [];
+    try {
+      const memberships = normalizedUserId
+        ? await runWithDatabaseErrorHandling(
+            () =>
+              this.groupMembersRepository.find({
+                where: { userId: normalizedUserId },
+                select: ['groupId'],
+              }),
+            {
+              message: 'Nepavyko gauti naujienų sąrašo',
+              code: 'news_list_failed',
+            },
+          )
+        : [];
 
-    const groupIds = memberships.map((membership) => membership.groupId);
+      const groupIds = memberships.map((membership) => membership.groupId);
 
-    const qb = this.newsRepository
-      .createQueryBuilder('news')
-      .select('news.id', 'id')
-      .leftJoin('news.groups', 'group')
-      .distinct(true)
-      .orderBy('news.createdAt', 'DESC')
-      .skip(offset)
-      .take(limit + 1);
+      const baseQuery = this.newsRepository
+        .createQueryBuilder('news')
+        .leftJoin('news.groups', 'group');
 
-    if (groupIds.length > 0) {
-      qb.where('news.targetAll = true OR group.id IN (:...groupIds)', {
-        groupIds,
-      });
-    } else {
-      qb.where('news.targetAll = true');
+      if (groupIds.length > 0) {
+        baseQuery.where('news.targetAll = true OR group.id IN (:...groupIds)', {
+          groupIds,
+        });
+      } else {
+        baseQuery.where('news.targetAll = true');
+      }
+
+      const totalResult = await runWithDatabaseErrorHandling(
+        () =>
+          baseQuery
+            .clone()
+            .select('COUNT(DISTINCT news.id)', 'count')
+            .getRawOne<{ count: string }>(),
+        {
+          message: 'Nepavyko gauti naujienų sąrašo',
+          code: 'news_list_failed',
+        },
+      );
+
+      const total = Number(totalResult?.count ?? 0);
+
+      if (!Number.isFinite(total) || total <= 0) {
+        return {
+          items: [],
+          page,
+          limit,
+          hasMore: false,
+          total: 0,
+        };
+      }
+
+      const rows = await runWithDatabaseErrorHandling(
+        () =>
+          baseQuery
+            .clone()
+            .select('news.id', 'id')
+            .addSelect('news.createdAt', 'createdAt')
+            .distinct(true)
+            .orderBy('news.createdAt', 'DESC')
+            .skip(offset)
+            .take(limit + 1)
+            .getRawMany<{ id: string }>(),
+        {
+          message: 'Nepavyko gauti naujienų sąrašo',
+          code: 'news_list_failed',
+        },
+      );
+
+      const ids = rows.slice(0, limit).map((row) => row.id);
+      const hasMore = offset + ids.length < total;
+
+      if (ids.length === 0) {
+        return {
+          items: [],
+          page,
+          limit,
+          hasMore,
+          total,
+        };
+      }
+
+      const posts = await runWithDatabaseErrorHandling(
+        () =>
+          this.newsRepository.find({
+            where: { id: In(ids) },
+            relations: { groups: true },
+          }),
+        {
+          message: 'Nepavyko gauti naujienų sąrašo',
+          code: 'news_list_failed',
+        },
+      );
+
+      return this.buildPaginationResult(posts, page, limit, hasMore, total);
+    } catch (error) {
+      if (error instanceof HttpException) {
+        throw error;
+      }
+
+      this.logger.error(
+        'Nepavyko gauti naujienų sąrašo',
+        error instanceof Error ? error.stack : undefined,
+      );
+      throw new InternalServerErrorException('Įvyko nenumatyta klaida');
     }
-
-    const rows = await qb.getRawMany<{ id: string }>();
-    const ids = rows.slice(0, limit).map((row) => row.id);
-    const hasMore = rows.length > limit;
-
-    if (ids.length === 0) {
-      return {
-        items: [],
-        page,
-        limit,
-        hasMore,
-      };
-    }
-
-    const posts = await this.newsRepository.find({
-      where: { id: In(ids) },
-      relations: { groups: true },
-    });
-
-    return this.buildPaginationResult(posts, page, limit, hasMore);
   }
 
   async findOneForUser(
@@ -310,32 +377,87 @@ export class NewsService {
     const limit = this.normalizeLimit(query.limit);
     const offset = (page - 1) * limit;
 
-    const rows = await this.newsRepository
-      .createQueryBuilder('news')
-      .select('news.id', 'id')
-      .orderBy('news.createdAt', 'DESC')
-      .skip(offset)
-      .take(limit + 1)
-      .getRawMany<{ id: string }>();
+    try {
+      const baseQuery = this.newsRepository.createQueryBuilder('news');
 
-    const ids = rows.slice(0, limit).map((row) => row.id);
-    const hasMore = rows.length > limit;
+      const totalResult = await runWithDatabaseErrorHandling(
+        () =>
+          baseQuery
+            .clone()
+            .select('COUNT(DISTINCT news.id)', 'count')
+            .getRawOne<{ count: string }>(),
+        {
+          message: 'Nepavyko gauti naujienų sąrašo',
+          code: 'news_list_failed',
+        },
+      );
 
-    if (ids.length === 0) {
-      return {
-        items: [],
-        page,
-        limit,
-        hasMore,
-      };
+      const total = Number(totalResult?.count ?? 0);
+
+      if (!Number.isFinite(total) || total <= 0) {
+        return {
+          items: [],
+          page,
+          limit,
+          hasMore: false,
+          total: 0,
+        };
+      }
+
+      const rows = await runWithDatabaseErrorHandling(
+        () =>
+          baseQuery
+            .clone()
+            .select('news.id', 'id')
+            .addSelect('news.createdAt', 'createdAt')
+            .distinct(true)
+            .orderBy('news.createdAt', 'DESC')
+            .skip(offset)
+            .take(limit + 1)
+            .getRawMany<{ id: string }>(),
+        {
+          message: 'Nepavyko gauti naujienų sąrašo',
+          code: 'news_list_failed',
+        },
+      );
+
+      const ids = rows.slice(0, limit).map((row) => row.id);
+      const hasMore = offset + ids.length < total;
+
+      if (ids.length === 0) {
+        return {
+          items: [],
+          page,
+          limit,
+          hasMore,
+          total,
+        };
+      }
+
+      const posts = await runWithDatabaseErrorHandling(
+        () =>
+          this.newsRepository.find({
+            where: { id: In(ids) },
+            relations: { groups: true },
+          }),
+        {
+          message: 'Nepavyko gauti naujienų sąrašo',
+          code: 'news_list_failed',
+        },
+      );
+
+      return this.buildPaginationResult(posts, page, limit, hasMore, total);
+    } catch (error) {
+      if (error instanceof HttpException) {
+        throw error;
+      }
+
+      this.logger.error(
+        'Nepavyko gauti naujienų sąrašo',
+        error instanceof Error ? error.stack : undefined,
+      );
+      throw new InternalServerErrorException('Įvyko nenumatyta klaida');
     }
-
-    const posts = await this.newsRepository.find({
-      where: { id: In(ids) },
-      relations: { groups: true },
-    });
-
-    return this.buildPaginationResult(posts, page, limit, hasMore);
   }
 
   async create(

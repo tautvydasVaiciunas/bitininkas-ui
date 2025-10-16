@@ -219,21 +219,19 @@ export type CreateGlobalTaskStepPayload = CreateTaskStepPayload;
 
 export interface TemplateStepInputPayload {
   taskStepId: string;
-  orderIndex?: number;
+  orderIndex: number;
 }
 
 export interface CreateTemplatePayload {
   name: string;
   comment?: string | null;
-  steps?: TemplateStepInputPayload[];
-  stepIds?: string[];
+  steps: TemplateStepInputPayload[];
 }
 
 export interface UpdateTemplatePayload {
   name?: string;
   comment?: string | null;
   steps?: TemplateStepInputPayload[];
-  stepIds?: string[];
 }
 
 export interface ReorderTemplateStepsPayload {

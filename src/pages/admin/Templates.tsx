@@ -188,9 +188,12 @@ export default function AdminTemplates() {
 
     const commentText = values.comment.trim();
     const comment = commentText.length > 0 ? commentText : null;
-    const taskStepIds = values.steps.map((step) => step.taskStepId);
+    const stepsPayload = values.steps.map((step, index) => ({
+      taskStepId: step.taskStepId,
+      orderIndex: index,
+    }));
 
-    if (taskStepIds.length === 0) {
+    if (stepsPayload.length === 0) {
       toast.error('Pridėkite bent vieną žingsnį');
       return;
     }
@@ -202,19 +205,19 @@ export default function AdminTemplates() {
         const payload: UpdateTemplatePayload = {
           name,
           comment,
-          stepIds: taskStepIds.length ? taskStepIds : undefined,
+          steps: stepsPayload,
         };
         templateResult = await updateMutation.mutateAsync({ id: templateToEdit.id, payload });
       } else {
         const payload: CreateTemplatePayload = {
           name,
           comment: comment ?? undefined,
-          stepIds: taskStepIds.length ? taskStepIds : undefined,
+          steps: stepsPayload,
         };
         templateResult = await createMutation.mutateAsync(payload);
       }
 
-      if (taskStepIds.length > 0) {
+      if (stepsPayload.length > 0) {
         const orderedTemplateStepIds = buildTemplateStepOrder(templateResult, values.steps);
         if (orderedTemplateStepIds.length !== values.steps.length) {
           toast.error(messages.reorderError);

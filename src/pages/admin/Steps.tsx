@@ -1,6 +1,7 @@
-import { ChangeEvent, FormEvent, useEffect, useMemo, useRef, useState } from 'react';
+import { ChangeEvent, FormEvent, useMemo, useRef, useState } from 'react';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle } from '@/components/ui/alert-dialog';
+import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
@@ -17,11 +18,9 @@ import { Edit, Loader2, Plus, Search, Trash2 } from 'lucide-react';
 import { MainLayout } from '@/components/Layout/MainLayout';
 import api, { HttpError } from '@/lib/api';
 import {
-  mapTaskFromApi,
   mapTaskStepFromApi,
   type CreateGlobalTaskStepPayload,
   type Tag,
-  type Task,
   type TaskStep,
   type TaskStepMediaType,
   type UpdateTaskStepPayload,
@@ -31,7 +30,6 @@ import ltMessages from '@/i18n/messages.lt.json';
 const messages = ltMessages.steps;
 
 const defaultCreateForm = () => ({
-  taskId: '',
   title: '',
   description: '',
   mediaUrl: '',
@@ -60,6 +58,14 @@ export default function AdminSteps() {
   const [stepToEdit, setStepToEdit] = useState<TaskStep | null>(null);
   const [stepToDelete, setStepToDelete] = useState<TaskStep | null>(null);
 
+  const [isCreateTagOpen, setIsCreateTagOpen] = useState(false);
+  const [newTagName, setNewTagName] = useState('');
+  const [tagDialogContext, setTagDialogContext] = useState<'create' | 'edit' | null>(null);
+
+  const [createFormError, setCreateFormError] = useState<string | null>(null);
+  const [editFormError, setEditFormError] = useState<string | null>(null);
+  const [createTagError, setCreateTagError] = useState<string | null>(null);
+
   const [createForm, setCreateForm] = useState<StepFormState>(defaultCreateForm);
   const [editForm, setEditForm] = useState<StepEditFormState>({ ...defaultCreateForm(), orderIndex: '' });
 
@@ -78,33 +84,18 @@ export default function AdminSteps() {
     toast.error(fallback);
   };
 
-  const { data: tasks = [], isLoading: tasksLoading } = useQuery<Task[]>({
-    queryKey: ['tasks', 'for-step-management'],
-    queryFn: async () => {
-      const response = await api.tasks.list();
-      return response.map(mapTaskFromApi);
-    },
-  });
+  const getHttpErrorDetails = (error: HttpError) => {
+    const possibleDetails =
+      error.data && typeof error.data === 'object'
+        ? (error.data as { details?: unknown }).details
+        : undefined;
 
-  const availableTasks = useMemo(
-    () => tasks.filter((task) => typeof task.id === 'string' && task.id.length > 0),
-    [tasks],
-  );
-
-  useEffect(() => {
-    if (!isCreateOpen) {
-      return;
+    if (typeof possibleDetails === 'string' && possibleDetails.trim().length > 0) {
+      return possibleDetails;
     }
 
-    if (!createForm.taskId && availableTasks.length > 0) {
-      setCreateForm((prev) => ({ ...prev, taskId: availableTasks[0]!.id }));
-    }
-  }, [availableTasks, createForm.taskId, isCreateOpen]);
-
-  const taskTitleMap = useMemo(
-    () => new Map(tasks.map((task) => [task.id, task.title] as const)),
-    [tasks],
-  );
+    return error.message;
+  };
 
   const { data: tags = [], isLoading: tagsLoading } = useQuery<Tag[]>({
     queryKey: ['tags'],
@@ -121,7 +112,7 @@ export default function AdminSteps() {
 
   const tagFilterSelectValue = tagFilter === '' ? 'all' : tagFilter;
 
-  const stepsQueryKey = useMemo(() => ['steps', tagFilter || 'all'] as const, [tagFilter]);
+  const stepsQueryKey = useMemo(() => ['steps', 'global', tagFilter || 'all'] as const, [tagFilter]);
 
   const {
     data: steps = [],
@@ -130,7 +121,7 @@ export default function AdminSteps() {
   } = useQuery<TaskStep[]>({
     queryKey: stepsQueryKey,
     queryFn: async () => {
-      const response = await api.steps.list(tagFilter ? { tagId: tagFilter } : undefined);
+      const response = await api.steps.listGlobal(tagFilter ? { tagId: tagFilter } : undefined);
       return response.map(mapTaskStepFromApi);
     },
   });
@@ -144,10 +135,11 @@ export default function AdminSteps() {
     return steps.filter((step) => {
       const matchesTitle = step.title.toLowerCase().includes(term);
       const matchesContent = step.contentText?.toLowerCase().includes(term) ?? false;
-      const matchesTask = taskTitleMap.get(step.taskId)?.toLowerCase().includes(term) ?? false;
-      return matchesTitle || matchesContent || matchesTask;
+      const matchesTags =
+        step.tags?.some((tag) => tag.name.toLowerCase().includes(term)) ?? false;
+      return matchesTitle || matchesContent || matchesTags;
     });
-  }, [searchQuery, steps, taskTitleMap]);
+  }, [searchQuery, steps]);
 
   const invalidateStepQueries = () => {
     void queryClient.invalidateQueries({
@@ -158,11 +150,13 @@ export default function AdminSteps() {
   const resetCreateForm = () => {
     setCreateForm(defaultCreateForm());
     setIsUploadingCreateMedia(false);
+    setCreateFormError(null);
   };
 
   const resetEditForm = () => {
     setEditForm({ ...defaultCreateForm(), orderIndex: '' });
     setIsUploadingEditMedia(false);
+    setEditFormError(null);
   };
 
   const createMutation = useMutation({
@@ -175,8 +169,16 @@ export default function AdminSteps() {
       setIsCreateOpen(false);
       resetCreateForm();
       invalidateStepQueries();
+      setCreateFormError(null);
     },
     onError: (error) => {
+      if (error instanceof HttpError && error.status === 400) {
+        const details = getHttpErrorDetails(error);
+        setCreateFormError(details);
+        toast.error(details);
+        return;
+      }
+
       showError(error, messages.createError);
     },
   });
@@ -192,9 +194,58 @@ export default function AdminSteps() {
       setStepToEdit(null);
       resetEditForm();
       invalidateStepQueries();
+      setEditFormError(null);
     },
     onError: (error) => {
+      if (error instanceof HttpError && error.status === 400) {
+        const details = getHttpErrorDetails(error);
+        setEditFormError(details);
+        toast.error(details);
+        return;
+      }
+
       showError(error, messages.updateError);
+    },
+  });
+
+  const createTagMutation = useMutation({
+    mutationFn: async (name: string) => {
+      const response = await api.tags.create({ name });
+      return response;
+    },
+    onSuccess: (tag) => {
+      toast.success(messages.tagCreateSuccess);
+      setCreateTagError(null);
+      setNewTagName('');
+      setIsCreateTagOpen(false);
+      const nextTagId = tag.id;
+
+      if (tagDialogContext === 'create' && typeof nextTagId === 'string') {
+        setCreateForm((prev) => ({
+          ...prev,
+          tagIds: Array.from(new Set([...prev.tagIds, nextTagId])),
+        }));
+      } else if (tagDialogContext === 'edit' && typeof nextTagId === 'string') {
+        setEditForm((prev) => ({
+          ...prev,
+          tagIds: Array.from(new Set([...prev.tagIds, nextTagId])),
+        }));
+      }
+
+      setTagDialogContext(null);
+
+      void queryClient.invalidateQueries({ queryKey: ['tags'] });
+      invalidateStepQueries();
+    },
+    onError: (error) => {
+      if (error instanceof HttpError && error.status === 400) {
+        const details = getHttpErrorDetails(error);
+        setCreateTagError(details);
+        toast.error(details);
+        return;
+      }
+
+      showError(error, messages.tagCreateError);
     },
   });
 
@@ -210,19 +261,32 @@ export default function AdminSteps() {
     },
   });
 
+  const openCreateTagDialog = (context: 'create' | 'edit') => {
+    setTagDialogContext(context);
+    setCreateTagError(null);
+    setNewTagName('');
+    setIsCreateTagOpen(true);
+  };
+
+  const closeCreateTagDialog = () => {
+    if (!createTagMutation.isLoading) {
+      setIsCreateTagOpen(false);
+      setTagDialogContext(null);
+      setCreateTagError(null);
+      setNewTagName('');
+    }
+  };
+
   const handleCreateSubmit = async (event: FormEvent<HTMLFormElement>) => {
     event.preventDefault();
 
     const trimmedTitle = createForm.title.trim();
-    const selectedTaskId = createForm.taskId.trim();
-
-    if (!trimmedTitle || !selectedTaskId) {
+    if (!trimmedTitle) {
       toast.error(messages.validationError);
       return;
     }
 
     const payload: CreateGlobalTaskStepPayload = {
-      taskId: selectedTaskId,
       title: trimmedTitle,
       contentText: createForm.description.trim() ? createForm.description.trim() : null,
       mediaUrl: createForm.mediaUrl.trim() ? createForm.mediaUrl.trim() : null,
@@ -231,6 +295,7 @@ export default function AdminSteps() {
       tagIds: createForm.tagIds,
     };
 
+    setCreateFormError(null);
     await createMutation.mutateAsync(payload);
   };
 
@@ -266,7 +331,21 @@ export default function AdminSteps() {
       orderIndex,
     };
 
+    setEditFormError(null);
     await updateMutation.mutateAsync({ id: stepToEdit.id, data: payload });
+  };
+
+  const handleCreateTagSubmit = async (event: FormEvent<HTMLFormElement>) => {
+    event.preventDefault();
+    const trimmedName = newTagName.trim();
+
+    if (!trimmedName) {
+      setCreateTagError(messages.tagCreateValidationError);
+      toast.error(messages.tagCreateValidationError);
+      return;
+    }
+
+    await createTagMutation.mutateAsync(trimmedName);
   };
 
   const handleCreateMediaUpload = async (event: ChangeEvent<HTMLInputElement>) => {
@@ -316,7 +395,6 @@ export default function AdminSteps() {
   const openEditDialog = (step: TaskStep) => {
     setStepToEdit(step);
     setEditForm({
-      taskId: step.taskId,
       title: step.title,
       description: step.contentText ?? '',
       mediaUrl: step.mediaUrl ?? '',
@@ -326,6 +404,7 @@ export default function AdminSteps() {
         step.tags?.map((tag) => tag.id).filter((id): id is string => typeof id === 'string' && id.length > 0) ?? [],
       orderIndex: step.orderIndex ? String(step.orderIndex) : '',
     });
+    setEditFormError(null);
     setIsEditOpen(true);
   };
 
@@ -382,7 +461,7 @@ export default function AdminSteps() {
                   id="search-steps"
                   value={searchQuery}
                   onChange={(event) => setSearchQuery(event.target.value)}
-                  placeholder="Ieškoti pagal pavadinimą ar užduotį"
+                  placeholder="Ieškoti pagal pavadinimą ar žymas"
                   className="pl-9"
                 />
               </div>
@@ -408,7 +487,6 @@ export default function AdminSteps() {
                   <StepCard
                     key={step.id}
                     step={step}
-                    taskTitle={taskTitleMap.get(step.taskId)}
                     onEdit={() => openEditDialog(step)}
                     onDelete={() => setStepToDelete(step)}
                     disableActions={deleteMutation.isLoading || updateMutation.isLoading}
@@ -436,26 +514,13 @@ export default function AdminSteps() {
               <DialogDescription>Užpildykite informaciją apie naują žingsnį.</DialogDescription>
             </DialogHeader>
             <form onSubmit={handleCreateSubmit} className="space-y-6">
+              {createFormError ? (
+                <Alert variant="destructive">
+                  <AlertTitle>Klaida</AlertTitle>
+                  <AlertDescription>{createFormError}</AlertDescription>
+                </Alert>
+              ) : null}
               <div className="grid grid-cols-1 gap-6 md:grid-cols-2">
-                <div className="space-y-2">
-                  <Label htmlFor="create-step-task">Užduotis</Label>
-                  <Select
-                    value={createForm.taskId || undefined}
-                    onValueChange={(value) => setCreateForm((prev) => ({ ...prev, taskId: value }))}
-                    disabled={createFormDisabled || tasksLoading}
-                  >
-                    <SelectTrigger id="create-step-task">
-                      <SelectValue placeholder={tasksLoading ? 'Kraunama…' : 'Pasirinkite užduotį'} />
-                    </SelectTrigger>
-                    <SelectContent>
-                      {availableTasks.map((task) => (
-                        <SelectItem key={task.id} value={task.id}>
-                          {task.title}
-                        </SelectItem>
-                      ))}
-                    </SelectContent>
-                  </Select>
-                </div>
                 <div className="space-y-2 md:col-span-2">
                   <Label htmlFor="create-step-title">Pavadinimas</Label>
                   <Input
@@ -529,6 +594,8 @@ export default function AdminSteps() {
                     onChange={(next) => setCreateForm((prev) => ({ ...prev, tagIds: next }))}
                     placeholder={tagsLoading ? 'Kraunama…' : 'Pasirinkite žymas'}
                     disabled={createFormDisabled || tagsLoading}
+                    onCreateTag={() => openCreateTagDialog('create')}
+                    creatingTag={createTagMutation.isLoading && tagDialogContext === 'create'}
                   />
                 </div>
                 <div className="flex items-center gap-2 md:col-span-2">
@@ -581,11 +648,13 @@ export default function AdminSteps() {
               </DialogDescription>
             </DialogHeader>
             <form onSubmit={handleEditSubmit} className="space-y-6">
+              {editFormError ? (
+                <Alert variant="destructive">
+                  <AlertTitle>Klaida</AlertTitle>
+                  <AlertDescription>{editFormError}</AlertDescription>
+                </Alert>
+              ) : null}
               <div className="grid grid-cols-1 gap-6 md:grid-cols-2">
-                <div className="space-y-2">
-                  <Label>Užduotis</Label>
-                  <Input value={taskTitleMap.get(stepToEdit?.taskId ?? '') ?? '—'} disabled />
-                </div>
                 <div className="space-y-2 md:col-span-2">
                   <Label htmlFor="edit-step-title">Pavadinimas</Label>
                   <Input
@@ -659,6 +728,8 @@ export default function AdminSteps() {
                     onChange={(next) => setEditForm((prev) => ({ ...prev, tagIds: next }))}
                     placeholder={tagsLoading ? 'Kraunama…' : 'Pasirinkite žymas'}
                     disabled={editFormDisabled || tagsLoading}
+                    onCreateTag={() => openCreateTagDialog('edit')}
+                    creatingTag={createTagMutation.isLoading && tagDialogContext === 'edit'}
                   />
                 </div>
                 <div className="flex items-center gap-2 md:col-span-2">
@@ -691,6 +762,54 @@ export default function AdminSteps() {
                 </Button>
                 <Button type="submit" disabled={editFormDisabled}>
                   {updateMutation.isLoading ? (
+                    <>
+                      <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                      Saugoma…
+                    </>
+                  ) : (
+                    'Saugoti'
+                  )}
+                </Button>
+              </DialogFooter>
+            </form>
+          </DialogContent>
+        </Dialog>
+
+        <Dialog open={isCreateTagOpen} onOpenChange={(open) => (open ? setIsCreateTagOpen(true) : closeCreateTagDialog())}>
+          <DialogContent className="sm:max-w-md">
+            <DialogHeader>
+              <DialogTitle>Nauja žyma</DialogTitle>
+              <DialogDescription>Įveskite žymos pavadinimą.</DialogDescription>
+            </DialogHeader>
+            <form onSubmit={handleCreateTagSubmit} className="space-y-4">
+              {createTagError ? (
+                <Alert variant="destructive">
+                  <AlertTitle>Klaida</AlertTitle>
+                  <AlertDescription>{createTagError}</AlertDescription>
+                </Alert>
+              ) : null}
+              <div className="space-y-2">
+                <Label htmlFor="new-tag-name">Pavadinimas</Label>
+                <Input
+                  id="new-tag-name"
+                  value={newTagName}
+                  onChange={(event) => {
+                    setNewTagName(event.target.value);
+                    if (createTagError) {
+                      setCreateTagError(null);
+                    }
+                  }}
+                  disabled={createTagMutation.isLoading}
+                  placeholder="Pvz., Pavasaris"
+                  autoFocus
+                />
+              </div>
+              <DialogFooter className="flex flex-col gap-2 sm:flex-row sm:justify-end">
+                <Button type="button" variant="outline" onClick={closeCreateTagDialog} disabled={createTagMutation.isLoading}>
+                  Atšaukti
+                </Button>
+                <Button type="submit" disabled={createTagMutation.isLoading}>
+                  {createTagMutation.isLoading ? (
                     <>
                       <Loader2 className="mr-2 h-4 w-4 animate-spin" />
                       Saugoma…
@@ -742,12 +861,16 @@ type TagMultiSelectProps = {
   onChange: (next: string[]) => void;
   placeholder?: string;
   disabled?: boolean;
+  onCreateTag?: () => void;
+  creatingTag?: boolean;
 };
 
-function TagMultiSelect({ options, value, onChange, placeholder, disabled }: TagMultiSelectProps) {
+function TagMultiSelect({ options, value, onChange, placeholder, disabled, onCreateTag, creatingTag }: TagMultiSelectProps) {
+  const [open, setOpen] = useState(false);
+
   const toggleValue = (id: string, checked: boolean) => {
     if (checked) {
-      onChange([...value, id]);
+      onChange(Array.from(new Set([...value, id])));
     } else {
       onChange(value.filter((item) => item !== id));
     }
@@ -761,7 +884,7 @@ function TagMultiSelect({ options, value, onChange, placeholder, disabled }: Tag
     : placeholder ?? 'Pasirinkite žymas';
 
   return (
-    <Popover>
+    <Popover open={open} onOpenChange={setOpen}>
       <PopoverTrigger asChild>
         <Button type="button" variant="outline" role="combobox" className="justify-between" disabled={disabled}>
           <span className="truncate">{label}</span>
@@ -786,6 +909,23 @@ function TagMultiSelect({ options, value, onChange, placeholder, disabled }: Tag
             })
           )}
         </div>
+        {onCreateTag ? (
+          <div className="mt-2 border-t pt-2">
+            <Button
+              type="button"
+              variant="ghost"
+              className="w-full justify-start"
+              onClick={() => {
+                setOpen(false);
+                onCreateTag();
+              }}
+              disabled={disabled || creatingTag}
+            >
+              {creatingTag ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <Plus className="mr-2 h-4 w-4" />}
+              Sukurti naują žymą
+            </Button>
+          </div>
+        ) : null}
       </PopoverContent>
     </Popover>
   );
@@ -793,13 +933,12 @@ function TagMultiSelect({ options, value, onChange, placeholder, disabled }: Tag
 
 type StepCardProps = {
   step: TaskStep;
-  taskTitle?: string;
   onEdit: () => void;
   onDelete: () => void;
   disableActions?: boolean;
 };
 
-function StepCard({ step, taskTitle, onEdit, onDelete, disableActions }: StepCardProps) {
+function StepCard({ step, onEdit, onDelete, disableActions }: StepCardProps) {
   const mediaLabel = step.mediaType === 'image' ? 'Nuotrauka' : step.mediaType === 'video' ? 'Vaizdo įrašas' : null;
   const visibleTags = (step.tags ?? []).filter(
     (tag): tag is NonNullable<TaskStep['tags']>[number] & { id: string } =>
@@ -813,7 +952,6 @@ function StepCard({ step, taskTitle, onEdit, onDelete, disableActions }: StepCar
           <div className="flex flex-wrap items-center gap-2">
             <CardTitle className="text-xl">{step.title}</CardTitle>
             {typeof step.orderIndex === 'number' ? <Badge variant="outline">#{step.orderIndex}</Badge> : null}
-            {taskTitle ? <Badge variant="secondary">Užduotis: {taskTitle}</Badge> : null}
           </div>
           {visibleTags.length > 0 ? (
             <div className="flex flex-wrap gap-2">

@@ -41,10 +41,13 @@
     "deleteError": "Nepavyko ištrinti žingsnio",
     "reorderSuccess": "Žingsniai perrikiuoti",
     "reorderError": "Nepavyko perrikiuoti žingsnių",
-    "validationError": "Pasirinkite užduotį ir nurodykite pavadinimą",
+    "validationError": "Įveskite žingsnio pavadinimą",
     "orderIndexInvalid": "Įveskite teisingą žingsnio eiliškumą",
     "uploadSuccess": "Failas įkeltas",
-    "uploadError": "Nepavyko įkelti failo"
+    "uploadError": "Nepavyko įkelti failo",
+    "tagCreateSuccess": "Žyma sukurta",
+    "tagCreateError": "Nepavyko sukurti žymos",
+    "tagCreateValidationError": "Įveskite žymos pavadinimą"
   },
   "templates": {
     "createSuccess": "Šablonas sukurtas",

@@ -25,7 +25,6 @@ export const Sidebar = () => {
     { to: "/", label: "Apžvalga", icon: LayoutDashboard, show: true },
     { to: "/hives", label: "Aviliai", icon: Box, show: true },
     { to: "/tasks", label: "Užduotys", icon: ListTodo, show: true },
-    { to: "/reports", label: "Ataskaitos", icon: BarChart3, show: isManager },
     { to: "/notifications", label: "Pranešimai", icon: Bell, show: true },
     { to: "/profile", label: "Profilis", icon: User, show: true },
   ];
@@ -44,6 +43,12 @@ export const Sidebar = () => {
       to: "/admin/templates",
       label: "Šablonai",
       icon: FileStack,
+      show: isManager,
+    },
+    {
+      to: "/reports",
+      label: "Ataskaitos",
+      icon: BarChart3,
       show: isManager,
     },
   ];

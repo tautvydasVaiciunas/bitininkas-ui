@@ -26,6 +26,11 @@ export class CreateTaskStepInputDto {
   contentText?: string;
 
   @IsOptional()
+  @IsString({ message: 'Turinys turi būti tekstas' })
+  @MaxLength(1000, { message: 'Turinys gali būti iki 1000 simbolių' })
+  description?: string;
+
+  @IsOptional()
   @IsString({ message: 'Nuoroda turi būti tekstas' })
   @MaxLength(500, { message: 'Nuoroda gali būti iki 500 simbolių' })
   @Matches(/^(?:\/uploads\/|https?:\/\/).+/i, {

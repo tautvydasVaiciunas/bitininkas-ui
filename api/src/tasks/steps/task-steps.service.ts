@@ -183,10 +183,18 @@ export class TaskStepsService {
     return (lastStep?.orderIndex ?? 0) + 1;
   }
 
+  private getDescriptionValue(dto: { description?: string | null; contentText?: string | null }) {
+    if (dto.description !== undefined) {
+      return dto.description;
+    }
+
+    return dto.contentText;
+  }
+
   private normalizeStepInput(dto: CreateTaskStepDto | UpdateTaskStepDto, fallbackOrder: number) {
     return {
       title: dto.title?.trim(),
-      contentText: this.normalizeNullableString(dto.contentText),
+      contentText: this.normalizeNullableString(this.getDescriptionValue(dto)),
       mediaUrl: this.normalizeNullableString(dto.mediaUrl),
       mediaType: this.normalizeMediaType(dto.mediaType),
       requireUserMedia: dto.requireUserMedia ?? false,
@@ -329,7 +337,9 @@ export class TaskStepsService {
       step.title = title;
     }
 
-    if (dto.contentText !== undefined) {
+    if (dto.description !== undefined) {
+      step.contentText = this.normalizeNullableString(dto.description);
+    } else if (dto.contentText !== undefined) {
       step.contentText = this.normalizeNullableString(dto.contentText);
     }
 

@@ -286,9 +286,11 @@ export default function AdminSteps() {
       return;
     }
 
+    const description = createForm.description.trim() ? createForm.description.trim() : null;
+
     const payload: CreateGlobalTaskStepPayload = {
       title: trimmedTitle,
-      contentText: createForm.description.trim() ? createForm.description.trim() : null,
+      description,
       mediaUrl: createForm.mediaUrl.trim() ? createForm.mediaUrl.trim() : null,
       mediaType: createForm.mediaType || null,
       requireUserMedia: createForm.requireUserMedia,
@@ -321,9 +323,11 @@ export default function AdminSteps() {
       orderIndex = parsed;
     }
 
+    const description = editForm.description.trim() ? editForm.description.trim() : null;
+
     const payload: UpdateTaskStepPayload = {
       title: trimmedTitle,
-      contentText: editForm.description.trim() ? editForm.description.trim() : null,
+      description,
       mediaUrl: editForm.mediaUrl.trim() ? editForm.mediaUrl.trim() : null,
       mediaType: editForm.mediaType || null,
       requireUserMedia: editForm.requireUserMedia,

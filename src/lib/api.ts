@@ -204,6 +204,7 @@ export type UpdateTaskPayload = Partial<Omit<CreateTaskPayload, 'steps'>> & {
 
 export interface CreateTaskStepPayload {
   title: string;
+  description?: string | null;
   contentText?: string | null;
   mediaUrl?: string | null;
   mediaType?: TaskStepMediaType | null;

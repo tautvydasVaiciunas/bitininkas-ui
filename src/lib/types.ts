@@ -120,6 +120,7 @@ export interface PaginatedNews {
   page: number;
   limit: number;
   hasMore: boolean;
+  total: number;
 }
 
 export interface User extends ApiAuthenticatedUser {
@@ -229,6 +230,7 @@ export const mapPaginatedNewsFromApi = (
   page: response.page,
   limit: response.limit,
   hasMore: response.hasMore,
+  total: response.total,
 });
 
 export const mapUserFromApi = (user: ApiAuthenticatedUser): User => ({

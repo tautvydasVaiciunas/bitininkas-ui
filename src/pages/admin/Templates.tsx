@@ -7,15 +7,7 @@ import { MainLayout } from '@/components/Layout/MainLayout';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader } from '@/components/ui/card';
-import {
-  Dialog,
-  DialogContent,
-  DialogDescription,
-  DialogFooter,
-  DialogHeader,
-  DialogTitle,
-  DialogTrigger,
-} from '@/components/ui/dialog';
+import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from '@/components/ui/dialog';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
@@ -130,6 +122,7 @@ export default function AdminTemplates() {
   const handleOpenCreate = () => {
     setTemplateToEdit(null);
     setDialogMode('create');
+    setIsDialogOpen(true);
   };
 
   const handleEdit = (template: Template) => {
@@ -142,6 +135,9 @@ export default function AdminTemplates() {
     try {
       await deleteMutation.mutateAsync(id);
       toast.success(messages.deleteSuccess);
+      if (templateToEdit?.id === id) {
+        closeDialog();
+      }
       await invalidateTemplates();
     } catch (error) {
       showError(error, messages.deleteError);
@@ -253,46 +249,44 @@ export default function AdminTemplates() {
               Kurkite ir tvarkykite šablonus naudodami globalius žingsnius
             </p>
           </div>
-          <Dialog
-            open={isDialogOpen}
-            onOpenChange={(open) => {
-              if (open) {
-                setIsDialogOpen(true);
-              } else {
-                closeDialog();
-              }
-            }}
-          >
-            <DialogTrigger asChild>
-              <Button onClick={handleOpenCreate} disabled={isSubmitting}>
-                {createMutation.isLoading ? (
-                  <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-                ) : (
-                  <Plus className="mr-2 w-4 h-4" />
-                )}
-                {createMutation.isLoading ? 'Kuriama…' : 'Sukurti šabloną'}
-              </Button>
-            </DialogTrigger>
-            <DialogContent className="max-h-[90vh] overflow-y-auto sm:max-w-5xl">
-              <DialogHeader>
-                <DialogTitle>{dialogMode === 'edit' ? 'Redaguoti šabloną' : 'Naujas šablonas'}</DialogTitle>
-                <DialogDescription>
-                  {dialogMode === 'edit'
-                    ? 'Atnaujinkite šablono informaciją ir jo žingsnių tvarką.'
-                    : 'Pasirinkite globalius žingsnius, sudėliokite jų eiliškumą ir sukurkite šabloną.'}
-                </DialogDescription>
-              </DialogHeader>
-              <TemplateForm
-                key={templateToEdit?.id ?? 'new'}
-                template={templateToEdit}
-                tags={tags}
-                onCancel={closeDialog}
-                onSubmit={handleFormSubmit}
-                isSubmitting={isSubmitting}
-              />
-            </DialogContent>
-          </Dialog>
+          <Button onClick={handleOpenCreate} disabled={isSubmitting}>
+            {createMutation.isLoading ? (
+              <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+            ) : (
+              <Plus className="mr-2 w-4 h-4" />
+            )}
+            {createMutation.isLoading ? 'Kuriama…' : 'Sukurti šabloną'}
+          </Button>
         </div>
+        <Dialog
+          open={isDialogOpen}
+          onOpenChange={(open) => {
+            if (open) {
+              setIsDialogOpen(true);
+            } else {
+              closeDialog();
+            }
+          }}
+        >
+          <DialogContent className="max-h-[90vh] overflow-y-auto sm:max-w-5xl">
+            <DialogHeader>
+              <DialogTitle>{dialogMode === 'edit' ? 'Redaguoti šabloną' : 'Naujas šablonas'}</DialogTitle>
+              <DialogDescription>
+                {dialogMode === 'edit'
+                  ? 'Atnaujinkite šablono informaciją ir jo žingsnių tvarką.'
+                  : 'Pasirinkite globalius žingsnius, sudėliokite jų eiliškumą ir sukurkite šabloną.'}
+              </DialogDescription>
+            </DialogHeader>
+            <TemplateForm
+              key={templateToEdit?.id ?? 'new'}
+              template={templateToEdit}
+              tags={tags}
+              onCancel={closeDialog}
+              onSubmit={handleFormSubmit}
+              isSubmitting={isSubmitting}
+            />
+          </DialogContent>
+        </Dialog>
         <Card className="shadow-custom">
           <CardHeader>
             <div className="relative">
@@ -382,7 +376,7 @@ function TemplateForm({ template, tags, onCancel, onSubmit, isSubmitting }: Temp
   );
 
   const {
-    data: availableSteps = [],
+    data: availableStepsRaw = [],
     isLoading: areStepsLoading,
     isError: stepsError,
   } = useQuery<TaskStep[]>({
@@ -392,6 +386,12 @@ function TemplateForm({ template, tags, onCancel, onSubmit, isSubmitting }: Temp
       return response.map(mapTaskStepFromApi);
     },
   });
+
+  const availableSteps = useMemo(
+    () =>
+      availableStepsRaw.filter((step) => typeof step.id === 'string' && step.id.length > 0),
+    [availableStepsRaw],
+  );
 
   const handleAddStep = (step: TaskStep) => {
     if (selectedTaskStepIds.has(step.id)) {
@@ -683,13 +683,18 @@ type StepTagListProps = {
 };
 
 function StepTagList({ tags }: StepTagListProps) {
-  if (!tags || tags.length === 0) {
+  const visibleTags = (tags ?? []).filter(
+    (tag): tag is NonNullable<TaskStep['tags']>[number] & { id: string } =>
+      Boolean(tag) && typeof tag.id === 'string' && tag.id.length > 0,
+  );
+
+  if (visibleTags.length === 0) {
     return null;
   }
 
   return (
     <div className="flex flex-wrap gap-1">
-      {tags.map((tag) => (
+      {visibleTags.map((tag) => (
         <Badge key={tag.id} variant="secondary">
           {tag.name}
         </Badge>

@@ -801,6 +801,10 @@ type StepCardProps = {
 
 function StepCard({ step, taskTitle, onEdit, onDelete, disableActions }: StepCardProps) {
   const mediaLabel = step.mediaType === 'image' ? 'Nuotrauka' : step.mediaType === 'video' ? 'Vaizdo įrašas' : null;
+  const visibleTags = (step.tags ?? []).filter(
+    (tag): tag is NonNullable<TaskStep['tags']>[number] & { id: string } =>
+      Boolean(tag) && typeof tag.id === 'string' && tag.id.length > 0,
+  );
 
   return (
     <Card className="border-muted shadow-none">
@@ -811,9 +815,9 @@ function StepCard({ step, taskTitle, onEdit, onDelete, disableActions }: StepCar
             {typeof step.orderIndex === 'number' ? <Badge variant="outline">#{step.orderIndex}</Badge> : null}
             {taskTitle ? <Badge variant="secondary">Užduotis: {taskTitle}</Badge> : null}
           </div>
-          {step.tags?.length ? (
+          {visibleTags.length > 0 ? (
             <div className="flex flex-wrap gap-2">
-              {step.tags.map((tag) => (
+              {visibleTags.map((tag) => (
                 <Badge key={tag.id} variant="secondary" className="bg-muted text-muted-foreground">
                   {tag.name}
                 </Badge>

@@ -14,6 +14,7 @@ import {
   DialogFooter,
   DialogHeader,
   DialogTitle,
+  DialogTrigger,
 } from '@/components/ui/dialog';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
@@ -56,6 +57,7 @@ export default function AdminTemplates() {
   const [searchQuery, setSearchQuery] = useState('');
   const [isDialogOpen, setIsDialogOpen] = useState(false);
   const [templateToEdit, setTemplateToEdit] = useState<Template | null>(null);
+  const [dialogMode, setDialogMode] = useState<'create' | 'edit'>('create');
   const queryClient = useQueryClient();
 
   const templatesQueryKey = ['templates'] as const;
@@ -67,6 +69,7 @@ export default function AdminTemplates() {
   const closeDialog = () => {
     setIsDialogOpen(false);
     setTemplateToEdit(null);
+    setDialogMode('create');
   };
 
   const showError = (error: unknown, fallback: string) => {
@@ -126,11 +129,12 @@ export default function AdminTemplates() {
 
   const handleOpenCreate = () => {
     setTemplateToEdit(null);
-    setIsDialogOpen(true);
+    setDialogMode('create');
   };
 
   const handleEdit = (template: Template) => {
     setTemplateToEdit(template);
+    setDialogMode('edit');
     setIsDialogOpen(true);
   };
 
@@ -229,11 +233,11 @@ export default function AdminTemplates() {
         }
       }
 
-      toast.success(templateToEdit ? messages.updateSuccess : messages.createSuccess);
+      toast.success(dialogMode === 'edit' ? messages.updateSuccess : messages.createSuccess);
       closeDialog();
       await invalidateTemplates();
     } catch (error) {
-      showError(error, templateToEdit ? messages.updateError : messages.createError);
+      showError(error, dialogMode === 'edit' ? messages.updateError : messages.createError);
     }
   };
 
@@ -249,44 +253,46 @@ export default function AdminTemplates() {
               Kurkite ir tvarkykite šablonus naudodami globalius žingsnius
             </p>
           </div>
-          <Button onClick={handleOpenCreate} disabled={isSubmitting}>
-            {createMutation.isLoading ? (
-              <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-            ) : (
-              <Plus className="mr-2 w-4 h-4" />
-            )}
-            {createMutation.isLoading ? 'Kuriama…' : 'Sukurti šabloną'}
-          </Button>
+          <Dialog
+            open={isDialogOpen}
+            onOpenChange={(open) => {
+              if (open) {
+                setIsDialogOpen(true);
+              } else {
+                closeDialog();
+              }
+            }}
+          >
+            <DialogTrigger asChild>
+              <Button onClick={handleOpenCreate} disabled={isSubmitting}>
+                {createMutation.isLoading ? (
+                  <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                ) : (
+                  <Plus className="mr-2 w-4 h-4" />
+                )}
+                {createMutation.isLoading ? 'Kuriama…' : 'Sukurti šabloną'}
+              </Button>
+            </DialogTrigger>
+            <DialogContent className="max-h-[90vh] overflow-y-auto sm:max-w-5xl">
+              <DialogHeader>
+                <DialogTitle>{dialogMode === 'edit' ? 'Redaguoti šabloną' : 'Naujas šablonas'}</DialogTitle>
+                <DialogDescription>
+                  {dialogMode === 'edit'
+                    ? 'Atnaujinkite šablono informaciją ir jo žingsnių tvarką.'
+                    : 'Pasirinkite globalius žingsnius, sudėliokite jų eiliškumą ir sukurkite šabloną.'}
+                </DialogDescription>
+              </DialogHeader>
+              <TemplateForm
+                key={templateToEdit?.id ?? 'new'}
+                template={templateToEdit}
+                tags={tags}
+                onCancel={closeDialog}
+                onSubmit={handleFormSubmit}
+                isSubmitting={isSubmitting}
+              />
+            </DialogContent>
+          </Dialog>
         </div>
-
-        <Dialog
-          open={isDialogOpen}
-          onOpenChange={(open) => {
-            setIsDialogOpen(open);
-            if (!open) {
-              setTemplateToEdit(null);
-            }
-          }}
-        >
-          <DialogContent className="max-h-[90vh] overflow-y-auto sm:max-w-5xl">
-            <DialogHeader>
-              <DialogTitle>{templateToEdit ? 'Redaguoti šabloną' : 'Naujas šablonas'}</DialogTitle>
-              <DialogDescription>
-                {templateToEdit
-                  ? 'Atnaujinkite šablono informaciją ir jo žingsnių tvarką.'
-                  : 'Pasirinkite globalius žingsnius, sudėliokite jų eiliškumą ir sukurkite šabloną.'}
-              </DialogDescription>
-            </DialogHeader>
-            <TemplateForm
-              template={templateToEdit}
-              tags={tags}
-              onCancel={closeDialog}
-              onSubmit={handleFormSubmit}
-              isSubmitting={isSubmitting}
-            />
-          </DialogContent>
-        </Dialog>
-
         <Card className="shadow-custom">
           <CardHeader>
             <div className="relative">
@@ -356,6 +362,7 @@ function TemplateForm({ template, tags, onCancel, onSubmit, isSubmitting }: Temp
   useEffect(() => {
     setName(template?.name ?? '');
     setComment(template?.comment ?? '');
+    setSelectedTagId('');
     setTemplateSteps(
       template
         ? [...template.steps]

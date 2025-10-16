@@ -16,6 +16,7 @@ import { MAILER_PORT, MailerPort } from '../notifications/mailer.service';
 import { CreateNewsDto } from './dto/create-news.dto';
 import { UpdateNewsDto } from './dto/update-news.dto';
 import { ListNewsQueryDto } from './dto/list-news-query.dto';
+import { runWithDatabaseErrorHandling } from '../common/errors/database-error.util';
 
 interface NewsGroupSummary {
   id: string;
@@ -196,17 +197,21 @@ export class NewsService {
   }
 
   async listForUser(
-    userId: string,
+    userId: string | null | undefined,
     query: ListNewsQueryDto,
   ): Promise<PaginatedNewsResponse> {
     const page = this.normalizePage(query.page);
     const limit = this.normalizeLimit(query.limit);
     const offset = (page - 1) * limit;
 
-    const memberships = await this.groupMembersRepository.find({
-      where: { userId },
-      select: ['groupId'],
-    });
+    const normalizedUserId = typeof userId === 'string' && userId ? userId : null;
+
+    const memberships = normalizedUserId
+      ? await this.groupMembersRepository.find({
+          where: { userId: normalizedUserId },
+          select: ['groupId'],
+        })
+      : [];
 
     const groupIds = memberships.map((membership) => membership.groupId);
 
@@ -248,7 +253,10 @@ export class NewsService {
     return this.buildPaginationResult(posts, page, limit, hasMore);
   }
 
-  async findOneForUser(id: string, userId: string): Promise<NewsPostResponse> {
+  async findOneForUser(
+    id: string,
+    userId: string | null | undefined,
+  ): Promise<NewsPostResponse> {
     const post = await this.newsRepository.findOne({
       where: { id },
       relations: { groups: true },
@@ -259,6 +267,11 @@ export class NewsService {
     }
 
     if (!post.targetAll) {
+      const normalizedUserId = typeof userId === 'string' && userId ? userId : null;
+      if (!normalizedUserId) {
+        throw new NotFoundException('Naujiena nerasta');
+      }
+
       const groupIds = Array.isArray(post.groups)
         ? post.groups.map((group) => group.id)
         : [];
@@ -268,7 +281,7 @@ export class NewsService {
       }
 
       const membershipCount = await this.groupMembersRepository.count({
-        where: { userId, groupId: In(groupIds) },
+        where: { userId: normalizedUserId, groupId: In(groupIds) },
       });
 
       if (membershipCount === 0) {
@@ -353,7 +366,10 @@ export class NewsService {
       groups,
     });
 
-    const saved = await this.newsRepository.save(post);
+    const saved = await runWithDatabaseErrorHandling(
+      () => this.newsRepository.save(post),
+      { message: 'Nepavyko sukurti naujienos' },
+    );
     const full = await this.newsRepository.findOne({
       where: { id: saved.id },
       relations: { groups: true },
@@ -432,7 +448,10 @@ export class NewsService {
       post.groups = [];
     }
 
-    const saved = await this.newsRepository.save(post);
+    const saved = await runWithDatabaseErrorHandling(
+      () => this.newsRepository.save(post),
+      { message: 'Nepavyko atnaujinti naujienos' },
+    );
 
     return this.mapPost(saved);
   }

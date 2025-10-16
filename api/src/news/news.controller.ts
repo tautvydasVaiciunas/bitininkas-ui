@@ -9,11 +9,13 @@ export class NewsController {
 
   @Get()
   list(@Request() req, @Query() query: ListNewsQueryDto) {
-    return this.newsService.listForUser(req.user.id, query);
+    const userId = req?.user?.id ?? null;
+    return this.newsService.listForUser(userId, query);
   }
 
   @Get(':id')
   details(@Param('id') id: string, @Request() req) {
-    return this.newsService.findOneForUser(id, req.user.id);
+    const userId = req?.user?.id ?? null;
+    return this.newsService.findOneForUser(id, userId);
   }
 }

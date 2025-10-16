@@ -325,7 +325,8 @@ async function runSeed(): Promise<void> {
       title: 'Pavasario sezonas prasideda',
       body: 'Patikrinkite avilius, papildykite pašarus ir suplanuokite pirmuosius darbus.',
       targetAll: true,
-      imageUrl: null,
+      imageUrl:
+        'https://images.unsplash.com/photo-1501700493788-fa1a0d4e783d?auto=format&fit=crop&w=1200&q=80',
     });
 
     const forestNews = newsRepository.create({
@@ -336,7 +337,16 @@ async function runSeed(): Promise<void> {
       groups: [forestGroup],
     });
 
-    await newsRepository.save([seasonNews, forestNews]);
+    const communityNews = newsRepository.create({
+      title: 'Bendrystės klubo dirbtuvės',
+      body: 'Bendrystės klubo nariai kviečiami į šeštadienio dirbtuves – dalinsimės medaus produktų receptais ir pasiruošimo vasarai patarimais.',
+      targetAll: false,
+      imageUrl:
+        'https://images.unsplash.com/photo-1514996937319-344454492b37?auto=format&fit=crop&w=1200&q=80',
+      groups: [communityGroup],
+    });
+
+    await newsRepository.save([seasonNews, forestNews, communityNews]);
 
     console.log('Sėklos sėkmingai įkeltos');
   } catch (error) {

@@ -247,22 +247,6 @@ async function runSeed(): Promise<void> {
 
     await templateRepository.save([inspectionTemplate, harvestTemplate, quickCheckTemplate]);
 
-    const harvestTemplate = templateRepository.create({
-      name: 'Honey Harvest Template',
-      comment: 'Paruoškite medų žingsnis po žingsnio',
-      steps: savedSteps
-        .filter((step) => step.taskId === task2.id)
-        .slice(0, 4)
-        .map((step, index) =>
-          templateStepRepository.create({
-            taskStepId: step.id,
-            orderIndex: index + 1,
-          }),
-        ),
-    });
-
-    await templateRepository.save(harvestTemplate);
-
     const assignment1 = assignmentRepository.create({
       hiveId: hive1.id,
       taskId: task1.id,

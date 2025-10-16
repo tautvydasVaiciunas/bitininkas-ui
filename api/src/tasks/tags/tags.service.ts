@@ -36,6 +36,7 @@ export class TagsService {
     }
 
     translateDatabaseError(error, { message });
+    throw error as any;
   }
 
   async findAll() {

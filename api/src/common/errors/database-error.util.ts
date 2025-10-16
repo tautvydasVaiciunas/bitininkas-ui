@@ -93,5 +93,6 @@ export const runWithDatabaseErrorHandling = async <T>(
     return await operation();
   } catch (error) {
     translateDatabaseError(error, context);
+    throw error as any;
   }
 };

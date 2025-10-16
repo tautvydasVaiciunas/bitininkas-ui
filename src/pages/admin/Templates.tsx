@@ -431,6 +431,13 @@ function TemplateForm({ template, tags, onCancel, onSubmit, isSubmitting }: Temp
     await onSubmit({ name, comment, steps: templateSteps });
   };
 
+  const selectableTags = useMemo(
+    () => tags.filter((tag) => typeof tag.id === 'string' && tag.id.length > 0),
+    [tags],
+  );
+
+  const tagSelectValue = selectedTagId === '' ? 'all' : selectedTagId;
+
   return (
     <form onSubmit={handleSubmit} className="space-y-6">
       <div className="grid gap-4 md:grid-cols-2">
@@ -460,16 +467,16 @@ function TemplateForm({ template, tags, onCancel, onSubmit, isSubmitting }: Temp
           <div className="flex items-center justify-between">
             <Label>Globalūs žingsniai</Label>
             <Select
-              value={selectedTagId}
-              onValueChange={setSelectedTagId}
+              value={tagSelectValue}
+              onValueChange={(value) => setSelectedTagId(value === 'all' ? '' : value)}
               disabled={isSubmitting}
             >
               <SelectTrigger className="w-48">
                 <SelectValue placeholder="Visos žymos" />
               </SelectTrigger>
               <SelectContent>
-                <SelectItem value="">Visos žymos</SelectItem>
-                {tags.map((tag) => (
+                <SelectItem value="all">Visos žymos</SelectItem>
+                {selectableTags.map((tag) => (
                   <SelectItem key={tag.id} value={tag.id}>
                     {tag.name}
                   </SelectItem>

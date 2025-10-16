@@ -550,7 +550,7 @@ export default function AdminGroups() {
                 </h3>
                 <div className="flex flex-col gap-2 sm:flex-row sm:items-center">
                   <Select
-                    value={memberToAdd}
+                    value={memberToAdd ?? undefined}
                     onValueChange={(value) => setMemberToAdd(value)}
                   >
                     <SelectTrigger className="sm:w-64">
@@ -558,15 +558,17 @@ export default function AdminGroups() {
                     </SelectTrigger>
                     <SelectContent>
                       {availableMembers.length === 0 ? (
-                        <SelectItem value="" disabled>
+                        <SelectItem value="no-options" disabled>
                           Nėra laisvų vartotojų
                         </SelectItem>
                       ) : (
-                        availableMembers.map((candidate) => (
-                          <SelectItem key={candidate.id} value={candidate.id}>
-                            {mapToOptionLabel(candidate)}
-                          </SelectItem>
-                        ))
+                        availableMembers
+                          .filter((candidate) => typeof candidate.id === 'string' && candidate.id.length > 0)
+                          .map((candidate) => (
+                            <SelectItem key={candidate.id} value={candidate.id}>
+                              {mapToOptionLabel(candidate)}
+                            </SelectItem>
+                          ))
                       )}
                     </SelectContent>
                   </Select>

@@ -31,7 +31,9 @@ import {
   type BulkAssignmentsFromTemplatePayload,
   type Group,
   type Task,
+  type TaskFrequency,
   type Template,
+  type UpdateTaskPayload,
 } from '@/lib/types';
 
 const messages = ltMessages.tasks;
@@ -52,12 +54,48 @@ const buildDefaultFormState = () => ({
 
 type CreateAssignmentFormState = ReturnType<typeof buildDefaultFormState>;
 
+const monthOptions = [
+  { value: 1, label: 'Sausis' },
+  { value: 2, label: 'Vasaris' },
+  { value: 3, label: 'Kovas' },
+  { value: 4, label: 'Balandis' },
+  { value: 5, label: 'Gegužė' },
+  { value: 6, label: 'Birželis' },
+  { value: 7, label: 'Liepa' },
+  { value: 8, label: 'Rugpjūtis' },
+  { value: 9, label: 'Rugsėjis' },
+  { value: 10, label: 'Spalis' },
+  { value: 11, label: 'Lapkritis' },
+  { value: 12, label: 'Gruodis' },
+];
+
+const frequencyOptions: { value: TaskFrequency; label: string }[] = [
+  { value: 'once', label: 'Vienkartinė' },
+  { value: 'weekly', label: 'Kas savaitę' },
+  { value: 'monthly', label: 'Kas mėnesį' },
+  { value: 'seasonal', label: 'Sezoninė' },
+];
+
+const buildDefaultEditFormState = () => ({
+  title: '',
+  description: '',
+  category: '',
+  frequency: 'once' as TaskFrequency,
+  defaultDueDays: '0',
+  seasonMonths: [] as number[],
+});
+
+type EditTaskFormState = ReturnType<typeof buildDefaultEditFormState>;
+
 export default function AdminTasks() {
   const queryClient = useQueryClient();
   const [searchQuery, setSearchQuery] = useState('');
   const [categoryFilter, setCategoryFilter] = useState<string>('all');
   const [isCreateDialogOpen, setIsCreateDialogOpen] = useState(false);
   const [createForm, setCreateForm] = useState<CreateAssignmentFormState>(buildDefaultFormState);
+  const [isEditDialogOpen, setIsEditDialogOpen] = useState(false);
+  const [editingTaskId, setEditingTaskId] = useState<string | null>(null);
+  const [editForm, setEditForm] = useState<EditTaskFormState>(buildDefaultEditFormState);
 
   const { data: templates = [], isLoading: areTemplatesLoading } = useQuery<Template[]>({
     queryKey: templatesQueryKey,
@@ -100,11 +138,41 @@ export default function AdminTasks() {
     setCreateForm(buildDefaultFormState());
   };
 
+  const resetEditForm = () => {
+    setEditForm(buildDefaultEditFormState());
+    setEditingTaskId(null);
+  };
+
   const invalidateQueries = () => {
     void queryClient.invalidateQueries({ queryKey: adminTasksQueryKey });
     void queryClient.invalidateQueries({ queryKey: ['tasks'] });
     void queryClient.invalidateQueries({ queryKey: ['assignments'] });
     void queryClient.invalidateQueries({ queryKey: ['notifications'] });
+  };
+
+  const handleOpenEditDialog = (task: Task) => {
+    setEditingTaskId(task.id);
+    setEditForm({
+      title: task.title,
+      description: task.description ?? '',
+      category: task.category ?? '',
+      frequency: task.frequency,
+      defaultDueDays: String(task.defaultDueDays),
+      seasonMonths: Array.isArray(task.seasonMonths)
+        ? [...task.seasonMonths].sort((a, b) => a - b)
+        : [],
+    });
+    setIsEditDialogOpen(true);
+  };
+
+  const handleToggleEditSeasonMonth = (month: number, checked: boolean) => {
+    setEditForm((prev) => {
+      const nextMonths = checked
+        ? Array.from(new Set([...prev.seasonMonths, month]))
+        : prev.seasonMonths.filter((value) => value !== month);
+      nextMonths.sort((a, b) => a - b);
+      return { ...prev, seasonMonths: nextMonths };
+    });
   };
 
   const createMutation = useMutation({
@@ -127,6 +195,26 @@ export default function AdminTasks() {
         return;
       }
       toast.error(messages.bulkError);
+    },
+  });
+
+  const updateMutation = useMutation({
+    mutationFn: async ({ id, payload }: { id: string; payload: UpdateTaskPayload }) => {
+      const response = await api.tasks.update(id, payload);
+      return mapTaskFromApi(response);
+    },
+    onSuccess: () => {
+      toast.success(messages.updateSuccess);
+      setIsEditDialogOpen(false);
+      resetEditForm();
+      invalidateQueries();
+    },
+    onError: (error: unknown) => {
+      if (error instanceof HttpError) {
+        toast.error(error.message);
+        return;
+      }
+      toast.error(messages.updateError);
     },
   });
 
@@ -181,10 +269,43 @@ export default function AdminTasks() {
     await createMutation.mutateAsync(payload);
   };
 
+  const handleEditSubmit = async (event: FormEvent<HTMLFormElement>) => {
+    event.preventDefault();
+
+    if (!editingTaskId || updateMutation.isPending) {
+      return;
+    }
+
+    const trimmedTitle = editForm.title.trim();
+    if (!trimmedTitle) {
+      toast.error(messages.validationTitle);
+      return;
+    }
+
+    const parsedDefaultDueDays = Number(editForm.defaultDueDays);
+    if (!Number.isFinite(parsedDefaultDueDays) || parsedDefaultDueDays < 0) {
+      toast.error(messages.validationDefaultDueDays);
+      return;
+    }
+
+    const payload: UpdateTaskPayload = {
+      title: trimmedTitle,
+      description: editForm.description.trim(),
+      category: editForm.category.trim(),
+      frequency: editForm.frequency,
+      defaultDueDays: parsedDefaultDueDays,
+      seasonMonths: [...editForm.seasonMonths].sort((a, b) => a - b),
+    };
+
+    await updateMutation.mutateAsync({ id: editingTaskId, payload });
+  };
+
   const selectedTemplate = useMemo(
     () => templates.find((template) => template.id === createForm.templateId),
     [templates, createForm.templateId],
   );
+
+  const editFormDisabled = updateMutation.isPending;
 
   const getFrequencyLabel = (frequency: Task['frequency']) => {
     const labels: Record<Task['frequency'], string> = {
@@ -211,6 +332,150 @@ export default function AdminTasks() {
   return (
     <MainLayout>
       <div className="space-y-6">
+        <Dialog
+          open={isEditDialogOpen}
+          onOpenChange={(open) => {
+            setIsEditDialogOpen(open);
+            if (!open) {
+              resetEditForm();
+            }
+          }}
+        >
+          <DialogContent className="max-h-[90vh] overflow-y-auto sm:max-w-2xl">
+            <DialogHeader>
+              <DialogTitle>Redaguoti užduotį</DialogTitle>
+              <DialogDescription>Atnaujinkite užduoties informaciją.</DialogDescription>
+            </DialogHeader>
+            <form onSubmit={handleEditSubmit} className="space-y-6">
+              <div className="grid gap-4 md:grid-cols-2">
+                <div className="space-y-2 md:col-span-2">
+                  <Label htmlFor="edit-task-title">Pavadinimas</Label>
+                  <Input
+                    id="edit-task-title"
+                    value={editForm.title}
+                    onChange={(event) =>
+                      setEditForm((prev) => ({ ...prev, title: event.target.value }))
+                    }
+                    placeholder="Pvz., Pavasarinė apžiūra"
+                    disabled={editFormDisabled}
+                    required
+                  />
+                </div>
+                <div className="space-y-2 md:col-span-2">
+                  <Label htmlFor="edit-task-description">Aprašymas</Label>
+                  <Textarea
+                    id="edit-task-description"
+                    value={editForm.description}
+                    onChange={(event) =>
+                      setEditForm((prev) => ({ ...prev, description: event.target.value }))
+                    }
+                    placeholder="Trumpai aprašykite, ką turi atlikti bitininkai"
+                    rows={3}
+                    disabled={editFormDisabled}
+                  />
+                </div>
+                <div className="space-y-2">
+                  <Label htmlFor="edit-task-category">Kategorija</Label>
+                  <Input
+                    id="edit-task-category"
+                    value={editForm.category}
+                    onChange={(event) =>
+                      setEditForm((prev) => ({ ...prev, category: event.target.value }))
+                    }
+                    placeholder="Pvz., Sezoninės priežiūros"
+                    disabled={editFormDisabled}
+                  />
+                </div>
+                <div className="space-y-2">
+                  <Label htmlFor="edit-task-frequency">Dažnumas</Label>
+                  <Select
+                    value={editForm.frequency}
+                    onValueChange={(value) =>
+                      setEditForm((prev) => ({ ...prev, frequency: value as TaskFrequency }))
+                    }
+                    disabled={editFormDisabled}
+                  >
+                    <SelectTrigger id="edit-task-frequency">
+                      <SelectValue placeholder="Pasirinkite dažnumą" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      {frequencyOptions.map((option) => (
+                        <SelectItem key={option.value} value={option.value}>
+                          {option.label}
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                </div>
+                <div className="space-y-2">
+                  <Label htmlFor="edit-task-default-due">Numatytasis terminas (dienomis)</Label>
+                  <Input
+                    id="edit-task-default-due"
+                    type="number"
+                    min={0}
+                    value={editForm.defaultDueDays}
+                    onChange={(event) =>
+                      setEditForm((prev) => ({ ...prev, defaultDueDays: event.target.value }))
+                    }
+                    disabled={editFormDisabled}
+                    required
+                  />
+                </div>
+                <div className="space-y-2 md:col-span-2">
+                  <Label>Sezoniniai mėnesiai</Label>
+                  <div className="grid grid-cols-2 gap-2 sm:grid-cols-3">
+                    {monthOptions.map((month) => {
+                      const checked = editForm.seasonMonths.includes(month.value);
+                      return (
+                        <label
+                          key={month.value}
+                          className="flex items-center gap-2 text-sm font-medium"
+                        >
+                          <Checkbox
+                            checked={checked}
+                            onCheckedChange={(state) =>
+                              handleToggleEditSeasonMonth(month.value, state === true)
+                            }
+                            disabled={editFormDisabled}
+                          />
+                          {month.label}
+                        </label>
+                      );
+                    })}
+                  </div>
+                  <p className="text-xs text-muted-foreground">
+                    Pasirinkite mėnesius, jei užduotis yra sezoninė.
+                  </p>
+                </div>
+              </div>
+
+              <DialogFooter className="flex flex-col gap-2 sm:flex-row sm:justify-end">
+                <Button
+                  type="button"
+                  variant="outline"
+                  onClick={() => {
+                    setIsEditDialogOpen(false);
+                    resetEditForm();
+                  }}
+                  disabled={editFormDisabled}
+                >
+                  Atšaukti
+                </Button>
+                <Button type="submit" disabled={editFormDisabled}>
+                  {editFormDisabled ? (
+                    <>
+                      <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                      Saugoma...
+                    </>
+                  ) : (
+                    'Išsaugoti'
+                  )}
+                </Button>
+              </DialogFooter>
+            </form>
+          </DialogContent>
+        </Dialog>
+
         <div className="flex items-center justify-between">
           <div>
             <h1 className="text-3xl font-bold">Užduotys</h1>
@@ -508,7 +773,12 @@ export default function AdminTasks() {
                       </div>
 
                       <div className="flex flex-col gap-2">
-                        <Button variant="outline" size="sm">
+                        <Button
+                          variant="outline"
+                          size="sm"
+                          onClick={() => handleOpenEditDialog(task)}
+                          disabled={updateMutation.isPending}
+                        >
                           <Edit className="mr-2 w-4 h-4" />
                           Redaguoti
                         </Button>

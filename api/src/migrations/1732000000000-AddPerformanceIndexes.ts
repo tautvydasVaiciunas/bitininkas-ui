@@ -5,66 +5,57 @@ export class AddPerformanceIndexes1732000000000 implements MigrationInterface {
 
   public async up(queryRunner: QueryRunner): Promise<void> {
     // assignments
-    const hasAssignments = await queryRunner.hasTable('assignments');
-    if (hasAssignments) {
-      const hasGroupId = await queryRunner.hasColumn('assignments', 'group_id');
-      if (hasGroupId) {
+    if (await queryRunner.hasTable('assignments')) {
+      if (await queryRunner.hasColumn('assignments', 'group_id')) {
         await queryRunner.query(
-          'CREATE INDEX IF NOT EXISTS "IDX_ASSIGNMENTS_GROUP_ID" ON "assignments" ("group_id")',
+          'CREATE INDEX IF NOT EXISTS "IDX_ASSIGNMENTS_GROUP_ID" ON "assignments" ("group_id")'
         );
       }
-      const hasCreatedAt = await queryRunner.hasColumn('assignments', 'created_at');
-      if (hasCreatedAt) {
+      if (await queryRunner.hasColumn('assignments', 'created_at')) {
         await queryRunner.query(
-          'CREATE INDEX IF NOT EXISTS "IDX_ASSIGNMENTS_CREATED_AT" ON "assignments" ("created_at")',
+          'CREATE INDEX IF NOT EXISTS "IDX_ASSIGNMENTS_CREATED_AT" ON "assignments" ("created_at")'
         );
       }
     }
 
     // assignment_progress
-    const hasAP = await queryRunner.hasTable('assignment_progress');
-    if (hasAP) {
-      const hasAPUser = await queryRunner.hasColumn('assignment_progress', 'user_id');
-      const hasAPAssignment = await queryRunner.hasColumn('assignment_progress', 'assignment_id');
-      const hasAPStep = await queryRunner.hasColumn('assignment_progress', 'step_id');
+    if (await queryRunner.hasTable('assignment_progress')) {
+      const hasUser = await queryRunner.hasColumn('assignment_progress', 'user_id');
+      const hasAssignment = await queryRunner.hasColumn('assignment_progress', 'assignment_id');
+      const hasStep = await queryRunner.hasColumn('assignment_progress', 'step_id');
 
-      if (hasAPUser) {
+      if (hasUser) {
         await queryRunner.query(
-          'CREATE INDEX IF NOT EXISTS "IDX_assignment_progress_user" ON "assignment_progress" ("user_id")',
+          'CREATE INDEX IF NOT EXISTS "IDX_assignment_progress_user" ON "assignment_progress" ("user_id")'
         );
       }
-      if (hasAPAssignment) {
+      if (hasAssignment) {
         await queryRunner.query(
-          'CREATE INDEX IF NOT EXISTS "IDX_assignment_progress_assignment" ON "assignment_progress" ("assignment_id")',
+          'CREATE INDEX IF NOT EXISTS "IDX_assignment_progress_assignment" ON "assignment_progress" ("assignment_id")'
         );
       }
-      if (hasAPAssignment && hasAPUser && hasAPStep) {
+      if (hasAssignment && hasUser && hasStep) {
         await queryRunner.query(
-          'CREATE UNIQUE INDEX IF NOT EXISTS "IDX_assignment_progress_unique" ON "assignment_progress" ("assignment_id","user_id","step_id")',
+          'CREATE UNIQUE INDEX IF NOT EXISTS "IDX_assignment_progress_unique" ON "assignment_progress" ("assignment_id","user_id","step_id")'
         );
       }
     }
 
     // notifications
-    const hasNotifications = await queryRunner.hasTable('notifications');
-    if (hasNotifications) {
-      const hasNotifUser = await queryRunner.hasColumn('notifications', 'user_id');
-      const hasNotifIsRead = await queryRunner.hasColumn('notifications', 'is_read');
-      const hasNotifCreatedAt = await queryRunner.hasColumn('notifications', 'created_at');
-
-      if (hasNotifUser) {
+    if (await queryRunner.hasTable('notifications')) {
+      if (await queryRunner.hasColumn('notifications', 'user_id')) {
         await queryRunner.query(
-          'CREATE INDEX IF NOT EXISTS "IDX_notifications_user_id" ON "notifications" ("user_id")',
+          'CREATE INDEX IF NOT EXISTS "IDX_notifications_user_id" ON "notifications" ("user_id")'
         );
       }
-      if (hasNotifIsRead) {
+      if (await queryRunner.hasColumn('notifications', 'is_read')) {
         await queryRunner.query(
-          'CREATE INDEX IF NOT EXISTS "IDX_notifications_is_read" ON "notifications" ("is_read")',
+          'CREATE INDEX IF NOT EXISTS "IDX_notifications_is_read" ON "notifications" ("is_read")'
         );
       }
-      if (hasNotifCreatedAt) {
+      if (await queryRunner.hasColumn('notifications', 'created_at')) {
         await queryRunner.query(
-          'CREATE INDEX IF NOT EXISTS "IDX_notifications_created_at" ON "notifications" ("created_at")',
+          'CREATE INDEX IF NOT EXISTS "IDX_notifications_created_at" ON "notifications" ("created_at")'
         );
       }
     }
@@ -74,7 +65,10 @@ export class AddPerformanceIndexes1732000000000 implements MigrationInterface {
     await queryRunner.query('DROP INDEX IF EXISTS "IDX_notifications_created_at"');
     await queryRunner.query('DROP INDEX IF EXISTS "IDX_notifications_is_read"');
     await queryRunner.query('DROP INDEX IF EXISTS "IDX_notifications_user_id"');
-
-    await queryRunner.query('DROP INDEX IF EXISTS "IDX_assignment_progress_user"');
+    await queryRunner.query('DROP INDEX IF EXISTS "IDX_assignment_progress_unique"');
     await queryRunner.query('DROP INDEX IF EXISTS "IDX_assignment_progress_assignment"');
-    await queryRunner.qu
+    await queryRunner.query('DROP INDEX IF EXISTS "IDX_assignment_progress_user"');
+    await queryRunner.query('DROP INDEX IF EXISTS "IDX_ASSIGNMENTS_CREATED_AT"');
+    await queryRunner.query('DROP INDEX IF EXISTS "IDX_ASSIGNMENTS_GROUP_ID"');
+  }
+}

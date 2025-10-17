@@ -90,6 +90,13 @@ During local development (non-production `NODE_ENV`) you can verify configuratio
 - **Upload guardrails:** only `image/jpeg`, `image/png`, `image/webp`, and `video/mp4` are accepted. Maximum sizes are controlled via `UPLOAD_MAX_IMAGE_MB` (default `5`) and `UPLOAD_MAX_VIDEO_MB` (default `100`). Larger or unsupported files return a 400 response with a Lithuanian error message.
 - **HTTP hardening:** Helmet is enabled in `api/src/main.ts`; tweak its options there if you need a stricter Content-Security-Policy.
 
+### Performance, observability, and reminders
+
+- **Pagination defaults:** All list endpoints accept `page`/`limit` parameters and respond with `{ data, page, limit, total }`. Configure sane bounds via `DEFAULT_PAGE`, `DEFAULT_LIMIT`, and `MAX_LIMIT` in `api/.env`.
+- **Database indexes:** Migration `1732000000000-AddPerformanceIndexes` creates indexes on `assignments`, `assignment_progress`, and `notifications` to speed up frequent lookups.
+- **Weekly assignment reminders:** `AssignmentsScheduler` now triggers a weekly cron job (default `REMINDER_CRON="0 9 * * 1"`) that nudges group members about unfinished tasks and emails them through the configured mailer. Admins can trigger it manually in dev with `POST /assignments/debug/run-reminder`.
+- **Request logging & counters:** `RequestLoggingMiddleware` logs method, path, status, and latency while keeping in-memory 4xx/5xx counters. Unhandled errors now include stack traces in server logs to aid debugging.
+
 ### Tests
 
 ```bash

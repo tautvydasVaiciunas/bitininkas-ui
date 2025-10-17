@@ -1,9 +1,10 @@
 import { Transform } from 'class-transformer';
 import { IsBoolean, IsEnum, IsOptional, IsUUID } from 'class-validator';
 
+import { PaginationQueryDto } from '../../common/pagination/pagination-query.dto';
 import { AssignmentStatus } from '../assignment.entity';
 
-export class ListAssignmentsQueryDto {
+export class ListAssignmentsQueryDto extends PaginationQueryDto {
   @IsOptional()
   @IsUUID('4', { message: 'Neteisingas avilio identifikatorius' })
   hiveId?: string;

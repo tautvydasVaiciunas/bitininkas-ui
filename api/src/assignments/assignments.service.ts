@@ -33,6 +33,10 @@ import {
 } from "../notifications/email-template";
 import { MAILER_SERVICE, MailerService } from "../notifications/mailer.service";
 import { NotificationsService } from "../notifications/notifications.service";
+import {
+  PaginationService,
+  PaginatedResult,
+} from "../common/pagination/pagination.service";
 @Injectable()
 export class AssignmentsService {
   private readonly logger = new Logger(AssignmentsService.name);
@@ -56,6 +60,7 @@ export class AssignmentsService {
     @Inject(MAILER_SERVICE) private readonly mailer: MailerService,
     private readonly notifications: NotificationsService,
     private readonly configService: ConfigService,
+    private readonly pagination: PaginationService,
   ) {
     this.appBaseUrl = this.normalizeBaseUrl(
       this.configService.get<string>("APP_URL") ??
@@ -563,9 +568,12 @@ export class AssignmentsService {
       status?: AssignmentStatus;
       groupId?: string;
       availableNow?: boolean;
+      page?: number;
+      limit?: number;
     },
     user,
-  ) {
+  ): Promise<PaginatedResult<Assignment>> {
+    const { page, limit } = this.pagination.getPagination(filter);
     const qb = this.assignmentsRepository.createQueryBuilder('assignment');
 
     if (filter.hiveId) {
@@ -595,11 +603,11 @@ export class AssignmentsService {
 
       if (filter.hiveId) {
         if (!accessibleIds.includes(filter.hiveId)) {
-          return [];
+          return this.pagination.buildResponse([], page, limit, 0);
         }
       } else {
         if (!accessibleIds.length) {
-          return [];
+          return this.pagination.buildResponse([], page, limit, 0);
         }
 
         qb.andWhere('assignment.hiveId IN (:...accessibleIds)', {
@@ -622,7 +630,7 @@ export class AssignmentsService {
       });
 
       if (!hasMembers) {
-        return [];
+        return this.pagination.buildResponse([], page, limit, 0);
       }
 
       qb.innerJoin('assignment.hive', 'hive');
@@ -634,7 +642,18 @@ export class AssignmentsService {
       );
     }
 
-    return qb.getMany();
+    const dataQuery = qb
+      .clone()
+      .orderBy('assignment.createdAt', 'DESC')
+      .skip((page - 1) * limit)
+      .take(limit);
+
+    const [items, total] = await Promise.all([
+      dataQuery.getMany(),
+      qb.clone().getCount(),
+    ]);
+
+    return this.pagination.buildResponse(items, page, limit, total);
   }
   async findOne(id: string, user) {
     const assignment = await this.assignmentsRepository.findOne({

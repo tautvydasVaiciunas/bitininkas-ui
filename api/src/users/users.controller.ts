@@ -15,6 +15,7 @@ import { UpdateUserDto } from './dto/update-user.dto';
 import { UpdateUserRoleDto } from './dto/update-user-role.dto';
 import { UsersService } from './users.service';
 import { UserRole } from './user.entity';
+import { ListUsersQueryDto } from './dto/list-users-query.dto';
 
 @Controller('users')
 @Roles(UserRole.MANAGER, UserRole.ADMIN)
@@ -22,8 +23,8 @@ export class UsersController {
   constructor(private readonly usersService: UsersService) {}
 
   @Get()
-  findAll() {
-    return this.usersService.findAll();
+  findAll(@Query() query: ListUsersQueryDto) {
+    return this.usersService.findAll(query);
   }
 
   @Get(':id')

@@ -10,6 +10,7 @@ import {
 } from '@nestjs/common';
 
 import { AssignmentsService } from './assignments.service';
+import { AssignmentsScheduler } from './assignments.scheduler';
 import { CreateAssignmentDto } from './dto/create-assignment.dto';
 import { UpdateAssignmentDto } from './dto/update-assignment.dto';
 import { Roles } from '../common/decorators/roles.decorator';
@@ -19,7 +20,10 @@ import { BulkFromTemplateDto } from './dto/bulk-from-template.dto';
 
 @Controller('assignments')
 export class AssignmentsController {
-  constructor(private readonly assignmentsService: AssignmentsService) {}
+  constructor(
+    private readonly assignmentsService: AssignmentsService,
+    private readonly assignmentsScheduler: AssignmentsScheduler,
+  ) {}
 
   @Roles(UserRole.MANAGER, UserRole.ADMIN)
   @Post()
@@ -36,6 +40,13 @@ export class AssignmentsController {
   @Post('bulk-from-template')
   bulkFromTemplate(@Body() dto: BulkFromTemplateDto, @Request() req) {
     return this.assignmentsService.createBulkFromTemplate(dto, req.user);
+  }
+
+  @Roles(UserRole.ADMIN)
+  @Post('debug/run-reminder')
+  async runWeeklyReminderJob() {
+    await this.assignmentsScheduler.handleWeeklyReminders();
+    return { success: true };
   }
 
   @Patch(':id')

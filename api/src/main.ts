@@ -7,6 +7,7 @@ import helmet from 'helmet';
 
 import { AppModule } from './app.module';
 import { HttpExceptionFilter } from './common/filters/http-exception.filter';
+import { RequestLoggingMiddleware } from './common/middleware/request-logging.middleware';
 
 
 async function bootstrap() {
@@ -70,6 +71,9 @@ async function bootstrap() {
   );
 
   app.useGlobalFilters(new HttpExceptionFilter());
+
+  const requestLogger = new RequestLoggingMiddleware();
+  app.use(requestLogger.use.bind(requestLogger));
 
   app.useStaticAssets('/app/uploads', {
     prefix: '/uploads',

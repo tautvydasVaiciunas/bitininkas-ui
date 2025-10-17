@@ -103,7 +103,7 @@ const AdminNews = () => {
     },
   });
 
-  const newsItems = data?.items ?? [];
+  const newsItems = data?.data ?? [];
   const hasMore = data?.hasMore ?? false;
 
   const groupOptions = useMemo(

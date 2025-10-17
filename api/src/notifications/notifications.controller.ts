@@ -1,24 +1,15 @@
 import { Controller, Get, Param, Patch, Query, Request } from '@nestjs/common';
 
 import { NotificationsService } from './notifications.service';
+import { ListNotificationsQueryDto } from './dto/list-notifications-query.dto';
 
 @Controller('notifications')
 export class NotificationsController {
   constructor(private readonly notificationsService: NotificationsService) {}
 
   @Get()
-  async list(
-    @Request() req,
-    @Query('page') page?: string,
-    @Query('limit') limit?: string,
-  ) {
-    const parsedPage = page ? Number(page) : undefined;
-    const parsedLimit = limit ? Number(limit) : undefined;
-
-    return this.notificationsService.list(req.user.id, {
-      page: parsedPage,
-      limit: parsedLimit,
-    });
+  async list(@Request() req, @Query() query: ListNotificationsQueryDto) {
+    return this.notificationsService.list(req.user.id, query);
   }
 
   @Get('unread-count')

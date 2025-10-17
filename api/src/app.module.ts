@@ -26,6 +26,7 @@ import { ReportsModule } from './reports/reports.module';
 import { TemplatesModule } from './templates/templates.module';
 import { MediaModule } from './media/media.module';
 import { NewsModule } from './news/news.module';
+import { PaginationModule } from './common/pagination/pagination.module';
 
 import ormConfig from './typeorm.config';
 
@@ -62,6 +63,7 @@ import ormConfig from './typeorm.config';
       inject: [ConfigService],
       useFactory: ormConfig,
     }),
+    PaginationModule,
     AuthModule,
     UsersModule,
     HivesModule,

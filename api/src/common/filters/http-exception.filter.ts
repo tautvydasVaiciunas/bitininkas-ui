@@ -95,11 +95,12 @@ export class HttpExceptionFilter implements ExceptionFilter<HttpException> {
     const userId = (request?.user as { id?: string } | undefined)?.id ?? null;
     const ip = request?.ip ?? request?.headers?.['x-forwarded-for'] ?? 'unknown';
     const logMessage = `${method} ${url} -> ${status} ${body.message}`;
+    const stack = exception instanceof Error ? exception.stack : undefined;
 
     if (status === HttpStatus.TOO_MANY_REQUESTS) {
       this.logger.warn(`${logMessage} (ip: ${ip}, user: ${userId ?? 'n/a'})`);
     } else if (status >= HttpStatus.INTERNAL_SERVER_ERROR) {
-      this.logger.error(`${logMessage} (ip: ${ip}, user: ${userId ?? 'n/a'})`);
+      this.logger.error(`${logMessage} (ip: ${ip}, user: ${userId ?? 'n/a'})`, stack);
     } else {
       this.logger.log(`${logMessage} (ip: ${ip}, user: ${userId ?? 'n/a'})`);
     }

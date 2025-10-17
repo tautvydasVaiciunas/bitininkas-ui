@@ -1,4 +1,4 @@
-import { Inject, Injectable, Logger } from '@nestjs/common';
+import { Injectable, Logger } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
 import { Cron } from '@nestjs/schedule';
 import { InjectRepository } from '@nestjs/typeorm';
@@ -6,7 +6,8 @@ import { LessThan, Not, Repository } from 'typeorm';
 
 import { Assignment, AssignmentStatus } from './assignment.entity';
 import { Notification } from '../notifications/notification.entity';
-import { MAILER_PORT, MailerPort } from '../notifications/mailer.service';
+import { NotificationsService } from '../notifications/notifications.service';
+import { DEFAULT_CTA_LABEL } from '../notifications/email-template';
 
 @Injectable()
 export class AssignmentsScheduler {
@@ -18,7 +19,7 @@ export class AssignmentsScheduler {
     private readonly assignmentsRepository: Repository<Assignment>,
     @InjectRepository(Notification)
     private readonly notificationsRepository: Repository<Notification>,
-    @Inject(MAILER_PORT) private readonly mailer: MailerPort,
+    private readonly notificationsService: NotificationsService,
     private readonly configService: ConfigService,
   ) {
     this.appBaseUrl = this.normalizeBaseUrl(
@@ -124,35 +125,21 @@ export class AssignmentsScheduler {
     ].join('\n');
 
     try {
-      await this.mailer.send({
-        userId: ownerId,
-        subject,
+      await this.notificationsService.createNotification(ownerId, {
+        type: 'assignment',
+        title: subject,
         body,
         link,
+        sendEmail: true,
+        emailSubject: subject,
+        emailBody: body,
+        emailCtaUrl: this.buildAssignmentEmailLink(assignment.id),
+        emailCtaLabel: DEFAULT_CTA_LABEL,
       });
     } catch (error) {
       const details = error instanceof Error ? error.message : String(error);
-      this.logger.error(
-        `Nepavyko išsiųsti pranešimo užduočiai ${assignment.id}: ${details}`,
-        error instanceof Error ? error.stack : undefined,
-      );
-    }
-
-    try {
-      await this.notificationsRepository.save(
-        this.notificationsRepository.create({
-          userId: ownerId,
-          type: 'assignment',
-          title: subject,
-          body,
-          link,
-          isRead: false,
-        }),
-      );
-    } catch (error) {
-      const details = error instanceof Error ? error.message : String(error);
       this.logger.warn(
-        `Nepavyko išsaugoti pranešimo užduočiai ${assignment.id}: ${details}`,
+        `Nepavyko sukurti pranešimo užduočiai ${assignment.id}: ${details}`,
         error instanceof Error ? error.stack : undefined,
       );
     }
@@ -200,6 +187,14 @@ export class AssignmentsScheduler {
     }
 
     return `/tasks/${assignmentId}/run`;
+  }
+
+  private buildAssignmentEmailLink(assignmentId: string) {
+    if (this.appBaseUrl) {
+      return `${this.appBaseUrl}/tasks/${assignmentId}`;
+    }
+
+    return `/tasks/${assignmentId}`;
   }
 
   private normalizeBaseUrl(value: string | null) {

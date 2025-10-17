@@ -1,227 +1,339 @@
-import { createConnection, Socket } from 'node:net';
-import { connect as createTlsConnection } from 'node:tls';
-import { once } from 'node:events';
-
-import { InjectRepository } from '@nestjs/typeorm';
-import { ConfigService } from '@nestjs/config';
 import { Injectable, Logger } from '@nestjs/common';
-import { Repository } from 'typeorm';
+import { ConfigService } from '@nestjs/config';
+import nodemailer, { Transporter } from 'nodemailer';
+import { ServerClient } from 'postmark';
+import { Resend } from 'resend';
 
-import { User } from '../users/user.entity';
-
-export interface MailerMessage {
-  userId: string;
-  subject: string;
-  body: string;
-  link?: string | null;
+export interface MailerService {
+  sendNotificationEmail(
+    to: string,
+    subject: string,
+    html: string,
+    text?: string,
+  ): Promise<void>;
+  sendBulkNotificationEmail(
+    recipients: string[],
+    subject: string,
+    html: string,
+    text?: string,
+  ): Promise<void>;
 }
 
-export interface MailerPort {
-  send(message: MailerMessage): Promise<void>;
-}
-
-export const MAILER_PORT = Symbol('MAILER_PORT');
+export const MAILER_SERVICE = Symbol('MAILER_SERVICE');
 
 @Injectable()
-export class ConsoleMailer implements MailerPort {
-  private readonly logger = new Logger(ConsoleMailer.name);
+export class NoopMailer implements MailerService {
+  private readonly logger = new Logger(NoopMailer.name);
 
-  async send(message: MailerMessage): Promise<void> {
-    this.logger.log(
-      `Mock email to user ${message.userId}: ${message.subject}`,
+  async sendNotificationEmail(
+    to: string,
+    subject: string,
+    html: string,
+    text?: string,
+  ): Promise<void> {
+    this.logger.warn(
+      `El. pašto siuntimas išjungtas. Laiškas adresatui ${to} (${subject}) nebus išsiųstas.`,
+    );
+  }
+
+  async sendBulkNotificationEmail(
+    recipients: string[],
+    subject: string,
+    html: string,
+    text?: string,
+  ): Promise<void> {
+    if (!recipients.length) {
+      return;
+    }
+
+    this.logger.warn(
+      `El. pašto siuntimas išjungtas. Laiškai (${subject}) ${recipients.length} gavėjams nebus išsiųsti.`,
     );
   }
 }
 
 @Injectable()
-export class SmtpMailer implements MailerPort {
-  private readonly logger = new Logger(SmtpMailer.name);
+export class PostmarkMailer implements MailerService {
+  private readonly logger = new Logger(PostmarkMailer.name);
+  private readonly client: ServerClient | null;
+  private readonly from: string | null;
 
-  constructor(
-    private readonly configService: ConfigService,
-    @InjectRepository(User)
-    private readonly usersRepository: Repository<User>,
-  ) {}
+  constructor(private readonly configService: ConfigService) {
+    const token = this.configService.get<string>('POSTMARK_SERVER_TOKEN');
+    const fromAddress = this.configService.get<string>('MAIL_FROM');
 
-  async send(message: MailerMessage): Promise<void> {
-    const user = await this.usersRepository.findOne({
-      where: { id: message.userId },
-    });
-
-    if (!user || !user.email) {
-      throw new Error(`User ${message.userId} has no email address`);
+    if (token && token.trim() && fromAddress && fromAddress.trim()) {
+      this.client = new ServerClient(token.trim());
+      this.from = fromAddress.trim();
+    } else {
+      this.client = null;
+      this.from = null;
     }
+  }
 
-    const socket = await this.createSocket();
-    const host = this.configService.get<string>('SMTP_HOST');
-    const portValue = this.configService.get<string>('SMTP_PORT');
-    const from = this.getFromAddress();
-    const credentials = this.getCredentials();
+  async sendNotificationEmail(
+    to: string,
+    subject: string,
+    html: string,
+    text?: string,
+  ): Promise<void> {
+    if (!this.ensureConfigured()) {
+      return;
+    }
 
     try {
-      const greeting = await this.readResponse(socket);
-      if (greeting.code !== 220) {
-        throw new Error(`Unexpected SMTP greeting: ${greeting.message}`);
-      }
-
-      await this.sendCommand(socket, `EHLO ${this.getClientHostname()}`, [250]);
-
-      if (credentials) {
-        await this.sendCommand(socket, 'AUTH LOGIN', [334]);
-        await this.sendCommand(
-          socket,
-          Buffer.from(credentials.user).toString('base64'),
-          [334],
-        );
-        await this.sendCommand(
-          socket,
-          Buffer.from(credentials.pass).toString('base64'),
-          [235],
-        );
-      }
-
-      await this.sendCommand(socket, `MAIL FROM:<${from.address}>`, [250, 251]);
-      await this.sendCommand(socket, `RCPT TO:<${user.email}>`, [250, 251]);
-      await this.sendCommand(socket, 'DATA', [354]);
-
-      const textBody = message.link
-        ? `${message.body}\n\nNuoroda: ${message.link}`
-        : message.body;
-
-      const payload = [
-        `From: ${from.name} <${from.address}>`,
-        `To: ${user.email}`,
-        `Subject: ${message.subject}`,
-        'MIME-Version: 1.0',
-        'Content-Type: text/plain; charset=UTF-8',
-        '',
-        textBody,
-      ].join('\r\n');
-
-      socket.write(`${payload}\r\n.\r\n`);
-
-      const dataResponse = await this.readResponse(socket);
-      if (dataResponse.code !== 250) {
-        throw new Error(`SMTP DATA command failed: ${dataResponse.message}`);
-      }
-
-      await this.sendCommand(socket, 'QUIT', [221]);
-      this.logger.log(
-        `Email delivered via ${host ?? 'unknown'}:${portValue ?? '0'} to ${user.email}`,
-      );
-    } finally {
-      socket.end();
+      await this.client!.sendEmail({
+        From: this.from!,
+        To: to,
+        Subject: subject,
+        HtmlBody: html,
+        TextBody: text ?? undefined,
+      });
+    } catch (error) {
+      const details = error instanceof Error ? error.message : String(error);
+      this.logger.warn(`Postmark nepavyko išsiųsti laiško: ${details}`);
     }
   }
 
-  private getFromAddress() {
-    const address =
-      this.configService.get<string>('SMTP_FROM_EMAIL') ?? 'noreply@example.com';
-    const name = this.configService.get<string>('SMTP_FROM_NAME') ?? 'Bitininkas';
-    return { address, name };
+  async sendBulkNotificationEmail(
+    recipients: string[],
+    subject: string,
+    html: string,
+    text?: string,
+  ): Promise<void> {
+    if (!this.ensureConfigured() || !recipients.length) {
+      return;
+    }
+
+    try {
+      await this.client!.sendEmailBatch(
+        recipients.map((to) => ({
+          From: this.from!,
+          To: to,
+          Subject: subject,
+          HtmlBody: html,
+          TextBody: text ?? undefined,
+        })),
+      );
+    } catch (error) {
+      const details = error instanceof Error ? error.message : String(error);
+      this.logger.warn(`Postmark nepavyko išsiųsti laiškų paketui: ${details}`);
+    }
   }
 
-  private getCredentials() {
-    const user = this.configService.get<string>('SMTP_USER');
-    const pass = this.configService.get<string>('SMTP_PASSWORD');
+  private ensureConfigured() {
+    if (!this.client || !this.from) {
+      this.logger.warn('Postmark neapkonfigūruotas. Patikrinkite POSTMARK_SERVER_TOKEN ir MAIL_FROM.');
+      return false;
+    }
 
-    if (!user || !pass) {
+    return true;
+  }
+}
+
+@Injectable()
+export class ResendMailer implements MailerService {
+  private readonly logger = new Logger(ResendMailer.name);
+  private readonly client: Resend | null;
+  private readonly from: string | null;
+
+  constructor(private readonly configService: ConfigService) {
+    const apiKey = this.configService.get<string>('RESEND_API_KEY');
+    const fromAddress = this.configService.get<string>('MAIL_FROM');
+
+    if (apiKey && apiKey.trim() && fromAddress && fromAddress.trim()) {
+      this.client = new Resend(apiKey.trim());
+      this.from = fromAddress.trim();
+    } else {
+      this.client = null;
+      this.from = null;
+    }
+  }
+
+  async sendNotificationEmail(
+    to: string,
+    subject: string,
+    html: string,
+    text?: string,
+  ): Promise<void> {
+    if (!this.ensureConfigured()) {
+      return;
+    }
+
+    try {
+      await this.client!.emails.send({
+        from: this.from!,
+        to,
+        subject,
+        html,
+        text: text ?? undefined,
+      });
+    } catch (error) {
+      const details = error instanceof Error ? error.message : String(error);
+      this.logger.warn(`Resend nepavyko išsiųsti laiško: ${details}`);
+    }
+  }
+
+  async sendBulkNotificationEmail(
+    recipients: string[],
+    subject: string,
+    html: string,
+    text?: string,
+  ): Promise<void> {
+    if (!this.ensureConfigured() || !recipients.length) {
+      return;
+    }
+
+    try {
+      await this.client!.emails.send({
+        from: this.from!,
+        to: recipients,
+        subject,
+        html,
+        text: text ?? undefined,
+      });
+    } catch (error) {
+      const details = error instanceof Error ? error.message : String(error);
+      this.logger.warn(`Resend nepavyko išsiųsti laiškų paketui: ${details}`);
+    }
+  }
+
+  private ensureConfigured() {
+    if (!this.client || !this.from) {
+      this.logger.warn('Resend neapkonfigūruotas. Patikrinkite RESEND_API_KEY ir MAIL_FROM.');
+      return false;
+    }
+
+    return true;
+  }
+}
+
+@Injectable()
+export class SmtpMailer implements MailerService {
+  private readonly logger = new Logger(SmtpMailer.name);
+  private transporter: Transporter | null = null;
+  private readonly from: string | null;
+
+  constructor(private readonly configService: ConfigService) {
+    this.from = this.normalize(this.configService.get<string>('MAIL_FROM'));
+    this.initializeTransporter();
+  }
+
+  async sendNotificationEmail(
+    to: string,
+    subject: string,
+    html: string,
+    text?: string,
+  ): Promise<void> {
+    if (!this.ensureConfigured()) {
+      return;
+    }
+
+    try {
+      await this.transporter!.sendMail({
+        from: this.from!,
+        to,
+        subject,
+        html,
+        text: text ?? undefined,
+      });
+    } catch (error) {
+      const details = error instanceof Error ? error.message : String(error);
+      this.logger.warn(`SMTP nepavyko išsiųsti laiško: ${details}`);
+    }
+  }
+
+  async sendBulkNotificationEmail(
+    recipients: string[],
+    subject: string,
+    html: string,
+    text?: string,
+  ): Promise<void> {
+    if (!this.ensureConfigured() || !recipients.length) {
+      return;
+    }
+
+    try {
+      await Promise.all(
+        recipients.map((recipient) =>
+          this.transporter!.sendMail({
+            from: this.from!,
+            to: recipient,
+            subject,
+            html,
+            text: text ?? undefined,
+          }),
+        ),
+      );
+    } catch (error) {
+      const details = error instanceof Error ? error.message : String(error);
+      this.logger.warn(`SMTP nepavyko išsiųsti laiškų paketui: ${details}`);
+    }
+  }
+
+  private initializeTransporter() {
+    const host = this.normalize(this.configService.get<string>('SMTP_HOST'));
+    const portRaw = this.normalize(this.configService.get<string>('SMTP_PORT'));
+    const user = this.normalize(
+      this.configService.get<string>('SMTP_USER') ??
+        this.configService.get<string>('SMTP_USERNAME'),
+    );
+    const pass = this.normalize(
+      this.configService.get<string>('SMTP_PASS') ??
+        this.configService.get<string>('SMTP_PASSWORD'),
+    );
+    const secureFlag = this.normalize(this.configService.get<string>('SMTP_SECURE'));
+
+    if (!host || !portRaw || !this.from) {
+      this.logger.warn(
+        'SMTP neapkonfigūruotas. Patikrinkite SMTP_HOST, SMTP_PORT, SMTP_PASS/SMTP_PASSWORD, SMTP_USER ir MAIL_FROM.',
+      );
+      this.transporter = null;
+      return;
+    }
+
+    const port = Number(portRaw);
+
+    if (!Number.isFinite(port)) {
+      this.logger.warn('SMTP_PORT turi būti sveikas skaičius.');
+      this.transporter = null;
+      return;
+    }
+
+    const secure = this.parseSecure(secureFlag, port);
+
+    this.transporter = nodemailer.createTransport({
+      host,
+      port,
+      secure,
+      auth: user && pass ? { user, pass } : undefined,
+    });
+  }
+
+  private ensureConfigured() {
+    if (!this.transporter || !this.from) {
+      this.logger.warn('SMTP paštas neapkonfigūruotas. Laiškas nebus išsiųstas.');
+      return false;
+    }
+
+    return true;
+  }
+
+  private normalize(value?: string | null) {
+    if (!value) {
       return null;
     }
 
-    return { user, pass };
+    const trimmed = value.trim();
+    return trimmed.length ? trimmed : null;
   }
 
-  private getClientHostname() {
-    return this.configService.get<string>('SMTP_CLIENT_ID') ?? 'localhost';
-  }
-
-  private async createSocket(): Promise<Socket> {
-    const host = this.configService.get<string>('SMTP_HOST');
-    const portValue = this.configService.get<string>('SMTP_PORT');
-    const secureEnv = this.configService.get<string>('SMTP_SECURE');
-
-    if (!host || !portValue) {
-      throw new Error('SMTP configuration is missing');
+  private parseSecure(flag: string | null, port: number) {
+    if (!flag) {
+      return port === 465;
     }
 
-    const port = Number(portValue);
-
-    if (!Number.isFinite(port)) {
-      throw new Error('SMTP port is invalid');
-    }
-
-    const secure = secureEnv ? secureEnv === 'true' || secureEnv === '1' : port === 465;
-
-    return new Promise<Socket>((resolve, reject) => {
-      const socket = secure
-        ? createTlsConnection({ host, port })
-        : createConnection({ host, port });
-
-      const cleanup = () => {
-        socket.removeAllListeners('error');
-        socket.removeAllListeners('connect');
-        socket.removeAllListeners('secureConnect');
-      };
-
-      const handleError = (error: Error) => {
-        cleanup();
-        reject(error);
-      };
-
-      const handleConnect = () => {
-        cleanup();
-        resolve(socket);
-      };
-
-      socket.once('error', handleError);
-
-      if (secure) {
-        socket.once('secureConnect', handleConnect);
-      } else {
-        socket.once('connect', handleConnect);
-      }
-    });
-  }
-
-  private async readResponse(socket: Socket) {
-    let buffer = '';
-
-    while (true) {
-      const [chunk] = await once(socket, 'data');
-      buffer += chunk.toString('utf-8');
-
-      const lines = buffer.split(/\r?\n/).filter((line) => line.length >= 4);
-
-      if (!lines.length) {
-        continue;
-      }
-
-      const lastLine = lines[lines.length - 1];
-      const code = Number(lastLine.slice(0, 3));
-
-      if (Number.isNaN(code)) {
-        continue;
-      }
-
-      if (lastLine[3] === '-') {
-        continue;
-      }
-
-      return { code, message: buffer.trim() };
-    }
-  }
-
-  private async sendCommand(socket: Socket, command: string, expectedCodes: number[]) {
-    socket.write(`${command}\r\n`);
-    const response = await this.readResponse(socket);
-
-    if (expectedCodes.length && !expectedCodes.includes(response.code)) {
-      throw new Error(
-        `SMTP command "${command}" failed with ${response.code}: ${response.message}`,
-      );
-    }
-
-    return response;
+    const normalized = flag.toLowerCase();
+    return ['1', 'true', 'yes', 'on'].includes(normalized);
   }
 }

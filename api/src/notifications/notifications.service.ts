@@ -3,7 +3,13 @@ import { InjectRepository } from '@nestjs/typeorm';
 import { Repository } from 'typeorm';
 
 import { Notification } from './notification.entity';
-import { MAILER_PORT, MailerPort } from './mailer.service';
+import {
+  DEFAULT_CTA_LABEL,
+  renderNotificationEmailHtml,
+  renderNotificationEmailText,
+} from './email-template';
+import { MAILER_SERVICE, MailerService } from './mailer.service';
+import { User, UserRole } from '../users/user.entity';
 
 export type NotificationType = 'assignment' | 'news' | 'message';
 
@@ -15,6 +21,8 @@ export interface CreateNotificationPayload {
   sendEmail?: boolean;
   emailSubject?: string;
   emailBody?: string;
+  emailCtaUrl?: string | null;
+  emailCtaLabel?: string;
 }
 
 export interface ListNotificationsOptions {
@@ -29,8 +37,10 @@ export class NotificationsService {
   constructor(
     @InjectRepository(Notification)
     private readonly repository: Repository<Notification>,
-    @Inject(MAILER_PORT)
-    private readonly mailer: MailerPort,
+    @InjectRepository(User)
+    private readonly usersRepository: Repository<User>,
+    @Inject(MAILER_SERVICE)
+    private readonly mailer: MailerService,
   ) {}
 
   async createNotification(userId: string, payload: CreateNotificationPayload) {
@@ -46,20 +56,7 @@ export class NotificationsService {
     const saved = await this.repository.save(notification);
 
     if (payload.sendEmail) {
-      try {
-        await this.mailer.send({
-          userId,
-          subject: payload.emailSubject ?? payload.title,
-          body: payload.emailBody ?? this.composeEmailBody(payload.body, payload.link),
-          link: payload.link ?? undefined,
-        });
-      } catch (error) {
-        const details = error instanceof Error ? error.message : String(error);
-        this.logger.warn(
-          `Failed to send notification email to user ${userId}: ${details}`,
-          error instanceof Error ? error.stack : undefined,
-        );
-      }
+      await this.sendEmailNotification(userId, payload);
     }
 
     return saved;
@@ -98,14 +95,6 @@ export class NotificationsService {
     await this.repository.update({ userId, isRead: false }, { isRead: true });
   }
 
-  private composeEmailBody(body: string, link?: string | null) {
-    if (!link) {
-      return body;
-    }
-
-    return `${body}\n\nNuoroda: ${link}`;
-  }
-
   private normalizeLimit(value?: number) {
     if (!value || Number.isNaN(value)) {
       return 20;
@@ -120,5 +109,53 @@ export class NotificationsService {
     }
 
     return Math.max(value, 1);
+  }
+
+  private async sendEmailNotification(
+    userId: string,
+    payload: CreateNotificationPayload,
+  ) {
+    try {
+      const user = await this.usersRepository.findOne({ where: { id: userId } });
+
+      if (!user?.email) {
+        this.logger.warn(
+          `Nepavyko išsiųsti el. laiško vartotojui ${userId}: nėra el. pašto adreso.`,
+        );
+        return;
+      }
+
+      if (payload.type === 'assignment' && user.role === UserRole.ADMIN) {
+        this.logger.debug(
+          `Praleidžiamas el. laiškas admin vartotojui ${user.email} apie užduotį.`,
+        );
+        return;
+      }
+
+      const subject = payload.emailSubject ?? payload.title;
+      const message = payload.emailBody ?? payload.body;
+      const ctaUrl = payload.emailCtaUrl ?? payload.link ?? null;
+      const ctaLabel = payload.emailCtaLabel ?? DEFAULT_CTA_LABEL;
+
+      const html = renderNotificationEmailHtml({
+        subject,
+        message,
+        ctaUrl,
+        ctaLabel,
+      });
+      const text = renderNotificationEmailText({
+        message,
+        ctaUrl: ctaUrl ?? undefined,
+        ctaLabel,
+      });
+
+      await this.mailer.sendNotificationEmail(user.email, subject, html, text);
+    } catch (error) {
+      const details = error instanceof Error ? error.message : String(error);
+      this.logger.warn(
+        `Failed to send notification email to user ${userId}: ${details}`,
+        error instanceof Error ? error.stack : undefined,
+      );
+    }
   }
 }

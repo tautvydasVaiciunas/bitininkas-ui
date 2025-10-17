@@ -72,6 +72,18 @@ docker compose up --build
 
 The `api` container runs migrations and seeds on start. PostgreSQL is exposed on `localhost:5432` if you need admin tooling.
 
+### Transactional email providers
+
+The API sends transactional mail through a pluggable adapter. Configure one of the supported providers in `api/.env`:
+
+- **Postmark** – set `MAIL_PROVIDER=postmark`, `MAIL_FROM`, and `POSTMARK_SERVER_TOKEN`.
+- **Resend** – set `MAIL_PROVIDER=resend`, `MAIL_FROM`, and `RESEND_API_KEY`.
+- **SMTP** – set `MAIL_PROVIDER=smtp`, `MAIL_FROM`, `SMTP_HOST`, `SMTP_PORT`, `SMTP_USER`, `SMTP_PASS`, and optionally `SMTP_SECURE` (defaults to `false`).
+
+If `MAIL_PROVIDER` or the required secrets are missing the mailer falls back to a no-op implementation and logs a warning instead of throwing errors.
+
+During local development (non-production `NODE_ENV`) you can verify configuration with `POST /debug/test-email`, which is restricted to admin accounts.
+
 ### Tests
 
 ```bash

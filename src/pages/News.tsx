@@ -100,12 +100,12 @@ const News = () => {
           <div className="space-y-6">
             {Array.from({ length: 3 }).map((_, index) => (
               <Card key={index} className="overflow-hidden">
-                <div className="flex flex-col md:flex-row">
-                  <div className="md:w-2/5 lg:w-1/3">
-                    <Skeleton className="h-48 w-full md:h-full" />
+                <div className="grid gap-0 md:grid-cols-[minmax(0,320px),1fr]">
+                  <div className="relative aspect-[16/9] w-full md:aspect-auto md:h-full">
+                    <Skeleton className="absolute inset-0 h-full w-full" />
                   </div>
                   <div className="flex flex-1 flex-col">
-                    <CardHeader className="space-y-3">
+                    <CardHeader className="space-y-3 md:space-y-4">
                       <Skeleton className="h-4 w-1/3" />
                       <Skeleton className="h-6 w-3/4" />
                     </CardHeader>
@@ -114,7 +114,8 @@ const News = () => {
                       <Skeleton className="h-4 w-5/6" />
                       <Skeleton className="h-4 w-2/3" />
                     </CardContent>
-                    <CardFooter className="mt-auto flex justify-end border-t border-border/60 bg-muted/10 p-6">
+                    <CardFooter className="mt-auto flex flex-col gap-3 border-t border-border/60 bg-muted/10 p-6 md:flex-row md:items-center md:justify-between">
+                      <Skeleton className="h-4 w-1/3" />
                       <Skeleton className="h-10 w-32" />
                     </CardFooter>
                   </div>
@@ -144,17 +145,21 @@ const News = () => {
             <div className="space-y-6">
               {newsItems.map((post) => (
                 <Card key={post.id} className="overflow-hidden">
-                  <div className="flex flex-col md:flex-row">
-                    {post.imageUrl ? (
-                      <div className="md:w-2/5 lg:w-1/3">
+                  <div className="grid gap-0 md:grid-cols-[minmax(0,320px),1fr]">
+                    <div className="relative aspect-[16/9] w-full md:aspect-auto md:h-full">
+                      {post.imageUrl ? (
                         <img
                           src={post.imageUrl}
                           alt={post.title}
-                          className="h-56 w-full object-cover md:h-full"
+                          className="absolute inset-0 h-full w-full object-cover"
                           loading="lazy"
                         />
-                      </div>
-                    ) : null}
+                      ) : (
+                        <div className="absolute inset-0 flex items-center justify-center bg-muted text-center text-sm font-medium uppercase tracking-wide text-muted-foreground">
+                          <span className="px-4">Nuotrauka nepateikta</span>
+                        </div>
+                      )}
+                    </div>
                     <div className="flex flex-1 flex-col">
                       <CardHeader className="space-y-3 md:space-y-4">
                         <span className="text-sm font-medium uppercase tracking-wide text-muted-foreground">

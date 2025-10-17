@@ -533,6 +533,7 @@ export class NewsService {
     );
 
     const link = this.buildNewsLink(full.id);
+    const emailCtaUrl = this.buildNewsListLink();
 
     for (const recipientId of uniqueRecipients) {
       try {
@@ -542,8 +543,9 @@ export class NewsService {
           body,
           link,
           sendEmail: true,
-          emailSubject: `Nauja naujiena: ${title}`,
-          emailBody: [`Nauja naujiena: ${title}`, body, `Nuoroda: ${link}`].join('\n'),
+          emailSubject: 'Nauja naujiena',
+          emailBody: [`Paskelbta nauja naujiena „${title}“.`, body].join('\n\n'),
+          emailCtaUrl,
         });
       } catch (error) {
         this.logger.warn(
@@ -624,6 +626,14 @@ export class NewsService {
     }
 
     return `/news/${newsId}`;
+  }
+
+  private buildNewsListLink() {
+    if (this.appBaseUrl) {
+      return `${this.appBaseUrl}/news`;
+    }
+
+    return `/news`;
   }
 
   private normalizeBaseUrl(value: string | null) {

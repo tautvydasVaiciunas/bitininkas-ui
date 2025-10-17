@@ -26,7 +26,12 @@ import { GroupMember } from "../groups/group-member.entity";
 import { Template } from "../templates/template.entity";
 import { TemplateStep } from "../templates/template-step.entity";
 import { BulkFromTemplateDto } from "./dto/bulk-from-template.dto";
-import { MAILER_PORT, MailerPort } from "../notifications/mailer.service";
+import {
+  DEFAULT_CTA_LABEL,
+  renderNotificationEmailHtml,
+  renderNotificationEmailText,
+} from "../notifications/email-template";
+import { MAILER_SERVICE, MailerService } from "../notifications/mailer.service";
 import { NotificationsService } from "../notifications/notifications.service";
 @Injectable()
 export class AssignmentsService {
@@ -48,7 +53,7 @@ export class AssignmentsService {
     private readonly groupMembersRepository: Repository<GroupMember>,
     private readonly dataSource: DataSource,
     private readonly activityLog: ActivityLogService,
-    @Inject(MAILER_PORT) private readonly mailer: MailerPort,
+    @Inject(MAILER_SERVICE) private readonly mailer: MailerService,
     private readonly notifications: NotificationsService,
     private readonly configService: ConfigService,
   ) {
@@ -251,13 +256,46 @@ export class AssignmentsService {
 
     const dueDateLabel = dueDate ?? 'nenurodytas';
 
+    const ownerById = new Map(
+      hives
+        .filter((hive) => hive.ownerUserId && hive.owner?.email)
+        .map((hive) => [hive.ownerUserId as string, hive.owner!]),
+    );
+
     for (const [userId, summary] of assignmentsByUser.entries()) {
+      const owner = ownerById.get(userId);
+
+      if (!owner?.email) {
+        this.logger.warn(
+          `Praleidžiama užduočių suvestinė, nes nerastas el. paštas vartotojui ${userId}.`,
+        );
+        continue;
+      }
+
+      const subject = `Sukurtos naujos užduotys: ${taskTitle}`;
+      const message = [
+        `Pavadinimas: ${taskTitle}`,
+        `Priskirtos užduotys: ${summary.count}`,
+        `Terminas: ${dueDateLabel}`,
+      ].join('\n');
+      const ctaUrl = summary.assignmentIds.length
+        ? this.buildAssignmentEmailLink(summary.assignmentIds[0])
+        : null;
+
+      const html = renderNotificationEmailHtml({
+        subject,
+        message,
+        ctaUrl,
+        ctaLabel: DEFAULT_CTA_LABEL,
+      });
+      const text = renderNotificationEmailText({
+        message,
+        ctaUrl: ctaUrl ?? undefined,
+        ctaLabel: DEFAULT_CTA_LABEL,
+      });
+
       try {
-        await this.mailer.send({
-          userId,
-          subject: `Sukurtos naujos užduotys: ${taskTitle}`,
-          body: `Pavadinimas: ${taskTitle}\nPriskirtos užduotys: ${summary.count}\nTerminas: ${dueDateLabel}`,
-        });
+        await this.mailer.sendNotificationEmail(owner.email, subject, html, text);
       } catch (error) {
         const details = error instanceof Error ? error.message : String(error);
         this.logger.error(
@@ -289,13 +327,11 @@ export class AssignmentsService {
           continue;
         }
 
+        const startLabel = assignment.startDate ?? 'nenurodyta';
         const dueLabel = assignment.dueDate ?? 'nenurodytas';
-        const body = `Jums priskirta užduotis „${taskTitle}“. Terminas: ${dueLabel}.`;
+        const body = `Jums priskirta užduotis „${taskTitle}“ nuo ${startLabel} iki ${dueLabel}.`;
         const link = this.buildAssignmentLink(assignment.id);
-
-        const emailBody = [`Jums priskirta užduotis „${taskTitle}“.`];
-        emailBody.push(`Terminas: ${dueLabel}.`);
-        emailBody.push(`Nuoroda: ${link}`);
+        const emailCtaUrl = this.buildAssignmentEmailLink(assignment.id);
 
         await Promise.all(
           uniqueParticipantIds.map((participantId) =>
@@ -305,8 +341,10 @@ export class AssignmentsService {
               body,
               link,
               sendEmail,
-              emailSubject: `Nauja užduotis: ${taskTitle}`,
-              emailBody: emailBody.join('\n'),
+              emailSubject: 'Nauja užduotis',
+              emailBody: body,
+              emailCtaUrl,
+              emailCtaLabel: DEFAULT_CTA_LABEL,
             }),
           ),
         );
@@ -326,6 +364,14 @@ export class AssignmentsService {
     }
 
     return `/tasks/${assignmentId}/run`;
+  }
+
+  private buildAssignmentEmailLink(assignmentId: string) {
+    if (this.appBaseUrl) {
+      return `${this.appBaseUrl}/tasks/${assignmentId}`;
+    }
+
+    return `/tasks/${assignmentId}`;
   }
 
   private normalizeBaseUrl(value: string | null) {

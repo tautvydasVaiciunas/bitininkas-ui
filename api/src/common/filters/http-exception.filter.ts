@@ -1,5 +1,12 @@
-import { ArgumentsHost, Catch, ExceptionFilter, HttpException } from '@nestjs/common';
-import { Response } from 'express';
+import {
+  ArgumentsHost,
+  Catch,
+  ExceptionFilter,
+  HttpException,
+  HttpStatus,
+  Logger,
+} from '@nestjs/common';
+import { Request, Response } from 'express';
 
 export interface ErrorResponseBody {
   message: string;
@@ -74,11 +81,28 @@ export const buildErrorResponseBody = (exception: HttpException): ErrorResponseB
 
 @Catch(HttpException)
 export class HttpExceptionFilter implements ExceptionFilter<HttpException> {
+  private readonly logger = new Logger(HttpExceptionFilter.name);
+
   catch(exception: HttpException, host: ArgumentsHost) {
     const ctx = host.switchToHttp();
     const response = ctx.getResponse<Response>();
+    const request = ctx.getRequest<Request>();
     const status = exception.getStatus();
     const body = buildErrorResponseBody(exception);
+
+    const method = request?.method ?? 'UNKNOWN';
+    const url = request?.originalUrl ?? request?.url ?? 'unknown';
+    const userId = (request?.user as { id?: string } | undefined)?.id ?? null;
+    const ip = request?.ip ?? request?.headers?.['x-forwarded-for'] ?? 'unknown';
+    const logMessage = `${method} ${url} -> ${status} ${body.message}`;
+
+    if (status === HttpStatus.TOO_MANY_REQUESTS) {
+      this.logger.warn(`${logMessage} (ip: ${ip}, user: ${userId ?? 'n/a'})`);
+    } else if (status >= HttpStatus.INTERNAL_SERVER_ERROR) {
+      this.logger.error(`${logMessage} (ip: ${ip}, user: ${userId ?? 'n/a'})`);
+    } else {
+      this.logger.log(`${logMessage} (ip: ${ip}, user: ${userId ?? 'n/a'})`);
+    }
 
     response.status(status).json(body);
   }

@@ -1,23 +1,39 @@
-import { BadRequestException, Controller, Post, UploadedFile, UseFilters, UseInterceptors } from '@nestjs/common';
+import {
+  BadRequestException,
+  Controller,
+  Post,
+  UploadedFile,
+  UseFilters,
+  UseInterceptors,
+} from '@nestjs/common';
 import { FileInterceptor } from '@nestjs/platform-express';
+import { Throttle } from '@nestjs/throttler';
 import { diskStorage } from 'multer';
 import { extname } from 'node:path';
 import { existsSync, mkdirSync } from 'node:fs';
+import { unlink } from 'node:fs/promises';
 import { randomUUID } from 'node:crypto';
 import { Express } from 'express';
 
 import { Roles } from '../common/decorators/roles.decorator';
 import { UserRole } from '../users/user.entity';
 import { MulterExceptionFilter } from '../common/filters/multer-exception.filter';
+import {
+  ALLOWED_UPLOAD_MIME_TYPES,
+  RATE_LIMIT_MAX,
+  RATE_LIMIT_TTL_SECONDS,
+  getMaxBytesForMime,
+  UPLOAD_MAX_VIDEO_BYTES,
+} from '../common/config/security.config';
 
 const UPLOADS_DIR = '/app/uploads';
-const MAX_FILE_SIZE = 20 * 1024 * 1024;
-const ALLOWED_MIME_TYPES = new Set(['image/jpeg', 'image/png', 'video/mp4']);
 const MIME_EXTENSION_MAP: Record<string, string> = {
   'image/jpeg': '.jpg',
   'image/png': '.png',
+  'image/webp': '.webp',
   'video/mp4': '.mp4',
 };
+const SINGLE_FILE_FLAG = '__hasUploadedFile';
 
 const ensureUploadsDirExists = () => {
   if (!existsSync(UPLOADS_DIR)) {
@@ -35,6 +51,7 @@ const resolveFileName = (file: Express.Multer.File) => {
 export class MediaController {
   @Post('upload')
   @Roles(UserRole.MANAGER, UserRole.ADMIN)
+  @Throttle(RATE_LIMIT_MAX, RATE_LIMIT_TTL_SECONDS)
   @UseInterceptors(
     FileInterceptor('file', {
       storage: diskStorage({
@@ -56,20 +73,36 @@ export class MediaController {
         },
       }),
       limits: {
-        fileSize: MAX_FILE_SIZE,
+        fileSize: UPLOAD_MAX_VIDEO_BYTES,
+        files: 1,
       },
-      fileFilter: (_req, file, cb) => {
-        if (!ALLOWED_MIME_TYPES.has(file.mimetype)) {
-          cb(new BadRequestException('Failo formatas nepalaikomas'), false);
+      fileFilter: (req, file, cb) => {
+        const request = req as Express.Request & { [SINGLE_FILE_FLAG]?: boolean };
+
+        if (request[SINGLE_FILE_FLAG]) {
+          cb(new BadRequestException('Leidžiama įkelti tik vieną failą'), false);
           return;
         }
+
+        if (!ALLOWED_UPLOAD_MIME_TYPES.has(file.mimetype)) {
+          cb(new BadRequestException('Failo tipas nepriimtinas'), false);
+          return;
+        }
+
+        request[SINGLE_FILE_FLAG] = true;
         cb(null, true);
       },
     }),
   )
-  uploadMedia(@UploadedFile() file?: Express.Multer.File) {
+  async uploadMedia(@UploadedFile() file?: Express.Multer.File) {
     if (!file) {
-      throw new BadRequestException('Failo formatas nepalaikomas');
+      throw new BadRequestException('Failas nebuvo pateiktas');
+    }
+
+    const maxBytes = getMaxBytesForMime(file.mimetype);
+    if (maxBytes > 0 && file.size > maxBytes) {
+      await unlink(file.path).catch(() => undefined);
+      throw new BadRequestException('Failas per didelis');
     }
 
     return { url: `/uploads/${file.filename}` };

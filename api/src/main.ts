@@ -1,6 +1,7 @@
 import { NestFactory } from '@nestjs/core';
 import { NestExpressApplication } from '@nestjs/platform-express';
 import { BadRequestException, ValidationPipe } from '@nestjs/common';
+import { ValidationError } from 'class-validator';
 import { ConfigService } from '@nestjs/config';
 import helmet from 'helmet';
 
@@ -17,7 +18,11 @@ async function bootstrap() {
     .map((origin) => origin.trim())
     .filter(Boolean);
 
-  app.use(helmet());
+  app.use(
+    helmet({
+      contentSecurityPolicy: false,
+    }),
+  );
   app.enableCors({
     origin: allowedOrigins.length ? allowedOrigins : true,
     credentials: true,
@@ -28,7 +33,39 @@ async function bootstrap() {
       whitelist: true,
       forbidNonWhitelisted: true,
       transform: true,
-      exceptionFactory: () => new BadRequestException('Neteisingi duomenys'),
+      transformOptions: {
+        enableImplicitConversion: true,
+      },
+      exceptionFactory: (validationErrors: ValidationError[] = []) => {
+        const collectMessages = (errors: ValidationError[]): string[] => {
+          const result: string[] = [];
+
+          for (const error of errors) {
+            if (error.constraints) {
+              result.push(...Object.values(error.constraints));
+            }
+
+            if (error.children?.length) {
+              result.push(...collectMessages(error.children));
+            }
+          }
+
+          return result;
+        };
+
+        const messages = Array.from(
+          new Set(
+            collectMessages(validationErrors).filter(
+              (message): message is string => Boolean(message),
+            ),
+          ),
+        );
+
+        return new BadRequestException({
+          message: 'Pateikti duomenys neteisingi',
+          details: messages.length ? messages : undefined,
+        });
+      },
     }),
   );
 

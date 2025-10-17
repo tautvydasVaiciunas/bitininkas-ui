@@ -5,7 +5,7 @@ import { IsDateOnlyString } from '../../common/validators/is-date-only-string.de
 
 export class UpdateAssignmentDto {
   @IsOptional()
-  @IsEnum(AssignmentStatus)
+  @IsEnum(AssignmentStatus, { message: 'Neteisinga priskyrimo būsena' })
   status?: AssignmentStatus;
 
   @IsOptional()

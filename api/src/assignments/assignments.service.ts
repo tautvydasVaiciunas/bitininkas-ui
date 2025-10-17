@@ -14,7 +14,10 @@ import { UpdateAssignmentDto } from "./dto/update-assignment.dto";
 import { Hive } from "../hives/hive.entity";
 import { Task } from "../tasks/task.entity";
 import { TaskStep } from "../tasks/steps/task-step.entity";
-import { StepProgress } from "../progress/step-progress.entity";
+import {
+  AssignmentProgress,
+  AssignmentProgressStatus,
+} from "../progress/assignment-progress.entity";
 import { UserRole } from "../users/user.entity";
 import { ActivityLogService } from "../activity-log/activity-log.service";
 import { Group } from "../groups/group.entity";
@@ -34,8 +37,8 @@ export class AssignmentsService {
     @InjectRepository(Task) private readonly taskRepository: Repository<Task>,
     @InjectRepository(TaskStep)
     private readonly stepRepository: Repository<TaskStep>,
-    @InjectRepository(StepProgress)
-    private readonly progressRepository: Repository<StepProgress>,
+    @InjectRepository(AssignmentProgress)
+    private readonly progressRepository: Repository<AssignmentProgress>,
     @InjectRepository(Group)
     private readonly groupsRepository: Repository<Group>,
     @InjectRepository(GroupMember)
@@ -81,6 +84,116 @@ export class AssignmentsService {
     if (![UserRole.MANAGER, UserRole.ADMIN].includes(role)) {
       throw new ForbiddenException('Neleidžiama');
     }
+  }
+
+  private async getAssignmentParticipantIds(assignment: Assignment) {
+    const hive = await this.hiveRepository.findOne({
+      where: { id: assignment.hiveId },
+      relations: { members: true },
+    });
+
+    if (!hive) {
+      throw new NotFoundException('Hive not found');
+    }
+
+    const members = hive.members?.map((member) => member.id) ?? [];
+    return Array.from(new Set([hive.ownerUserId, ...members]));
+  }
+
+  private async initializeProgressForAssignments(assignments: Assignment[]) {
+    if (!assignments.length) {
+      return;
+    }
+
+    const assignmentIds = assignments.map((assignment) => assignment.id);
+    const hiveIds = Array.from(new Set(assignments.map((assignment) => assignment.hiveId)));
+    const taskIds = Array.from(new Set(assignments.map((assignment) => assignment.taskId)));
+
+    const [hives, steps, existingProgress] = await Promise.all([
+      hiveIds.length
+        ? this.hiveRepository.find({ where: { id: In(hiveIds) }, relations: { members: true } })
+        : Promise.resolve([]),
+      taskIds.length ? this.stepRepository.find({ where: { taskId: In(taskIds) } }) : Promise.resolve([]),
+      this.progressRepository.find({ where: { assignmentId: In(assignmentIds) } }),
+    ]);
+
+    const hiveById = new Map(hives.map((hive) => [hive.id, hive]));
+    const stepsByTaskId = new Map<string, TaskStep[]>();
+
+    for (const step of steps) {
+      const list = stepsByTaskId.get(step.taskId) ?? [];
+      list.push(step);
+      stepsByTaskId.set(step.taskId, list);
+    }
+
+    const existingKeys = new Set(
+      existingProgress.map((progress) =>
+        `${progress.assignmentId}:${progress.taskStepId}:${progress.userId}`,
+      ),
+    );
+
+    const toCreate: AssignmentProgress[] = [];
+
+    for (const assignment of assignments) {
+      const hive = hiveById.get(assignment.hiveId);
+
+      if (!hive) {
+        this.logger.warn(
+          `Hive ${assignment.hiveId} not found while initializing progress for assignment ${assignment.id}`,
+        );
+        continue;
+      }
+
+      const participantIds = new Set<string>([
+        hive.ownerUserId,
+        ...(hive.members ?? []).map((member) => member.id),
+      ]);
+      const stepsForTask = stepsByTaskId.get(assignment.taskId) ?? [];
+
+      for (const step of stepsForTask) {
+        for (const participantId of participantIds) {
+          if (!participantId) {
+            continue;
+          }
+
+          const key = `${assignment.id}:${step.id}:${participantId}`;
+
+          if (existingKeys.has(key)) {
+            continue;
+          }
+
+          toCreate.push(
+            this.progressRepository.create({
+              assignmentId: assignment.id,
+              taskStepId: step.id,
+              userId: participantId,
+              status: AssignmentProgressStatus.PENDING,
+              completedAt: null,
+              notes: null,
+              evidenceUrl: null,
+            }),
+          );
+
+          existingKeys.add(key);
+        }
+      }
+    }
+
+    if (toCreate.length) {
+      await this.progressRepository.save(toCreate);
+    }
+  }
+
+  private calculateCompletion(totalSteps: number, progress: AssignmentProgress[]) {
+    if (!totalSteps) {
+      return 0;
+    }
+
+    const completed = progress.filter(
+      (entry) => entry.status === AssignmentProgressStatus.COMPLETED,
+    ).length;
+
+    return Math.round((completed / totalSteps) * 100);
   }
 
   private async sendBulkCreationSummary(
@@ -170,6 +283,7 @@ export class AssignmentsService {
       startDate: dto.startDate ?? null,
     });
     const saved = await this.assignmentsRepository.save(assignment);
+    await this.initializeProgressForAssignments([saved]);
     await this.activityLog.log(
       "assignment_created",
       user.id,
@@ -291,6 +405,8 @@ export class AssignmentsService {
 
       return { task: savedTask, assignments: savedAssignments };
     });
+
+    await this.initializeProgressForAssignments(assignments);
 
     if (assignments.length) {
       await Promise.all(
@@ -440,26 +556,69 @@ export class AssignmentsService {
     await this.activityLog.log("assignment_updated", user.id, "assignment", id);
     return saved;
   }
-  async getDetails(id: string, user) {
+  async getDetails(id: string, user, requestedUserId?: string) {
     const assignment = await this.findOne(id, user);
     const task = await this.taskRepository.findOne({
       where: { id: assignment.taskId },
-      relations: ["steps"],
+      relations: ['steps'],
     });
+
     if (!task) {
-      throw new NotFoundException("Task not found");
+      throw new NotFoundException('Task not found');
     }
-    const progress = await this.progressRepository.find({
-      where: { assignmentId: id },
-    });
-    const completedStepIds = new Set(progress.map((p) => p.taskStepId));
-    const totalSteps = task?.steps?.length || 0;
-    const completedSteps = totalSteps
-      ? task.steps.filter((step) => completedStepIds.has(step.id)).length
-      : 0;
-    const percent =
-      totalSteps === 0 ? 0 : Math.round((completedSteps / totalSteps) * 100);
-    return { assignment, task, progress, completion: percent };
+
+    const steps = (task.steps ?? []).slice().sort((a, b) => a.orderIndex - b.orderIndex);
+    const totalSteps = steps.length;
+    let progress: AssignmentProgress[] = [];
+    let completion = 0;
+
+    if (user.role === UserRole.USER) {
+      progress = await this.progressRepository.find({
+        where: { assignmentId: id, userId: user.id },
+        order: { createdAt: 'ASC' },
+      });
+      completion = this.calculateCompletion(totalSteps, progress);
+    } else if (requestedUserId) {
+      const participantIds = await this.getAssignmentParticipantIds(assignment);
+
+      if (!participantIds.includes(requestedUserId)) {
+        throw new ForbiddenException('Neleidžiama');
+      }
+
+      progress = await this.progressRepository.find({
+        where: { assignmentId: id, userId: requestedUserId },
+        order: { createdAt: 'ASC' },
+      });
+      completion = this.calculateCompletion(totalSteps, progress);
+    } else {
+      progress = await this.progressRepository.find({
+        where: { assignmentId: id },
+        order: { userId: 'ASC', createdAt: 'ASC' },
+      });
+
+      const participantIds = await this.getAssignmentParticipantIds(assignment);
+
+      if (participantIds.length) {
+        const completionFractions = await Promise.all(
+          participantIds.map(async (participantId) => {
+            const participantCompleted = progress.filter(
+              (entry) =>
+                entry.userId === participantId &&
+                entry.status === AssignmentProgressStatus.COMPLETED,
+            ).length;
+
+            return totalSteps ? participantCompleted / totalSteps : 0;
+          }),
+        );
+
+        const average =
+          completionFractions.reduce((sum, value) => sum + value, 0) /
+          Math.max(completionFractions.length, 1);
+        completion = Math.round(average * 100);
+      }
+    }
+
+    return { assignment, task: { ...task, steps }, progress, completion };
   }
   async calculateHiveSummary(hiveId: string, user) {
     const hive = await this.hiveRepository.findOne({ where: { id: hiveId } });

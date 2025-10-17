@@ -1,4 +1,4 @@
-import { Body, Controller, Delete, Get, Param, Patch, Post, Request } from '@nestjs/common';
+import { Body, Controller, Delete, Get, Param, Patch, Post, Query, Request } from '@nestjs/common';
 import { ProgressService } from './progress.service';
 import { CompleteStepDto } from './dto/complete-step.dto';
 import { UpdateProgressDto } from './dto/update-progress.dto';
@@ -23,12 +23,20 @@ export class ProgressController {
   }
 
   @Get('assignments/:id/progress')
-  completion(@Param('id') id: string, @Request() req) {
-    return this.progressService.assignmentCompletion(id, req.user);
+  completion(
+    @Param('id') id: string,
+    @Request() req,
+    @Query('userId') userId?: string,
+  ) {
+    return this.progressService.assignmentCompletion(id, req.user, userId);
   }
 
   @Get('assignments/:id/progress/list')
-  list(@Param('id') id: string, @Request() req) {
-    return this.progressService.listForAssignment(id, req.user);
+  list(
+    @Param('id') id: string,
+    @Request() req,
+    @Query('userId') userId?: string,
+  ) {
+    return this.progressService.listForAssignment(id, req.user, userId);
   }
 }

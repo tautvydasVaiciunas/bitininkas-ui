@@ -9,7 +9,10 @@ import { Tag } from '../tasks/tags/tag.entity';
 import { Template } from '../templates/template.entity';
 import { TemplateStep } from '../templates/template-step.entity';
 import { Assignment, AssignmentStatus } from '../assignments/assignment.entity';
-import { StepProgress } from '../progress/step-progress.entity';
+import {
+  AssignmentProgress,
+  AssignmentProgressStatus,
+} from '../progress/assignment-progress.entity';
 import { Notification } from '../notifications/notification.entity';
 import { Group } from '../groups/group.entity';
 import { GroupMember } from '../groups/group-member.entity';
@@ -28,7 +31,7 @@ async function runSeed(): Promise<void> {
     const stepRepository = dataSource.getRepository(TaskStep);
     const tagRepository = dataSource.getRepository(Tag);
     const assignmentRepository = dataSource.getRepository(Assignment);
-    const progressRepository = dataSource.getRepository(StepProgress);
+    const progressRepository = dataSource.getRepository(AssignmentProgress);
     const notificationRepository = dataSource.getRepository(Notification);
     const templateRepository = dataSource.getRepository(Template);
     const templateStepRepository = dataSource.getRepository(TemplateStep);
@@ -295,18 +298,38 @@ async function runSeed(): Promise<void> {
 
     await assignmentRepository.save([assignment1, assignment2]);
 
-    const progressEntries = savedSteps
-      .filter((step) => step.taskId === task1.id)
-      .slice(0, 2)
-      .map((step) =>
-        progressRepository.create({
-          assignmentId: assignment1.id,
-          taskStepId: step.id,
-          notes: 'Žingsnis atliktas pavasarinės apžiūros metu',
-        })
-      );
+    const baseProgressEntries: AssignmentProgress[] = [];
 
-    await progressRepository.save(progressEntries);
+    const appendEntries = (assignment: Assignment, taskId: string, participantId: string) => {
+      const taskSteps = savedSteps.filter((step) => step.taskId === taskId);
+
+      for (const step of taskSteps) {
+        baseProgressEntries.push(
+          progressRepository.create({
+            assignmentId: assignment.id,
+            taskStepId: step.id,
+            userId: participantId,
+            status: AssignmentProgressStatus.PENDING,
+            completedAt: null,
+          }),
+        );
+      }
+    };
+
+    appendEntries(assignment1, task1.id, user.id);
+    appendEntries(assignment2, task2.id, user.id);
+
+    const completedEntries = baseProgressEntries
+      .filter((entry) => entry.assignmentId === assignment1.id)
+      .slice(0, 2);
+
+    for (const entry of completedEntries) {
+      entry.status = AssignmentProgressStatus.COMPLETED;
+      entry.completedAt = new Date();
+      entry.notes = 'Žingsnis atliktas pavasarinės apžiūros metu';
+    }
+
+    await progressRepository.save(baseProgressEntries);
 
     await notificationRepository.save([
       notificationRepository.create({

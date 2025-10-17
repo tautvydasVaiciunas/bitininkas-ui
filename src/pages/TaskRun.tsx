@@ -89,7 +89,11 @@ export default function TaskRun() {
 
   const completedStepIds = useMemo(() => {
     if (!data) return new Set<string>();
-    return new Set(data.progress.map((item) => item.taskStepId));
+    return new Set(
+      data.progress
+        .filter((item) => item.status === 'completed')
+        .map((item) => item.taskStepId),
+    );
   }, [data]);
 
   const currentStep = steps[currentStepIndex];
@@ -174,43 +178,54 @@ export default function TaskRun() {
         .completeStep({ assignmentId: id!, taskStepId: payload.taskStepId, notes: payload.notes })
         .then(mapStepToggleResponseFromApi),
     onSuccess: (result) => {
-      if (result.completed) {
-        const progressEntry = result.progress;
-        let previousStatus: AssignmentStatus | undefined;
-        let newCompletion = data?.completion ?? 0;
-        let added = false;
+      const progressEntry = result.progress;
+      let previousAssignmentStatus: AssignmentStatus | undefined;
+      let previousStepStatus: StepProgress['status'] | undefined;
+      let newCompletion = data?.completion ?? 0;
 
-        queryClient.setQueryData<AssignmentDetails | undefined>(
-          ['assignments', id, 'details'],
-          (oldData) => {
-            if (!oldData) return oldData;
-            previousStatus = oldData.assignment.status;
-            if (oldData.progress.some((item) => item.taskStepId === progressEntry.taskStepId)) {
-              newCompletion = oldData.completion;
-              return oldData;
-            }
+      queryClient.setQueryData<AssignmentDetails | undefined>(
+        ['assignments', id, 'details'],
+        (oldData) => {
+          if (!oldData) return oldData;
+          previousAssignmentStatus = oldData.assignment.status;
+          previousStepStatus = oldData.progress.find(
+            (item) => item.taskStepId === progressEntry.taskStepId,
+          )?.status;
 
-            added = true;
-            const updatedProgress: StepProgress[] = [...oldData.progress, progressEntry];
-            const totalSteps = oldData.task.steps.length;
-            newCompletion = totalSteps ? Math.round((updatedProgress.length / totalSteps) * 100) : 0;
-
-            return {
-              ...oldData,
-              progress: updatedProgress,
-              completion: newCompletion,
-            };
+          const progress = [...oldData.progress];
+          const existingIndex = progress.findIndex((item) => item.id === progressEntry.id);
+          if (existingIndex >= 0) {
+            progress[existingIndex] = progressEntry;
+          } else {
+            progress.push(progressEntry);
           }
-        );
 
-        setStepNotes((prev) => ({ ...prev, [progressEntry.taskStepId]: progressEntry.notes ?? '' }));
+          const completedCount = progress.filter((item) => item.status === 'completed').length;
+          const totalSteps = oldData.task.steps.length;
+          newCompletion = totalSteps ? Math.round((completedCount / totalSteps) * 100) : 0;
 
-        queryClient.invalidateQueries({ queryKey: ['assignments', 'list'] });
+          return { ...oldData, progress, completion: newCompletion };
+        },
+      );
 
-        if (added) {
+      const existingTimeout = saveTimeouts.current[progressEntry.taskStepId];
+      if (existingTimeout) {
+        clearTimeout(existingTimeout);
+      }
+      delete saveTimeouts.current[progressEntry.taskStepId];
+
+      setStepNotes((prev) => ({
+        ...prev,
+        [progressEntry.taskStepId]: progressEntry.notes ?? '',
+      }));
+
+      queryClient.invalidateQueries({ queryKey: ['assignments', 'list'] });
+
+      if (result.status === 'completed') {
+        if (previousStepStatus !== 'completed') {
           toast.success('Žingsnis pažymėtas kaip atliktas');
 
-          if (previousStatus === 'not_started' && newCompletion < 100) {
+          if (previousAssignmentStatus === 'not_started' && newCompletion < 100) {
             updateAssignmentStatusMutation.mutate('in_progress');
           }
 
@@ -225,33 +240,16 @@ export default function TaskRun() {
         return;
       }
 
-      const { progressId, taskStepId } = result;
-      let newCompletion = data?.completion ?? 0;
-      const previousStatus = data?.assignment.status;
-
-      queryClient.setQueryData<AssignmentDetails | undefined>(['assignments', id, 'details'], (oldData) => {
-        if (!oldData) return oldData;
-        const progress = oldData.progress.filter(
-          (entry) => entry.id !== progressId && entry.taskStepId !== taskStepId
-        );
-        const totalSteps = oldData.task.steps.length;
-        newCompletion = totalSteps ? Math.round((progress.length / totalSteps) * 100) : 0;
-        return { ...oldData, progress, completion: newCompletion };
-      });
-
-      const existingTimeout = saveTimeouts.current[taskStepId];
-      if (existingTimeout) {
-        clearTimeout(existingTimeout);
-      }
-      delete saveTimeouts.current[taskStepId];
-
-      setStepNotes((prev) => ({ ...prev, [taskStepId]: '' }));
-
-      queryClient.invalidateQueries({ queryKey: ['assignments', 'list'] });
-
-      if (newCompletion === 0 && previousStatus !== 'not_started') {
+      if (
+        previousAssignmentStatus &&
+        newCompletion === 0 &&
+        previousAssignmentStatus !== 'not_started'
+      ) {
         updateAssignmentStatusMutation.mutate('not_started');
-      } else if (newCompletion < 100 && previousStatus === 'done') {
+      } else if (
+        previousAssignmentStatus === 'done' &&
+        newCompletion < 100
+      ) {
         updateAssignmentStatusMutation.mutate('in_progress');
       }
 

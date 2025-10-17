@@ -7,7 +7,7 @@ import {
   UseInterceptors,
 } from '@nestjs/common';
 import { FileInterceptor } from '@nestjs/platform-express';
-import { Throttle } from '@nestjs/throttler';
+import { Throttle, seconds } from '@nestjs/throttler';
 import { diskStorage } from 'multer';
 import { extname } from 'node:path';
 import { existsSync, mkdirSync } from 'node:fs';
@@ -51,7 +51,7 @@ const resolveFileName = (file: Express.Multer.File) => {
 export class MediaController {
   @Post('upload')
   @Roles(UserRole.MANAGER, UserRole.ADMIN)
-  @Throttle(RATE_LIMIT_MAX)
+  @Throttle({ default: { limit: RATE_LIMIT_MAX, ttl: seconds(RATE_LIMIT_TTL_SECONDS) } })
   @UseInterceptors(
     FileInterceptor('file', {
       storage: diskStorage({

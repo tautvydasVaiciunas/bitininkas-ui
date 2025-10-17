@@ -14,8 +14,8 @@ export class Template {
   @PrimaryGeneratedColumn('uuid')
   id!: string;
 
-  @Column({ type: 'varchar', length: 255 })
-  name!: string;
+  @Column({ name: 'name', type: 'varchar', length: 255 })
+  title!: string;
 
   @Column({ type: 'varchar', length: 1000, nullable: true, default: null })
   comment!: string | null;

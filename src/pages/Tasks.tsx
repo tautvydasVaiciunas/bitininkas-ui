@@ -164,7 +164,7 @@ export default function Tasks() {
   });
 
   const templateOptions = useMemo(
-    () => templates.map((template) => ({ value: template.id, label: template.name })),
+    () => templates.map((template) => ({ value: template.id, label: template.title })),
     [templates],
   );
 

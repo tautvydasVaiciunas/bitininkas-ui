@@ -554,7 +554,7 @@ export default function AdminTasks() {
                       <SelectContent>
                         {templates.map((template) => (
                           <SelectItem key={template.id} value={template.id}>
-                            {template.name}
+                            {template.title}
                           </SelectItem>
                         ))}
                       </SelectContent>

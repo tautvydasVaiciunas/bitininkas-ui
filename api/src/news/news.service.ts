@@ -8,7 +8,7 @@ import {
   NotFoundException,
 } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
-import { In, Repository } from 'typeorm';
+import { Brackets, In, Repository } from 'typeorm';
 
 import { NewsPost } from './news-post.entity';
 import { Group } from '../groups/group.entity';
@@ -230,21 +230,29 @@ export class NewsService {
 
       const baseQuery = this.newsRepository
         .createQueryBuilder('news')
-        .leftJoin('news.groups', 'group');
+        .where(
+          new Brackets((qb) => {
+            qb.where('news.targetAll = true');
 
-      if (groupIds.length > 0) {
-        baseQuery.where('news.targetAll = true OR group.id IN (:...groupIds)', {
-          groupIds,
-        });
-      } else {
-        baseQuery.where('news.targetAll = true');
-      }
+            if (groupIds.length > 0) {
+              qb.orWhere(
+                `EXISTS (
+                  SELECT 1
+                  FROM news_post_groups npg
+                  WHERE npg.post_id = news.id
+                    AND npg.group_id IN (:...groupIds)
+                )`,
+                { groupIds },
+              );
+            }
+          }),
+        );
 
       const totalResult = await runWithDatabaseErrorHandling(
         () =>
           baseQuery
             .clone()
-            .select('COUNT(DISTINCT news.id)', 'count')
+            .select('COUNT(*)', 'count')
             .getRawOne<{ count: string }>(),
         {
           message: 'Nepavyko gauti naujienų sąrašo',
@@ -264,13 +272,22 @@ export class NewsService {
         };
       }
 
+      if (offset >= total) {
+        return {
+          items: [],
+          page,
+          limit,
+          hasMore: false,
+          total,
+        };
+      }
+
       const rows = await runWithDatabaseErrorHandling(
         () =>
           baseQuery
             .clone()
             .select('news.id', 'id')
             .addSelect('news.createdAt', 'createdAt')
-            .distinct(true)
             .orderBy('news.createdAt', 'DESC')
             .skip(offset)
             .take(limit + 1)

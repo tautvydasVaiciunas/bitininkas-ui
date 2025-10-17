@@ -169,29 +169,29 @@ export default function Notifications() {
                 !isRead ? 'bg-muted/30' : 'hover:bg-muted/20'
               }`}
             >
-              <div className="flex items-start gap-4">
-                <div className="mt-1">{getTypeIcon(notification.type)}</div>
+              <div className="flex flex-col gap-4 sm:flex-row sm:items-start">
+                <div className="mt-1 shrink-0">{getTypeIcon(notification.type)}</div>
 
-                <div className="flex-1 min-w-0">
-                  <div className="flex items-start justify-between gap-4 mb-2">
-                    <div className="flex-1">
-                      <h3 className="font-semibold mb-1">{notification.title}</h3>
+                <div className="min-w-0 flex-1">
+                  <div className="mb-2 flex flex-col gap-2 sm:flex-row sm:items-start sm:justify-between sm:gap-4">
+                    <div className="min-w-0 flex-1">
+                      <h3 className="mb-1 font-semibold">{notification.title}</h3>
                       {notification.body && (
-                        <p className="text-sm text-muted-foreground whitespace-pre-line">
+                        <p className="whitespace-pre-line text-sm text-muted-foreground">
                           {notification.body}
                         </p>
                       )}
                     </div>
                     {!isRead && (
-                      <Badge variant="default" className="flex-shrink-0">Nauja</Badge>
+                      <Badge variant="default" className="shrink-0">Nauja</Badge>
                     )}
                   </div>
 
-                  <div className="flex items-center justify-between mt-3">
+                  <div className="mt-3 flex flex-wrap items-center justify-between gap-3">
                     <p className="text-xs text-muted-foreground">
                       {formatDate(notification.createdAt)}
                     </p>
-                    <div className="flex items-center gap-2">
+                    <div className="flex flex-wrap items-center gap-2">
                       {notification.link && (
                         <Button
                           variant="outline"
@@ -226,7 +226,7 @@ export default function Notifications() {
   return (
     <MainLayout>
       <div className="space-y-6">
-        <div className="flex items-center justify-between">
+        <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
           <div>
             <h1 className="text-3xl font-bold">Pranešimai</h1>
             <p className="text-muted-foreground mt-1">
@@ -248,7 +248,7 @@ export default function Notifications() {
         <Card className="shadow-custom">
           <Tabs defaultValue="all" className="w-full">
             <div className="border-b border-border px-6 pt-6">
-              <TabsList>
+              <TabsList className="flex flex-wrap gap-2">
                 <TabsTrigger value="all">
                   Visi
                   <Badge variant="secondary" className="ml-2">

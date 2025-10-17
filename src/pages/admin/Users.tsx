@@ -325,58 +325,60 @@ export default function AdminUsers() {
             ) : isError ? (
               <div className="py-12 text-center text-destructive">Nepavyko įkelti vartotojų.</div>
             ) : (
-              <Table>
-                <TableHeader>
-                  <TableRow>
-                    <TableHead>Vardas</TableHead>
-                    <TableHead>El. paštas</TableHead>
-                    <TableHead>Rolė</TableHead>
-                    <TableHead>Grupės</TableHead>
-                    <TableHead className="text-right">Veiksmai</TableHead>
-                  </TableRow>
-                </TableHeader>
-                <TableBody>
-                  {filteredUsers.length === 0 ? (
+              <div className="overflow-x-auto">
+                <Table className="min-w-[48rem]">
+                  <TableHeader>
                     <TableRow>
-                      <TableCell colSpan={5} className="text-center py-8 text-muted-foreground">
-                        Nerasta vartotojų
-                      </TableCell>
+                      <TableHead>Vardas</TableHead>
+                      <TableHead>El. paštas</TableHead>
+                      <TableHead>Rolė</TableHead>
+                      <TableHead>Grupės</TableHead>
+                      <TableHead className="text-right">Veiksmai</TableHead>
                     </TableRow>
-                  ) : (
-                    filteredUsers.map((user) => (
-                      <TableRow key={user.id}>
-                        <TableCell className="font-medium">{user.name ?? '—'}</TableCell>
-                        <TableCell>{user.email}</TableCell>
-                        <TableCell>{getRoleBadge(user.role)}</TableCell>
-                        <TableCell>{renderUserGroups(user.groups)}</TableCell>
-                        <TableCell className="text-right">
-                          {isAdmin ? (
-                            <div className="flex items-center justify-end gap-2">
-                              <Button
-                                variant="ghost"
-                                size="sm"
-                                onClick={() => setEditingUser(user)}
-                              >
-                                <Edit className="w-4 h-4" />
-                              </Button>
-                              <Button
-                                variant="ghost"
-                                size="sm"
-                                onClick={() => setUserToDelete(user.id)}
-                                disabled={deleteMutation.isPending && userToDelete === user.id}
-                              >
-                                <Trash2 className="w-4 h-4 text-destructive" />
-                              </Button>
-                            </div>
-                          ) : (
-                            <span className="text-muted-foreground">—</span>
-                          )}
+                  </TableHeader>
+                  <TableBody>
+                    {filteredUsers.length === 0 ? (
+                      <TableRow>
+                        <TableCell colSpan={5} className="py-8 text-center text-muted-foreground">
+                          Nerasta vartotojų
                         </TableCell>
                       </TableRow>
-                    ))
-                  )}
-                </TableBody>
-              </Table>
+                    ) : (
+                      filteredUsers.map((user) => (
+                        <TableRow key={user.id}>
+                          <TableCell className="font-medium">{user.name ?? '—'}</TableCell>
+                          <TableCell className="min-w-[14rem] break-words">{user.email}</TableCell>
+                          <TableCell>{getRoleBadge(user.role)}</TableCell>
+                          <TableCell>{renderUserGroups(user.groups)}</TableCell>
+                          <TableCell className="text-right">
+                            {isAdmin ? (
+                              <div className="flex flex-wrap items-center justify-end gap-2">
+                                <Button
+                                  variant="ghost"
+                                  size="sm"
+                                  onClick={() => setEditingUser(user)}
+                                >
+                                  <Edit className="w-4 h-4" />
+                                </Button>
+                                <Button
+                                  variant="ghost"
+                                  size="sm"
+                                  onClick={() => setUserToDelete(user.id)}
+                                  disabled={deleteMutation.isPending && userToDelete === user.id}
+                                >
+                                  <Trash2 className="w-4 h-4 text-destructive" />
+                                </Button>
+                              </div>
+                            ) : (
+                              <span className="text-muted-foreground">—</span>
+                            )}
+                          </TableCell>
+                        </TableRow>
+                      ))
+                    )}
+                  </TableBody>
+                </Table>
+              </div>
             )}
           </CardContent>
         </Card>

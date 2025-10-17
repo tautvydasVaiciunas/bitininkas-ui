@@ -1,4 +1,5 @@
 import { Body, Controller, Get, NotFoundException, Post, Request } from '@nestjs/common';
+import { Throttle } from '@nestjs/throttler';
 
 import { AuthService } from './auth.service';
 import { RegisterDto } from './dto/register.dto';
@@ -7,6 +8,7 @@ import { RefreshDto } from './dto/refresh.dto';
 import { RequestResetDto } from './dto/request-reset.dto';
 import { Public } from '../common/decorators/public.decorator';
 import { UsersService } from '../users/users.service';
+import { RATE_LIMIT_MAX, RATE_LIMIT_TTL_SECONDS } from '../common/config/security.config';
 
 @Controller('auth')
 export class AuthController {
@@ -17,24 +19,28 @@ export class AuthController {
 
   @Public()
   @Post('register')
+  @Throttle(RATE_LIMIT_MAX, RATE_LIMIT_TTL_SECONDS)
   register(@Body() registerDto: RegisterDto) {
     return this.authService.register(registerDto);
   }
 
   @Public()
   @Post('login')
+  @Throttle(RATE_LIMIT_MAX, RATE_LIMIT_TTL_SECONDS)
   login(@Body() loginDto: LoginDto) {
     return this.authService.login(loginDto);
   }
 
   @Public()
   @Post('refresh')
+  @Throttle(RATE_LIMIT_MAX, RATE_LIMIT_TTL_SECONDS)
   refresh(@Body() refreshDto: RefreshDto) {
     return this.authService.refresh(refreshDto.refreshToken);
   }
 
   @Public()
   @Post('request-reset')
+  @Throttle(RATE_LIMIT_MAX, RATE_LIMIT_TTL_SECONDS)
   requestReset(@Body() requestResetDto: RequestResetDto) {
     return this.authService.requestPasswordReset(requestResetDto.email);
   }

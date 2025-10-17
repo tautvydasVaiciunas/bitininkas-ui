@@ -84,6 +84,12 @@ If `MAIL_PROVIDER` or the required secrets are missing the mailer falls back to 
 
 During local development (non-production `NODE_ENV`) you can verify configuration with `POST /debug/test-email`, which is restricted to admin accounts.
 
+### API security defaults
+
+- **Rate limiting:** `RATE_LIMIT_WINDOW_MS` (default `60000`) and `RATE_LIMIT_MAX` (default `10`) control the sliding window limit for sensitive endpoints such as `/auth/*` and media uploads. Adjust them in `api/.env` if you need a different login/upload policy.
+- **Upload guardrails:** only `image/jpeg`, `image/png`, `image/webp`, and `video/mp4` are accepted. Maximum sizes are controlled via `UPLOAD_MAX_IMAGE_MB` (default `5`) and `UPLOAD_MAX_VIDEO_MB` (default `100`). Larger or unsupported files return a 400 response with a Lithuanian error message.
+- **HTTP hardening:** Helmet is enabled in `api/src/main.ts`; tweak its options there if you need a stricter Content-Security-Policy.
+
 ### Tests
 
 ```bash

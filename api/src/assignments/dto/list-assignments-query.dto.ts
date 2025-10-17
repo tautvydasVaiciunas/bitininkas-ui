@@ -5,17 +5,17 @@ import { AssignmentStatus } from '../assignment.entity';
 
 export class ListAssignmentsQueryDto {
   @IsOptional()
-  @IsUUID()
+  @IsUUID('4', { message: 'Neteisingas avilio identifikatorius' })
   hiveId?: string;
 
   @IsOptional()
   @IsEnum(AssignmentStatus, {
-    message: 'status must be one of not_started, in_progress, done',
+    message: 'Statusas turi būti not_started, in_progress arba done',
   })
   status?: AssignmentStatus;
 
   @IsOptional()
-  @IsUUID()
+  @IsUUID('4', { message: 'Neteisingas grupės identifikatorius' })
   groupId?: string;
 
   @IsOptional()
@@ -37,6 +37,6 @@ export class ListAssignmentsQueryDto {
     }
     return value;
   })
-  @IsBoolean()
+  @IsBoolean({ message: 'Filtras availableNow turi būti loginė reikšmė' })
   availableNow?: boolean;
 }

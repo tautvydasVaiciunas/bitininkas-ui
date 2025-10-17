@@ -1,6 +1,6 @@
 import { IsEmail } from 'class-validator';
 
 export class RequestResetDto {
-  @IsEmail()
-  email: string;
+  @IsEmail({}, { message: 'Neteisingas el. pašto adresas' })
+  email!: string;
 }

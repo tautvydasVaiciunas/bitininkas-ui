@@ -1,12 +1,13 @@
-import { IsOptional, IsString, MaxLength } from 'class-validator';
+import { IsOptional, IsString, MaxLength, MinLength } from 'class-validator';
 
 export class CreateGroupDto {
-  @IsString()
-  @MaxLength(150)
-  name: string;
+  @IsString({ message: 'Grupės pavadinimas privalomas' })
+  @MinLength(1, { message: 'Grupės pavadinimas privalomas' })
+  @MaxLength(150, { message: 'Grupės pavadinimas per ilgas' })
+  name!: string;
 
   @IsOptional()
-  @IsString()
-  @MaxLength(255)
+  @IsString({ message: 'Aprašymas turi būti tekstas' })
+  @MaxLength(255, { message: 'Aprašymas per ilgas' })
   description?: string;
 }

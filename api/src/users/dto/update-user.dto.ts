@@ -13,26 +13,26 @@ export class UpdateUserDto extends PartialType(
   OmitType(CreateUserDto, ['role'] as const),
 ) {
   @IsOptional()
-  @IsString()
-  @MinLength(6)
+  @IsString({ message: 'Slaptažodis turi būti tekstas' })
+  @MinLength(6, { message: 'Slaptažodis turi būti bent 6 simbolių' })
   password?: string;
 
   @IsOptional()
-  @IsString()
-  @MaxLength(150)
+  @IsString({ message: 'Vardas turi būti tekstas' })
+  @MaxLength(150, { message: 'Vardas per ilgas' })
   name?: string;
 
   @IsOptional()
-  @IsString()
-  @MaxLength(50)
+  @IsString({ message: 'Telefono numeris turi būti tekstas' })
+  @MaxLength(50, { message: 'Telefono numeris per ilgas' })
   phone?: string;
 
   @IsOptional()
-  @IsString()
-  @MaxLength(255)
+  @IsString({ message: 'Adresas turi būti tekstas' })
+  @MaxLength(255, { message: 'Adresas per ilgas' })
   address?: string;
 
   @IsOptional()
-  @IsBoolean()
+  @IsBoolean({ message: 'Ištrynimo statusas turi būti loginė reikšmė' })
   deleted?: boolean;
 }

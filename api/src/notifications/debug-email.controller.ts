@@ -11,19 +11,19 @@ import {
 import { MAILER_SERVICE, MailerService } from './mailer.service';
 
 class TestEmailDto {
-  @IsEmail()
+  @IsEmail({}, { message: 'Neteisingas el. pašto adresas' })
   to!: string;
 
-  @IsString()
-  @MinLength(1)
+  @IsString({ message: 'Tema privaloma' })
+  @MinLength(1, { message: 'Tema privaloma' })
   subject!: string;
 
   @IsOptional()
-  @IsString()
+  @IsString({ message: 'Tekstas turi būti tekstas' })
   text?: string;
 
   @IsOptional()
-  @IsString()
+  @IsString({ message: 'HTML turinys turi būti tekstas' })
   html?: string;
 }
 

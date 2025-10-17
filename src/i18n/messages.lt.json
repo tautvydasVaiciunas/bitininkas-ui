@@ -60,7 +60,8 @@
     "reorderError": "Nepavyko perrikiuoti šablono žingsnių",
     "stepAdded": "Žingsnis pridėtas prie šablono",
     "stepExists": "Šis žingsnis jau pridėtas",
-    "noName": "Įveskite šablono pavadinimą"
+    "noTitle": "Įveskite šablono pavadinimą",
+    "noSteps": "Pridėkite bent vieną žingsnį"
   },
   "tags": {
     "createSuccess": "Žymė sukurta",

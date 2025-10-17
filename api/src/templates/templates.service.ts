@@ -29,7 +29,7 @@ export class TemplatesService {
     }
   }
 
-  private normalizeName(value: string) {
+  private normalizeTitle(value: string) {
     const trimmed = value.trim();
     if (!trimmed) {
       throw new BadRequestException('Šablono pavadinimas privalomas');
@@ -174,20 +174,20 @@ export class TemplatesService {
 
   private normalizeStepsInput(
     action: string,
-    steps?: { taskStepId: string; orderIndex?: number }[],
     stepIds?: string[],
+    stepsWithOrder?: { stepId: string; order?: number }[],
   ) {
-    const providedSteps = steps?.length ? steps : undefined;
-    const providedIds = !providedSteps && stepIds?.length ? stepIds : undefined;
+    const providedWithOrder = stepsWithOrder?.length ? stepsWithOrder : undefined;
+    const providedIds = stepIds?.length ? stepIds : undefined;
 
-    if (!providedSteps && !providedIds) {
-      return [] as { taskStepId: string; orderIndex: number }[];
+    if (!providedWithOrder && !providedIds) {
+      return undefined;
     }
 
-    if (providedSteps) {
-      const normalized = providedSteps.map((step, index) => ({
-        taskStepId: step.taskStepId,
-        orderIndex: step.orderIndex ?? index + 1,
+    if (providedWithOrder) {
+      const normalized = providedWithOrder.map((step, index) => ({
+        taskStepId: step.stepId,
+        orderIndex: step.order ?? index + 1,
       }));
       this.ensureUniqueStepIds(
         normalized.map((step) => step.taskStepId),
@@ -201,8 +201,8 @@ export class TemplatesService {
       return normalized;
     }
 
-    const normalizedFromIds = providedIds!.map((taskStepId, index) => ({
-      taskStepId,
+    const normalizedFromIds = providedIds!.map((stepId, index) => ({
+      taskStepId: stepId,
       orderIndex: index + 1,
     }));
     this.ensureUniqueStepIds(providedIds!, action);
@@ -223,10 +223,54 @@ export class TemplatesService {
     );
   }
 
+  private async syncTemplateSteps(
+    repository: Repository<TemplateStep>,
+    template: Template,
+    steps: { taskStepId: string; orderIndex: number }[],
+  ) {
+    const existingSteps = await repository.find({ where: { templateId: template.id } });
+    const existingByTaskStepId = new Map(existingSteps.map((step) => [step.taskStepId, step] as const));
+    const desiredTaskStepIds = new Set(steps.map((step) => step.taskStepId));
+
+    const toRemove = existingSteps.filter((step) => !desiredTaskStepIds.has(step.taskStepId));
+    if (toRemove.length) {
+      await repository.remove(toRemove);
+    }
+
+    const remaining = steps
+      .map((step) => existingByTaskStepId.get(step.taskStepId))
+      .filter((step): step is TemplateStep => Boolean(step));
+
+    const offset = steps.length;
+    for (const [index, step] of remaining.entries()) {
+      await repository.update({ id: step.id }, { orderIndex: offset + index + 1 });
+    }
+
+    const toCreate: TemplateStep[] = [];
+    for (const step of steps) {
+      const existing = existingByTaskStepId.get(step.taskStepId);
+      if (existing) {
+        await repository.update({ id: existing.id }, { orderIndex: step.orderIndex });
+      } else {
+        toCreate.push(
+          repository.create({
+            template,
+            taskStepId: step.taskStepId,
+            orderIndex: step.orderIndex,
+          }),
+        );
+      }
+    }
+
+    if (toCreate.length) {
+      await repository.save(toCreate);
+    }
+  }
+
   async findAll() {
     return this.templateRepository.find({
       relations: { steps: true },
-      order: { name: 'ASC', steps: { orderIndex: 'ASC' } },
+      order: { title: 'ASC', steps: { orderIndex: 'ASC' } },
     });
   }
 
@@ -245,11 +289,15 @@ export class TemplatesService {
           const normalizedSteps = this.normalizeStepsInput(
             'Nepavyko sukurti šablono',
             dto.steps,
-            dto.stepIds,
+            dto.stepsWithOrder,
           );
 
+          if (!normalizedSteps || !normalizedSteps.length) {
+            throw new BadRequestException('Nepavyko sukurti šablono: pridėkite bent vieną žingsnį');
+          }
+
           const created = templateRepo.create({
-            name: this.normalizeName(dto.name),
+            title: this.normalizeTitle(dto.title),
             comment: this.normalizeComment(dto.comment ?? null),
           });
 
@@ -279,24 +327,28 @@ export class TemplatesService {
           const stepRepo = this.getTemplateStepRepository(manager);
           const templateEntity = await this.ensureTemplate(id, manager);
 
-          if (dto.name !== undefined) {
-            templateEntity.name = this.normalizeName(dto.name);
+          if (dto.title !== undefined) {
+            templateEntity.title = this.normalizeTitle(dto.title);
           }
 
           if (dto.comment !== undefined) {
             templateEntity.comment = this.normalizeComment(dto.comment ?? null);
           }
 
-          if (dto.steps !== undefined || dto.stepIds !== undefined) {
+          if (dto.steps !== undefined || dto.stepsWithOrder !== undefined) {
             const normalizedSteps = this.normalizeStepsInput(
               'Nepavyko atnaujinti šablono',
               dto.steps,
-              dto.stepIds,
+              dto.stepsWithOrder,
             );
+
+            if (!normalizedSteps || !normalizedSteps.length) {
+              throw new BadRequestException('Nepavyko atnaujinti šablono: pridėkite bent vieną žingsnį');
+            }
 
             const stepIds = normalizedSteps.map((step) => step.taskStepId);
             await this.ensureTaskStepsExist(stepIds, manager);
-            templateEntity.steps = this.buildTemplateSteps(stepRepo, templateEntity, normalizedSteps);
+            await this.syncTemplateSteps(stepRepo, templateEntity, normalizedSteps);
           }
 
           const saved = await templateRepo.save(templateEntity);

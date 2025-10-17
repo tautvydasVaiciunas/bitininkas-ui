@@ -116,8 +116,8 @@ export default function Tasks() {
   const [createForm, setCreateForm] = useState(buildDefaultCreateForm);
   const [bulkForm, setBulkForm] = useState(buildDefaultBulkForm);
 
-  const isAdmin = user?.role === 'admin';
-  const canManageTasks = user?.role === 'admin' || user?.role === 'manager';
+  const canManageTasks =
+    user?.role === 'admin' || user?.role === 'manager' || user?.role === 'moderator';
 
   const { data: templates = [] } = useQuery<Template[]>({
     queryKey: ['templates', 'all'],

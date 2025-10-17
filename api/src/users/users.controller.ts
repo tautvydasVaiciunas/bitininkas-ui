@@ -7,6 +7,7 @@ import {
   Patch,
   Post,
   Request,
+  Query 
 } from '@nestjs/common';
 
 import { Roles } from '../common/decorators/roles.decorator';

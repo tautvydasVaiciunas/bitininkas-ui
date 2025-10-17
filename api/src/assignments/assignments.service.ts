@@ -6,6 +6,7 @@ import {
   Logger,
   NotFoundException,
 } from "@nestjs/common";
+import { ConfigService } from "@nestjs/config";
 import { InjectRepository } from "@nestjs/typeorm";
 import { DataSource, In, Repository } from "typeorm";
 import { Assignment, AssignmentStatus } from "./assignment.entity";
@@ -26,9 +27,11 @@ import { Template } from "../templates/template.entity";
 import { TemplateStep } from "../templates/template-step.entity";
 import { BulkFromTemplateDto } from "./dto/bulk-from-template.dto";
 import { MAILER_PORT, MailerPort } from "../notifications/mailer.service";
+import { NotificationsService } from "../notifications/notifications.service";
 @Injectable()
 export class AssignmentsService {
   private readonly logger = new Logger(AssignmentsService.name);
+  private readonly appBaseUrl: string | null;
 
   constructor(
     @InjectRepository(Assignment)
@@ -46,7 +49,15 @@ export class AssignmentsService {
     private readonly dataSource: DataSource,
     private readonly activityLog: ActivityLogService,
     @Inject(MAILER_PORT) private readonly mailer: MailerPort,
-  ) {}
+    private readonly notifications: NotificationsService,
+    private readonly configService: ConfigService,
+  ) {
+    this.appBaseUrl = this.normalizeBaseUrl(
+      this.configService.get<string>("APP_URL") ??
+        this.configService.get<string>("FRONTEND_URL") ??
+        null,
+    );
+  }
   private getTodayDateString() {
     const now = new Date();
     const year = now.getUTCFullYear();
@@ -246,12 +257,6 @@ export class AssignmentsService {
           userId,
           subject: `Sukurtos naujos užduotys: ${taskTitle}`,
           body: `Pavadinimas: ${taskTitle}\nPriskirtos užduotys: ${summary.count}\nTerminas: ${dueDateLabel}`,
-          payload: {
-            dueDate,
-            assignmentIds: summary.assignmentIds,
-            assignmentCount: summary.count,
-            taskId: summary.taskId,
-          },
         });
       } catch (error) {
         const details = error instanceof Error ? error.message : String(error);
@@ -261,6 +266,80 @@ export class AssignmentsService {
         );
       }
     }
+  }
+
+  private async notifyAssignmentCreated(
+    assignments: Assignment[],
+    taskTitle: string,
+    creatorId: string,
+    sendEmail: boolean,
+  ) {
+    if (!assignments.length) {
+      return;
+    }
+
+    for (const assignment of assignments) {
+      try {
+        const participantIds = await this.getAssignmentParticipantIds(assignment);
+        const uniqueParticipantIds = participantIds.filter(
+          (participantId) => participantId && participantId !== creatorId,
+        ) as string[];
+
+        if (!uniqueParticipantIds.length) {
+          continue;
+        }
+
+        const dueLabel = assignment.dueDate ?? 'nenurodytas';
+        const body = `Jums priskirta užduotis „${taskTitle}“. Terminas: ${dueLabel}.`;
+        const link = this.buildAssignmentLink(assignment.id);
+
+        const emailBody = [`Jums priskirta užduotis „${taskTitle}“.`];
+        emailBody.push(`Terminas: ${dueLabel}.`);
+        emailBody.push(`Nuoroda: ${link}`);
+
+        await Promise.all(
+          uniqueParticipantIds.map((participantId) =>
+            this.notifications.createNotification(participantId, {
+              type: 'assignment',
+              title: `Nauja užduotis: ${taskTitle}`,
+              body,
+              link,
+              sendEmail,
+              emailSubject: `Nauja užduotis: ${taskTitle}`,
+              emailBody: emailBody.join('\n'),
+            }),
+          ),
+        );
+      } catch (error) {
+        const details = error instanceof Error ? error.message : String(error);
+        this.logger.warn(
+          `Nepavyko sukurti pranešimų apie užduotį ${assignment.id}: ${details}`,
+          error instanceof Error ? error.stack : undefined,
+        );
+      }
+    }
+  }
+
+  private buildAssignmentLink(assignmentId: string) {
+    if (this.appBaseUrl) {
+      return `${this.appBaseUrl}/tasks/${assignmentId}/run`;
+    }
+
+    return `/tasks/${assignmentId}/run`;
+  }
+
+  private normalizeBaseUrl(value: string | null) {
+    if (!value) {
+      return null;
+    }
+
+    const trimmed = value.trim();
+
+    if (!trimmed) {
+      return null;
+    }
+
+    return trimmed.endsWith('/') ? trimmed.slice(0, -1) : trimmed;
   }
   async create(dto: CreateAssignmentDto, user) {
     this.assertManager(user.role);
@@ -284,6 +363,7 @@ export class AssignmentsService {
     });
     const saved = await this.assignmentsRepository.save(assignment);
     await this.initializeProgressForAssignments([saved]);
+    await this.notifyAssignmentCreated([saved], task.title, user.id, true);
     await this.activityLog.log(
       "assignment_created",
       user.id,
@@ -414,6 +494,8 @@ export class AssignmentsService {
           this.activityLog.log('assignment_created', user.id, 'assignment', assignment.id),
         ),
       );
+
+      await this.notifyAssignmentCreated(assignments, trimmedTitle, user.id, shouldNotify);
 
       if (shouldNotify) {
         const summaryDueDate = dto.dueDate ?? assignments[0]?.dueDate ?? null;

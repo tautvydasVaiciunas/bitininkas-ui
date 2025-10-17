@@ -1,4 +1,4 @@
-import { useEffect } from 'react';
+import { useCallback } from 'react';
 import { MainLayout } from '@/components/Layout/MainLayout';
 import { Card, CardContent } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
@@ -7,25 +7,27 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { useAuth } from '@/contexts/AuthContext';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import api, { type NotificationsUnreadCountResponse } from '@/lib/api';
-import { mapNotificationFromApi, type Notification } from '@/lib/types';
-import { Bell, CheckCheck } from 'lucide-react';
+import { mapNotificationFromApi, type Notification, type NotificationType } from '@/lib/types';
+import { Bell, CheckCheck, Megaphone, MessageCircle } from 'lucide-react';
 import { toast } from 'sonner';
+import { useNavigate } from 'react-router-dom';
 
 export default function Notifications() {
   const { user } = useAuth();
   const queryClient = useQueryClient();
+  const navigate = useNavigate();
 
   const { data: notifications = [], isLoading, isError } = useQuery<Notification[]>({
     queryKey: ['notifications'],
     queryFn: async () => {
-      const items = await api.notifications.list();
+      const items = await api.notifications.list({ limit: 100 });
       return items
         .map(mapNotificationFromApi)
         .filter((item) => !user || item.userId === user.id);
     },
     enabled: !!user,
     onSuccess: (data) => {
-      const count = data.filter((item) => !item.readAt).length;
+      const count = data.filter((item) => !item.isRead).length;
       queryClient.setQueryData<NotificationsUnreadCountResponse>(
         ['notifications', 'unread-count'],
         { count },
@@ -41,6 +43,18 @@ export default function Notifications() {
 
   const unreadCount = unreadCountData?.count ?? 0;
 
+  const openNotificationLink = useCallback(
+    (link: string) => {
+      if (!link) return;
+      if (/^https?:\/\//i.test(link)) {
+        window.open(link, '_blank', 'noopener,noreferrer');
+        return;
+      }
+      navigate(link);
+    },
+    [navigate],
+  );
+
   const markMutation = useMutation({
     mutationFn: (id: string) => api.notifications.markRead(id),
     onSuccess: (_, id) => {
@@ -52,11 +66,11 @@ export default function Notifications() {
             return item;
           }
 
-          if (!item.readAt) {
+          if (!item.isRead) {
             markedUnread = true;
           }
 
-          return { ...item, readAt: new Date().toISOString() };
+          return { ...item, isRead: true };
         });
       });
 
@@ -74,30 +88,22 @@ export default function Notifications() {
   });
 
   const markAllMutation = useMutation({
-    mutationFn: async (ids: string[]) => {
-      await Promise.all(ids.map((notificationId) => api.notifications.markRead(notificationId)));
-    },
-    onSuccess: (_, ids) => {
+    mutationFn: () => api.notifications.markAllRead(),
+    onSuccess: () => {
       let markedCount = 0;
       queryClient.setQueryData<Notification[]>(['notifications'], (current) => {
         if (!current) return current;
-        const timestamp = new Date().toISOString();
         return current.map((item) => {
-          if (!ids.includes(item.id)) {
-            return item;
-          }
-
-          if (!item.readAt) {
+          if (!item.isRead) {
             markedCount += 1;
           }
-
-          return { ...item, readAt: timestamp };
+          return { ...item, isRead: true };
         });
       });
       if (markedCount > 0) {
         queryClient.setQueryData<NotificationsUnreadCountResponse | undefined>(
           ['notifications', 'unread-count'],
-          (current) => ({ count: Math.max(0, (current?.count ?? 0) - markedCount) }),
+          () => ({ count: 0 }),
         );
       }
       toast.success('Visi pranešimai pažymėti kaip perskaityti');
@@ -107,23 +113,13 @@ export default function Notifications() {
     },
   });
 
-  useEffect(() => {
-    if (!user) return;
-    if (isLoading) return;
-    const unreadIds = notifications.filter((notification) => !notification.readAt).map((notification) => notification.id);
-    if (unreadIds.length === 0 || markAllMutation.isPending) {
-      return;
-    }
-    markAllMutation.mutate(unreadIds);
-  }, [isLoading, notifications, markAllMutation, user]);
-
-  const getTypeIcon = (type: string) => {
-    const icons: Record<string, React.ReactNode> = {
-      new_task: <Bell className="w-5 h-5 text-primary" />,
-      deadline_approaching: <Bell className="w-5 h-5 text-warning" />,
-      task_completed: <CheckCheck className="w-5 h-5 text-success" />,
+  const getTypeIcon = (type: NotificationType) => {
+    const icons: Record<NotificationType, JSX.Element> = {
+      assignment: <Bell className="w-5 h-5 text-primary" />,
+      news: <Megaphone className="w-5 h-5 text-success" />,
+      message: <MessageCircle className="w-5 h-5 text-muted-foreground" />,
     };
-    return icons[type] || <Bell className="w-5 h-5 text-muted-foreground" />;
+    return icons[type] ?? <Bell className="w-5 h-5 text-muted-foreground" />;
   };
 
   const formatDate = (dateStr: string) => {
@@ -148,9 +144,10 @@ export default function Notifications() {
   };
 
   const renderNotifications = (filterRead: boolean | null) => {
-    const filtered = filterRead === null
-      ? notifications
-      : notifications.filter(n => (!!n.readAt) === filterRead);
+    const filtered =
+      filterRead === null
+        ? notifications
+        : notifications.filter((notification) => notification.isRead === filterRead);
 
     if (filtered.length === 0) {
       return (
@@ -164,7 +161,7 @@ export default function Notifications() {
     return (
       <div className="divide-y divide-border">
         {filtered.map((notification) => {
-          const isRead = !!notification.readAt;
+          const isRead = notification.isRead;
           return (
             <div
               key={notification.id}
@@ -178,9 +175,11 @@ export default function Notifications() {
                 <div className="flex-1 min-w-0">
                   <div className="flex items-start justify-between gap-4 mb-2">
                     <div className="flex-1">
-                      <h3 className="font-semibold mb-1">{notification.title ?? 'Pranešimas'}</h3>
-                      {notification.message && (
-                        <p className="text-sm text-muted-foreground">{notification.message}</p>
+                      <h3 className="font-semibold mb-1">{notification.title}</h3>
+                      {notification.body && (
+                        <p className="text-sm text-muted-foreground whitespace-pre-line">
+                          {notification.body}
+                        </p>
                       )}
                     </div>
                     {!isRead && (
@@ -193,6 +192,15 @@ export default function Notifications() {
                       {formatDate(notification.createdAt)}
                     </p>
                     <div className="flex items-center gap-2">
+                      {notification.link && (
+                        <Button
+                          variant="outline"
+                          size="sm"
+                          onClick={() => openNotificationLink(notification.link!)}
+                        >
+                          Peržiūrėti
+                        </Button>
+                      )}
                       {!isRead && (
                         <Button
                           variant="ghost"
@@ -227,7 +235,7 @@ export default function Notifications() {
           </div>
           {unreadCount > 0 && (
             <Button
-              onClick={() => markAllMutation.mutate(notifications.filter((n) => !n.readAt).map((n) => n.id))}
+              onClick={() => markAllMutation.mutate()}
               variant="outline"
               disabled={markAllMutation.isLoading}
             >

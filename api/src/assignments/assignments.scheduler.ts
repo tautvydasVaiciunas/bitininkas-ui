@@ -49,9 +49,10 @@ export class AssignmentsScheduler {
       });
 
       for (const assignment of assignments) {
+        const taskTitle = assignment.task?.title ?? 'Užduotis';
         await this.notifyAssignment(
           assignment,
-          'email_due_7d',
+          `Priminimas: liko 7 dienos iki „${taskTitle}“`,
           'Primename: iki užduoties liko 7 dienos',
         );
       }
@@ -77,9 +78,10 @@ export class AssignmentsScheduler {
       });
 
       for (const assignment of assignments) {
+        const taskTitle = assignment.task?.title ?? 'Užduotis';
         await this.notifyAssignment(
           assignment,
-          'email_overdue',
+          `Praleista užduotis: ${taskTitle}`,
           'Praleista užduotis',
         );
       }
@@ -94,7 +96,7 @@ export class AssignmentsScheduler {
 
   private async notifyAssignment(
     assignment: Assignment,
-    type: 'email_due_7d' | 'email_overdue',
+    subject: string,
     intro: string,
   ) {
     const ownerId = assignment.hive?.ownerUserId ?? assignment.hive?.owner?.id;
@@ -106,13 +108,13 @@ export class AssignmentsScheduler {
       return;
     }
 
-    const alreadySent = await this.hasNotification(ownerId, assignment.id, type);
+    const link = this.buildAssignmentLink(assignment.id);
+    const alreadySent = await this.hasNotification(ownerId, subject, link);
 
     if (alreadySent) {
       return;
     }
 
-    const link = this.buildAssignmentLink(assignment.id);
     const taskTitle = assignment.task?.title ?? 'Užduotis';
     const body = [
       intro,
@@ -124,49 +126,52 @@ export class AssignmentsScheduler {
     try {
       await this.mailer.send({
         userId: ownerId,
-        subject:
-          type === 'email_due_7d'
-            ? `Priminimas: liko 7 dienos iki „${taskTitle}“`
-            : `Praleista užduotis: ${taskTitle}`,
+        subject,
         body,
-        notificationType: type,
-        payload: {
-          assignmentId: assignment.id,
-          hiveId: assignment.hiveId,
-          taskId: assignment.taskId,
-          dueDate: assignment.dueDate,
-          link,
-        },
+        link,
       });
     } catch (error) {
       const details = error instanceof Error ? error.message : String(error);
       this.logger.error(
-        `Nepavyko išsiųsti pranešimo (${type}) užduočiai ${assignment.id}: ${details}`,
+        `Nepavyko išsiųsti pranešimo užduočiai ${assignment.id}: ${details}`,
+        error instanceof Error ? error.stack : undefined,
+      );
+    }
+
+    try {
+      await this.notificationsRepository.save(
+        this.notificationsRepository.create({
+          userId: ownerId,
+          type: 'assignment',
+          title: subject,
+          body,
+          link,
+          isRead: false,
+        }),
+      );
+    } catch (error) {
+      const details = error instanceof Error ? error.message : String(error);
+      this.logger.warn(
+        `Nepavyko išsaugoti pranešimo užduočiai ${assignment.id}: ${details}`,
         error instanceof Error ? error.stack : undefined,
       );
     }
   }
 
-  private async hasNotification(
-    userId: string,
-    assignmentId: string,
-    type: 'email_due_7d' | 'email_overdue',
-  ) {
+  private async hasNotification(userId: string, title: string, link: string) {
     try {
       const count = await this.notificationsRepository
         .createQueryBuilder('notification')
         .where('notification.userId = :userId', { userId })
-        .andWhere('notification.type = :type', { type })
-        .andWhere("notification.payload ->> 'assignmentId' = :assignmentId", {
-          assignmentId,
-        })
+        .andWhere('notification.title = :title', { title })
+        .andWhere('notification.link = :link', { link })
         .getCount();
 
       return count > 0;
     } catch (error) {
       const details = error instanceof Error ? error.message : String(error);
       this.logger.error(
-        `Nepavyko patikrinti ar pranešimas (${type}) jau išsiųstas: ${details}`,
+        `Nepavyko patikrinti ar pranešimas jau išsiųstas: ${details}`,
         error instanceof Error ? error.stack : undefined,
       );
 

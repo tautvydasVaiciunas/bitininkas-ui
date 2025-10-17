@@ -32,7 +32,7 @@ interface InternalRequestOptions extends RequestOptions {
   _retry?: boolean;
 }
 
-export type UserRole = 'user' | 'manager' | 'admin';
+export type UserRole = 'user' | 'manager' | 'moderator' | 'admin';
 
 export interface AuthenticatedUser {
   id: string;

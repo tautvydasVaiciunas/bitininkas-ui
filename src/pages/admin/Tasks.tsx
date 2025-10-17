@@ -1,6 +1,6 @@
-import { FormEvent, useMemo, useState } from 'react';
+import { FormEvent, useMemo, useRef, useState } from 'react';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
-import { Archive, Edit, Loader2, Plus, Search } from 'lucide-react';
+import { Archive, Edit, Loader2, Plus, Search, Trash2 } from 'lucide-react';
 import { toast } from 'sonner';
 
 import { MainLayout } from '@/components/Layout/MainLayout';
@@ -76,14 +76,24 @@ const frequencyOptions: { value: TaskFrequency; label: string }[] = [
   { value: 'seasonal', label: 'Sezoninė' },
 ];
 
-const buildDefaultEditFormState = () => ({
-  title: '',
-  description: '',
-  category: '',
-  frequency: 'once' as TaskFrequency,
-  defaultDueDays: '0',
-  seasonMonths: [] as number[],
-});
+type EditFormStep = {
+  id?: string;
+  title: string;
+  contentText: string;
+};
+
+const buildDefaultEditFormState = () => {
+  const steps: EditFormStep[] = [{ title: '', contentText: '' }];
+  return {
+    title: '',
+    description: '',
+    category: '',
+    frequency: 'once' as TaskFrequency,
+    defaultDueDays: '7',
+    seasonMonths: [] as number[],
+    steps,
+  };
+};
 
 type EditTaskFormState = ReturnType<typeof buildDefaultEditFormState>;
 
@@ -95,7 +105,9 @@ export default function AdminTasks() {
   const [createForm, setCreateForm] = useState<CreateAssignmentFormState>(buildDefaultFormState);
   const [isEditDialogOpen, setIsEditDialogOpen] = useState(false);
   const [editingTaskId, setEditingTaskId] = useState<string | null>(null);
+  const editingTaskIdRef = useRef<string | null>(null);
   const [editForm, setEditForm] = useState<EditTaskFormState>(buildDefaultEditFormState);
+  const [isLoadingEditData, setIsLoadingEditData] = useState(false);
 
   const { data: templates = [], isLoading: areTemplatesLoading } = useQuery<Template[]>({
     queryKey: templatesQueryKey,
@@ -141,6 +153,8 @@ export default function AdminTasks() {
   const resetEditForm = () => {
     setEditForm(buildDefaultEditFormState());
     setEditingTaskId(null);
+    editingTaskIdRef.current = null;
+    setIsLoadingEditData(false);
   };
 
   const invalidateQueries = () => {
@@ -151,7 +165,11 @@ export default function AdminTasks() {
   };
 
   const handleOpenEditDialog = (task: Task) => {
-    setEditingTaskId(task.id);
+    const taskId = task.id;
+    setEditingTaskId(taskId);
+    editingTaskIdRef.current = taskId;
+    setIsEditDialogOpen(true);
+    setIsLoadingEditData(true);
     setEditForm({
       title: task.title,
       description: task.description ?? '',
@@ -161,8 +179,43 @@ export default function AdminTasks() {
       seasonMonths: Array.isArray(task.seasonMonths)
         ? [...task.seasonMonths].sort((a, b) => a - b)
         : [],
+      steps: [{ title: '', contentText: '' }],
     });
-    setIsEditDialogOpen(true);
+
+    void (async () => {
+      try {
+        const response = await api.tasks.getSteps(taskId);
+        const sortedSteps = [...response].sort((a, b) => a.orderIndex - b.orderIndex);
+        const mappedSteps: EditFormStep[] = sortedSteps.map((step) => ({
+          id: step.id,
+          title: step.title,
+          contentText: step.contentText ?? '',
+        }));
+
+        if (editingTaskIdRef.current !== taskId) {
+          return;
+        }
+
+        setEditForm((previous) => ({
+          ...previous,
+          steps: mappedSteps.length > 0 ? mappedSteps : [{ title: '', contentText: '' }],
+        }));
+      } catch (error) {
+        if (editingTaskIdRef.current !== taskId) {
+          return;
+        }
+        console.error('Failed to load task steps', error);
+        toast.error('Nepavyko įkelti užduoties žingsnių.');
+        setEditForm((previous) => ({
+          ...previous,
+          steps: previous.steps.length > 0 ? previous.steps : [{ title: '', contentText: '' }],
+        }));
+      } finally {
+        if (editingTaskIdRef.current === taskId) {
+          setIsLoadingEditData(false);
+        }
+      }
+    })();
   };
 
   const handleToggleEditSeasonMonth = (month: number, checked: boolean) => {
@@ -172,6 +225,32 @@ export default function AdminTasks() {
         : prev.seasonMonths.filter((value) => value !== month);
       nextMonths.sort((a, b) => a - b);
       return { ...prev, seasonMonths: nextMonths };
+    });
+  };
+
+  const addEditStep = () => {
+    setEditForm((prev) => ({
+      ...prev,
+      steps: [...prev.steps, { title: '', contentText: '' }],
+    }));
+  };
+
+  const updateEditStep = (index: number, changes: Partial<EditFormStep>) => {
+    setEditForm((prev) => {
+      const nextSteps = prev.steps.map((step, stepIndex) =>
+        stepIndex === index ? { ...step, ...changes } : step,
+      );
+      return { ...prev, steps: nextSteps };
+    });
+  };
+
+  const removeEditStep = (index: number) => {
+    setEditForm((prev) => {
+      if (prev.steps.length <= 1) {
+        return prev;
+      }
+      const nextSteps = prev.steps.filter((_, stepIndex) => stepIndex !== index);
+      return { ...prev, steps: nextSteps };
     });
   };
 
@@ -278,23 +357,41 @@ export default function AdminTasks() {
 
     const trimmedTitle = editForm.title.trim();
     if (!trimmedTitle) {
-      toast.error(messages.validationTitle);
+      toast.error('Trūksta pavadinimo. Įveskite užduoties pavadinimą prieš išsaugant.');
       return;
     }
 
     const parsedDefaultDueDays = Number(editForm.defaultDueDays);
-    if (!Number.isFinite(parsedDefaultDueDays) || parsedDefaultDueDays < 0) {
-      toast.error(messages.validationDefaultDueDays);
+    if (!Number.isFinite(parsedDefaultDueDays) || parsedDefaultDueDays <= 0) {
+      toast.error('Neteisingas termino laikas. Įveskite teigiamą dienų skaičių.');
       return;
     }
 
+    const sanitizedSteps = editForm.steps
+      .map((step) => ({
+        title: step.title.trim(),
+        contentText: step.contentText.trim(),
+      }))
+      .filter((step) => step.title.length > 0);
+
+    if (sanitizedSteps.length === 0) {
+      toast.error('Pridėkite bent vieną žingsnį. Užduotis turi turėti bent vieną žingsnį su pavadinimu.');
+      return;
+    }
+
+    const seasonMonths = [...editForm.seasonMonths].sort((a, b) => a - b);
+
     const payload: UpdateTaskPayload = {
       title: trimmedTitle,
-      description: editForm.description.trim(),
-      category: editForm.category.trim(),
+      description: editForm.description.trim() || undefined,
+      category: editForm.category.trim() || undefined,
       frequency: editForm.frequency,
       defaultDueDays: parsedDefaultDueDays,
-      seasonMonths: [...editForm.seasonMonths].sort((a, b) => a - b),
+      seasonMonths: seasonMonths.length > 0 ? seasonMonths : undefined,
+      steps: sanitizedSteps.map((step) => ({
+        title: step.title,
+        contentText: step.contentText || undefined,
+      })),
     };
 
     await updateMutation.mutateAsync({ id: editingTaskId, payload });
@@ -305,7 +402,7 @@ export default function AdminTasks() {
     [templates, createForm.templateId],
   );
 
-  const editFormDisabled = updateMutation.isPending;
+  const editFormDisabled = updateMutation.isPending || isLoadingEditData;
 
   const getFrequencyLabel = (frequency: Task['frequency']) => {
     const labels: Record<Task['frequency'], string> = {
@@ -347,7 +444,7 @@ export default function AdminTasks() {
               <DialogDescription>Atnaujinkite užduoties informaciją.</DialogDescription>
             </DialogHeader>
             <form onSubmit={handleEditSubmit} className="space-y-6">
-              <div className="grid gap-4 md:grid-cols-2">
+              <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
                 <div className="space-y-2 md:col-span-2">
                   <Label htmlFor="edit-task-title">Pavadinimas</Label>
                   <Input
@@ -369,8 +466,7 @@ export default function AdminTasks() {
                     onChange={(event) =>
                       setEditForm((prev) => ({ ...prev, description: event.target.value }))
                     }
-                    placeholder="Trumpai aprašykite, ką turi atlikti bitininkai"
-                    rows={3}
+                    placeholder="Trumpai aprašykite užduotį"
                     disabled={editFormDisabled}
                   />
                 </div>
@@ -412,7 +508,7 @@ export default function AdminTasks() {
                   <Input
                     id="edit-task-default-due"
                     type="number"
-                    min={0}
+                    min={1}
                     value={editForm.defaultDueDays}
                     onChange={(event) =>
                       setEditForm((prev) => ({ ...prev, defaultDueDays: event.target.value }))
@@ -421,31 +517,87 @@ export default function AdminTasks() {
                     required
                   />
                 </div>
-                <div className="space-y-2 md:col-span-2">
-                  <Label>Sezoniniai mėnesiai</Label>
-                  <div className="grid grid-cols-2 gap-2 sm:grid-cols-3">
-                    {monthOptions.map((month) => {
-                      const checked = editForm.seasonMonths.includes(month.value);
-                      return (
-                        <label
-                          key={month.value}
-                          className="flex items-center gap-2 text-sm font-medium"
-                        >
-                          <Checkbox
-                            checked={checked}
-                            onCheckedChange={(state) =>
-                              handleToggleEditSeasonMonth(month.value, state === true)
-                            }
+              </div>
+
+              <div className="space-y-2">
+                <Label>Sezoniniai mėnesiai</Label>
+                <div className="grid grid-cols-2 gap-2 sm:grid-cols-3">
+                  {monthOptions.map((month) => {
+                    const checked = editForm.seasonMonths.includes(month.value);
+                    return (
+                      <label key={month.value} className="flex items-center gap-2 text-sm font-medium">
+                        <Checkbox
+                          checked={checked}
+                          onCheckedChange={(state) =>
+                            handleToggleEditSeasonMonth(month.value, state === true)
+                          }
+                          disabled={editFormDisabled}
+                        />
+                        {month.label}
+                      </label>
+                    );
+                  })}
+                </div>
+              </div>
+
+              <div className="space-y-4">
+                <div className="flex items-center justify-between">
+                  <h3 className="text-lg font-semibold">Žingsniai</h3>
+                  <Button
+                    type="button"
+                    variant="outline"
+                    onClick={addEditStep}
+                    disabled={editFormDisabled}
+                  >
+                    <Plus className="mr-2 h-4 w-4" />
+                    Pridėti žingsnį
+                  </Button>
+                </div>
+                {isLoadingEditData && (
+                  <p className="text-sm text-muted-foreground">Įkeliami užduoties žingsniai...</p>
+                )}
+                <div className="space-y-3">
+                  {editForm.steps.map((step, index) => (
+                    <div key={step.id ?? index} className="space-y-3 rounded-lg border border-border p-4">
+                      <div className="flex items-center justify-between">
+                        <h4 className="text-sm font-semibold">Žingsnis {index + 1}</h4>
+                        {editForm.steps.length > 1 ? (
+                          <Button
+                            type="button"
+                            variant="ghost"
+                            size="icon"
+                            onClick={() => removeEditStep(index)}
                             disabled={editFormDisabled}
-                          />
-                          {month.label}
-                        </label>
-                      );
-                    })}
-                  </div>
-                  <p className="text-xs text-muted-foreground">
-                    Pasirinkite mėnesius, jei užduotis yra sezoninė.
-                  </p>
+                            aria-label={`Pašalinti ${index + 1}-ą žingsnį`}
+                          >
+                            <Trash2 className="h-4 w-4" />
+                          </Button>
+                        ) : null}
+                      </div>
+                      <div className="space-y-2">
+                        <Label htmlFor={`edit-step-title-${index}`}>Pavadinimas</Label>
+                        <Input
+                          id={`edit-step-title-${index}`}
+                          value={step.title}
+                          onChange={(event) => updateEditStep(index, { title: event.target.value })}
+                          disabled={editFormDisabled}
+                          required
+                        />
+                      </div>
+                      <div className="space-y-2">
+                        <Label htmlFor={`edit-step-description-${index}`}>Instrukcijos</Label>
+                        <Textarea
+                          id={`edit-step-description-${index}`}
+                          value={step.contentText}
+                          onChange={(event) =>
+                            updateEditStep(index, { contentText: event.target.value })
+                          }
+                          placeholder="Aprašykite žingsnio veiksmus"
+                          disabled={editFormDisabled}
+                        />
+                      </div>
+                    </div>
+                  ))}
                 </div>
               </div>
 
@@ -457,15 +609,20 @@ export default function AdminTasks() {
                     setIsEditDialogOpen(false);
                     resetEditForm();
                   }}
-                  disabled={editFormDisabled}
+                  disabled={updateMutation.isPending}
                 >
                   Atšaukti
                 </Button>
-                <Button type="submit" disabled={editFormDisabled}>
-                  {editFormDisabled ? (
+                <Button type="submit" disabled={updateMutation.isPending || isLoadingEditData}>
+                  {updateMutation.isPending ? (
                     <>
                       <Loader2 className="mr-2 h-4 w-4 animate-spin" />
                       Saugoma...
+                    </>
+                  ) : isLoadingEditData ? (
+                    <>
+                      <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                      Kraunama...
                     </>
                   ) : (
                     'Išsaugoti'

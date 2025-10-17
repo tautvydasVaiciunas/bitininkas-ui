@@ -823,14 +823,16 @@ export default function Tasks() {
             {filteredAssignments.map(({ assignment, hive, task, completion }) => (
               <Card key={assignment.id} className="shadow-custom hover:shadow-custom-md transition-all group">
                 <CardContent className="p-6">
-                  <div className="flex items-start justify-between gap-4">
+                  <div className="flex flex-col gap-6 lg:flex-row lg:items-start lg:justify-between">
                     <div className="flex-1 space-y-3">
-                      <div className="flex items-start gap-3">
+                      <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
                         <div className="flex-1">
-                          <h3 className="font-semibold text-lg mb-1">{task?.title ?? 'Nežinoma užduotis'}</h3>
+                          <h3 className="mb-1 text-lg font-semibold">{task?.title ?? 'Nežinoma užduotis'}</h3>
                           <p className="text-sm text-muted-foreground">{task?.description ?? 'Aprašymas nepateiktas'}</p>
                         </div>
-                        <AssignmentStatusBadge status={assignment.status} dueDate={assignment.dueDate} />
+                        <div className="flex items-start justify-start sm:justify-end">
+                          <AssignmentStatusBadge status={assignment.status} dueDate={assignment.dueDate} />
+                        </div>
                       </div>
 
                       <div className="flex flex-wrap items-center gap-4 text-sm">
@@ -862,7 +864,7 @@ export default function Tasks() {
                       </div>
 
                       <div className="space-y-1.5">
-                        <div className="flex items-center justify-between text-sm">
+                        <div className="flex flex-wrap items-center justify-between gap-2 text-sm">
                           <span className="text-muted-foreground">Progresas</span>
                           <span className="font-medium">{completion}%</span>
                         </div>
@@ -870,14 +872,14 @@ export default function Tasks() {
                       </div>
                     </div>
 
-                    <div className="flex flex-col gap-2">
+                    <div className="flex flex-col gap-2 sm:flex-row sm:flex-wrap sm:justify-end lg:flex-col lg:items-end lg:gap-3">
                       <Button asChild variant="outline" size="sm">
                         <Link to={`/tasks/${assignment.id}`}>
                           Peržiūrėti
                         </Link>
                       </Button>
                       {assignment.status !== 'done' && !isAssignmentUpcoming(assignment) && (
-                        <Button asChild size="sm">
+                        <Button asChild size="sm" className="sm:w-auto">
                           <Link to={`/tasks/${assignment.id}/run`}>
                             Vykdyti
                             <ChevronRight className="ml-2 w-4 h-4 opacity-0 group-hover:opacity-100 transition-opacity" />

@@ -139,7 +139,7 @@ export const Breadcrumbs = () => {
   }
 
   return (
-    <nav className="flex items-center gap-2 text-sm text-muted-foreground mb-6">
+    <nav className="mb-6 flex flex-wrap items-center gap-2 text-sm text-muted-foreground">
       <Link to="/news" className="hover:text-foreground transition-colors">
         Naujienos
       </Link>

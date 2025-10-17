@@ -144,7 +144,7 @@ function HiveCard({
   return (
     <Card className="shadow-custom hover:shadow-custom-md transition-all group">
       <CardHeader>
-        <div className="flex items-start justify-between gap-3">
+        <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
           <div className="flex-1">
             <CardTitle className="text-xl mb-1">{hive.label}</CardTitle>
             {hive.location ? (
@@ -154,7 +154,7 @@ function HiveCard({
               </div>
             ) : null}
           </div>
-          <div className="flex items-center gap-2">
+          <div className="flex flex-wrap items-center justify-end gap-2 sm:flex-nowrap">
             <Badge variant={statusMeta.badgeVariant}>{statusMeta.label}</Badge>
             {canManage ? (
               <DropdownMenu>
@@ -245,7 +245,7 @@ function HiveCard({
           </div>
         )}
 
-        <div className="flex gap-2">
+        <div className="flex flex-col gap-2 sm:flex-row">
           <Button asChild variant="outline" className="flex-1">
             <Link to={`/hives/${hive.id}`}>
               Peržiūrėti

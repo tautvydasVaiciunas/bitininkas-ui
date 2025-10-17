@@ -59,11 +59,15 @@ export const Sidebar = () => {
     },
   ];
 
+  const visibleNavItems = navItems.filter((item) => item.show);
+  const visibleAdminItems = adminItems.filter((item) => item.show);
+  const mobileNavItems = [...visibleNavItems, ...visibleAdminItems];
+
   return (
-    <aside className="fixed left-0 top-0 h-screen w-64 bg-sidebar border-r border-sidebar-border flex flex-col">
-      <div className="p-6 border-b border-sidebar-border">
+    <aside className="fixed inset-x-0 bottom-0 z-40 h-16 border-t border-sidebar-border bg-sidebar shadow-lg shadow-black/5 lg:left-0 lg:top-0 lg:h-screen lg:w-64 lg:border-t-0 lg:border-r lg:shadow-none">
+      <div className="hidden lg:block border-b border-sidebar-border p-6">
         <div className="flex items-center gap-3">
-          <div className="w-10 h-10 flex items-center justify-center shrink-0">
+          <div className="flex h-10 w-10 shrink-0 items-center justify-center">
             <img
               src="https://static.wixstatic.com/media/453317_cb9f63ff26714a80828d532ffc091160~mv2.png"
               alt="Bus medaus logotipas"
@@ -81,65 +85,83 @@ export const Sidebar = () => {
         </div>
       </div>
 
-      <nav className="flex-1 p-4 overflow-y-auto">
-        <div className="space-y-1">
-          {navItems
-            .filter((item) => item.show)
-            .map((item) => (
+      <nav aria-label="Pagrindinė navigacija" className="h-full lg:flex lg:flex-1 lg:flex-col lg:overflow-y-auto lg:p-4">
+        <div className="flex h-full items-center gap-1 overflow-x-auto px-4 lg:hidden">
+          {mobileNavItems.map((item) => (
+            <NavLink
+              key={item.to}
+              to={item.to}
+              className={({ isActive }) =>
+                cn(
+                  "flex min-w-[4.5rem] flex-col items-center justify-center gap-1 rounded-lg px-3 py-2 text-[0.7rem] font-medium transition-colors",
+                  isActive
+                    ? "bg-sidebar-accent text-sidebar-primary"
+                    : "text-sidebar-foreground hover:bg-sidebar-accent/60",
+                )
+              }
+            >
+              <item.icon className="h-5 w-5" />
+              <span className="truncate">{item.label}</span>
+            </NavLink>
+          ))}
+        </div>
+
+        <div className="hidden lg:block">
+          <div className="space-y-1">
+            {visibleNavItems.map((item) => (
               <NavLink
                 key={item.to}
                 to={item.to}
                 end={item.to === "/"}
                 className={({ isActive }) =>
                   cn(
-                    "flex items-center gap-3 px-3 py-2.5 rounded-lg text-sm font-medium transition-colors",
+                    "flex items-center gap-3 rounded-lg px-3 py-2.5 text-sm font-medium transition-colors",
                     isActive
                       ? "bg-sidebar-accent text-sidebar-primary"
                       : "text-sidebar-foreground hover:bg-sidebar-accent/50",
                   )
                 }
               >
-                <item.icon className="w-5 h-5" />
+                <item.icon className="h-5 w-5" />
                 {item.label}
               </NavLink>
             ))}
-        </div>
+          </div>
 
-        {isManager && adminItems.some((item) => item.show) && (
-          <>
-            <div className="my-4 border-t border-sidebar-border" />
-            <div className="mb-2 px-3">
-              <p className="text-xs font-semibold text-muted-foreground uppercase tracking-wider">
-                Administravimas
-              </p>
-            </div>
-            <div className="space-y-1">
-              {adminItems
-                .filter((item) => item.show)
-                .map((item) => (
+          {isManager && visibleAdminItems.length > 0 && (
+            <>
+              <div className="my-4 border-t border-sidebar-border" />
+              <div className="mb-2 px-3">
+                <p className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">
+                  Administravimas
+                </p>
+              </div>
+              <div className="space-y-1">
+                {visibleAdminItems.map((item) => (
                   <NavLink
                     key={item.to}
                     to={item.to}
                     className={({ isActive }) =>
                       cn(
-                        "flex items-center gap-3 px-3 py-2.5 rounded-lg text-sm font-medium transition-colors",
+                        "flex items-center gap-3 rounded-lg px-3 py-2.5 text-sm font-medium transition-colors",
                         isActive
                           ? "bg-sidebar-accent text-sidebar-primary"
                           : "text-sidebar-foreground hover:bg-sidebar-accent/50",
                       )
                     }
                   >
-                    <item.icon className="w-5 h-5" />
+                    <item.icon className="h-5 w-5" />
                     {item.label}
                   </NavLink>
                 ))}
-            </div>
-          </>
-        )}
+              </div>
+            </>
+          )}
+        </div>
       </nav>
 
-      <div className="p-4 border-t border-sidebar-border">
-        <p className="text-xs text-center text-muted-foreground">
+      <div className="hidden border-t border-sidebar-border p-4 lg:block">
+        <p className="text-center text-xs text-muted-foreground">
           Sukurta su ❤️ Lietuvoje
         </p>
       </div>

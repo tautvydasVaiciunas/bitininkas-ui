@@ -47,18 +47,17 @@ export interface AuthResponse {
   user: AuthenticatedUser;
 }
 
+export type NotificationType = 'assignment' | 'news' | 'message';
+
 export interface NotificationResponse {
   id: string;
   userId: string;
-  type: string;
-  title?: string | null;
-  message?: string | null;
-  payload?: Record<string, unknown>;
-  scheduledAt?: string | null;
-  sentAt?: string | null;
-  readAt?: string | null;
+  type: NotificationType;
+  title: string;
+  body: string;
+  link?: string | null;
+  isRead: boolean;
   createdAt: string;
-  updatedAt: string;
 }
 
 export interface NotificationsUnreadCountResponse {
@@ -743,8 +742,10 @@ export const api = {
     },
   },
   notifications: {
-    list: () => get<NotificationResponse[]>('/notifications'),
+    list: (params?: { page?: number; limit?: number }) =>
+      get<NotificationResponse[]>('/notifications', { query: params }),
     markRead: (id: string) => patch<{ success: boolean }>(`/notifications/${id}/read`),
+    markAllRead: () => patch<{ success: boolean }>('/notifications/mark-all-read'),
     unreadCount: () => get<NotificationsUnreadCountResponse>('/notifications/unread-count'),
   },
   news: {

@@ -21,6 +21,7 @@ import type {
   LoginPayload,
   ProfileResponse as ApiProfileResponse,
   NotificationResponse as ApiNotificationResponse,
+  NotificationType as ApiNotificationType,
   AssignmentReportRow as ApiAssignmentReportRow,
   RegisterPayload,
   ChangePasswordPayload,
@@ -108,6 +109,7 @@ export interface StepProgressToggleResult {
   progress: StepProgress;
 }
 export type Notification = ApiNotificationResponse;
+export type NotificationType = ApiNotificationType;
 export type HiveSummary = ApiHiveSummary;
 export type TaskFrequency = ApiTaskFrequency;
 export type UserRole = ApiUserRole;
@@ -204,11 +206,7 @@ export const mapAssignmentDetailsFromApi = (details: ApiAssignmentDetails): Assi
 
 export const mapNotificationFromApi = (notification: ApiNotificationResponse): Notification => ({
   ...notification,
-  title: mapOptionalString(notification.title),
-  message: mapOptionalString(notification.message),
-  scheduledAt: mapOptionalString(notification.scheduledAt),
-  sentAt: mapOptionalString(notification.sentAt),
-  readAt: mapOptionalString(notification.readAt),
+  link: notification.link ?? null,
 });
 
 export const mapNewsPostFromApi = (post: ApiNewsPostResponse): NewsPost => ({

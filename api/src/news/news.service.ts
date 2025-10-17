@@ -1,12 +1,12 @@
 import {
   BadRequestException,
   HttpException,
-  Inject,
   Injectable,
   InternalServerErrorException,
   Logger,
   NotFoundException,
 } from '@nestjs/common';
+import { ConfigService } from '@nestjs/config';
 import { InjectRepository } from '@nestjs/typeorm';
 import { Brackets, In, Repository } from 'typeorm';
 
@@ -14,7 +14,7 @@ import { NewsPost } from './news-post.entity';
 import { Group } from '../groups/group.entity';
 import { GroupMember } from '../groups/group-member.entity';
 import { User } from '../users/user.entity';
-import { MAILER_PORT, MailerPort } from '../notifications/mailer.service';
+import { NotificationsService } from '../notifications/notifications.service';
 import { CreateNewsDto } from './dto/create-news.dto';
 import { UpdateNewsDto } from './dto/update-news.dto';
 import { ListNewsQueryDto } from './dto/list-news-query.dto';
@@ -47,6 +47,7 @@ export interface PaginatedNewsResponse {
 @Injectable()
 export class NewsService {
   private readonly logger = new Logger(NewsService.name);
+  private readonly appBaseUrl: string | null;
 
   constructor(
     @InjectRepository(NewsPost)
@@ -57,9 +58,15 @@ export class NewsService {
     private readonly groupMembersRepository: Repository<GroupMember>,
     @InjectRepository(User)
     private readonly usersRepository: Repository<User>,
-    @Inject(MAILER_PORT)
-    private readonly mailer: MailerPort,
-  ) {}
+    private readonly notifications: NotificationsService,
+    private readonly configService: ConfigService,
+  ) {
+    this.appBaseUrl = this.normalizeBaseUrl(
+      this.configService.get<string>('APP_URL') ??
+        this.configService.get<string>('FRONTEND_URL') ??
+        null,
+    );
+  }
 
   private normalizeLimit(limit?: number) {
     if (!limit || Number.isNaN(limit)) {
@@ -525,18 +532,22 @@ export class NewsService {
       (recipientId) => recipientId !== actor.id,
     );
 
+    const link = this.buildNewsLink(full.id);
+
     for (const recipientId of uniqueRecipients) {
       try {
-        await this.mailer.send({
-          userId: recipientId,
-          subject: `Nauja naujiena: ${title}`,
+        await this.notifications.createNotification(recipientId, {
+          type: 'news',
+          title: `Nauja naujiena: ${title}`,
           body,
-          notificationType: 'news_post',
-          payload: { postId: full.id },
+          link,
+          sendEmail: true,
+          emailSubject: `Nauja naujiena: ${title}`,
+          emailBody: [`Nauja naujiena: ${title}`, body, `Nuoroda: ${link}`].join('\n'),
         });
       } catch (error) {
         this.logger.warn(
-          `Nepavyko išsiųsti naujienos pranešimo naudotojui ${recipientId}`,
+          `Nepavyko sukurti naujienos pranešimo naudotojui ${recipientId}`,
           error instanceof Error ? error.stack : undefined,
         );
       }
@@ -605,5 +616,27 @@ export class NewsService {
     await this.newsRepository.remove(post);
 
     return { success: true };
+  }
+
+  private buildNewsLink(newsId: string) {
+    if (this.appBaseUrl) {
+      return `${this.appBaseUrl}/news/${newsId}`;
+    }
+
+    return `/news/${newsId}`;
+  }
+
+  private normalizeBaseUrl(value: string | null) {
+    if (!value) {
+      return null;
+    }
+
+    const trimmed = value.trim();
+
+    if (!trimmed) {
+      return null;
+    }
+
+    return trimmed.endsWith('/') ? trimmed.slice(0, -1) : trimmed;
   }
 }

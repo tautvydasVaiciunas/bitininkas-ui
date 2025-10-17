@@ -334,13 +334,17 @@ async function runSeed(): Promise<void> {
     await notificationRepository.save([
       notificationRepository.create({
         userId: user.id,
-        type: 'assignment_due',
-        payload: { assignmentId: assignment1.id },
+        type: 'assignment',
+        title: 'Primename apie užduotį',
+        body: 'Primename apie artėjančią užduotį jūsų aviliui.',
+        link: `/tasks/${assignment1.id}/run`,
       }),
       notificationRepository.create({
         userId: manager.id,
-        type: 'progress_update',
-        payload: { assignmentId: assignment1.id },
+        type: 'message',
+        title: 'Užduoties progresas',
+        body: 'Bitininkas pažymėjo užduoties žingsnį kaip atliktą.',
+        link: `/tasks/${assignment1.id}/run`,
       }),
     ]);
 

@@ -13,7 +13,7 @@ import {
 import { Hive } from '../hives/hive.entity';
 import { Task } from '../tasks/task.entity';
 import { User } from '../users/user.entity';
-import { StepProgress } from '../progress/step-progress.entity';
+import { AssignmentProgress } from '../progress/assignment-progress.entity';
 
 export enum AssignmentStatus {
   NOT_STARTED = 'not_started',
@@ -67,6 +67,6 @@ export class Assignment {
   @UpdateDateColumn({ name: 'updated_at' })
   updatedAt!: Date;
 
-  @OneToMany(() => StepProgress, (progress) => progress.assignment)
-  progress!: StepProgress[];
+  @OneToMany(() => AssignmentProgress, (progress) => progress.assignment)
+  progress!: AssignmentProgress[];
 }

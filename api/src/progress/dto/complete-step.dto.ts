@@ -1,4 +1,4 @@
-import { IsOptional, IsString, MaxLength } from 'class-validator';
+import { IsOptional, IsString, IsUUID, MaxLength } from 'class-validator';
 
 export class CompleteStepDto {
   @IsString()
@@ -16,4 +16,8 @@ export class CompleteStepDto {
   @IsString()
   @MaxLength(500)
   evidenceUrl?: string;
+
+  @IsOptional()
+  @IsUUID()
+  userId?: string;
 }

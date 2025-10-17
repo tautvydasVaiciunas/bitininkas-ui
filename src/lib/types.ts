@@ -102,9 +102,11 @@ export type Template = Omit<ApiTemplateResponse, 'steps' | 'comment'> & {
   steps: TemplateStep[];
 };
 export type StepProgress = ApiStepProgressResponse;
-export type StepProgressToggleResult =
-  | { completed: true; taskStepId: string; progress: StepProgress }
-  | { completed: false; taskStepId: string; progressId: string };
+export interface StepProgressToggleResult {
+  status: ApiStepProgressToggleResponse['status'];
+  taskStepId: string;
+  progress: StepProgress;
+}
 export type Notification = ApiNotificationResponse;
 export type HiveSummary = ApiHiveSummary;
 export type TaskFrequency = ApiTaskFrequency;
@@ -180,24 +182,18 @@ export const mapAssignmentFromApi = (assignment: ApiAssignmentResponse): Assignm
 
 export const mapStepProgressFromApi = (progress: ApiStepProgressResponse): StepProgress => ({
   ...progress,
+  completedAt: mapOptionalString(progress.completedAt),
   notes: mapOptionalString(progress.notes),
   evidenceUrl: mapOptionalString(progress.evidenceUrl),
 });
 
 export const mapStepToggleResponseFromApi = (
   response: ApiStepProgressToggleResponse,
-): StepProgressToggleResult =>
-  response.completed
-    ? {
-        completed: true,
-        taskStepId: response.taskStepId,
-        progress: mapStepProgressFromApi(response.progress),
-      }
-    : {
-        completed: false,
-        taskStepId: response.taskStepId,
-        progressId: response.progressId,
-      };
+): StepProgressToggleResult => ({
+  status: response.status,
+  taskStepId: response.taskStepId,
+  progress: mapStepProgressFromApi(response.progress),
+});
 
 export const mapAssignmentDetailsFromApi = (details: ApiAssignmentDetails): AssignmentDetails => ({
   assignment: mapAssignmentFromApi(details.assignment),

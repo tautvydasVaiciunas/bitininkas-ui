@@ -1,7 +1,10 @@
 import { ForbiddenException, Injectable, NotFoundException } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
 import { Repository } from 'typeorm';
-import { StepProgress } from './step-progress.entity';
+import {
+  AssignmentProgress,
+  AssignmentProgressStatus,
+} from './assignment-progress.entity';
 import { CompleteStepDto } from './dto/complete-step.dto';
 import { Assignment } from '../assignments/assignment.entity';
 import { TaskStep } from '../tasks/steps/task-step.entity';
@@ -13,8 +16,8 @@ import { UpdateProgressDto } from './dto/update-progress.dto';
 @Injectable()
 export class ProgressService {
   constructor(
-    @InjectRepository(StepProgress)
-    private readonly progressRepository: Repository<StepProgress>,
+    @InjectRepository(AssignmentProgress)
+    private readonly progressRepository: Repository<AssignmentProgress>,
     @InjectRepository(Assignment)
     private readonly assignmentsRepository: Repository<Assignment>,
     @InjectRepository(TaskStep)
@@ -57,6 +60,43 @@ export class ProgressService {
     return assignment;
   }
 
+  private async getAssignmentParticipantIds(assignment: Assignment) {
+    const hive = await this.hiveRepository.findOne({
+      where: { id: assignment.hiveId },
+      relations: { members: true },
+    });
+
+    if (!hive) {
+      throw new NotFoundException('Hive not found');
+    }
+
+    const memberIds = hive.members?.map((member) => member.id) ?? [];
+    return Array.from(new Set([hive.ownerUserId, ...memberIds]));
+  }
+
+  private async resolveTargetUserId(
+    assignment: Assignment,
+    user,
+    requestedUserId?: string,
+    participantIds?: string[],
+  ) {
+    if (user.role === UserRole.USER) {
+      return user.id;
+    }
+
+    if (!requestedUserId) {
+      return user.id;
+    }
+
+    const participants = participantIds ?? (await this.getAssignmentParticipantIds(assignment));
+
+    if (!participants.includes(requestedUserId)) {
+      throw new ForbiddenException('User not part of assignment');
+    }
+
+    return requestedUserId;
+  }
+
   async completeStep(dto: CompleteStepDto, user) {
     const assignment = await this.ensureAssignmentAccess(dto.assignmentId, user);
     const step = await this.stepRepository.findOne({ where: { id: dto.taskStepId } });
@@ -69,31 +109,61 @@ export class ProgressService {
       throw new ForbiddenException('Step does not belong to assignment task');
     }
 
-    const existing = await this.progressRepository.findOne({
-      where: { assignmentId: dto.assignmentId, taskStepId: dto.taskStepId },
+    const participantIds = await this.getAssignmentParticipantIds(assignment);
+    const targetUserId = await this.resolveTargetUserId(
+      assignment,
+      user,
+      dto.userId,
+      participantIds,
+    );
+
+    if (!participantIds.includes(targetUserId)) {
+      throw new ForbiddenException('User not part of assignment');
+    }
+
+    let progress = await this.progressRepository.findOne({
+      where: {
+        assignmentId: dto.assignmentId,
+        taskStepId: dto.taskStepId,
+        userId: targetUserId,
+      },
     });
 
-    if (existing) {
-      await this.progressRepository.remove(existing);
+    if (!progress) {
+      progress = this.progressRepository.create({
+        assignmentId: dto.assignmentId,
+        taskStepId: dto.taskStepId,
+        userId: targetUserId,
+        status: AssignmentProgressStatus.PENDING,
+        completedAt: null,
+      });
+    }
+
+    const isCurrentlyCompleted = progress.status === AssignmentProgressStatus.COMPLETED;
+
+    if (isCurrentlyCompleted) {
+      progress.status = AssignmentProgressStatus.PENDING;
+      progress.completedAt = null;
+      progress.notes = null;
+      progress.evidenceUrl = null;
+      const saved = await this.progressRepository.save(progress);
       await this.activityLog.log('step_uncompleted', user.id, 'assignment', assignment.id);
 
       return {
-        completed: false as const,
-        progressId: existing.id,
-        taskStepId: existing.taskStepId,
+        status: saved.status,
+        taskStepId: saved.taskStepId,
+        progress: saved,
       };
     }
 
-    const progress = this.progressRepository.create({
-      assignmentId: dto.assignmentId,
-      taskStepId: dto.taskStepId,
-      notes: this.normalizeNullableString(dto.notes),
-      evidenceUrl: this.normalizeNullableString(dto.evidenceUrl),
-    });
+    progress.status = AssignmentProgressStatus.COMPLETED;
+    progress.completedAt = new Date();
+    progress.notes = this.normalizeNullableString(dto.notes);
+    progress.evidenceUrl = this.normalizeNullableString(dto.evidenceUrl);
 
     const saved = await this.progressRepository.save(progress);
     await this.activityLog.log('step_completed', user.id, 'assignment', assignment.id);
-    return { completed: true as const, progress: saved, taskStepId: saved.taskStepId };
+    return { status: saved.status, taskStepId: saved.taskStepId, progress: saved };
   }
 
   async update(id: string, dto: UpdateProgressDto, user) {
@@ -104,6 +174,10 @@ export class ProgressService {
     }
 
     await this.ensureAssignmentAccess(progress.assignmentId, user);
+
+    if (user.role === UserRole.USER && progress.userId !== user.id) {
+      throw new ForbiddenException('Access denied');
+    }
 
     if (dto.notes !== undefined) {
       progress.notes = this.normalizeNullableString(dto.notes);
@@ -116,9 +190,33 @@ export class ProgressService {
     return this.progressRepository.save(progress);
   }
 
-  async listForAssignment(assignmentId: string, user) {
-    await this.ensureAssignmentAccess(assignmentId, user);
-    return this.progressRepository.find({ where: { assignmentId } });
+  async listForAssignment(assignmentId: string, user, requestedUserId?: string) {
+    const assignment = await this.ensureAssignmentAccess(assignmentId, user);
+
+    if (user.role === UserRole.USER) {
+      return this.progressRepository.find({
+        where: { assignmentId, userId: user.id },
+        order: { taskStepId: 'ASC', userId: 'ASC', createdAt: 'ASC' },
+      });
+    }
+
+    if (requestedUserId) {
+      const participantIds = await this.getAssignmentParticipantIds(assignment);
+
+      if (!participantIds.includes(requestedUserId)) {
+        throw new ForbiddenException('User not part of assignment');
+      }
+
+      return this.progressRepository.find({
+        where: { assignmentId, userId: requestedUserId },
+        order: { taskStepId: 'ASC', userId: 'ASC', createdAt: 'ASC' },
+      });
+    }
+
+    return this.progressRepository.find({
+      where: { assignmentId },
+      order: { taskStepId: 'ASC', userId: 'ASC', createdAt: 'ASC' },
+    });
   }
 
   async remove(id: string, user) {
@@ -137,16 +235,65 @@ export class ProgressService {
     return { success: true };
   }
 
-  async assignmentCompletion(assignmentId: string, user) {
+  async assignmentCompletion(assignmentId: string, user, requestedUserId?: string) {
     const assignment = await this.ensureAssignmentAccess(assignmentId, user);
     const steps = await this.stepRepository.find({ where: { taskId: assignment.taskId } });
-    const progress = await this.progressRepository.find({ where: { assignmentId } });
 
     if (!steps.length) {
       return 0;
     }
 
-    const completion = Math.round((progress.length / steps.length) * 100);
-    return completion;
+    if (user.role === UserRole.USER) {
+      const progress = await this.progressRepository.find({
+        where: {
+          assignmentId,
+          userId: user.id,
+          status: AssignmentProgressStatus.COMPLETED,
+        },
+      });
+
+      return Math.round((progress.length / steps.length) * 100);
+    }
+
+    if (requestedUserId) {
+      const participantIds = await this.getAssignmentParticipantIds(assignment);
+
+      if (!participantIds.includes(requestedUserId)) {
+        throw new ForbiddenException('User not part of assignment');
+      }
+
+      const progress = await this.progressRepository.find({
+        where: {
+          assignmentId,
+          userId: requestedUserId,
+          status: AssignmentProgressStatus.COMPLETED,
+        },
+      });
+
+      return Math.round((progress.length / steps.length) * 100);
+    }
+
+    const participantIds = await this.getAssignmentParticipantIds(assignment);
+
+    if (!participantIds.length) {
+      return 0;
+    }
+
+    const allProgress = await this.progressRepository.find({ where: { assignmentId } });
+
+    const completions = participantIds.map((participantId) => {
+      const completed = allProgress.filter(
+        (entry) =>
+          entry.userId === participantId &&
+          entry.status === AssignmentProgressStatus.COMPLETED,
+      ).length;
+
+      return completed / steps.length;
+    });
+
+    const average =
+      completions.reduce((sum, value) => sum + value, 0) / Math.max(completions.length, 1);
+
+    return Math.round(average * 100);
   }
 }

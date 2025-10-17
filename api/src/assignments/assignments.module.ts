@@ -7,7 +7,7 @@ import { AssignmentsController } from './assignments.controller';
 import { Hive } from '../hives/hive.entity';
 import { Task } from '../tasks/task.entity';
 import { TaskStep } from '../tasks/steps/task-step.entity';
-import { StepProgress } from '../progress/step-progress.entity';
+import { AssignmentProgress } from '../progress/assignment-progress.entity';
 import { ActivityLogModule } from '../activity-log/activity-log.module';
 import { HivesModule } from '../hives/hives.module';
 import { Group } from '../groups/group.entity';
@@ -25,7 +25,7 @@ import { Notification } from '../notifications/notification.entity';
       Hive,
       Task,
       TaskStep,
-      StepProgress,
+      AssignmentProgress,
       Group,
       GroupMember,
       Template,

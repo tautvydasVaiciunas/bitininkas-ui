@@ -6,14 +6,21 @@ import {
   ManyToOne,
   PrimaryGeneratedColumn,
   Unique,
+  UpdateDateColumn,
 } from 'typeorm';
 
 import { Assignment } from '../assignments/assignment.entity';
 import { TaskStep } from '../tasks/steps/task-step.entity';
+import { User } from '../users/user.entity';
 
-@Entity({ name: 'step_progress' })
-@Unique(['assignmentId', 'taskStepId'])
-export class StepProgress {
+export enum AssignmentProgressStatus {
+  PENDING = 'pending',
+  COMPLETED = 'completed',
+}
+
+@Entity({ name: 'assignment_progress' })
+@Unique(['assignmentId', 'taskStepId', 'userId'])
+export class AssignmentProgress {
   @PrimaryGeneratedColumn('uuid')
   id!: string;
 
@@ -35,8 +42,22 @@ export class StepProgress {
   @Column({ name: 'task_step_id', type: 'uuid' })
   taskStepId!: string;
 
-  @CreateDateColumn({ name: 'completed_at' })
-  completedAt!: Date;
+  @ManyToOne(() => User, { onDelete: 'CASCADE' })
+  @JoinColumn({ name: 'user_id' })
+  user!: User;
+
+  @Column({ name: 'user_id', type: 'uuid' })
+  userId!: string;
+
+  @Column({
+    type: 'enum',
+    enum: AssignmentProgressStatus,
+    default: AssignmentProgressStatus.PENDING,
+  })
+  status!: AssignmentProgressStatus;
+
+  @Column({ name: 'completed_at', type: 'timestamptz', nullable: true })
+  completedAt!: Date | null;
 
   @Column({ type: 'varchar', length: 1000, nullable: true, default: null })
   notes!: string | null;
@@ -49,4 +70,10 @@ export class StepProgress {
     default: null,
   })
   evidenceUrl!: string | null;
+
+  @CreateDateColumn({ name: 'created_at' })
+  createdAt!: Date;
+
+  @UpdateDateColumn({ name: 'updated_at' })
+  updatedAt!: Date;
 }

@@ -12,7 +12,7 @@ import {
 } from 'typeorm';
 
 import { Task } from '../task.entity';
-import { StepProgress } from '../../progress/step-progress.entity';
+import { AssignmentProgress } from '../../progress/assignment-progress.entity';
 import { Tag } from '../tags/tag.entity';
 
 export type TaskStepMediaType = 'image' | 'video';
@@ -74,8 +74,8 @@ export class TaskStep {
   @CreateDateColumn({ name: 'created_at' })
   createdAt!: Date;
 
-  @OneToMany(() => StepProgress, (progress) => progress.taskStep)
-  progress!: StepProgress[];
+  @OneToMany(() => AssignmentProgress, (progress) => progress.taskStep)
+  progress!: AssignmentProgress[];
 
   @ManyToMany(() => Tag, (tag) => tag.steps, { cascade: false })
   @JoinTable({

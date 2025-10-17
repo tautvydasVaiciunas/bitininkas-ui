@@ -325,30 +325,26 @@ export interface ChangePasswordPayload {
   newPassword: string;
 }
 
+export type StepProgressStatus = 'pending' | 'completed';
+
 export interface StepProgressResponse {
   id: string;
   assignmentId: string;
   taskStepId: string;
-  completedAt: string;
+  userId: string;
+  status: StepProgressStatus;
+  completedAt?: string | null;
   notes?: string | null;
   evidenceUrl?: string | null;
+  createdAt: string;
+  updatedAt: string;
 }
 
-export interface StepProgressCompletedResponse {
-  completed: true;
+export interface StepProgressToggleResponse {
+  status: StepProgressStatus;
   taskStepId: string;
   progress: StepProgressResponse;
 }
-
-export interface StepProgressRemovedResponse {
-  completed: false;
-  taskStepId: string;
-  progressId: string;
-}
-
-export type StepProgressToggleResponse =
-  | StepProgressCompletedResponse
-  | StepProgressRemovedResponse;
 
 export interface AssignmentDetails {
   assignment: AssignmentResponse;
@@ -448,6 +444,7 @@ export interface CompleteStepPayload {
   taskStepId: string;
   notes?: string;
   evidenceUrl?: string;
+  userId?: string;
 }
 
 export interface UpdateProgressPayload {
@@ -827,7 +824,8 @@ export const api = {
     create: (payload: CreateAssignmentPayload) => post<AssignmentResponse>('/assignments', { json: payload }),
     update: (id: string, payload: UpdateAssignmentPayload) =>
       patch<AssignmentResponse>(`/assignments/${id}`, { json: payload }),
-    details: (id: string) => get<AssignmentDetails>(`/assignments/${id}/details`),
+    details: (id: string, params?: { userId?: string }) =>
+      get<AssignmentDetails>(`/assignments/${id}/details`, { query: params }),
     bulkFromTemplate: (payload: BulkAssignmentsFromTemplatePayload) =>
       post<BulkAssignmentsFromTemplateResponse>('/assignments/bulk-from-template', { json: payload }),
   },
@@ -860,10 +858,10 @@ export const api = {
       post<StepProgressToggleResponse>('/progress/step-complete', { json: payload }),
     update: (id: string, payload: UpdateProgressPayload) =>
       patch<StepProgressResponse>(`/progress/${id}`, { json: payload }),
-    listForAssignment: (assignmentId: string) =>
-      get<StepProgressResponse[]>(`/assignments/${assignmentId}/progress/list`),
-    assignmentCompletion: (assignmentId: string) =>
-      get<number>(`/assignments/${assignmentId}/progress`),
+    listForAssignment: (assignmentId: string, params?: { userId?: string }) =>
+      get<StepProgressResponse[]>(`/assignments/${assignmentId}/progress/list`, { query: params }),
+    assignmentCompletion: (assignmentId: string, params?: { userId?: string }) =>
+      get<number>(`/assignments/${assignmentId}/progress`, { query: params }),
     remove: (id: string) => del<void>(`/progress/${id}`),
   },
   users: {

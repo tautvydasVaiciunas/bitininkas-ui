@@ -1,13 +1,22 @@
-import { Injectable, Logger } from '@nestjs/common';
+import { Inject, Injectable, Logger } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
 import { Cron } from '@nestjs/schedule';
 import { InjectRepository } from '@nestjs/typeorm';
-import { LessThan, Not, Repository } from 'typeorm';
+import { Brackets, LessThan, Not, Repository } from 'typeorm';
 
 import { Assignment, AssignmentStatus } from './assignment.entity';
 import { Notification } from '../notifications/notification.entity';
 import { NotificationsService } from '../notifications/notifications.service';
-import { DEFAULT_CTA_LABEL } from '../notifications/email-template';
+import {
+  DEFAULT_CTA_LABEL,
+  renderNotificationEmailHtml,
+  renderNotificationEmailText,
+} from '../notifications/email-template';
+import { MAILER_SERVICE, MailerService } from '../notifications/mailer.service';
+import { GroupMember } from '../groups/group-member.entity';
+import { UserRole } from '../users/user.entity';
+
+const WEEKLY_REMINDER_CRON = process.env.REMINDER_CRON ?? '0 9 * * 1';
 
 @Injectable()
 export class AssignmentsScheduler {
@@ -19,8 +28,12 @@ export class AssignmentsScheduler {
     private readonly assignmentsRepository: Repository<Assignment>,
     @InjectRepository(Notification)
     private readonly notificationsRepository: Repository<Notification>,
+    @InjectRepository(GroupMember)
+    private readonly groupMembersRepository: Repository<GroupMember>,
     private readonly notificationsService: NotificationsService,
     private readonly configService: ConfigService,
+    @Inject(MAILER_SERVICE)
+    private readonly mailer: MailerService,
   ) {
     this.appBaseUrl = this.normalizeBaseUrl(
       this.configService.get<string>('APP_URL') ??
@@ -35,6 +48,40 @@ export class AssignmentsScheduler {
 
     await this.sendDueSoonReminders(today);
     await this.sendOverdueReminders(today);
+  }
+
+  @Cron(WEEKLY_REMINDER_CRON)
+  async handleWeeklyReminders() {
+    const today = this.getTodayUtc();
+    const todayLabel = this.formatDate(today);
+
+    try {
+      const assignments = await this.assignmentsRepository
+        .createQueryBuilder('assignment')
+        .leftJoinAndSelect('assignment.hive', 'hive')
+        .leftJoinAndSelect('assignment.task', 'task')
+        .where('assignment.status != :done', { done: AssignmentStatus.DONE })
+        .andWhere(
+          new Brackets((qb) => {
+            qb.where(
+              '(assignment.startDate IS NULL OR assignment.startDate <= :today) AND assignment.dueDate >= :today',
+              { today: todayLabel },
+            );
+            qb.orWhere('assignment.dueDate < :today', { today: todayLabel });
+          }),
+        )
+        .getMany();
+
+      for (const assignment of assignments) {
+        await this.notifyWeeklyReminder(assignment, todayLabel);
+      }
+    } catch (error) {
+      const details = error instanceof Error ? error.message : String(error);
+      this.logger.error(
+        `Nepavyko apdoroti savaitinio priminimo: ${details}`,
+        error instanceof Error ? error.stack : undefined,
+      );
+    }
   }
 
   private async sendDueSoonReminders(today: Date) {
@@ -61,6 +108,126 @@ export class AssignmentsScheduler {
       const details = error instanceof Error ? error.message : String(error);
       this.logger.error(
         `Nepavyko apdoroti 7 dienų priminimų: ${details}`,
+        error instanceof Error ? error.stack : undefined,
+      );
+    }
+  }
+
+  private async notifyWeeklyReminder(assignment: Assignment, todayLabel: string) {
+    const hive = assignment.hive;
+    const ownerId = hive?.ownerUserId;
+
+    if (!ownerId) {
+      this.logger.warn(
+        `Praleidžiama savaitinio priminimo užduotis ${assignment.id}, nes nerastas avilio savininkas`,
+      );
+      return;
+    }
+
+    const ownerMemberships = await this.groupMembersRepository.find({
+      where: { userId: ownerId },
+    });
+
+    const groupIds = ownerMemberships.map((membership) => membership.groupId);
+
+    if (!groupIds.length) {
+      this.logger.debug(
+        `Vartotojas ${ownerId} nepriklauso jokiai grupei — savaitinis priminimas nekuriamas`,
+      );
+      return;
+    }
+
+    const memberRows = await this.groupMembersRepository
+      .createQueryBuilder('membership')
+      .innerJoinAndSelect('membership.user', 'memberUser')
+      .where('membership.groupId IN (:...groupIds)', { groupIds })
+      .andWhere('memberUser.role != :adminRole', { adminRole: UserRole.ADMIN })
+      .getMany();
+
+    if (!memberRows.length) {
+      this.logger.debug(
+        `Nerasta tinkamų gavėjų užduočiai ${assignment.id} savaitiniam priminimui`,
+      );
+      return;
+    }
+
+    const subject = 'Priminimas: nebaigta užduotis';
+    const taskTitle = assignment.task?.title ?? 'Užduotis';
+    const link = this.buildAssignmentLink(assignment.id);
+    const emailLink = this.buildAssignmentEmailLink(assignment.id);
+    const overdue = assignment.dueDate < todayLabel;
+    const lines = [
+      `Užduotis „${taskTitle}“ vis dar nebaigta.`,
+      `Terminas: ${assignment.dueDate}`,
+    ];
+
+    if (overdue) {
+      lines.push('Užduotis jau praleista.');
+    }
+
+    lines.push(`Nuoroda: ${link}`);
+    const message = lines.join('\n');
+
+    const html = renderNotificationEmailHtml({
+      subject,
+      message,
+      ctaUrl: emailLink,
+      ctaLabel: DEFAULT_CTA_LABEL,
+    });
+    const text = renderNotificationEmailText({
+      message,
+      ctaUrl: emailLink,
+      ctaLabel: DEFAULT_CTA_LABEL,
+    });
+
+    const notifiedEmails = new Set<string>();
+
+    for (const membership of memberRows) {
+      const user = membership.user;
+      if (!user) {
+        continue;
+      }
+
+      const alreadySent = await this.hasNotification(user.id, subject, link);
+      if (alreadySent) {
+        continue;
+      }
+
+      try {
+        await this.notificationsService.createNotification(user.id, {
+          type: 'assignment',
+          title: subject,
+          body: message,
+          link,
+        });
+
+        if (user.email) {
+          notifiedEmails.add(user.email);
+        }
+      } catch (error) {
+        const details = error instanceof Error ? error.message : String(error);
+        this.logger.warn(
+          `Nepavyko sukurti savaitinio priminimo pranešimo vartotojui ${user.id}: ${details}`,
+          error instanceof Error ? error.stack : undefined,
+        );
+      }
+    }
+
+    if (notifiedEmails.size === 0) {
+      return;
+    }
+
+    try {
+      await this.mailer.sendBulkNotificationEmail(
+        Array.from(notifiedEmails),
+        subject,
+        html,
+        text,
+      );
+    } catch (error) {
+      const details = error instanceof Error ? error.message : String(error);
+      this.logger.warn(
+        `Nepavyko išsiųsti savaitinio priminimo el. laiškų užduočiai ${assignment.id}: ${details}`,
         error instanceof Error ? error.stack : undefined,
       );
     }

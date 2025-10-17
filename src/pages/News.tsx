@@ -79,7 +79,7 @@ const News = () => {
   }, [isError, error, toast, refetch]);
 
   const newsItems = useMemo<NewsPost[]>(
-    () => data?.pages.flatMap((page) => page.items) ?? [],
+    () => data?.pages.flatMap((page) => page.data) ?? [],
     [data]
   );
 

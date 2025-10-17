@@ -1,0 +1,50 @@
+import { MigrationInterface, QueryRunner } from 'typeorm';
+
+export class AddPerformanceIndexes1732000000000 implements MigrationInterface {
+  name = 'AddPerformanceIndexes1732000000000';
+
+  public async up(queryRunner: QueryRunner): Promise<void> {
+    const hasAssignmentGroupId = await queryRunner.hasColumn('assignments', 'group_id');
+
+    if (hasAssignmentGroupId) {
+      await queryRunner.query(
+        'CREATE INDEX IF NOT EXISTS "IDX_ASSIGNMENTS_GROUP_ID" ON "assignments" ("group_id")',
+      );
+    }
+
+    await queryRunner.query(
+      'CREATE INDEX IF NOT EXISTS "IDX_ASSIGNMENTS_CREATED_AT" ON "assignments" ("created_at")',
+    );
+
+    await queryRunner.query(
+      'CREATE UNIQUE INDEX IF NOT EXISTS "IDX_assignment_progress_unique" ON "assignment_progress" ("assignment_id", "task_step_id", "user_id")',
+    );
+    await queryRunner.query(
+      'CREATE INDEX IF NOT EXISTS "IDX_assignment_progress_assignment" ON "assignment_progress" ("assignment_id")',
+    );
+    await queryRunner.query(
+      'CREATE INDEX IF NOT EXISTS "IDX_assignment_progress_user" ON "assignment_progress" ("user_id")',
+    );
+
+    await queryRunner.query(
+      'CREATE INDEX IF NOT EXISTS "IDX_notifications_user_id" ON "notifications" ("user_id")',
+    );
+    await queryRunner.query(
+      'CREATE INDEX IF NOT EXISTS "IDX_notifications_is_read" ON "notifications" ("is_read")',
+    );
+    await queryRunner.query(
+      'CREATE INDEX IF NOT EXISTS "IDX_notifications_created_at" ON "notifications" ("created_at")',
+    );
+  }
+
+  public async down(queryRunner: QueryRunner): Promise<void> {
+    await queryRunner.query('DROP INDEX IF EXISTS "IDX_notifications_created_at"');
+    await queryRunner.query('DROP INDEX IF EXISTS "IDX_notifications_is_read"');
+    await queryRunner.query('DROP INDEX IF EXISTS "IDX_notifications_user_id"');
+    await queryRunner.query('DROP INDEX IF EXISTS "IDX_assignment_progress_user"');
+    await queryRunner.query('DROP INDEX IF EXISTS "IDX_assignment_progress_assignment"');
+    await queryRunner.query('DROP INDEX IF EXISTS "IDX_assignment_progress_unique"');
+    await queryRunner.query('DROP INDEX IF EXISTS "IDX_ASSIGNMENTS_CREATED_AT"');
+    await queryRunner.query('DROP INDEX IF EXISTS "IDX_ASSIGNMENTS_GROUP_ID"');
+  }
+}

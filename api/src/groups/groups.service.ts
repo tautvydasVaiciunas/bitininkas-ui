@@ -12,6 +12,11 @@ import { CreateGroupDto } from './dto/create-group.dto';
 import { UpdateGroupDto } from './dto/update-group.dto';
 import { AddGroupMemberDto } from './dto/add-group-member.dto';
 import { User, UserRole } from '../users/user.entity';
+import {
+  PaginationService,
+  PaginatedResult,
+  PaginationOptions,
+} from '../common/pagination/pagination.service';
 
 @Injectable()
 export class GroupsService {
@@ -22,6 +27,7 @@ export class GroupsService {
     private readonly membersRepository: Repository<GroupMember>,
     @InjectRepository(User)
     private readonly usersRepository: Repository<User>,
+    private readonly pagination: PaginationService,
   ) {}
 
   private ensureManager(role: UserRole) {
@@ -34,13 +40,19 @@ export class GroupsService {
     return name.trim();
   }
 
-  async findAll() {
-    return this.groupsRepository.find({
+  async findAll(options: PaginationOptions = {}): Promise<PaginatedResult<Group>> {
+    const { page, limit } = this.pagination.getPagination(options);
+
+    const [groups, total] = await this.groupsRepository.findAndCount({
       order: { name: 'ASC' },
       relations: {
         members: { user: true },
       },
+      take: limit,
+      skip: (page - 1) * limit,
     });
+
+    return this.pagination.buildResponse(groups, page, limit, total);
   }
 
   async findOne(id: string) {
@@ -114,10 +126,29 @@ export class GroupsService {
     return { success: true };
   }
 
-  async getMembers(groupId: string, actor: { role: UserRole }) {
+  async getMembers(
+    groupId: string,
+    actor: { role: UserRole },
+    options: PaginationOptions = {},
+  ): Promise<PaginatedResult<GroupMember>> {
     this.ensureManager(actor.role);
-    const group = await this.findOne(groupId);
-    return group.members ?? [];
+    const group = await this.groupsRepository.findOne({ where: { id: groupId } });
+
+    if (!group) {
+      throw new NotFoundException('Group not found');
+    }
+
+    const { page, limit } = this.pagination.getPagination(options);
+
+    const [members, total] = await this.membersRepository.findAndCount({
+      where: { groupId },
+      relations: { user: true },
+      order: { createdAt: 'DESC' },
+      take: limit,
+      skip: (page - 1) * limit,
+    });
+
+    return this.pagination.buildResponse(members, page, limit, total);
   }
 
   async addMember(groupId: string, dto: AddGroupMemberDto, actor: { role: UserRole }) {

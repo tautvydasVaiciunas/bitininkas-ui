@@ -1,3 +1,3 @@
 import { PaginationQueryDto } from '../../common/pagination/pagination-query.dto';
 
-export class ListNewsQueryDto extends PaginationQueryDto {}
+export class ListGroupsQueryDto extends PaginationQueryDto {}

@@ -52,6 +52,7 @@ import type {
   UpdateNewsPayload,
   NewsPostResponse as ApiNewsPostResponse,
   PaginatedNewsResponse as ApiPaginatedNewsResponse,
+  PaginatedResponse as ApiPaginatedResponse,
   NewsGroupResponse as ApiNewsGroupResponse,
 } from './api';
 
@@ -119,12 +120,10 @@ export type AssignmentReportItem = ApiAssignmentReportRow;
 export type Profile = ApiProfileResponse;
 export type NewsGroup = ApiNewsGroupResponse;
 export type NewsPost = ApiNewsPostResponse;
-export interface PaginatedNews {
-  items: NewsPost[];
-  page: number;
-  limit: number;
+export type Paginated<T> = ApiPaginatedResponse<T>;
+
+export interface PaginatedNews extends Paginated<NewsPost> {
   hasMore: boolean;
-  total: number;
 }
 
 export interface User extends ApiAuthenticatedUser {
@@ -220,7 +219,7 @@ export const mapNewsPostFromApi = (post: ApiNewsPostResponse): NewsPost => ({
 export const mapPaginatedNewsFromApi = (
   response: ApiPaginatedNewsResponse,
 ): PaginatedNews => ({
-  items: response.items.map(mapNewsPostFromApi),
+  data: response.data.map(mapNewsPostFromApi),
   page: response.page,
   limit: response.limit,
   hasMore: response.hasMore,

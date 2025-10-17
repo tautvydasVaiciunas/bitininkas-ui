@@ -2,6 +2,7 @@ import {
   Column,
   CreateDateColumn,
   Entity,
+  Index,
   JoinColumn,
   ManyToOne,
   PrimaryGeneratedColumn,
@@ -20,6 +21,8 @@ export enum AssignmentProgressStatus {
 
 @Entity({ name: 'assignment_progress' })
 @Unique(['assignmentId', 'taskStepId', 'userId'])
+@Index('IDX_assignment_progress_assignment', ['assignmentId'])
+@Index('IDX_assignment_progress_user', ['userId'])
 export class AssignmentProgress {
   @PrimaryGeneratedColumn('uuid')
   id!: string;

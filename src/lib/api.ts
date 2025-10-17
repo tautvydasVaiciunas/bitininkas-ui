@@ -137,6 +137,13 @@ export interface TemplateResponse {
   steps: TemplateStepResponse[];
 }
 
+export interface PaginatedResponse<T> {
+  data: T[];
+  page: number;
+  limit: number;
+  total: number;
+}
+
 export interface NewsGroupResponse {
   id: string;
   name: string;
@@ -153,12 +160,8 @@ export interface NewsPostResponse {
   updatedAt: string;
 }
 
-export interface PaginatedNewsResponse {
-  items: NewsPostResponse[];
-  page: number;
-  limit: number;
+export interface PaginatedNewsResponse extends PaginatedResponse<NewsPostResponse> {
   hasMore: boolean;
-  total: number;
 }
 
 export interface CreateNewsPayload {
@@ -695,6 +698,16 @@ export const patch = <T>(path: string, options?: RequestOptions) =>
 export const del = <T>(path: string, options?: RequestOptions) =>
   request<T>('DELETE', path, options);
 
+const attachPaginationMetadata = <T>(response: PaginatedResponse<T>) => {
+  const data = Array.isArray(response.data) ? [...response.data] : [];
+
+  return Object.assign(data, {
+    page: response.page,
+    limit: response.limit,
+    total: response.total,
+  });
+};
+
 export const api = {
   media: {
     upload: (file: File) => {
@@ -743,7 +756,9 @@ export const api = {
   },
   notifications: {
     list: (params?: { page?: number; limit?: number }) =>
-      get<NotificationResponse[]>('/notifications', { query: params }),
+      get<PaginatedResponse<NotificationResponse>>('/notifications', { query: params }).then(
+        attachPaginationMetadata,
+      ),
     markRead: (id: string) => patch<{ success: boolean }>(`/notifications/${id}/read`),
     markAllRead: () => patch<{ success: boolean }>('/notifications/mark-all-read'),
     unreadCount: () => get<NotificationsUnreadCountResponse>('/notifications/unread-count'),
@@ -820,8 +835,12 @@ export const api = {
       status?: AssignmentStatus;
       groupId?: string;
       availableNow?: boolean;
+      page?: number;
+      limit?: number;
     }) =>
-      get<AssignmentResponse[]>('/assignments', { query: params }),
+      get<PaginatedResponse<AssignmentResponse>>('/assignments', { query: params }).then(
+        attachPaginationMetadata,
+      ),
     create: (payload: CreateAssignmentPayload) => post<AssignmentResponse>('/assignments', { json: payload }),
     update: (id: string, payload: UpdateAssignmentPayload) =>
       patch<AssignmentResponse>(`/assignments/${id}`, { json: payload }),
@@ -836,14 +855,20 @@ export const api = {
       patch<{ success: boolean }>('/profile/password', { json: payload }),
   },
   groups: {
-    list: () => get<GroupResponse[]>('/groups'),
+    list: (params?: { page?: number; limit?: number }) =>
+      get<PaginatedResponse<GroupResponse>>('/groups', { query: params }).then(
+        attachPaginationMetadata,
+      ),
     get: (id: string) => get<GroupResponse>(`/groups/${id}`),
     create: (payload: CreateGroupPayload) => post<GroupResponse>('/groups', { json: payload }),
     update: (id: string, payload: UpdateGroupPayload) =>
       patch<GroupResponse>(`/groups/${id}`, { json: payload }),
     remove: (id: string) => del<void>(`/groups/${id}`),
     members: {
-      list: (groupId: string) => get<GroupMemberResponse[]>(`/groups/${groupId}/members`),
+      list: (groupId: string, params?: { page?: number; limit?: number }) =>
+        get<PaginatedResponse<GroupMemberResponse>>(`/groups/${groupId}/members`, {
+          query: params,
+        }).then(attachPaginationMetadata),
       add: (groupId: string, payload: AddGroupMemberPayload) =>
         post<GroupMemberResponse>(`/groups/${groupId}/members`, { json: payload }),
       remove: (groupId: string, userId: string) =>
@@ -866,7 +891,10 @@ export const api = {
     remove: (id: string) => del<void>(`/progress/${id}`),
   },
   users: {
-    list: () => get<AdminUserResponse[]>('/users'),
+    list: (params?: { page?: number; limit?: number }) =>
+      get<PaginatedResponse<AdminUserResponse>>('/users', { query: params }).then(
+        attachPaginationMetadata,
+      ),
     get: (id: string) => get<AdminUserResponse>(`/users/${id}`),
     create: (payload: CreateUserPayload) => post<AdminUserResponse>('/users', { json: payload }),
     update: (id: string, payload: UpdateUserPayload) =>

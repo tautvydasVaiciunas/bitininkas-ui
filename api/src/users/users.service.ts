@@ -14,6 +14,11 @@ import { UpdateProfileDto } from './dto/update-profile.dto';
 import { UpdateUserDto } from './dto/update-user.dto';
 import { UpdateUserRoleDto } from './dto/update-user-role.dto';
 import { ActivityLogService } from '../activity-log/activity-log.service';
+import {
+  PaginationService,
+  PaginatedResult,
+  PaginationOptions,
+} from '../common/pagination/pagination.service';
 import { UpdatePasswordDto } from './dto/update-password.dto';
 
 type UserGroupDto = {
@@ -40,6 +45,7 @@ export class UsersService {
     @InjectRepository(User)
     private readonly usersRepository: Repository<User>,
     private readonly activityLog: ActivityLogService,
+    private readonly pagination: PaginationService,
   ) {}
 
   private normalizeNullableString(value?: string | null) {
@@ -103,17 +109,23 @@ export class UsersService {
     };
   }
 
-  async findAll(): Promise<UserWithGroups[]> {
-    const users = await this.usersRepository.find({
+  async findAll(options: PaginationOptions = {}): Promise<PaginatedResult<UserWithGroups>> {
+    const { page, limit } = this.pagination.getPagination(options);
+
+    const [users, total] = await this.usersRepository.findAndCount({
       withDeleted: true,
       relations: {
         groupMemberships: {
           group: true,
         },
       },
+      order: { createdAt: 'DESC' },
+      take: limit,
+      skip: (page - 1) * limit,
     });
 
-    return users.map((user) => this.toUserWithGroups(user));
+    const mapped = users.map((user) => this.toUserWithGroups(user));
+    return this.pagination.buildResponse(mapped, page, limit, total);
   }
 
   async findByEmail(email: string) {

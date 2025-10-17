@@ -10,6 +10,11 @@ import {
 } from './email-template';
 import { MAILER_SERVICE, MailerService } from './mailer.service';
 import { User, UserRole } from '../users/user.entity';
+import {
+  PaginationService,
+  PaginatedResult,
+  PaginationOptions,
+} from '../common/pagination/pagination.service';
 
 export type NotificationType = 'assignment' | 'news' | 'message';
 
@@ -25,11 +30,6 @@ export interface CreateNotificationPayload {
   emailCtaLabel?: string;
 }
 
-export interface ListNotificationsOptions {
-  page?: number;
-  limit?: number;
-}
-
 @Injectable()
 export class NotificationsService {
   private readonly logger = new Logger(NotificationsService.name);
@@ -41,6 +41,7 @@ export class NotificationsService {
     private readonly usersRepository: Repository<User>,
     @Inject(MAILER_SERVICE)
     private readonly mailer: MailerService,
+    private readonly pagination: PaginationService,
   ) {}
 
   async createNotification(userId: string, payload: CreateNotificationPayload) {
@@ -62,16 +63,20 @@ export class NotificationsService {
     return saved;
   }
 
-  async list(userId: string, options: ListNotificationsOptions = {}) {
-    const limit = this.normalizeLimit(options.limit);
-    const page = this.normalizePage(options.page);
+  async list(
+    userId: string,
+    options: PaginationOptions = {},
+  ): Promise<PaginatedResult<Notification>> {
+    const { page, limit } = this.pagination.getPagination(options);
 
-    return this.repository.find({
+    const [items, total] = await this.repository.findAndCount({
       where: { userId },
       order: { createdAt: 'DESC' },
       take: limit,
       skip: (page - 1) * limit,
     });
+
+    return this.pagination.buildResponse(items, page, limit, total);
   }
 
   async countUnreadForUser(userId: string) {
@@ -93,22 +98,6 @@ export class NotificationsService {
 
   async markAllAsRead(userId: string) {
     await this.repository.update({ userId, isRead: false }, { isRead: true });
-  }
-
-  private normalizeLimit(value?: number) {
-    if (!value || Number.isNaN(value)) {
-      return 20;
-    }
-
-    return Math.min(Math.max(value, 1), 100);
-  }
-
-  private normalizePage(value?: number) {
-    if (!value || Number.isNaN(value)) {
-      return 1;
-    }
-
-    return Math.max(value, 1);
   }
 
   private async sendEmailNotification(

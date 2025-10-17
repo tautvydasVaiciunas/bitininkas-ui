@@ -23,6 +23,7 @@ export enum AssignmentStatus {
 
 @Entity({ name: 'assignments' })
 @Index('IDX_ASSIGNMENTS_HIVE_ID', ['hiveId'])
+@Index('IDX_ASSIGNMENTS_CREATED_AT', ['createdAt'])
 export class Assignment {
   @PrimaryGeneratedColumn('uuid')
   id!: string;

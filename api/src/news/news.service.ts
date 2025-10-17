@@ -19,6 +19,10 @@ import { CreateNewsDto } from './dto/create-news.dto';
 import { UpdateNewsDto } from './dto/update-news.dto';
 import { ListNewsQueryDto } from './dto/list-news-query.dto';
 import { runWithDatabaseErrorHandling } from '../common/errors/database-error.util';
+import {
+  PaginationService,
+  PaginatedResult,
+} from '../common/pagination/pagination.service';
 
 interface NewsGroupSummary {
   id: string;
@@ -36,12 +40,8 @@ export interface NewsPostResponse {
   updatedAt: string;
 }
 
-export interface PaginatedNewsResponse {
-  items: NewsPostResponse[];
-  page: number;
-  limit: number;
+export interface PaginatedNewsResponse extends PaginatedResult<NewsPostResponse> {
   hasMore: boolean;
-  total: number;
 }
 
 @Injectable()
@@ -60,28 +60,13 @@ export class NewsService {
     private readonly usersRepository: Repository<User>,
     private readonly notifications: NotificationsService,
     private readonly configService: ConfigService,
+    private readonly pagination: PaginationService,
   ) {
     this.appBaseUrl = this.normalizeBaseUrl(
       this.configService.get<string>('APP_URL') ??
         this.configService.get<string>('FRONTEND_URL') ??
         null,
     );
-  }
-
-  private normalizeLimit(limit?: number) {
-    if (!limit || Number.isNaN(limit)) {
-      return 10;
-    }
-
-    return Math.min(Math.max(limit, 1), 50);
-  }
-
-  private normalizePage(page?: number) {
-    if (!page || Number.isNaN(page)) {
-      return 1;
-    }
-
-    return Math.max(page, 1);
   }
 
   private sanitizeTitle(value: string) {
@@ -199,21 +184,21 @@ export class NewsService {
       (a, b) => b.createdAt.getTime() - a.createdAt.getTime(),
     );
 
-    return {
-      items: sorted.map((post) => this.mapPost(post)),
+    const base = this.pagination.buildResponse(
+      sorted.map((post) => this.mapPost(post)),
       page,
       limit,
-      hasMore,
       total,
-    };
+    );
+
+    return { ...base, hasMore };
   }
 
   async listForUser(
     userId: string | null | undefined,
     query: ListNewsQueryDto,
   ): Promise<PaginatedNewsResponse> {
-    const page = this.normalizePage(query.page);
-    const limit = this.normalizeLimit(query.limit);
+    const { page, limit } = this.pagination.getPagination(query);
     const offset = (page - 1) * limit;
 
     const normalizedUserId = typeof userId === 'string' && userId ? userId : null;
@@ -270,23 +255,11 @@ export class NewsService {
       const total = Number(totalResult?.count ?? 0);
 
       if (!Number.isFinite(total) || total <= 0) {
-        return {
-          items: [],
-          page,
-          limit,
-          hasMore: false,
-          total: 0,
-        };
+        return { ...this.pagination.buildResponse([], page, limit, 0), hasMore: false };
       }
 
       if (offset >= total) {
-        return {
-          items: [],
-          page,
-          limit,
-          hasMore: false,
-          total,
-        };
+        return { ...this.pagination.buildResponse([], page, limit, total), hasMore: false };
       }
 
       const rows = await runWithDatabaseErrorHandling(
@@ -309,13 +282,7 @@ export class NewsService {
       const hasMore = offset + ids.length < total;
 
       if (ids.length === 0) {
-        return {
-          items: [],
-          page,
-          limit,
-          hasMore,
-          total,
-        };
+        return { ...this.pagination.buildResponse([], page, limit, total), hasMore };
       }
 
       const posts = await runWithDatabaseErrorHandling(
@@ -397,8 +364,7 @@ export class NewsService {
   }
 
   async listForAdmin(query: ListNewsQueryDto): Promise<PaginatedNewsResponse> {
-    const page = this.normalizePage(query.page);
-    const limit = this.normalizeLimit(query.limit);
+    const { page, limit } = this.pagination.getPagination(query);
     const offset = (page - 1) * limit;
 
     try {
@@ -419,13 +385,7 @@ export class NewsService {
       const total = Number(totalResult?.count ?? 0);
 
       if (!Number.isFinite(total) || total <= 0) {
-        return {
-          items: [],
-          page,
-          limit,
-          hasMore: false,
-          total: 0,
-        };
+        return { ...this.pagination.buildResponse([], page, limit, 0), hasMore: false };
       }
 
       const rows = await runWithDatabaseErrorHandling(
@@ -449,13 +409,7 @@ export class NewsService {
       const hasMore = offset + ids.length < total;
 
       if (ids.length === 0) {
-        return {
-          items: [],
-          page,
-          limit,
-          hasMore,
-          total,
-        };
+        return { ...this.pagination.buildResponse([], page, limit, total), hasMore };
       }
 
       const posts = await runWithDatabaseErrorHandling(

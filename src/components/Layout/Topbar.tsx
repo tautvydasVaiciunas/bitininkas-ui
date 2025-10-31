@@ -203,8 +203,8 @@ export const Topbar = () => {
 
   return (
     <header className="sticky top-0 z-40 h-16 border-b border-border bg-card/95 backdrop-blur supports-[backdrop-filter]:bg-card/80 lg:fixed lg:left-64 lg:right-0">
-      <div className="flex h-full w-full flex-wrap items-center gap-3 px-4 sm:px-6">
-        <div className="order-2 w-full min-w-0 sm:order-1 sm:flex-1">
+      <div className="flex h-full w-full flex-wrap items-center gap-3 px-4 sm:flex-nowrap sm:px-6">
+        <div className="order-2 w-full min-w-0 sm:order-1 sm:w-auto sm:flex-1">
           <div className="relative">
             <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
             <Input

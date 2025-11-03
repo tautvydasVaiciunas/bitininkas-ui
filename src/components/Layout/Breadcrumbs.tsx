@@ -139,15 +139,17 @@ export const Breadcrumbs = () => {
   }
 
   return (
-    <nav className="mb-6 flex flex-wrap items-center gap-2 text-sm text-muted-foreground">
-      <Link to="/news" className="hover:text-foreground transition-colors">
-        Naujienos
-      </Link>
-      {breadcrumbs.map((crumb) => (
+    <nav
+      aria-label="Breadcrumb"
+      className="mb-6 flex flex-wrap items-center gap-2 text-sm text-muted-foreground"
+    >
+      {breadcrumbs.map((crumb, index) => (
         <Fragment key={crumb.path}>
-          <ChevronRight className="w-4 h-4" />
+          {index > 0 && <ChevronRight className="w-4 h-4" />}
           {crumb.isLast ? (
-            <span className="text-foreground font-medium">{crumb.label}</span>
+            <span className="text-foreground font-medium" aria-current="page">
+              {crumb.label}
+            </span>
           ) : (
             <Link to={crumb.path} className="hover:text-foreground transition-colors">
               {crumb.label}

@@ -19,28 +19,28 @@ export class AuthController {
 
   @Public()
   @Post('register')
-  @Throttle(RATE_LIMIT_MAX, RATE_LIMIT_TTL_SECONDS)
+  @Throttle({ default: { limit: RATE_LIMIT_MAX, ttl: RATE_LIMIT_TTL_SECONDS * 1000 } })
   register(@Body() registerDto: RegisterDto) {
     return this.authService.register(registerDto);
   }
 
   @Public()
   @Post('login')
-  @Throttle(RATE_LIMIT_MAX, RATE_LIMIT_TTL_SECONDS)
+  @Throttle({ default: { limit: RATE_LIMIT_MAX, ttl: RATE_LIMIT_TTL_SECONDS * 1000 } })
   login(@Body() loginDto: LoginDto) {
     return this.authService.login(loginDto);
   }
 
   @Public()
   @Post('refresh')
-  @Throttle(RATE_LIMIT_MAX, RATE_LIMIT_TTL_SECONDS)
+  @Throttle({ default: { limit: RATE_LIMIT_MAX, ttl: RATE_LIMIT_TTL_SECONDS * 1000 } })
   refresh(@Body() refreshDto: RefreshDto) {
     return this.authService.refresh(refreshDto.refreshToken);
   }
 
   @Public()
   @Post('request-reset')
-  @Throttle(RATE_LIMIT_MAX, RATE_LIMIT_TTL_SECONDS)
+  @Throttle({ default: { limit: RATE_LIMIT_MAX, ttl: RATE_LIMIT_TTL_SECONDS * 1000 } })
   requestReset(@Body() requestResetDto: RequestResetDto) {
     return this.authService.requestPasswordReset(requestResetDto.email);
   }

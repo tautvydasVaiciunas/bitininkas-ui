@@ -51,7 +51,7 @@ const resolveFileName = (file: Express.Multer.File) => {
 export class MediaController {
   @Post('upload')
   @Roles(UserRole.MANAGER, UserRole.ADMIN)
-  @Throttle(RATE_LIMIT_MAX, RATE_LIMIT_TTL_SECONDS)
+  @Throttle({ default: { limit: RATE_LIMIT_MAX, ttl: RATE_LIMIT_TTL_SECONDS * 1000 } })
   @UseInterceptors(
     FileInterceptor('file', {
       storage: diskStorage({

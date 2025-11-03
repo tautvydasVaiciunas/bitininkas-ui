@@ -1,17 +1,19 @@
 import {
+  BadRequestException,
   ConflictException,
   ForbiddenException,
   Injectable,
   NotFoundException,
 } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
-import { Repository } from 'typeorm';
+import { IsNull, Repository } from 'typeorm';
 import { Group } from './group.entity';
 import { GroupMember } from './group-member.entity';
 import { CreateGroupDto } from './dto/create-group.dto';
 import { UpdateGroupDto } from './dto/update-group.dto';
 import { AddGroupMemberDto } from './dto/add-group-member.dto';
 import { User, UserRole } from '../users/user.entity';
+import { Hive } from '../hives/hive.entity';
 import {
   PaginationService,
   PaginatedResult,
@@ -27,6 +29,8 @@ export class GroupsService {
     private readonly membersRepository: Repository<GroupMember>,
     @InjectRepository(User)
     private readonly usersRepository: Repository<User>,
+    @InjectRepository(Hive)
+    private readonly hivesRepository: Repository<Hive>,
     private readonly pagination: PaginationService,
   ) {}
 
@@ -46,7 +50,7 @@ export class GroupsService {
     const [groups, total] = await this.groupsRepository.findAndCount({
       order: { name: 'ASC' },
       relations: {
-        members: { user: true },
+        members: { user: true, hive: true },
       },
       take: limit,
       skip: (page - 1) * limit,
@@ -59,7 +63,7 @@ export class GroupsService {
     const group = await this.groupsRepository.findOne({
       where: { id },
       relations: {
-        members: { user: true },
+        members: { user: true, hive: true },
       },
     });
 
@@ -142,7 +146,7 @@ export class GroupsService {
 
     const [members, total] = await this.membersRepository.findAndCount({
       where: { groupId },
-      relations: { user: true },
+      relations: { user: true, hive: true },
       order: { createdAt: 'DESC' },
       take: limit,
       skip: (page - 1) * limit,
@@ -161,9 +165,28 @@ export class GroupsService {
       throw new NotFoundException('User not found');
     }
 
+    let hiveId: string | null = null;
+
+    if (dto.hiveId) {
+      const hive = await this.hivesRepository.findOne({ where: { id: dto.hiveId } });
+
+      if (!hive) {
+        throw new NotFoundException('Hive not found');
+      }
+
+      if (hive.ownerUserId !== dto.userId) {
+        throw new BadRequestException('Vartotojas nėra šio avilio savininkas');
+      }
+
+      hiveId = hive.id;
+    }
+
     const existing = await this.membersRepository.findOne({
-      where: { groupId, userId: dto.userId },
+      where: hiveId
+        ? { groupId, userId: dto.userId, hiveId }
+        : { groupId, userId: dto.userId, hiveId: IsNull() },
     });
+
     if (existing) {
       throw new ConflictException('User is already a group member');
     }
@@ -171,28 +194,29 @@ export class GroupsService {
     const member = this.membersRepository.create({
       groupId,
       userId: dto.userId,
+      hiveId,
       role: dto.role?.trim() || null,
     });
 
     const saved = await this.membersRepository.save(member);
     return this.membersRepository.findOne({
       where: { id: saved.id },
-      relations: { user: true },
+      relations: { user: true, hive: true },
     });
   }
 
   async removeMember(groupId: string, userId: string, actor: { role: UserRole }) {
     this.ensureManager(actor.role);
 
-    const membership = await this.membersRepository.findOne({
+    const memberships = await this.membersRepository.find({
       where: { groupId, userId },
     });
 
-    if (!membership) {
+    if (!memberships.length) {
       throw new NotFoundException('Membership not found');
     }
 
-    await this.membersRepository.remove(membership);
+    await this.membersRepository.remove(memberships);
     return { success: true };
   }
 }

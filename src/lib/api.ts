@@ -260,9 +260,11 @@ export interface GroupMemberResponse {
   id: string;
   groupId: string;
   userId: string;
+  hiveId?: string | null;
   role?: string | null;
   createdAt: string;
   user?: GroupMemberUser;
+  hive?: HiveResponse | null;
 }
 
 export interface GroupResponse {
@@ -283,6 +285,7 @@ export type UpdateGroupPayload = Partial<CreateGroupPayload>;
 
 export interface AddGroupMemberPayload {
   userId: string;
+  hiveId?: string | null;
   role?: string | null;
 }
 

@@ -8,7 +8,7 @@ import {
 } from "@nestjs/common";
 import { ConfigService } from "@nestjs/config";
 import { InjectRepository } from "@nestjs/typeorm";
-import { DataSource, In, Repository } from "typeorm";
+import { DataSource, FindOptionsWhere, In, Repository } from "typeorm";
 import { Assignment, AssignmentStatus } from "./assignment.entity";
 import { CreateAssignmentDto } from "./dto/create-assignment.dto";
 import { UpdateAssignmentDto } from "./dto/update-assignment.dto";
@@ -465,10 +465,27 @@ export class AssignmentsService {
       });
 
       const userIds = Array.from(new Set(memberships.map((membership) => membership.userId)));
+      const explicitHiveIds = Array.from(
+        new Set(
+          memberships
+            .map((membership) => membership.hiveId)
+            .filter((value): value is string => Boolean(value)),
+        ),
+      );
 
-      const hives = userIds.length
-        ? await hiveRepo.find({ where: { ownerUserId: In(userIds) } })
-        : [];
+      const hiveWhere: FindOptionsWhere<Hive>[] = [];
+
+      if (userIds.length) {
+        hiveWhere.push({ ownerUserId: In(userIds) });
+      }
+
+      if (explicitHiveIds.length) {
+        hiveWhere.push({ id: In(explicitHiveIds) });
+      }
+
+      const hives = hiveWhere.length ? await hiveRepo.find({ where: hiveWhere }) : [];
+
+      const hiveById = new Map(hives.map((hive) => [hive.id, hive]));
 
       const hiveIdsByOwner = new Map<string, string[]>();
       for (const hive of hives) {
@@ -510,9 +527,14 @@ export class AssignmentsService {
       const uniqueHiveIds = new Set<string>();
       const startDate = dto.startDate ?? null;
 
-      for (const userId of userIds) {
-        const userHiveIds = hiveIdsByOwner.get(userId) ?? [];
-        for (const hiveId of userHiveIds) {
+      for (const membership of memberships) {
+        const targetHiveIds = membership.hiveId
+          ? hiveById.has(membership.hiveId)
+            ? [membership.hiveId]
+            : []
+          : hiveIdsByOwner.get(membership.userId) ?? [];
+
+        for (const hiveId of targetHiveIds) {
           if (uniqueHiveIds.has(hiveId)) {
             continue;
           }

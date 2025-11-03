@@ -236,7 +236,7 @@ async function runSeed(): Promise<void> {
 
     const inspectionTemplate = templateRepository.create({
       name: 'Pavasarinės apžiūros šablonas',
-      comment: 'Pilnas pavasarinės avilio apžiūros planas',
+      description: 'Pilnas pavasarinės avilio apžiūros planas',
       steps: savedSteps
         .filter((step) => step.taskId === task1.id)
         .slice(0, 3)
@@ -250,7 +250,7 @@ async function runSeed(): Promise<void> {
 
     const harvestTemplate = templateRepository.create({
       name: 'Medunešio derliaus šablonas',
-      comment: 'Paruoškite medų žingsnis po žingsnio',
+      description: 'Paruoškite medų žingsnis po žingsnio',
       steps: savedSteps
         .filter((step) => step.taskId === task2.id)
         .slice(0, 4)
@@ -264,7 +264,7 @@ async function runSeed(): Promise<void> {
 
     const quickCheckTemplate = templateRepository.create({
       name: 'Greitos patikros šablonas',
-      comment: 'Trumpa apžiūra prieš sezono pradžią',
+      description: 'Trumpa apžiūra prieš sezono pradžią',
       steps: savedSteps
         .filter((step) => step.taskId === task1.id)
         .slice(0, 3)

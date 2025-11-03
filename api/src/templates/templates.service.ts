@@ -161,21 +161,53 @@ export class TemplatesService {
 
   private async setTemplateSteps(template: Template, taskStepIds: string[], manager: EntityManager) {
     const repository = this.getTemplateStepRepository(manager);
-    await repository.delete({ templateId: template.id });
+    const existing = await repository.find({ where: { templateId: template.id } });
 
     if (!taskStepIds.length) {
+      if (existing.length) {
+        await repository.delete({ templateId: template.id });
+      }
       return;
     }
 
-    const entities = taskStepIds.map((taskStepId, index) =>
-      repository.create({
-        template,
-        taskStepId,
-        orderIndex: index,
-      }),
-    );
+    const existingMap = new Map(existing.map((step) => [step.taskStepId, step] as const));
+    const toRemove = existing.filter((step) => !taskStepIds.includes(step.taskStepId));
 
-    await repository.save(entities);
+    if (toRemove.length) {
+      await repository.delete(toRemove.map((step) => step.id));
+      for (const removed of toRemove) {
+        existingMap.delete(removed.taskStepId);
+      }
+    }
+
+    if (existingMap.size > 0) {
+      await manager.query('UPDATE template_steps SET order_index = order_index + 1000 WHERE template_id = $1', [
+        template.id,
+      ]);
+    }
+
+    const toInsert: { taskStepId: string; orderIndex: number }[] = [];
+
+    for (const [index, taskStepId] of taskStepIds.entries()) {
+      const existingStep = existingMap.get(taskStepId);
+      if (existingStep) {
+        await manager.update(TemplateStep, { id: existingStep.id }, { orderIndex: index });
+      } else {
+        toInsert.push({ taskStepId, orderIndex: index });
+      }
+    }
+
+    if (toInsert.length) {
+      const entities = toInsert.map(({ taskStepId, orderIndex }) =>
+        repository.create({
+          template,
+          taskStepId,
+          orderIndex,
+        }),
+      );
+
+      await repository.save(entities);
+    }
   }
 
   async findAll() {

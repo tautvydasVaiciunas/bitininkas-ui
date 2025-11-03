@@ -56,33 +56,7 @@ import { Checkbox } from '@/components/ui/checkbox';
 import { useToast } from '@/components/ui/use-toast';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { UserMultiSelect, type MultiSelectOption } from '@/components/UserMultiSelect';
-
-const monthOptions = [
-  { value: 1, label: 'Sausis' },
-  { value: 2, label: 'Vasaris' },
-  { value: 3, label: 'Kovas' },
-  { value: 4, label: 'Balandis' },
-  { value: 5, label: 'Gegužė' },
-  { value: 6, label: 'Birželis' },
-  { value: 7, label: 'Liepa' },
-  { value: 8, label: 'Rugpjūtis' },
-  { value: 9, label: 'Rugsėjis' },
-  { value: 10, label: 'Spalis' },
-  { value: 11, label: 'Lapkritis' },
-  { value: 12, label: 'Gruodis' },
-];
-
-const frequencyOptions: { value: TaskFrequency; label: string }[] = [
-  { value: 'once', label: 'Vienkartinė' },
-  { value: 'weekly', label: 'Kas savaitę' },
-  { value: 'monthly', label: 'Kas mėnesį' },
-  { value: 'seasonal', label: 'Sezoninė' },
-];
-
-type EditableStep = {
-  title: string;
-  contentText: string;
-};
+import { TaskDetailsForm, type TaskDetailsFormValues } from '@/components/tasks/TaskDetailsForm';
 
 export default function Tasks() {
   const { user } = useAuth();
@@ -94,14 +68,14 @@ export default function Tasks() {
   const [isCreateDialogOpen, setIsCreateDialogOpen] = useState(false);
   const [createDialogTab, setCreateDialogTab] = useState<'manual' | 'template'>('manual');
 
-  const buildDefaultCreateForm = () => ({
+  const buildDefaultCreateForm = (): TaskDetailsFormValues => ({
     title: '',
     description: '',
     category: '',
-    frequency: 'once' as TaskFrequency,
+    frequency: 'once',
     defaultDueDays: '7',
-    seasonMonths: [] as number[],
-    steps: [{ title: '', contentText: '' } as EditableStep],
+    seasonMonths: [],
+    steps: [{ title: '', contentText: '' }],
   });
 
   const buildDefaultBulkForm = () => ({
@@ -208,38 +182,6 @@ export default function Tasks() {
 
   const isAssignmentUpcoming = (assignment: Assignment) =>
     Boolean(assignment.startDate && assignment.startDate > todayIso);
-
-  const toggleSeasonMonth = (month: number, checked: boolean) => {
-    setCreateForm((prev) => {
-      const months = checked
-        ? Array.from(new Set([...prev.seasonMonths, month]))
-        : prev.seasonMonths.filter((value) => value !== month);
-      return { ...prev, seasonMonths: months };
-    });
-  };
-
-  const updateStep = (index: number, changes: Partial<EditableStep>) => {
-    setCreateForm((prev) => {
-      const steps = prev.steps.map((step, stepIndex) =>
-        stepIndex === index ? { ...step, ...changes } : step
-      );
-      return { ...prev, steps };
-    });
-  };
-
-  const removeStep = (index: number) => {
-    setCreateForm((prev) => {
-      if (prev.steps.length === 1) {
-        return { ...prev, steps: [{ title: '', contentText: '' }] };
-      }
-      const steps = prev.steps.filter((_, stepIndex) => stepIndex !== index);
-      return { ...prev, steps };
-    });
-  };
-
-  const addStep = () => {
-    setCreateForm((prev) => ({ ...prev, steps: [...prev.steps, { title: '', contentText: '' }] }));
-  };
 
   const handleCreateTaskSubmit = (event: React.FormEvent<HTMLFormElement>) => {
     event.preventDefault();
@@ -492,131 +434,11 @@ export default function Tasks() {
                   </TabsList>
                   <TabsContent value="manual" className="space-y-6">
                     <form onSubmit={handleCreateTaskSubmit} className="space-y-6">
-                      <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
-                        <div className="space-y-2 md:col-span-2">
-                          <Label htmlFor="task-title">Pavadinimas</Label>
-                          <Input
-                            id="task-title"
-                            value={createForm.title}
-                            onChange={(event) => setCreateForm((prev) => ({ ...prev, title: event.target.value }))}
-                            required
-                          />
-                        </div>
-                        <div className="space-y-2 md:col-span-2">
-                          <Label htmlFor="task-description">Aprašymas</Label>
-                          <Textarea
-                            id="task-description"
-                            value={createForm.description}
-                            onChange={(event) => setCreateForm((prev) => ({ ...prev, description: event.target.value }))}
-                            placeholder="Trumpai aprašykite užduotį"
-                          />
-                        </div>
-                        <div className="space-y-2">
-                          <Label htmlFor="task-category">Kategorija</Label>
-                          <Input
-                            id="task-category"
-                            value={createForm.category}
-                            onChange={(event) => setCreateForm((prev) => ({ ...prev, category: event.target.value }))}
-                            placeholder="Pvz., Sezoninės priežiūros"
-                          />
-                        </div>
-                        <div className="space-y-2">
-                          <Label>Dažnumas</Label>
-                          <Select
-                            value={createForm.frequency}
-                            onValueChange={(value) =>
-                              setCreateForm((prev) => ({ ...prev, frequency: value as TaskFrequency }))
-                            }
-                          >
-                            <SelectTrigger>
-                              <SelectValue placeholder="Pasirinkite dažnumą" />
-                            </SelectTrigger>
-                            <SelectContent>
-                              {frequencyOptions.map((option) => (
-                                <SelectItem key={option.value} value={option.value}>
-                                  {option.label}
-                                </SelectItem>
-                              ))}
-                            </SelectContent>
-                          </Select>
-                        </div>
-                        <div className="space-y-2">
-                          <Label htmlFor="task-default-due">Numatytasis terminas (dienomis)</Label>
-                          <Input
-                            id="task-default-due"
-                            type="number"
-                            min={1}
-                            value={createForm.defaultDueDays}
-                            onChange={(event) => setCreateForm((prev) => ({ ...prev, defaultDueDays: event.target.value }))}
-                          />
-                        </div>
-                      </div>
-
-                      <div className="space-y-2">
-                        <Label>Sezoniniai mėnesiai</Label>
-                        <div className="grid grid-cols-2 gap-2 sm:grid-cols-3">
-                          {monthOptions.map((month) => {
-                            const checked = createForm.seasonMonths.includes(month.value);
-                            return (
-                              <label key={month.value} className="flex items-center gap-2 text-sm font-medium">
-                                <Checkbox
-                                  checked={checked}
-                                  onCheckedChange={(state) => toggleSeasonMonth(month.value, state === true)}
-                                />
-                                {month.label}
-                              </label>
-                            );
-                          })}
-                        </div>
-                      </div>
-
-                      <div className="space-y-4">
-                        <div className="flex items-center justify-between">
-                          <h3 className="text-lg font-semibold">Žingsniai</h3>
-                          <Button type="button" variant="outline" onClick={addStep}>
-                            <Plus className="mr-2 h-4 w-4" />
-                            Pridėti žingsnį
-                          </Button>
-                        </div>
-                        <div className="space-y-3">
-                          {createForm.steps.map((step, index) => (
-                            <div key={index} className="space-y-3 rounded-lg border border-border p-4">
-                              <div className="flex items-center justify-between">
-                                <h4 className="text-sm font-semibold">Žingsnis {index + 1}</h4>
-                                {createForm.steps.length > 1 ? (
-                                  <Button
-                                    type="button"
-                                    variant="ghost"
-                                    size="icon"
-                                    onClick={() => removeStep(index)}
-                                    aria-label={`Pašalinti ${index + 1}-ą žingsnį`}
-                                  >
-                                    <Trash2 className="h-4 w-4" />
-                                  </Button>
-                                ) : null}
-                              </div>
-                              <div className="space-y-2">
-                                <Label htmlFor={`step-title-${index}`}>Pavadinimas</Label>
-                                <Input
-                                  id={`step-title-${index}`}
-                                  value={step.title}
-                                  onChange={(event) => updateStep(index, { title: event.target.value })}
-                                  required
-                                />
-                              </div>
-                              <div className="space-y-2">
-                                <Label htmlFor={`step-description-${index}`}>Instrukcijos</Label>
-                                <Textarea
-                                  id={`step-description-${index}`}
-                                  value={step.contentText}
-                                  onChange={(event) => updateStep(index, { contentText: event.target.value })}
-                                  placeholder="Aprašykite žingsnio veiksmus"
-                                />
-                              </div>
-                            </div>
-                          ))}
-                        </div>
-                      </div>
+                      <TaskDetailsForm
+                        values={createForm}
+                        onChange={(updater) => setCreateForm((prev) => updater(prev))}
+                        disabled={createTaskMutation.isPending}
+                      />
 
                       <DialogFooter>
                         <Button

@@ -141,8 +141,14 @@ export class TaskStepsService {
       createdByUserId: userId,
     });
 
-    const saved = await this.tasksRepository.save(task);
-    await this.tasksRepository.softRemove(saved);
+    const saved = await runWithDatabaseErrorHandling(
+      () => this.tasksRepository.save(task),
+      { message: 'Nepavyko sukurti žingsnio' },
+    );
+    await runWithDatabaseErrorHandling(
+      () => this.tasksRepository.softRemove(saved),
+      { message: 'Nepavyko sukurti žingsnio' },
+    );
 
     return saved.id;
   }
@@ -421,6 +427,7 @@ export class TaskStepsService {
 
     const fallbackOrder = await this.getNextOrderIndex(globalTaskId);
     const normalized = this.normalizeStepInput(dto, fallbackOrder);
+    const normalizedTagIds = this.normalizeTagIds(dto.tagIds);
 
     if (!normalized.title) {
       this.logger.warn('Nepavyko sukurti žingsnio: pavadinimas privalomas');
@@ -433,6 +440,7 @@ export class TaskStepsService {
     const step = this.stepsRepository.create({
       ...normalized,
       taskId: globalTaskId,
+      tags: normalizedTagIds.map((id) => ({ id } as Tag)),
     });
 
     const saved = await runWithDatabaseErrorHandling(

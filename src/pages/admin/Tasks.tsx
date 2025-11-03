@@ -35,6 +35,7 @@ import {
   type Template,
   type UpdateTaskPayload,
 } from '@/lib/types';
+import { TaskDetailsForm, type TaskDetailsFormValues, type TaskDetailsFormStep } from '@/components/tasks/TaskDetailsForm';
 
 const messages = ltMessages.tasks;
 
@@ -76,26 +77,19 @@ const frequencyOptions: { value: TaskFrequency; label: string }[] = [
   { value: 'seasonal', label: 'Sezoninė' },
 ];
 
-type EditFormStep = {
-  id?: string;
-  title: string;
-  contentText: string;
-};
+type EditFormStep = TaskDetailsFormStep;
 
-const buildDefaultEditFormState = () => {
-  const steps: EditFormStep[] = [{ title: '', contentText: '' }];
-  return {
-    title: '',
-    description: '',
-    category: '',
-    frequency: 'once' as TaskFrequency,
-    defaultDueDays: '7',
-    seasonMonths: [] as number[],
-    steps,
-  };
-};
+const buildDefaultEditFormState = (): TaskDetailsFormValues => ({
+  title: '',
+  description: '',
+  category: '',
+  frequency: 'once',
+  defaultDueDays: '7',
+  seasonMonths: [],
+  steps: [{ title: '', contentText: '' }],
+});
 
-type EditTaskFormState = ReturnType<typeof buildDefaultEditFormState>;
+type EditTaskFormState = TaskDetailsFormValues;
 
 export default function AdminTasks() {
   const queryClient = useQueryClient();
@@ -216,42 +210,6 @@ export default function AdminTasks() {
         }
       }
     })();
-  };
-
-  const handleToggleEditSeasonMonth = (month: number, checked: boolean) => {
-    setEditForm((prev) => {
-      const nextMonths = checked
-        ? Array.from(new Set([...prev.seasonMonths, month]))
-        : prev.seasonMonths.filter((value) => value !== month);
-      nextMonths.sort((a, b) => a - b);
-      return { ...prev, seasonMonths: nextMonths };
-    });
-  };
-
-  const addEditStep = () => {
-    setEditForm((prev) => ({
-      ...prev,
-      steps: [...prev.steps, { title: '', contentText: '' }],
-    }));
-  };
-
-  const updateEditStep = (index: number, changes: Partial<EditFormStep>) => {
-    setEditForm((prev) => {
-      const nextSteps = prev.steps.map((step, stepIndex) =>
-        stepIndex === index ? { ...step, ...changes } : step,
-      );
-      return { ...prev, steps: nextSteps };
-    });
-  };
-
-  const removeEditStep = (index: number) => {
-    setEditForm((prev) => {
-      if (prev.steps.length <= 1) {
-        return prev;
-      }
-      const nextSteps = prev.steps.filter((_, stepIndex) => stepIndex !== index);
-      return { ...prev, steps: nextSteps };
-    });
   };
 
   const createMutation = useMutation({
@@ -444,162 +402,14 @@ export default function AdminTasks() {
               <DialogDescription>Atnaujinkite užduoties informaciją.</DialogDescription>
             </DialogHeader>
             <form onSubmit={handleEditSubmit} className="space-y-6">
-              <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
-                <div className="space-y-2 md:col-span-2">
-                  <Label htmlFor="edit-task-title">Pavadinimas</Label>
-                  <Input
-                    id="edit-task-title"
-                    value={editForm.title}
-                    onChange={(event) =>
-                      setEditForm((prev) => ({ ...prev, title: event.target.value }))
-                    }
-                    placeholder="Pvz., Pavasarinė apžiūra"
-                    disabled={editFormDisabled}
-                    required
-                  />
-                </div>
-                <div className="space-y-2 md:col-span-2">
-                  <Label htmlFor="edit-task-description">Aprašymas</Label>
-                  <Textarea
-                    id="edit-task-description"
-                    value={editForm.description}
-                    onChange={(event) =>
-                      setEditForm((prev) => ({ ...prev, description: event.target.value }))
-                    }
-                    placeholder="Trumpai aprašykite užduotį"
-                    disabled={editFormDisabled}
-                  />
-                </div>
-                <div className="space-y-2">
-                  <Label htmlFor="edit-task-category">Kategorija</Label>
-                  <Input
-                    id="edit-task-category"
-                    value={editForm.category}
-                    onChange={(event) =>
-                      setEditForm((prev) => ({ ...prev, category: event.target.value }))
-                    }
-                    placeholder="Pvz., Sezoninės priežiūros"
-                    disabled={editFormDisabled}
-                  />
-                </div>
-                <div className="space-y-2">
-                  <Label htmlFor="edit-task-frequency">Dažnumas</Label>
-                  <Select
-                    value={editForm.frequency}
-                    onValueChange={(value) =>
-                      setEditForm((prev) => ({ ...prev, frequency: value as TaskFrequency }))
-                    }
-                    disabled={editFormDisabled}
-                  >
-                    <SelectTrigger id="edit-task-frequency">
-                      <SelectValue placeholder="Pasirinkite dažnumą" />
-                    </SelectTrigger>
-                    <SelectContent>
-                      {frequencyOptions.map((option) => (
-                        <SelectItem key={option.value} value={option.value}>
-                          {option.label}
-                        </SelectItem>
-                      ))}
-                    </SelectContent>
-                  </Select>
-                </div>
-                <div className="space-y-2">
-                  <Label htmlFor="edit-task-default-due">Numatytasis terminas (dienomis)</Label>
-                  <Input
-                    id="edit-task-default-due"
-                    type="number"
-                    min={1}
-                    value={editForm.defaultDueDays}
-                    onChange={(event) =>
-                      setEditForm((prev) => ({ ...prev, defaultDueDays: event.target.value }))
-                    }
-                    disabled={editFormDisabled}
-                    required
-                  />
-                </div>
-              </div>
-
-              <div className="space-y-2">
-                <Label>Sezoniniai mėnesiai</Label>
-                <div className="grid grid-cols-2 gap-2 sm:grid-cols-3">
-                  {monthOptions.map((month) => {
-                    const checked = editForm.seasonMonths.includes(month.value);
-                    return (
-                      <label key={month.value} className="flex items-center gap-2 text-sm font-medium">
-                        <Checkbox
-                          checked={checked}
-                          onCheckedChange={(state) =>
-                            handleToggleEditSeasonMonth(month.value, state === true)
-                          }
-                          disabled={editFormDisabled}
-                        />
-                        {month.label}
-                      </label>
-                    );
-                  })}
-                </div>
-              </div>
-
-              <div className="space-y-4">
-                <div className="flex items-center justify-between">
-                  <h3 className="text-lg font-semibold">Žingsniai</h3>
-                  <Button
-                    type="button"
-                    variant="outline"
-                    onClick={addEditStep}
-                    disabled={editFormDisabled}
-                  >
-                    <Plus className="mr-2 h-4 w-4" />
-                    Pridėti žingsnį
-                  </Button>
-                </div>
-                {isLoadingEditData && (
-                  <p className="text-sm text-muted-foreground">Įkeliami užduoties žingsniai...</p>
-                )}
-                <div className="space-y-3">
-                  {editForm.steps.map((step, index) => (
-                    <div key={step.id ?? index} className="space-y-3 rounded-lg border border-border p-4">
-                      <div className="flex items-center justify-between">
-                        <h4 className="text-sm font-semibold">Žingsnis {index + 1}</h4>
-                        {editForm.steps.length > 1 ? (
-                          <Button
-                            type="button"
-                            variant="ghost"
-                            size="icon"
-                            onClick={() => removeEditStep(index)}
-                            disabled={editFormDisabled}
-                            aria-label={`Pašalinti ${index + 1}-ą žingsnį`}
-                          >
-                            <Trash2 className="h-4 w-4" />
-                          </Button>
-                        ) : null}
-                      </div>
-                      <div className="space-y-2">
-                        <Label htmlFor={`edit-step-title-${index}`}>Pavadinimas</Label>
-                        <Input
-                          id={`edit-step-title-${index}`}
-                          value={step.title}
-                          onChange={(event) => updateEditStep(index, { title: event.target.value })}
-                          disabled={editFormDisabled}
-                          required
-                        />
-                      </div>
-                      <div className="space-y-2">
-                        <Label htmlFor={`edit-step-description-${index}`}>Instrukcijos</Label>
-                        <Textarea
-                          id={`edit-step-description-${index}`}
-                          value={step.contentText}
-                          onChange={(event) =>
-                            updateEditStep(index, { contentText: event.target.value })
-                          }
-                          placeholder="Aprašykite žingsnio veiksmus"
-                          disabled={editFormDisabled}
-                        />
-                      </div>
-                    </div>
-                  ))}
-                </div>
-              </div>
+              {isLoadingEditData && (
+                <p className="text-sm text-muted-foreground">Įkeliami užduoties žingsniai...</p>
+              )}
+              <TaskDetailsForm
+                values={editForm}
+                onChange={(updater) => setEditForm((prev) => updater(prev))}
+                disabled={editFormDisabled}
+              />
 
               <DialogFooter className="flex flex-col gap-2 sm:flex-row sm:justify-end">
                 <Button

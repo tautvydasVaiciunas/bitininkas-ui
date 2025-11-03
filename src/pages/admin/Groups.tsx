@@ -67,8 +67,8 @@ export default function AdminGroups() {
   const [membersDialogGroupId, setMembersDialogGroupId] = useState<
     string | null
   >(null);
-  const [memberToAdd, setMemberToAdd] = useState<string | undefined>();
-  const [memberHiveToAdd, setMemberHiveToAdd] = useState<string | null>(null);
+  const [memberToAdd, setMemberToAdd] = useState<string>('');
+  const [memberHiveToAdd, setMemberHiveToAdd] = useState<string>('');
 
   const {
     data: groups = [],
@@ -117,7 +117,7 @@ export default function AdminGroups() {
   const selectedUserHives = memberToAdd
     ? userHivesMap.get(memberToAdd) ?? []
     : [];
-  const hiveSelectValue = memberHiveToAdd ?? ALL_HIVES_VALUE;
+  const hiveSelectValue = memberHiveToAdd;
   const canSelectHive = selectedUserHives.length > 0;
 
   const resetCreateForm = () => setCreateForm(defaultFormState);
@@ -529,12 +529,12 @@ export default function AdminGroups() {
         onOpenChange={(open) => {
           if (!open) {
             setMembersDialogGroupId(null);
-            setMemberToAdd(undefined);
-            setMemberHiveToAdd(null);
+            setMemberToAdd('');
+            setMemberHiveToAdd('');
           }
         }}
       >
-        <DialogContent className="max-w-xl">
+        <DialogContent className="max-w-[720px]">
           <DialogHeader>
             <DialogTitle>Grupės nariai</DialogTitle>
             <DialogDescription>
@@ -544,7 +544,7 @@ export default function AdminGroups() {
             </DialogDescription>
           </DialogHeader>
           {membersDialogGroup ? (
-            <div className="space-y-6">
+            <div className="max-h-[70vh] space-y-6 overflow-y-auto pr-1">
               <div className="space-y-3">
                 <h3 className="font-medium text-sm text-muted-foreground">
                   Esami nariai
@@ -575,77 +575,85 @@ export default function AdminGroups() {
                 <h3 className="font-medium text-sm text-muted-foreground">
                   Pridėti naują narį
                 </h3>
-                <div className="flex flex-col gap-2 sm:flex-row sm:items-center">
-                  <Select
-                    value={memberToAdd ?? undefined}
-                    onValueChange={(value) => {
-                      setMemberToAdd(value);
-                      setMemberHiveToAdd(null);
-                    }}
-                  >
-                    <SelectTrigger className="sm:w-64">
-                      <SelectValue placeholder="Pasirinkite vartotoją" />
-                    </SelectTrigger>
-                    <SelectContent>
-                      {availableMembers.length === 0 ? (
-                        <SelectItem value="no-options" disabled>
-                          Nėra laisvų vartotojų
-                        </SelectItem>
-                      ) : (
-                        availableMembers
-                          .filter((candidate) => typeof candidate.id === 'string' && candidate.id.length > 0)
-                          .map((candidate) => (
-                            <SelectItem key={candidate.id} value={candidate.id}>
-                              {mapToOptionLabel(candidate)}
-                            </SelectItem>
-                          ))
-                      )}
-                    </SelectContent>
-                  </Select>
-                  {memberToAdd ? (
+                <div className="space-y-3">
+                  <div className="flex flex-col gap-3 md:flex-row md:flex-wrap md:items-end">
                     <Select
-                      value={hiveSelectValue}
-                      onValueChange={(value) =>
-                        setMemberHiveToAdd(value === ALL_HIVES_VALUE ? null : value)
-                      }
+                      value={memberToAdd}
+                      onValueChange={(value) => {
+                        setMemberToAdd(value);
+                        setMemberHiveToAdd('');
+                      }}
                     >
-                      <SelectTrigger className="sm:w-64">
-                        <SelectValue placeholder="Pasirinkite avilį" />
+                      <SelectTrigger className="w-full sm:w-64">
+                        <SelectValue placeholder="Pasirinkite vartotoją" />
                       </SelectTrigger>
                       <SelectContent>
-                        <SelectItem value={ALL_HIVES_VALUE}>Visi aviliai</SelectItem>
-                        {canSelectHive ? (
-                          selectedUserHives.map((hive) => (
-                            <SelectItem key={hive.id} value={hive.id}>
-                              {hive.label}
-                            </SelectItem>
-                          ))
-                        ) : (
-                          <SelectItem value="__no_hives" disabled>
-                            Vartotojas neturi avilių
+                        {availableMembers.length === 0 ? (
+                          <SelectItem value="no-options" disabled>
+                            Nėra laisvų vartotojų
                           </SelectItem>
+                        ) : (
+                          availableMembers
+                            .filter((candidate) => typeof candidate.id === 'string' && candidate.id.length > 0)
+                            .map((candidate) => (
+                              <SelectItem key={candidate.id} value={candidate.id}>
+                                {mapToOptionLabel(candidate)}
+                              </SelectItem>
+                            ))
                         )}
                       </SelectContent>
                     </Select>
-                  ) : null}
-                  <Button
-                    onClick={() => {
-                      if (!memberToAdd || !membersDialogGroup) return;
-                      addMemberMutation.mutate({
-                        groupId: membersDialogGroup.id,
-                        userId: memberToAdd,
-                        hiveId: memberHiveToAdd ?? undefined,
-                      });
-                    }}
-                    disabled={!memberToAdd || addMemberMutation.isPending}
-                  >
-                    {addMemberMutation.isPending ? (
-                      <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-                    ) : (
-                      <UserPlus className="mr-2 h-4 w-4" />
-                    )}
-                    Pridėti narį
-                  </Button>
+                    {memberToAdd ? (
+                      <Select
+                        value={hiveSelectValue}
+                        onValueChange={(value) => setMemberHiveToAdd(value)}
+                      >
+                        <SelectTrigger className="w-full sm:w-64">
+                          <SelectValue placeholder="Pasirinkite avilį" />
+                        </SelectTrigger>
+                        <SelectContent>
+                          <SelectItem value="">Pasirinkite avilį</SelectItem>
+                          <SelectItem value={ALL_HIVES_VALUE}>Visi aviliai</SelectItem>
+                          {canSelectHive ? (
+                            selectedUserHives.map((hive) => (
+                              <SelectItem key={hive.id} value={hive.id}>
+                                {hive.label}
+                              </SelectItem>
+                            ))
+                          ) : (
+                            <SelectItem value="__no_hives" disabled>
+                              Vartotojas neturi avilių
+                            </SelectItem>
+                          )}
+                        </SelectContent>
+                      </Select>
+                    ) : null}
+                  </div>
+                  <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-end">
+                    <Button
+                      className="sm:w-auto"
+                      onClick={() => {
+                        if (!memberToAdd || !membersDialogGroup) return;
+                        const hiveId =
+                          memberHiveToAdd && memberHiveToAdd !== ALL_HIVES_VALUE
+                            ? memberHiveToAdd
+                            : undefined;
+                        addMemberMutation.mutate({
+                          groupId: membersDialogGroup.id,
+                          userId: memberToAdd,
+                          hiveId,
+                        });
+                      }}
+                      disabled={!memberToAdd || addMemberMutation.isPending}
+                    >
+                      {addMemberMutation.isPending ? (
+                        <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                      ) : (
+                        <UserPlus className="mr-2 h-4 w-4" />
+                      )}
+                      Pridėti narį
+                    </Button>
+                  </div>
                 </div>
               </div>
             </div>

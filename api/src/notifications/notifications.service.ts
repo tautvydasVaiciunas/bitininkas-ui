@@ -1,6 +1,6 @@
-import { Inject, Injectable, Logger, NotFoundException } from '@nestjs/common';
+import { Inject, Injectable, Logger, NotFoundException, BadRequestException } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
-import { Repository } from 'typeorm';
+import { Repository, QueryFailedError } from 'typeorm';
 
 import { Notification } from './notification.entity';
 import {
@@ -35,7 +35,11 @@ type RawNotificationRow = Record<string, unknown>;
 @Injectable()
 export class NotificationsService {
   private readonly logger = new Logger(NotificationsService.name);
-  private schemaCapabilities?: { hasIsReadColumn: boolean; hasReadAtColumn: boolean };
+  private schemaCapabilities?: {
+    hasTable: boolean;
+    hasIsReadColumn: boolean;
+    hasReadAtColumn: boolean;
+  };
 
   constructor(
     @InjectRepository(Notification)
@@ -60,13 +64,24 @@ export class NotificationsService {
         })
         .filter((value): value is string => Boolean(value));
 
+      const hasTable = columns.length > 0;
+
       this.schemaCapabilities = {
-        hasIsReadColumn: columns.includes('is_read'),
-        hasReadAtColumn: columns.includes('read_at'),
+        hasTable,
+        hasIsReadColumn: hasTable && columns.includes('is_read'),
+        hasReadAtColumn: hasTable && columns.includes('read_at'),
       };
     }
 
     return this.schemaCapabilities;
+  }
+
+  private handleQueryError(error: unknown): never {
+    if (error instanceof QueryFailedError) {
+      throw new BadRequestException('Neteisinga užklausa');
+    }
+
+    throw error;
   }
 
   private mapRawNotification(row: RawNotificationRow): Notification {
@@ -103,38 +118,67 @@ export class NotificationsService {
     return notification;
   }
 
-  async createNotification(userId: string, payload: CreateNotificationPayload) {
+  async createNotification(
+    userId: string,
+    payload: CreateNotificationPayload,
+  ): Promise<Notification | null> {
     const capabilities = await this.getSchemaCapabilities();
 
-    if (capabilities.hasIsReadColumn) {
-      const notification = this.repository.create({
-        userId,
-        type: payload.type,
-        title: payload.title,
-        body: payload.body,
-        link: payload.link ?? null,
-        isRead: false,
-      });
-
-      const saved = await this.repository.save(notification);
-
-      if (payload.sendEmail) {
-        await this.sendEmailNotification(userId, payload);
-      }
-
-      return saved;
+    if (!capabilities.hasTable) {
+      this.logger.warn('Skipping notification creation: notifications table is not available.');
+      return null;
     }
 
-    if (capabilities.hasReadAtColumn) {
+    try {
+      if (capabilities.hasIsReadColumn) {
+        const notification = this.repository.create({
+          userId,
+          type: payload.type,
+          title: payload.title,
+          body: payload.body,
+          link: payload.link ?? null,
+          isRead: false,
+        });
+
+        const saved = await this.repository.save(notification);
+
+        if (payload.sendEmail) {
+          await this.sendEmailNotification(userId, payload);
+        }
+
+        return saved;
+      }
+
+      if (capabilities.hasReadAtColumn) {
+        const [row] = (await this.repository.query(
+          `INSERT INTO notifications (user_id, type, title, body, link, read_at)
+           VALUES ($1, $2, $3, $4, $5, NULL)
+           RETURNING id, user_id, type, title, body, link, read_at, created_at`,
+          [userId, payload.type, payload.title, payload.body, payload.link ?? null],
+        )) as RawNotificationRow[];
+
+        if (!row) {
+          throw new Error('Failed to insert notification without is_read column.');
+        }
+
+        const saved = this.mapRawNotification(row);
+
+        if (payload.sendEmail) {
+          await this.sendEmailNotification(userId, payload);
+        }
+
+        return saved;
+      }
+
       const [row] = (await this.repository.query(
-        `INSERT INTO notifications (user_id, type, title, body, link, read_at)
-         VALUES ($1, $2, $3, $4, $5, NULL)
-         RETURNING id, user_id, type, title, body, link, read_at, created_at`,
+        `INSERT INTO notifications (user_id, type, title, body, link)
+         VALUES ($1, $2, $3, $4, $5)
+         RETURNING id, user_id, type, title, body, link, created_at`,
         [userId, payload.type, payload.title, payload.body, payload.link ?? null],
       )) as RawNotificationRow[];
 
       if (!row) {
-        throw new Error('Failed to insert notification without is_read column.');
+        throw new Error('Failed to insert notification without read tracking columns.');
       }
 
       const saved = this.mapRawNotification(row);
@@ -144,9 +188,11 @@ export class NotificationsService {
       }
 
       return saved;
+    } catch (error) {
+      this.handleQueryError(error);
     }
 
-    throw new Error('Notifications schema is missing both is_read and read_at columns.');
+    return null;
   }
 
   async list(
@@ -159,21 +205,31 @@ export class NotificationsService {
       limit: options.limit ?? 10,
     });
 
-    if (capabilities.hasIsReadColumn) {
-      const [items, total] = await this.repository.findAndCount({
-        where: { userId },
-        order: { createdAt: 'DESC' },
-        take: limit,
-        skip: (page - 1) * limit,
-      });
-
-      return this.pagination.buildResponse(items, page, limit, total);
+    if (!capabilities.hasTable) {
+      return this.pagination.buildResponse([], page, limit, 0);
     }
 
-    if (capabilities.hasReadAtColumn) {
+    try {
+      if (capabilities.hasIsReadColumn) {
+        const [items, total] = await this.repository.findAndCount({
+          where: { userId },
+          order: { createdAt: 'DESC' },
+          take: limit,
+          skip: (page - 1) * limit,
+        });
+
+        return this.pagination.buildResponse(items, page, limit, total);
+      }
+
       const offset = (page - 1) * limit;
+      const columns = ['id', 'user_id', 'type', 'title', 'body', 'link'];
+      if (capabilities.hasReadAtColumn) {
+        columns.push('read_at');
+      }
+      columns.push('created_at');
+
       const rows = (await this.repository.query(
-        `SELECT id, user_id, type, title, body, link, read_at, created_at
+        `SELECT ${columns.join(', ')}
          FROM notifications
          WHERE user_id = $1
          ORDER BY created_at DESC
@@ -190,32 +246,48 @@ export class NotificationsService {
       const items = rows.map((row) => this.mapRawNotification(row));
 
       return this.pagination.buildResponse(items, page, limit, total);
+    } catch (error) {
+      this.handleQueryError(error);
     }
 
-    throw new Error('Notifications schema is missing both is_read and read_at columns.');
+    return this.pagination.buildResponse([], page, limit, 0);
   }
 
   async countUnreadForUser(userId: string) {
     const capabilities = await this.getSchemaCapabilities();
 
-    if (capabilities.hasIsReadColumn) {
-      return this.repository.count({ where: { userId, isRead: false } });
+    if (!capabilities.hasTable) {
+      return 0;
     }
 
-    if (capabilities.hasReadAtColumn) {
-      const result = (await this.repository.query(
-        `SELECT COUNT(*)::int AS count FROM notifications WHERE user_id = $1 AND read_at IS NULL`,
-        [userId],
-      )) as RawNotificationRow[];
+    try {
+      if (capabilities.hasIsReadColumn) {
+        return this.repository.count({ where: { userId, isRead: false } });
+      }
 
-      return Number(result?.[0]?.count ?? 0);
+      if (capabilities.hasReadAtColumn) {
+        const result = (await this.repository.query(
+          `SELECT COUNT(*)::int AS count FROM notifications WHERE user_id = $1 AND read_at IS NULL`,
+          [userId],
+        )) as RawNotificationRow[];
+
+        return Number(result?.[0]?.count ?? 0);
+      }
+
+      return 0;
+    } catch (error) {
+      this.handleQueryError(error);
     }
 
-    throw new Error('Notifications schema is missing both is_read and read_at columns.');
+    return 0;
   }
 
   async markAsRead(id: string, userId: string) {
     const capabilities = await this.getSchemaCapabilities();
+
+    if (!capabilities.hasTable) {
+      return;
+    }
 
     if (capabilities.hasIsReadColumn) {
       const notification = await this.repository.findOne({ where: { id, userId } });
@@ -232,46 +304,54 @@ export class NotificationsService {
       return;
     }
 
-    if (capabilities.hasReadAtColumn) {
-      const [existing] = (await this.repository.query(
-        `SELECT id, read_at FROM notifications WHERE id = $1 AND user_id = $2 LIMIT 1`,
-        [id, userId],
-      )) as RawNotificationRow[];
-
-      if (!existing) {
-        throw new NotFoundException('Notification not found');
-      }
-
-      if (existing.read_at === null) {
-        await this.repository.query(
-          `UPDATE notifications SET read_at = NOW() WHERE id = $1 AND user_id = $2 AND read_at IS NULL`,
+    try {
+      if (capabilities.hasReadAtColumn) {
+        const [existing] = (await this.repository.query(
+          `SELECT id, read_at FROM notifications WHERE id = $1 AND user_id = $2 LIMIT 1`,
           [id, userId],
-        );
+        )) as RawNotificationRow[];
+
+        if (!existing) {
+          throw new NotFoundException('Notification not found');
+        }
+
+        if (existing.read_at === null) {
+          await this.repository.query(
+            `UPDATE notifications SET read_at = NOW() WHERE id = $1 AND user_id = $2 AND read_at IS NULL`,
+            [id, userId],
+          );
+        }
+
+        return;
       }
-
-      return;
+    } catch (error) {
+      this.handleQueryError(error);
     }
-
-    throw new Error('Notifications schema is missing both is_read and read_at columns.');
   }
 
   async markAllAsRead(userId: string) {
     const capabilities = await this.getSchemaCapabilities();
+
+    if (!capabilities.hasTable) {
+      return;
+    }
 
     if (capabilities.hasIsReadColumn) {
       await this.repository.update({ userId, isRead: false }, { isRead: true });
       return;
     }
 
-    if (capabilities.hasReadAtColumn) {
-      await this.repository.query(
-        `UPDATE notifications SET read_at = NOW() WHERE user_id = $1 AND read_at IS NULL`,
-        [userId],
-      );
-      return;
+    try {
+      if (capabilities.hasReadAtColumn) {
+        await this.repository.query(
+          `UPDATE notifications SET read_at = NOW() WHERE user_id = $1 AND read_at IS NULL`,
+          [userId],
+        );
+        return;
+      }
+    } catch (error) {
+      this.handleQueryError(error);
     }
-
-    throw new Error('Notifications schema is missing both is_read and read_at columns.');
   }
 
   private async sendEmailNotification(

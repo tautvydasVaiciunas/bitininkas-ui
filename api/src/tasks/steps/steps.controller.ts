@@ -1,10 +1,23 @@
-import { Body, Controller, Delete, Get, Param, Patch, Post, Query, Request } from '@nestjs/common';
+import {
+  Body,
+  Controller,
+  Delete,
+  Get,
+  HttpCode,
+  HttpStatus,
+  Param,
+  Patch,
+  Post,
+  Query,
+  Request,
+} from '@nestjs/common';
 
 import { Roles } from '../../common/decorators/roles.decorator';
 import { UserRole } from '../../users/user.entity';
 import { TaskStepsService } from './task-steps.service';
-import { CreateGlobalTaskStepDto } from './dto/create-global-task-step.dto';
 import { UpdateTaskStepDto } from './dto/update-task-step.dto';
+import { CreateGlobalStepRequestDto } from './dto/create-global-step-request.dto';
+import { CreateGlobalTaskStepDto } from './dto/create-global-task-step.dto';
 
 @Controller('steps')
 export class StepsController {
@@ -29,8 +42,17 @@ export class StepsController {
 
   @Roles(UserRole.MANAGER, UserRole.ADMIN)
   @Post()
-  create(@Body() dto: CreateGlobalTaskStepDto, @Request() req: { user: { id: string; role: UserRole } }) {
-    return this.taskStepsService.createGlobal(dto, req.user);
+  @HttpCode(HttpStatus.CREATED)
+  create(
+    @Body() dto: CreateGlobalStepRequestDto,
+    @Request() req: { user: { id: string; role: UserRole } },
+  ) {
+    const payload = new CreateGlobalTaskStepDto();
+    payload.title = dto.name;
+    payload.description = dto.description;
+    payload.tagIds = dto.tagIds ?? [];
+
+    return this.taskStepsService.createGlobal(payload, req.user);
   }
 
   @Roles(UserRole.MANAGER, UserRole.ADMIN)

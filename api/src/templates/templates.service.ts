@@ -170,43 +170,36 @@ export class TemplatesService {
       return;
     }
 
-    const existingMap = new Map(existing.map((step) => [step.taskStepId, step] as const));
-    const toRemove = existing.filter((step) => !taskStepIds.includes(step.taskStepId));
+    const existingByTaskStepId = new Map(existing.map((step) => [step.taskStepId, step] as const));
+    const processedStepIds = new Set<string>();
 
-    if (toRemove.length) {
-      await repository.delete(toRemove.map((step) => step.id));
-      for (const removed of toRemove) {
-        existingMap.delete(removed.taskStepId);
-      }
-    }
-
-    if (existingMap.size > 0) {
+    if (existing.length) {
       await manager.query('UPDATE template_steps SET order_index = order_index + 1000 WHERE template_id = $1', [
         template.id,
       ]);
     }
 
-    const toInsert: { taskStepId: string; orderIndex: number }[] = [];
-
     for (const [index, taskStepId] of taskStepIds.entries()) {
-      const existingStep = existingMap.get(taskStepId);
+      const existingStep = existingByTaskStepId.get(taskStepId);
+
       if (existingStep) {
         await manager.update(TemplateStep, { id: existingStep.id }, { orderIndex: index });
+        processedStepIds.add(existingStep.id);
       } else {
-        toInsert.push({ taskStepId, orderIndex: index });
+        const entity = repository.create({
+          template,
+          taskStepId,
+          orderIndex: index,
+        });
+        const saved = await repository.save(entity);
+        processedStepIds.add(saved.id);
       }
     }
 
-    if (toInsert.length) {
-      const entities = toInsert.map(({ taskStepId, orderIndex }) =>
-        repository.create({
-          template,
-          taskStepId,
-          orderIndex,
-        }),
-      );
+    const toDelete = existing.filter((step) => !processedStepIds.has(step.id));
 
-      await repository.save(entities);
+    if (toDelete.length) {
+      await repository.delete(toDelete.map((step) => step.id));
     }
   }
 

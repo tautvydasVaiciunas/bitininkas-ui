@@ -39,6 +39,7 @@ export class NotificationsService {
     hasTable: boolean;
     hasIsReadColumn: boolean;
     hasReadAtColumn: boolean;
+    hasCreatedAtColumn: boolean;
   };
 
   constructor(
@@ -53,27 +54,74 @@ export class NotificationsService {
 
   private async getSchemaCapabilities() {
     if (!this.schemaCapabilities) {
-      const rows = await this.repository.query(
-        `SELECT column_name FROM information_schema.columns WHERE table_name = 'notifications'`,
-      );
+      try {
+        const rows = await this.repository.query(
+          `SELECT column_name
+           FROM information_schema.columns
+           WHERE table_name = 'notifications'
+             AND table_schema = current_schema()`,
+        );
 
-      const columns = (rows as RawNotificationRow[])
-        .map((row) => {
-          const value = row.column_name ?? Object.values(row)[0];
-          return typeof value === 'string' ? value.toLowerCase() : null;
-        })
-        .filter((value): value is string => Boolean(value));
+        const columns = (rows as RawNotificationRow[])
+          .map((row) => {
+            const value = row.column_name ?? Object.values(row)[0];
+            return typeof value === 'string' ? value.toLowerCase() : null;
+          })
+          .filter((value): value is string => Boolean(value));
 
-      const hasTable = columns.length > 0;
+        const hasTable = columns.length > 0;
 
-      this.schemaCapabilities = {
-        hasTable,
-        hasIsReadColumn: hasTable && columns.includes('is_read'),
-        hasReadAtColumn: hasTable && columns.includes('read_at'),
-      };
+        this.schemaCapabilities = {
+          hasTable,
+          hasIsReadColumn: hasTable && columns.includes('is_read'),
+          hasReadAtColumn: hasTable && columns.includes('read_at'),
+          hasCreatedAtColumn: hasTable && columns.includes('created_at'),
+        };
+      } catch (error) {
+        if (error instanceof QueryFailedError) {
+          this.schemaCapabilities = {
+            hasTable: false,
+            hasIsReadColumn: false,
+            hasReadAtColumn: false,
+            hasCreatedAtColumn: false,
+          };
+        } else {
+          throw error;
+        }
+      }
     }
 
     return this.schemaCapabilities;
+  }
+
+  private parseLimit(input?: number) {
+    const DEFAULT_LIMIT = 10;
+    const MAX_LIMIT = 50;
+    const value = Number(input);
+
+    if (!Number.isFinite(value)) {
+      return DEFAULT_LIMIT;
+    }
+
+    const normalized = Math.floor(value);
+
+    if (normalized < 1) {
+      return DEFAULT_LIMIT;
+    }
+
+    return normalized > MAX_LIMIT ? MAX_LIMIT : normalized;
+  }
+
+  private parsePage(input?: number) {
+    const DEFAULT_PAGE = 1;
+    const value = Number(input);
+
+    if (!Number.isFinite(value)) {
+      return DEFAULT_PAGE;
+    }
+
+    const normalized = Math.floor(value);
+    return normalized >= 1 ? normalized : DEFAULT_PAGE;
   }
 
   private handleQueryError(error: unknown): never {
@@ -200,39 +248,33 @@ export class NotificationsService {
     options: PaginationOptions = {},
   ): Promise<PaginatedResult<Notification>> {
     const capabilities = await this.getSchemaCapabilities();
-    const { page, limit } = this.pagination.getPagination({
-      page: options.page ?? 1,
-      limit: options.limit ?? 10,
-    });
+    const limit = this.parseLimit(options.limit);
+    const page = this.parsePage(options.page);
 
     if (!capabilities.hasTable) {
       return this.pagination.buildResponse([], page, limit, 0);
     }
 
     try {
-      if (capabilities.hasIsReadColumn) {
-        const [items, total] = await this.repository.findAndCount({
-          where: { userId },
-          order: { createdAt: 'DESC' },
-          take: limit,
-          skip: (page - 1) * limit,
-        });
-
-        return this.pagination.buildResponse(items, page, limit, total);
-      }
-
       const offset = (page - 1) * limit;
       const columns = ['id', 'user_id', 'type', 'title', 'body', 'link'];
+      if (capabilities.hasIsReadColumn) {
+        columns.push('is_read');
+      }
       if (capabilities.hasReadAtColumn) {
         columns.push('read_at');
       }
-      columns.push('created_at');
+      if (capabilities.hasCreatedAtColumn) {
+        columns.push('created_at');
+      }
+
+      const orderColumn = capabilities.hasCreatedAtColumn ? 'created_at' : 'id';
 
       const rows = (await this.repository.query(
         `SELECT ${columns.join(', ')}
          FROM notifications
          WHERE user_id = $1
-         ORDER BY created_at DESC
+         ORDER BY ${orderColumn} DESC
          LIMIT $2 OFFSET $3`,
         [userId, limit, offset],
       )) as RawNotificationRow[];
@@ -262,7 +304,12 @@ export class NotificationsService {
 
     try {
       if (capabilities.hasIsReadColumn) {
-        return this.repository.count({ where: { userId, isRead: false } });
+        const result = (await this.repository.query(
+          `SELECT COUNT(*)::int AS count FROM notifications WHERE user_id = $1 AND is_read = false`,
+          [userId],
+        )) as RawNotificationRow[];
+
+        return Number(result?.[0]?.count ?? 0);
       }
 
       if (capabilities.hasReadAtColumn) {

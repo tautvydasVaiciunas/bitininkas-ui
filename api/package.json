@@ -3,26 +3,18 @@
   "version": "1.0.0",
   "description": "Busmedaus API built with NestJS and TypeORM",
   "scripts": {
-	"app:boot": "npm run migration:run && (npm run seed:prod || true) && npm run start:prod",
+    "app:boot": "npm run migration:run && (npm run seed:prod || true) && npm run start:prod",
     "build": "nest build",
     "format": "prettier --write \"src/**/*.ts\"",
     "start": "node dist/main.js",
     "start:dev": "nest start --watch",
     "lint": "eslint \"{src,apps,libs,test}/**/*.ts\" --fix",
-
     "start:prod": "node -e \"const fs=require('fs'); const p=fs.existsSync('./dist/main.js')?'./dist/main.js':'./dist/src/main.js'; console.log('Starting',p); require(p);\"",
-
     "migration:run": "node -e \"const fs=require('fs');function pick(){const cands=['./dist/ormdatasource.js','./dist/src/ormdatasource.js','./dist/typeorm.config.js','./dist/src/typeorm.config.js'];for(const c of cands){if(fs.existsSync(c)) return c;}throw new Error('No compiled DataSource file found');}const p=pick();console.log('Using DataSource at',p);const mod=require(p);const ds=mod.AppDataSource||mod.dataSource||mod.default; if(!ds) throw new Error('No DataSource export (AppDataSource/dataSource/default)'); ds.initialize().then(()=>ds.runMigrations()).then(()=>{console.log('Migrations done');process.exit(0)}).catch(e=>{console.error(e);process.exit(1)})\"",
-
     "migration:revert": "node -e \"const fs=require('fs');function pick(){const cands=['./dist/ormdatasource.js','./dist/src/ormdatasource.js','./dist/typeorm.config.js','./dist/src/typeorm.config.js'];for(const c of cands){if(fs.existsSync(c)) return c;}throw new Error('No compiled DataSource file found');}const p=pick();console.log('Using DataSource at',p);const mod=require(p);const ds=mod.AppDataSource||mod.dataSource||mod.default; if(!ds) throw new Error('No DataSource export (AppDataSource/dataSource/default)'); ds.initialize().then(()=>ds.undoLastMigration()).then(()=>{console.log('Reverted');process.exit(0)}).catch(e=>{console.error(e);process.exit(1)})\"",
-
     "migration:generate": "ts-node -r tsconfig-paths/register node_modules/typeorm/cli.js migration:generate -d src/ormdatasource.ts src/migrations/auto-migration",
-
     "seed": "ts-node -r tsconfig-paths/register src/seeds/seed.ts",
-
     "seed:prod": "node -e \"const fs=require('fs'); const p=fs.existsSync('./dist/src/seeds/seed.js')?'./dist/src/seeds/seed.js':(fs.existsSync('./dist/seeds/seed.js')?'./dist/seeds/seed.js':null); if(!p){console.log('No compiled seed file found, skipping'); process.exit(0);} console.log('Running seed',p); require(p); console.log('Seed finished OK');\"",
-
-
     "test": "jest",
     "test:e2e": "jest --config test/jest-e2e.json"
   },
@@ -45,8 +37,8 @@
     "nodemailer": "^6.9.12",
     "passport": "^0.7.0",
     "passport-jwt": "^4.0.1",
-    "postmark": "^4.0.6",
     "pg": "^8.11.3",
+    "postmark": "4.0.5",
     "reflect-metadata": "^0.1.13",
     "resend": "^3.4.0",
     "rxjs": "^7.8.1",

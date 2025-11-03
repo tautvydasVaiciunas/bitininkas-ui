@@ -33,7 +33,7 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Badge } from "@/components/ui/badge";
 import { MainLayout } from "@/components/Layout/MainLayout";
-import api, { type AdminUserResponse } from "@/lib/api";
+import api, { type AdminUserResponse, type HiveResponse } from "@/lib/api";
 import { mapGroupFromApi, type Group, type GroupMember } from "@/lib/types";
 import { useToast } from "@/components/ui/use-toast";
 import {
@@ -51,6 +51,7 @@ interface GroupFormState {
 }
 
 const defaultFormState: GroupFormState = { name: "", description: "" };
+const ALL_HIVES_VALUE = "__ALL__";
 
 const mapToOptionLabel = (user: AdminUserResponse) => user.name || user.email;
 
@@ -67,6 +68,7 @@ export default function AdminGroups() {
     string | null
   >(null);
   const [memberToAdd, setMemberToAdd] = useState<string | undefined>();
+  const [memberHiveToAdd, setMemberHiveToAdd] = useState<string | null>(null);
 
   const {
     data: groups = [],
@@ -86,6 +88,11 @@ export default function AdminGroups() {
     queryFn: () => api.users.list(),
   });
 
+  const { data: hives = [] } = useQuery<HiveResponse[]>({
+    queryKey: ["hives", "all"],
+    queryFn: () => api.hives.list(),
+  });
+
   const editingGroup = useMemo(
     () => groups.find((group) => group.id === editingGroupId) ?? null,
     [groups, editingGroupId],
@@ -95,6 +102,23 @@ export default function AdminGroups() {
     () => groups.find((group) => group.id === membersDialogGroupId) ?? null,
     [groups, membersDialogGroupId],
   );
+
+  const userHivesMap = useMemo(() => {
+    const map = new Map<string, HiveResponse[]>();
+    for (const hive of hives) {
+      if (!hive.ownerUserId) continue;
+      const list = map.get(hive.ownerUserId) ?? [];
+      list.push(hive);
+      map.set(hive.ownerUserId, list);
+    }
+    return map;
+  }, [hives]);
+
+  const selectedUserHives = memberToAdd
+    ? userHivesMap.get(memberToAdd) ?? []
+    : [];
+  const hiveSelectValue = memberHiveToAdd ?? ALL_HIVES_VALUE;
+  const canSelectHive = selectedUserHives.length > 0;
 
   const resetCreateForm = () => setCreateForm(defaultFormState);
   const resetEditForm = () => setEditForm(defaultFormState);
@@ -173,8 +197,15 @@ export default function AdminGroups() {
   });
 
   const addMemberMutation = useMutation({
-    mutationFn: ({ groupId, userId }: { groupId: string; userId: string }) =>
-      api.groups.members.add(groupId, { userId }),
+    mutationFn: ({
+      groupId,
+      userId,
+      hiveId,
+    }: {
+      groupId: string;
+      userId: string;
+      hiveId?: string | null;
+    }) => api.groups.members.add(groupId, { userId, hiveId }),
     onSuccess: () => {
       toast({
         title: "Vartotojas pridėtas į grupę",
@@ -182,6 +213,7 @@ export default function AdminGroups() {
       invalidateGroups();
       invalidateUsers();
       setMemberToAdd(undefined);
+      setMemberHiveToAdd(null);
     },
     onError: (err: unknown) => {
       const message =
@@ -238,13 +270,7 @@ export default function AdminGroups() {
     });
   };
 
-  const availableMembers = useMemo(() => {
-    if (!membersDialogGroup) return users;
-    const memberIds = new Set(
-      membersDialogGroup.members.map((member) => member.userId),
-    );
-    return users.filter((user) => !memberIds.has(user.id));
-  }, [membersDialogGroup, users]);
+  const availableMembers = useMemo(() => users, [users]);
 
   const getErrorMessage = (value: unknown) => {
     if (!value) return undefined;
@@ -504,6 +530,7 @@ export default function AdminGroups() {
           if (!open) {
             setMembersDialogGroupId(null);
             setMemberToAdd(undefined);
+            setMemberHiveToAdd(null);
           }
         }}
       >
@@ -551,7 +578,10 @@ export default function AdminGroups() {
                 <div className="flex flex-col gap-2 sm:flex-row sm:items-center">
                   <Select
                     value={memberToAdd ?? undefined}
-                    onValueChange={(value) => setMemberToAdd(value)}
+                    onValueChange={(value) => {
+                      setMemberToAdd(value);
+                      setMemberHiveToAdd(null);
+                    }}
                   >
                     <SelectTrigger className="sm:w-64">
                       <SelectValue placeholder="Pasirinkite vartotoją" />
@@ -572,12 +602,39 @@ export default function AdminGroups() {
                       )}
                     </SelectContent>
                   </Select>
+                  {memberToAdd ? (
+                    <Select
+                      value={hiveSelectValue}
+                      onValueChange={(value) =>
+                        setMemberHiveToAdd(value === ALL_HIVES_VALUE ? null : value)
+                      }
+                    >
+                      <SelectTrigger className="sm:w-64">
+                        <SelectValue placeholder="Pasirinkite avilį" />
+                      </SelectTrigger>
+                      <SelectContent>
+                        <SelectItem value={ALL_HIVES_VALUE}>Visi aviliai</SelectItem>
+                        {canSelectHive ? (
+                          selectedUserHives.map((hive) => (
+                            <SelectItem key={hive.id} value={hive.id}>
+                              {hive.label}
+                            </SelectItem>
+                          ))
+                        ) : (
+                          <SelectItem value="__no_hives" disabled>
+                            Vartotojas neturi avilių
+                          </SelectItem>
+                        )}
+                      </SelectContent>
+                    </Select>
+                  ) : null}
                   <Button
                     onClick={() => {
                       if (!memberToAdd || !membersDialogGroup) return;
                       addMemberMutation.mutate({
                         groupId: membersDialogGroup.id,
                         userId: memberToAdd,
+                        hiveId: memberHiveToAdd ?? undefined,
                       });
                     }}
                     disabled={!memberToAdd || addMemberMutation.isPending}
@@ -614,6 +671,10 @@ function GroupMemberRow({
     member.user?.email && member.user?.email !== name
       ? member.user.email
       : null;
+  const hiveLabel = member.hiveId
+    ? member.hive?.label ?? "Nežinomas avilys"
+    : "Visi aviliai";
+  const role = member.role ?? undefined;
   return (
     <div className="flex items-center justify-between rounded-md border border-border/60 px-3 py-2">
       <div>
@@ -621,6 +682,10 @@ function GroupMemberRow({
         {email ? (
           <p className="text-xs text-muted-foreground">{email}</p>
         ) : null}
+        <div className="mt-1 flex flex-wrap items-center gap-2">
+          <Badge variant="secondary">{hiveLabel}</Badge>
+          {role ? <Badge variant="outline">{role}</Badge> : null}
+        </div>
       </div>
       <Button
         variant="ghost"

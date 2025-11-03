@@ -10,11 +10,13 @@ import {
 } from 'typeorm';
 import { Group } from './group.entity';
 import { User } from '../users/user.entity';
+import { Hive } from '../hives/hive.entity';
 
 @Entity({ name: 'group_members' })
-@Unique(['groupId', 'userId'])
+@Unique(['groupId', 'userId', 'hiveId'])
 @Index(['groupId'])
 @Index(['userId'])
+@Index(['hiveId'])
 export class GroupMember {
   @PrimaryGeneratedColumn('uuid')
   id: string;
@@ -37,6 +39,13 @@ export class GroupMember {
 
   @Column({ name: 'user_id', type: 'uuid' })
   userId!: string;
+
+  @ManyToOne(() => Hive, { onDelete: 'CASCADE', nullable: true })
+  @JoinColumn({ name: 'hive_id' })
+  hive: Hive | null;
+
+  @Column({ name: 'hive_id', type: 'uuid', nullable: true, default: null })
+  hiveId!: string | null;
 
   @Column({
     name: 'member_role',

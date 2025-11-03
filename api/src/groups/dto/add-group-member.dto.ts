@@ -5,6 +5,10 @@ export class AddGroupMemberDto {
   userId!: string;
 
   @IsOptional()
+  @IsUUID('4', { message: 'Neteisingas avilio identifikatorius' })
+  hiveId?: string;
+
+  @IsOptional()
   @IsString({ message: 'Rolė turi būti tekstas' })
   @MaxLength(50, { message: 'Rolė per ilga' })
   role?: string;

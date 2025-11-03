@@ -237,6 +237,14 @@ export const mapGroupMemberFromApi = (member: ApiGroupMemberResponse): GroupMemb
         name: mapOptionalString(member.user.name),
       }
     : undefined,
+  hive: member.hive
+    ? {
+        ...member.hive,
+        label: member.hive.label,
+      }
+    : member.hive === null
+      ? null
+      : undefined,
 });
 
 export const mapGroupFromApi = (group: ApiGroupResponse): Group => ({

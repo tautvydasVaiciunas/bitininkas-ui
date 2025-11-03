@@ -109,21 +109,34 @@ export class UsersService {
     };
   }
 
-  async findAll(options: PaginationOptions = {}): Promise<PaginatedResult<UserWithGroups>> {
-    const { page, limit } = this.pagination.getPagination(options);
-
-    const [users, total] = await this.usersRepository.findAndCount({
-      withDeleted: true,
-      relations: {
-        groupMemberships: {
-          group: true,
-        },
-      },
-      order: { createdAt: 'DESC' },
-      take: limit,
-      skip: (page - 1) * limit,
+  async findAll(
+    options: PaginationOptions & { q?: string } = {},
+  ): Promise<PaginatedResult<UserWithGroups>> {
+    const { page, limit } = this.pagination.getPagination({
+      page: options.page,
+      limit: options.limit,
     });
 
+    const normalizedQuery = options.q?.trim().toLowerCase();
+    const qb = this.usersRepository
+      .createQueryBuilder('user')
+      .withDeleted()
+      .leftJoinAndSelect('user.groupMemberships', 'membership')
+      .leftJoinAndSelect('membership.group', 'group')
+      .orderBy('user.createdAt', 'DESC')
+      .take(limit)
+      .skip((page - 1) * limit);
+
+    if (normalizedQuery) {
+      const escaped = normalizedQuery.replace(/[%_]/g, '\\$&');
+      const search = `%${escaped}%`;
+      qb.andWhere(
+        `(LOWER(user.email) LIKE :search ESCAPE '\\' OR LOWER(user.name) LIKE :search ESCAPE '\\')`,
+        { search },
+      );
+    }
+
+    const [users, total] = await qb.getManyAndCount();
     const mapped = users.map((user) => this.toUserWithGroups(user));
     return this.pagination.buildResponse(mapped, page, limit, total);
   }

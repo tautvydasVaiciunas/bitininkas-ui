@@ -891,10 +891,17 @@ export const api = {
     remove: (id: string) => del<void>(`/progress/${id}`),
   },
   users: {
-    list: (params?: { page?: number; limit?: number }) =>
-      get<PaginatedResponse<AdminUserResponse>>('/users', { query: params }).then(
+    list: (params?: { page?: number; limit?: number; q?: string }) => {
+      const query = {
+        page: params?.page ?? 1,
+        limit: params?.limit ?? 20,
+        q: params?.q ?? '',
+      };
+
+      return get<PaginatedResponse<AdminUserResponse>>('/users', { query }).then(
         attachPaginationMetadata,
-      ),
+      );
+    },
     get: (id: string) => get<AdminUserResponse>(`/users/${id}`),
     create: (payload: CreateUserPayload) => post<AdminUserResponse>('/users', { json: payload }),
     update: (id: string, payload: UpdateUserPayload) =>

@@ -85,10 +85,25 @@ export default function AdminUsers() {
   const [formError, setFormError] = useState<string | null>(null);
   const queryClient = useQueryClient();
 
-  const { data: users = [], isLoading, isError } = useQuery({
-    queryKey: ['users'],
-    queryFn: api.users.list,
+  const queryParams = useMemo(() => {
+    const normalized = searchQuery.trim().slice(0, 255);
+    return { page: 1, limit: 20, q: normalized } as const;
+  }, [searchQuery]);
+
+  const {
+    data: usersResponse,
+    isLoading,
+    isError,
+  } = useQuery({
+    queryKey: ['users', queryParams],
+    queryFn: ({ queryKey }) => {
+      const [, params] = queryKey as [string, { page: number; limit: number; q: string }];
+      return api.users.list(params);
+    },
+    keepPreviousData: true,
   });
+
+  const users = usersResponse ?? [];
 
   useEffect(() => {
     if (isCreateOpen) {
@@ -165,18 +180,6 @@ export default function AdminUsers() {
     mutationFn: ({ id, role }: { id: string; role: UserRole }) =>
       api.users.updateRole(id, { role }),
   });
-
-  const filteredUsers = useMemo(() => {
-    const normalizedQuery = searchQuery.trim().toLowerCase();
-    if (!normalizedQuery) return users;
-    return users.filter((user) => {
-      const name = user.name?.toLowerCase() ?? '';
-      return (
-        name.includes(normalizedQuery) ||
-        user.email.toLowerCase().includes(normalizedQuery)
-      );
-    });
-  }, [searchQuery, users]);
 
   const isFormOpen = isCreateOpen || editingUser !== null;
   const isSubmitting =
@@ -337,14 +340,14 @@ export default function AdminUsers() {
                     </TableRow>
                   </TableHeader>
                   <TableBody>
-                    {filteredUsers.length === 0 ? (
+                    {users.length === 0 ? (
                       <TableRow>
                         <TableCell colSpan={5} className="py-8 text-center text-muted-foreground">
                           Nerasta vartotojų
                         </TableCell>
                       </TableRow>
                     ) : (
-                      filteredUsers.map((user) => (
+                      users.map((user) => (
                         <TableRow key={user.id}>
                           <TableCell className="font-medium">{user.name ?? '—'}</TableCell>
                           <TableCell className="min-w-[14rem] break-words">{user.email}</TableCell>

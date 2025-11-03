@@ -1,6 +1,6 @@
 import { FormEvent, useMemo, useRef, useState } from 'react';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
-import { Archive, Edit, Loader2, Plus, Search, Trash2 } from 'lucide-react';
+import { Archive, Edit, Loader2, Plus, Search } from 'lucide-react';
 import { toast } from 'sonner';
 
 import { MainLayout } from '@/components/Layout/MainLayout';
@@ -17,22 +17,13 @@ import {
   DialogTrigger,
 } from '@/components/ui/dialog';
 import { Input } from '@/components/ui/input';
-import { Label } from '@/components/ui/label';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
-import { Textarea } from '@/components/ui/textarea';
-import { Checkbox } from '@/components/ui/checkbox';
-import { ScrollArea } from '@/components/ui/scroll-area';
 import ltMessages from '@/i18n/messages.lt.json';
 import api, { HttpError } from '@/lib/api';
 import {
-  mapGroupFromApi,
   mapTaskFromApi,
-  mapTemplateFromApi,
-  type BulkAssignmentsFromTemplatePayload,
-  type Group,
+  type CreateTaskPayload,
   type Task,
-  type TaskFrequency,
-  type Template,
   type UpdateTaskPayload,
 } from '@/lib/types';
 import { TaskDetailsForm, type TaskDetailsFormValues, type TaskDetailsFormStep } from '@/components/tasks/TaskDetailsForm';
@@ -40,46 +31,7 @@ import { TaskDetailsForm, type TaskDetailsFormValues, type TaskDetailsFormStep }
 const messages = ltMessages.tasks;
 
 const adminTasksQueryKey = ['tasks', 'admin', 'overview'] as const;
-const templatesQueryKey = ['templates'] as const;
-const groupsQueryKey = ['groups'] as const;
-
-const buildDefaultFormState = () => ({
-  title: '',
-  description: '',
-  templateId: '',
-  groupIds: [] as string[],
-  startDate: '',
-  dueDate: '',
-  notify: true,
-});
-
-type CreateAssignmentFormState = ReturnType<typeof buildDefaultFormState>;
-
-const monthOptions = [
-  { value: 1, label: 'Sausis' },
-  { value: 2, label: 'Vasaris' },
-  { value: 3, label: 'Kovas' },
-  { value: 4, label: 'Balandis' },
-  { value: 5, label: 'Gegužė' },
-  { value: 6, label: 'Birželis' },
-  { value: 7, label: 'Liepa' },
-  { value: 8, label: 'Rugpjūtis' },
-  { value: 9, label: 'Rugsėjis' },
-  { value: 10, label: 'Spalis' },
-  { value: 11, label: 'Lapkritis' },
-  { value: 12, label: 'Gruodis' },
-];
-
-const frequencyOptions: { value: TaskFrequency; label: string }[] = [
-  { value: 'once', label: 'Vienkartinė' },
-  { value: 'weekly', label: 'Kas savaitę' },
-  { value: 'monthly', label: 'Kas mėnesį' },
-  { value: 'seasonal', label: 'Sezoninė' },
-];
-
-type EditFormStep = TaskDetailsFormStep;
-
-const buildDefaultEditFormState = (): TaskDetailsFormValues => ({
+const buildDefaultTaskFormValues = (): TaskDetailsFormValues => ({
   title: '',
   description: '',
   category: '',
@@ -89,35 +41,33 @@ const buildDefaultEditFormState = (): TaskDetailsFormValues => ({
   steps: [{ title: '', contentText: '' }],
 });
 
-type EditTaskFormState = TaskDetailsFormValues;
+type TaskFormState = TaskDetailsFormValues;
+
+type EditFormStep = TaskDetailsFormStep;
+
+const mapTaskToFormValues = (task: Task): TaskDetailsFormValues => ({
+  title: task.title,
+  description: task.description ?? '',
+  category: task.category ?? '',
+  frequency: task.frequency,
+  defaultDueDays: String(task.defaultDueDays ?? 7),
+  seasonMonths: Array.isArray(task.seasonMonths)
+    ? [...task.seasonMonths].sort((a, b) => a - b)
+    : [],
+  steps: [{ title: '', contentText: '' }],
+});
 
 export default function AdminTasks() {
   const queryClient = useQueryClient();
   const [searchQuery, setSearchQuery] = useState('');
   const [categoryFilter, setCategoryFilter] = useState<string>('all');
   const [isCreateDialogOpen, setIsCreateDialogOpen] = useState(false);
-  const [createForm, setCreateForm] = useState<CreateAssignmentFormState>(buildDefaultFormState);
+  const [createForm, setCreateForm] = useState<TaskFormState>(buildDefaultTaskFormValues);
   const [isEditDialogOpen, setIsEditDialogOpen] = useState(false);
   const [editingTaskId, setEditingTaskId] = useState<string | null>(null);
   const editingTaskIdRef = useRef<string | null>(null);
-  const [editForm, setEditForm] = useState<EditTaskFormState>(buildDefaultEditFormState);
+  const [editForm, setEditForm] = useState<TaskFormState>(buildDefaultTaskFormValues);
   const [isLoadingEditData, setIsLoadingEditData] = useState(false);
-
-  const { data: templates = [], isLoading: areTemplatesLoading } = useQuery<Template[]>({
-    queryKey: templatesQueryKey,
-    queryFn: async () => {
-      const response = await api.templates.list();
-      return response.map(mapTemplateFromApi);
-    },
-  });
-
-  const { data: groups = [], isLoading: areGroupsLoading } = useQuery<Group[]>({
-    queryKey: groupsQueryKey,
-    queryFn: async () => {
-      const response = await api.groups.list();
-      return response.map(mapGroupFromApi);
-    },
-  });
 
   const { data: tasks = [], isLoading, isError } = useQuery<Task[]>({
     queryKey: adminTasksQueryKey,
@@ -141,11 +91,11 @@ export default function AdminTasks() {
   }, [tasks, searchQuery, categoryFilter]);
 
   const resetCreateForm = () => {
-    setCreateForm(buildDefaultFormState());
+    setCreateForm(buildDefaultTaskFormValues());
   };
 
   const resetEditForm = () => {
-    setEditForm(buildDefaultEditFormState());
+    setEditForm(buildDefaultTaskFormValues());
     setEditingTaskId(null);
     editingTaskIdRef.current = null;
     setIsLoadingEditData(false);
@@ -158,23 +108,56 @@ export default function AdminTasks() {
     void queryClient.invalidateQueries({ queryKey: ['notifications'] });
   };
 
+  const buildTaskPayload = (values: TaskFormState): CreateTaskPayload | null => {
+    const trimmedTitle = values.title.trim();
+    if (!trimmedTitle) {
+      toast.error(messages.validationTitle);
+      return null;
+    }
+
+    const parsedDefaultDueDays = Number(values.defaultDueDays);
+    if (!Number.isFinite(parsedDefaultDueDays) || parsedDefaultDueDays <= 0) {
+      toast.error(messages.validationDefaultDueDays);
+      return null;
+    }
+
+    const sanitizedSteps = values.steps
+      .map((step) => ({
+        title: step.title.trim(),
+        contentText: step.contentText.trim(),
+      }))
+      .filter((step) => step.title.length > 0);
+
+    if (sanitizedSteps.length === 0) {
+      toast.error(
+        'Pridėkite bent vieną žingsnį. Užduotis turi turėti bent vieną žingsnį su pavadinimu.',
+      );
+      return null;
+    }
+
+    const seasonMonths = [...values.seasonMonths].sort((a, b) => a - b);
+
+    return {
+      title: trimmedTitle,
+      description: values.description.trim() || undefined,
+      category: values.category.trim() || undefined,
+      frequency: values.frequency,
+      defaultDueDays: parsedDefaultDueDays,
+      seasonMonths: seasonMonths.length > 0 ? seasonMonths : undefined,
+      steps: sanitizedSteps.map((step) => ({
+        title: step.title,
+        contentText: step.contentText || undefined,
+      })),
+    };
+  };
+
   const handleOpenEditDialog = (task: Task) => {
     const taskId = task.id;
     setEditingTaskId(taskId);
     editingTaskIdRef.current = taskId;
     setIsEditDialogOpen(true);
     setIsLoadingEditData(true);
-    setEditForm({
-      title: task.title,
-      description: task.description ?? '',
-      category: task.category ?? '',
-      frequency: task.frequency,
-      defaultDueDays: String(task.defaultDueDays),
-      seasonMonths: Array.isArray(task.seasonMonths)
-        ? [...task.seasonMonths].sort((a, b) => a - b)
-        : [],
-      steps: [{ title: '', contentText: '' }],
-    });
+    setEditForm(mapTaskToFormValues(task));
 
     void (async () => {
       try {
@@ -213,25 +196,22 @@ export default function AdminTasks() {
   };
 
   const createMutation = useMutation({
-    mutationFn: async (payload: BulkAssignmentsFromTemplatePayload) => {
-      return api.assignments.bulkFromTemplate(payload);
+    mutationFn: async (payload: CreateTaskPayload) => {
+      const response = await api.tasks.create(payload);
+      return mapTaskFromApi(response);
     },
-    onSuccess: (result) => {
-      toast.success(
-        messages.bulkSuccess
-          .replace('{count}', String(result.created))
-          .replace('{groups}', String(result.groups)),
-      );
+    onSuccess: () => {
+      toast.success(messages.createSuccess);
       setIsCreateDialogOpen(false);
       resetCreateForm();
       invalidateQueries();
     },
-    onError: (error) => {
+    onError: (error: unknown) => {
       if (error instanceof HttpError) {
         toast.error(error.message);
         return;
       }
-      toast.error(messages.bulkError);
+      toast.error(messages.createError);
     },
   });
 
@@ -255,53 +235,17 @@ export default function AdminTasks() {
     },
   });
 
-  const handleToggleGroup = (groupId: string, checked: boolean) => {
-    setCreateForm((prev) => {
-      const nextGroupIds = checked
-        ? Array.from(new Set([...prev.groupIds, groupId]))
-        : prev.groupIds.filter((id) => id !== groupId);
-      return { ...prev, groupIds: nextGroupIds };
-    });
-  };
-
   const handleCreateSubmit = async (event: FormEvent<HTMLFormElement>) => {
     event.preventDefault();
 
-    const trimmedTitle = createForm.title.trim();
-    if (!trimmedTitle) {
-      toast.error(messages.validationTitle);
+    if (createMutation.isPending) {
       return;
     }
 
-    if (!createForm.templateId) {
-      toast.error(messages.validationTemplate);
+    const payload = buildTaskPayload(createForm);
+    if (!payload) {
       return;
     }
-
-    if (!createForm.groupIds.length) {
-      toast.error(messages.validationGroups);
-      return;
-    }
-
-    if (!createForm.startDate || !createForm.dueDate) {
-      toast.error(messages.validationDatesRequired);
-      return;
-    }
-
-    if (createForm.startDate > createForm.dueDate) {
-      toast.error(messages.validationDateRange);
-      return;
-    }
-
-    const payload: BulkAssignmentsFromTemplatePayload = {
-      templateId: createForm.templateId,
-      groupIds: createForm.groupIds,
-      title: trimmedTitle,
-      description: createForm.description.trim() || undefined,
-      startDate: createForm.startDate,
-      dueDate: createForm.dueDate,
-      notify: createForm.notify,
-    };
 
     await createMutation.mutateAsync(payload);
   };
@@ -313,52 +257,13 @@ export default function AdminTasks() {
       return;
     }
 
-    const trimmedTitle = editForm.title.trim();
-    if (!trimmedTitle) {
-      toast.error('Trūksta pavadinimo. Įveskite užduoties pavadinimą prieš išsaugant.');
+    const payload = buildTaskPayload(editForm) as UpdateTaskPayload | null;
+    if (!payload) {
       return;
     }
-
-    const parsedDefaultDueDays = Number(editForm.defaultDueDays);
-    if (!Number.isFinite(parsedDefaultDueDays) || parsedDefaultDueDays <= 0) {
-      toast.error('Neteisingas termino laikas. Įveskite teigiamą dienų skaičių.');
-      return;
-    }
-
-    const sanitizedSteps = editForm.steps
-      .map((step) => ({
-        title: step.title.trim(),
-        contentText: step.contentText.trim(),
-      }))
-      .filter((step) => step.title.length > 0);
-
-    if (sanitizedSteps.length === 0) {
-      toast.error('Pridėkite bent vieną žingsnį. Užduotis turi turėti bent vieną žingsnį su pavadinimu.');
-      return;
-    }
-
-    const seasonMonths = [...editForm.seasonMonths].sort((a, b) => a - b);
-
-    const payload: UpdateTaskPayload = {
-      title: trimmedTitle,
-      description: editForm.description.trim() || undefined,
-      category: editForm.category.trim() || undefined,
-      frequency: editForm.frequency,
-      defaultDueDays: parsedDefaultDueDays,
-      seasonMonths: seasonMonths.length > 0 ? seasonMonths : undefined,
-      steps: sanitizedSteps.map((step) => ({
-        title: step.title,
-        contentText: step.contentText || undefined,
-      })),
-    };
 
     await updateMutation.mutateAsync({ id: editingTaskId, payload });
   };
-
-  const selectedTemplate = useMemo(
-    () => templates.find((template) => template.id === createForm.templateId),
-    [templates, createForm.templateId],
-  );
 
   const editFormDisabled = updateMutation.isPending || isLoadingEditData;
 
@@ -446,7 +351,9 @@ export default function AdminTasks() {
         <div className="flex items-center justify-between">
           <div>
             <h1 className="text-3xl font-bold">Užduotys</h1>
-            <p className="text-muted-foreground mt-1">Priskirkite šablonus grupėms ir stebėkite eigą</p>
+            <p className="text-muted-foreground mt-1">
+              Kurkite ir redaguokite bitininkams skirtas užduotis.
+            </p>
           </div>
           <Dialog
             open={isCreateDialogOpen}
@@ -458,173 +365,28 @@ export default function AdminTasks() {
             }}
           >
             <DialogTrigger asChild>
-              <Button disabled={createMutation.isLoading}>
-                {createMutation.isLoading ? (
+              <Button disabled={createMutation.isPending}>
+                {createMutation.isPending ? (
                   <Loader2 className="mr-2 h-4 w-4 animate-spin" />
                 ) : (
                   <Plus className="mr-2 w-4 h-4" />
                 )}
-                {createMutation.isLoading ? 'Saugoma...' : 'Sukurti užduotį'}
+                {createMutation.isPending ? 'Saugoma...' : 'Sukurti užduotį'}
               </Button>
             </DialogTrigger>
-            <DialogContent className="max-h-[90vh] overflow-y-auto sm:max-w-4xl">
+            <DialogContent className="max-h-[90vh] overflow-y-auto sm:max-w-2xl">
               <DialogHeader>
                 <DialogTitle>Nauja užduotis</DialogTitle>
                 <DialogDescription>
-                  Pasirinkite šabloną ir priskirkite jį pasirinktų grupių aviliams.
+                  Nurodykite užduoties informaciją ir jos žingsnius.
                 </DialogDescription>
               </DialogHeader>
               <form onSubmit={handleCreateSubmit} className="space-y-6">
-                <div className="grid gap-4 md:grid-cols-2">
-                  <div className="space-y-2 md:col-span-2">
-                    <Label htmlFor="task-title">Pavadinimas</Label>
-                    <Input
-                      id="task-title"
-                      value={createForm.title}
-                      onChange={(event) =>
-                        setCreateForm((prev) => ({ ...prev, title: event.target.value }))
-                      }
-                      placeholder="Pvz., Pavasarinė apžiūra"
-                      disabled={createMutation.isLoading}
-                      required
-                    />
-                  </div>
-                  <div className="space-y-2 md:col-span-2">
-                    <Label htmlFor="task-description">Aprašymas</Label>
-                    <Textarea
-                      id="task-description"
-                      value={createForm.description}
-                      onChange={(event) =>
-                        setCreateForm((prev) => ({ ...prev, description: event.target.value }))
-                      }
-                      placeholder="Trumpai aprašykite, ką turėtų atlikti bitininkai"
-                      disabled={createMutation.isLoading}
-                      rows={3}
-                    />
-                  </div>
-                  <div className="space-y-2">
-                    <Label>Šablonas</Label>
-                    <Select
-                      value={createForm.templateId}
-                      onValueChange={(value) =>
-                        setCreateForm((prev) => ({ ...prev, templateId: value }))
-                      }
-                      disabled={
-                        createMutation.isLoading ||
-                        areTemplatesLoading ||
-                        templates.length === 0
-                      }
-                    >
-                      <SelectTrigger>
-                        <SelectValue placeholder={messages.templatePlaceholder} />
-                      </SelectTrigger>
-                      <SelectContent>
-                        {templates.map((template) => (
-                          <SelectItem key={template.id} value={template.id}>
-                            {template.name}
-                          </SelectItem>
-                        ))}
-                      </SelectContent>
-                    </Select>
-                    {areTemplatesLoading && (
-                      <p className="text-sm text-muted-foreground">Įkeliami šablonai...</p>
-                    )}
-                    {!areTemplatesLoading && templates.length === 0 && (
-                      <p className="text-sm text-destructive">Nėra sukurtų šablonų.</p>
-                    )}
-                  </div>
-                  <div className="space-y-2">
-                    <Label>Grupės</Label>
-                    <div className="rounded-md border">
-                      <ScrollArea className="h-40">
-                        <div className="p-3 space-y-2">
-                          {areGroupsLoading ? (
-                            <p className="text-sm text-muted-foreground">Įkeliamos grupės...</p>
-                          ) : groups.length === 0 ? (
-                            <p className="text-sm text-destructive">Nėra galimų grupių.</p>
-                          ) : (
-                            groups.map((group) => {
-                              const checked = createForm.groupIds.includes(group.id);
-                              return (
-                                <label
-                                  key={group.id}
-                                  htmlFor={`group-${group.id}`}
-                                  className="flex items-center gap-2 text-sm font-medium"
-                                >
-                                  <Checkbox
-                                    id={`group-${group.id}`}
-                                    checked={checked}
-                                    onCheckedChange={(state) =>
-                                      handleToggleGroup(group.id, state === true)
-                                    }
-                                    disabled={createMutation.isLoading}
-                                  />
-                                  <span>{group.name}</span>
-                                </label>
-                              );
-                            })
-                          )}
-                        </div>
-                      </ScrollArea>
-                    </div>
-                    {createForm.groupIds.length > 0 && (
-                      <p className="text-xs text-muted-foreground">
-                        Pasirinkta grupių: {createForm.groupIds.length}
-                      </p>
-                    )}
-                  </div>
-                  <div className="space-y-2">
-                    <Label htmlFor="task-start-date">Pradžios data</Label>
-                    <Input
-                      id="task-start-date"
-                      type="date"
-                      value={createForm.startDate}
-                      onChange={(event) =>
-                        setCreateForm((prev) => ({ ...prev, startDate: event.target.value }))
-                      }
-                      disabled={createMutation.isLoading}
-                      required
-                    />
-                  </div>
-                  <div className="space-y-2">
-                    <Label htmlFor="task-due-date">Pabaigos data</Label>
-                    <Input
-                      id="task-due-date"
-                      type="date"
-                      value={createForm.dueDate}
-                      onChange={(event) =>
-                        setCreateForm((prev) => ({ ...prev, dueDate: event.target.value }))
-                      }
-                      disabled={createMutation.isLoading}
-                      required
-                    />
-                  </div>
-                  <div className="space-y-2 md:col-span-2">
-                    <label className="flex items-center gap-2 text-sm font-medium">
-                      <Checkbox
-                        checked={createForm.notify}
-                        onCheckedChange={(state) =>
-                          setCreateForm((prev) => ({ ...prev, notify: state !== false }))
-                        }
-                        disabled={createMutation.isLoading}
-                      />
-                      <span>{messages.notifyLabel}</span>
-                    </label>
-                    <p className="text-xs text-muted-foreground">{messages.notifyHint}</p>
-                  </div>
-                </div>
-
-                {selectedTemplate && (
-                  <div className="rounded-lg border bg-muted/30 p-4 space-y-1">
-                    <h3 className="font-semibold text-sm">Pasirinkto šablono informacija</h3>
-                    <p className="text-sm text-muted-foreground">
-                      Žingsnių skaičius: {selectedTemplate.steps.length}
-                    </p>
-                    {selectedTemplate.description && (
-                      <p className="text-sm text-muted-foreground">{selectedTemplate.description}</p>
-                    )}
-                  </div>
-                )}
+                <TaskDetailsForm
+                  values={createForm}
+                  onChange={(updater) => setCreateForm((prev) => updater(prev))}
+                  disabled={createMutation.isPending}
+                />
 
                 <DialogFooter className="flex flex-col gap-2 sm:flex-row sm:justify-end">
                   <Button
@@ -634,12 +396,12 @@ export default function AdminTasks() {
                       resetCreateForm();
                       setIsCreateDialogOpen(false);
                     }}
-                    disabled={createMutation.isLoading}
+                    disabled={createMutation.isPending}
                   >
                     Atšaukti
                   </Button>
-                  <Button type="submit" disabled={createMutation.isLoading}>
-                    {createMutation.isLoading ? (
+                  <Button type="submit" disabled={createMutation.isPending}>
+                    {createMutation.isPending ? (
                       <>
                         <Loader2 className="mr-2 h-4 w-4 animate-spin" />
                         Saugoma...

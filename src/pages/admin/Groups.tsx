@@ -120,6 +120,11 @@ export default function AdminGroups() {
   const hiveSelectValue = memberHiveToAdd;
   const canSelectHive = selectedUserHives.length > 0;
 
+  const resetMemberSelection = () => {
+    setMemberToAdd('');
+    setMemberHiveToAdd('');
+  };
+
   const resetCreateForm = () => setCreateForm(defaultFormState);
   const resetEditForm = () => setEditForm(defaultFormState);
 
@@ -212,8 +217,7 @@ export default function AdminGroups() {
       });
       invalidateGroups();
       invalidateUsers();
-      setMemberToAdd(undefined);
-      setMemberHiveToAdd(null);
+      resetMemberSelection();
     },
     onError: (err: unknown) => {
       const message =
@@ -529,23 +533,22 @@ export default function AdminGroups() {
         onOpenChange={(open) => {
           if (!open) {
             setMembersDialogGroupId(null);
-            setMemberToAdd('');
-            setMemberHiveToAdd('');
+            resetMemberSelection();
           }
         }}
       >
-        <DialogContent className="max-w-[720px]">
+        <DialogContent className="sm:max-w-[720px]">
           <DialogHeader>
             <DialogTitle>Grupės nariai</DialogTitle>
             <DialogDescription>
               {membersDialogGroup
                 ? `Grupė „${membersDialogGroup.name}“`
-                : "Pasirinkite grupę nariams valdyti."}
+                : 'Pasirinkite grupę nariams valdyti.'}
             </DialogDescription>
           </DialogHeader>
           {membersDialogGroup ? (
-            <div className="max-h-[70vh] space-y-6 overflow-y-auto pr-1">
-              <div className="space-y-3">
+            <div className="flex max-h-[75vh] flex-col gap-6">
+              <div className="space-y-3 overflow-y-auto pr-1">
                 <h3 className="font-medium text-sm text-muted-foreground">
                   Esami nariai
                 </h3>
@@ -554,35 +557,37 @@ export default function AdminGroups() {
                     Šioje grupėje dar nėra narių.
                   </p>
                 ) : (
-                  <div className="space-y-2">
-                    {membersDialogGroup.members.map((member) => (
-                      <GroupMemberRow
-                        key={member.id}
-                        member={member}
-                        onRemove={() =>
-                          removeMemberMutation.mutate({
-                            groupId: membersDialogGroup.id,
-                            userId: member.userId,
-                          })
-                        }
-                        isRemoving={removeMemberMutation.isPending}
-                      />
-                    ))}
-                  </div>
+                  membersDialogGroup.members.map((member) => (
+                    <GroupMemberRow
+                      key={member.id}
+                      member={member}
+                      onRemove={() =>
+                        removeMemberMutation.mutate({
+                          groupId: membersDialogGroup.id,
+                          userId: member.userId,
+                        })
+                      }
+                      isRemoving={removeMemberMutation.isPending}
+                    />
+                  ))
                 )}
               </div>
-              <div className="space-y-3">
-                <h3 className="font-medium text-sm text-muted-foreground">
-                  Pridėti naują narį
-                </h3>
-                <div className="space-y-3">
-                  <div className="flex flex-col gap-3 md:flex-row md:flex-wrap md:items-end">
+              <div className="space-y-4">
+                <div>
+                  <h3 className="text-lg font-semibold">Pridėti narį</h3>
+                  <p className="text-sm text-muted-foreground">
+                    Pasirinkite vartotoją ir, jei reikia, konkretų avilį.
+                  </p>
+                </div>
+                <div className="flex flex-col gap-4">
+                  <div className="flex flex-col gap-2 sm:flex-row sm:items-end sm:gap-4">
                     <Select
                       value={memberToAdd}
                       onValueChange={(value) => {
                         setMemberToAdd(value);
                         setMemberHiveToAdd('');
                       }}
+                      disabled={addMemberMutation.isPending}
                     >
                       <SelectTrigger className="w-full sm:w-64">
                         <SelectValue placeholder="Pasirinkite vartotoją" />
@@ -594,7 +599,10 @@ export default function AdminGroups() {
                           </SelectItem>
                         ) : (
                           availableMembers
-                            .filter((candidate) => typeof candidate.id === 'string' && candidate.id.length > 0)
+                            .filter(
+                              (candidate) =>
+                                typeof candidate.id === 'string' && candidate.id.length > 0,
+                            )
                             .map((candidate) => (
                               <SelectItem key={candidate.id} value={candidate.id}>
                                 {mapToOptionLabel(candidate)}
@@ -607,12 +615,12 @@ export default function AdminGroups() {
                       <Select
                         value={hiveSelectValue}
                         onValueChange={(value) => setMemberHiveToAdd(value)}
+                        disabled={addMemberMutation.isPending}
                       >
                         <SelectTrigger className="w-full sm:w-64">
                           <SelectValue placeholder="Pasirinkite avilį" />
                         </SelectTrigger>
                         <SelectContent>
-                          <SelectItem value="">Pasirinkite avilį</SelectItem>
                           <SelectItem value={ALL_HIVES_VALUE}>Visi aviliai</SelectItem>
                           {canSelectHive ? (
                             selectedUserHives.map((hive) => (

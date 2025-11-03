@@ -15,7 +15,7 @@ import { UserRole } from '../../users/user.entity';
 import { CreateTaskStepDto } from './dto/create-task-step.dto';
 import { CreateGlobalTaskStepDto } from './dto/create-global-task-step.dto';
 import { UpdateTaskStepDto } from './dto/update-task-step.dto';
-import { runWithDatabaseErrorHandling } from '../../common/errors/database-error.util';
+import { DatabaseErrorContext, runWithDatabaseErrorHandling } from '../../common/errors/database-error.util';
 import { Tag } from '../tags/tag.entity';
 
 @Injectable()
@@ -70,7 +70,11 @@ export class TaskStepsService {
     );
   }
 
-  private async syncStepTags(stepId: string, tagIds?: string[] | null) {
+  private async syncStepTags(
+    stepId: string,
+    tagIds: string[] | null | undefined,
+    context: DatabaseErrorContext,
+  ) {
     if (tagIds === undefined) {
       return;
     }
@@ -84,17 +88,21 @@ export class TaskStepsService {
 
       if (existing.length !== normalizedIds.length) {
         throw new BadRequestException({
-          message: 'Neteisingi duomenys',
+          message: context.message,
           details: 'Pasirinkta žymė nerasta',
         });
       }
     }
 
-    await this.stepsRepository
-      .createQueryBuilder()
-      .relation(TaskStep, 'tags')
-      .of(stepId)
-      .set(normalizedIds);
+    await runWithDatabaseErrorHandling(
+      () =>
+        this.stepsRepository
+          .createQueryBuilder()
+          .relation(TaskStep, 'tags')
+          .of(stepId)
+          .set(normalizedIds),
+      context,
+    );
   }
 
   private createBaseQueryBuilder() {
@@ -167,9 +175,21 @@ export class TaskStepsService {
   }
 
   private async ensureTaskExists(taskId: string) {
-    const taskExists = await this.tasksRepository.exist({ where: { id: taskId } });
+    const task = await this.tasksRepository
+      .createQueryBuilder('task')
+      .withDeleted()
+      .select(['task.id', 'task.title', 'task.category', 'task.deletedAt'])
+      .where('task.id = :taskId', { taskId })
+      .getOne();
 
-    if (!taskExists) {
+    if (!task) {
+      throw new NotFoundException('Užduotis nerasta');
+    }
+
+    if (
+      task.deletedAt &&
+      (task.title !== this.globalTaskTitle || task.category !== this.globalTaskCategory)
+    ) {
       throw new NotFoundException('Užduotis nerasta');
     }
   }
@@ -310,7 +330,21 @@ export class TaskStepsService {
       { message: 'Nepavyko sukurti žingsnio' },
     );
 
-    await this.syncStepTags(saved.id, dto.tagIds ?? []);
+    try {
+      await this.syncStepTags(saved.id, dto.tagIds ?? [], { message: 'Nepavyko sukurti žingsnio' });
+    } catch (error) {
+      try {
+        await this.stepsRepository.delete(saved.id);
+      } catch (cleanupError) {
+        const cleanupErrorInstance = cleanupError instanceof Error ? cleanupError : undefined;
+        this.logger.error(
+          'Nepavyko pašalinti nesėkmingai sukurto žingsnio',
+          cleanupErrorInstance?.stack ?? cleanupErrorInstance?.message,
+        );
+      }
+
+      throw error;
+    }
     await this.activityLog.log('task_step_created', user.id, 'task', taskId);
     return this.findOne(taskId, saved.id);
   }
@@ -365,7 +399,7 @@ export class TaskStepsService {
     );
 
     if (shouldUpdateTags) {
-      await this.syncStepTags(saved.id, dto.tagIds ?? []);
+      await this.syncStepTags(saved.id, dto.tagIds ?? [], { message: 'Nepavyko atnaujinti žingsnio' });
     }
 
     await this.activityLog.log('task_step_updated', user.id, 'task', taskId);
@@ -406,7 +440,21 @@ export class TaskStepsService {
       { message: 'Nepavyko sukurti žingsnio' },
     );
 
-    await this.syncStepTags(saved.id, dto.tagIds ?? []);
+    try {
+      await this.syncStepTags(saved.id, dto.tagIds ?? [], { message: 'Nepavyko sukurti žingsnio' });
+    } catch (error) {
+      try {
+        await this.stepsRepository.delete(saved.id);
+      } catch (cleanupError) {
+        const cleanupErrorInstance = cleanupError instanceof Error ? cleanupError : undefined;
+        this.logger.error(
+          'Nepavyko pašalinti nesėkmingai sukurto globalaus žingsnio',
+          cleanupErrorInstance?.stack ?? cleanupErrorInstance?.message,
+        );
+      }
+
+      throw error;
+    }
     await this.activityLog.log('task_step_created', user.id, 'task', globalTaskId);
 
     return this.findById(saved.id);

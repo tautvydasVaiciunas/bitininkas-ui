@@ -33,8 +33,8 @@ type TemplateStepDraft = {
 };
 
 type TemplateFormValues = {
-  title: string;
-  comment: string;
+  name: string;
+  description: string;
   steps: TemplateStepDraft[];
 };
 
@@ -104,7 +104,7 @@ export default function AdminTemplates() {
     const normalized = searchQuery.trim().toLowerCase();
     if (!normalized) return templates;
     return templates.filter((template) => {
-      const titleMatches = template.title.toLowerCase().includes(normalized);
+      const titleMatches = template.name.toLowerCase().includes(normalized);
       const stepMatches = template.steps.some((step) =>
         step.taskStep.title.toLowerCase().includes(normalized),
       );
@@ -173,37 +173,29 @@ export default function AdminTemplates() {
   };
 
   const handleFormSubmit = async (values: TemplateFormValues) => {
-    const title = values.title.trim();
-    if (!title) {
+    const name = values.name.trim();
+    if (!name) {
       toast.error(messages.noTitle);
       return;
     }
 
-    const commentText = values.comment.trim();
-    const comment = commentText.length > 0 ? commentText : null;
-    const stepsPayload = values.steps.map((step, index) => ({
-      stepId: step.taskStepId,
-      order: index + 1,
-    }));
-
-    if (stepsPayload.length === 0) {
-      toast.error(messages.noSteps);
-      return;
-    }
+    const descriptionText = values.description.trim();
+    const description = descriptionText.length > 0 ? descriptionText : null;
+    const stepIds = values.steps.map((step) => step.taskStepId);
 
     try {
       if (templateToEdit) {
         const payload: UpdateTemplatePayload = {
-          title,
-          comment,
-          stepsWithOrder: stepsPayload,
+          name,
+          description,
+          stepIds,
         };
         await updateMutation.mutateAsync({ id: templateToEdit.id, payload });
       } else {
         const payload: CreateTemplatePayload = {
-          title,
-          comment: comment ?? undefined,
-          stepsWithOrder: stepsPayload,
+          name,
+          description: description ?? undefined,
+          stepIds,
         };
         await createMutation.mutateAsync(payload);
       }
@@ -317,8 +309,8 @@ type TemplateFormProps = {
 };
 
 function TemplateForm({ template, tags, onCancel, onSubmit, isSubmitting }: TemplateFormProps) {
-  const [title, setTitle] = useState(template?.title ?? '');
-  const [comment, setComment] = useState(template?.comment ?? '');
+  const [name, setName] = useState(template?.name ?? '');
+  const [description, setDescription] = useState(template?.description ?? '');
   const [selectedTagId, setSelectedTagId] = useState<string>('');
   const [templateSteps, setTemplateSteps] = useState<TemplateStepDraft[]>(
     template
@@ -333,8 +325,8 @@ function TemplateForm({ template, tags, onCancel, onSubmit, isSubmitting }: Temp
   );
 
   useEffect(() => {
-    setTitle(template?.title ?? '');
-    setComment(template?.comment ?? '');
+    setName(template?.name ?? '');
+    setDescription(template?.description ?? '');
     setSelectedTagId('');
     setTemplateSteps(
       template
@@ -407,7 +399,7 @@ function TemplateForm({ template, tags, onCancel, onSubmit, isSubmitting }: Temp
 
   const handleSubmit = async (event: FormEvent<HTMLFormElement>) => {
     event.preventDefault();
-    await onSubmit({ title, comment, steps: templateSteps });
+    await onSubmit({ name, description, steps: templateSteps });
   };
 
   const selectableTags = useMemo(
@@ -416,17 +408,17 @@ function TemplateForm({ template, tags, onCancel, onSubmit, isSubmitting }: Temp
   );
 
   const tagSelectValue = selectedTagId === '' ? 'all' : selectedTagId;
-  const trimmedTitle = title.trim();
-  const previewTitle =
-    trimmedTitle.length > 0
-      ? trimmedTitle.length > 120
-        ? `${trimmedTitle.slice(0, 117)}…`
-        : trimmedTitle
+  const trimmedName = name.trim();
+  const previewName =
+    trimmedName.length > 0
+      ? trimmedName.length > 120
+        ? `${trimmedName.slice(0, 117)}…`
+        : trimmedName
       : 'Be pavadinimo';
-  const trimmedComment = comment.trim();
-  const previewComment =
-    trimmedComment.length > 160 ? `${trimmedComment.slice(0, 157)}…` : trimmedComment;
-  const previewDescription = previewComment || 'Aprašymas nepateiktas';
+  const trimmedDescription = description.trim();
+  const previewDescriptionText =
+    trimmedDescription.length > 160 ? `${trimmedDescription.slice(0, 157)}…` : trimmedDescription;
+  const previewDescription = previewDescriptionText || 'Aprašymas nepateiktas';
 
   return (
     <form onSubmit={handleSubmit} className="space-y-6">
@@ -435,17 +427,17 @@ function TemplateForm({ template, tags, onCancel, onSubmit, isSubmitting }: Temp
           <Label htmlFor="template-title">Pavadinimas</Label>
           <Input
             id="template-title"
-            value={title}
-            onChange={(event) => setTitle(event.target.value)}
+            value={name}
+            onChange={(event) => setName(event.target.value)}
             disabled={isSubmitting}
           />
         </div>
         <div className="space-y-2 md:col-span-2">
-          <Label htmlFor="template-comment">Komentaras</Label>
+          <Label htmlFor="template-description">Aprašymas</Label>
           <Textarea
-            id="template-comment"
-            value={comment}
-            onChange={(event) => setComment(event.target.value)}
+            id="template-description"
+            value={description}
+            onChange={(event) => setDescription(event.target.value)}
             disabled={isSubmitting}
             rows={3}
           />
@@ -456,7 +448,7 @@ function TemplateForm({ template, tags, onCancel, onSubmit, isSubmitting }: Temp
               <span className="text-xs font-medium uppercase tracking-wide text-muted-foreground">
                 Peržiūra
               </span>
-              <div className="text-lg font-semibold break-words">{previewTitle}</div>
+              <div className="text-lg font-semibold break-words">{previewName}</div>
               <p className="text-sm text-muted-foreground line-clamp-3">{previewDescription}</p>
             </CardContent>
           </Card>
@@ -617,9 +609,11 @@ function TemplateCard({ template, onEdit, onDelete, onReorder, disableActions }:
         <div className="flex items-start justify-between gap-4">
           <div className="flex-1 space-y-2">
             <div>
-              <h3 className="text-lg font-semibold mb-1">{template.title}</h3>
-              {template.comment && (
-                <p className="text-sm text-muted-foreground whitespace-pre-line">{template.comment}</p>
+              <h3 className="text-lg font-semibold mb-1">{template.name}</h3>
+              {template.description && (
+                <p className="text-sm text-muted-foreground whitespace-pre-line">
+                  {template.description}
+                </p>
               )}
               <p className="text-sm text-muted-foreground">Žingsniai: {orderedSteps.length}</p>
             </div>
@@ -658,7 +652,7 @@ function TemplateCard({ template, onEdit, onDelete, onReorder, disableActions }:
                       </div>
                     </div>
                   </div>
-                  <div className="text-xs text-muted-foreground">Eilė: #{step.orderIndex}</div>
+                  <div className="text-xs text-muted-foreground">Eilė: #{step.orderIndex + 1}</div>
                 </div>
               ))}
             </div>

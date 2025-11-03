@@ -44,7 +44,6 @@ import type {
   UpdateUserRolePayload,
   UpdateProgressPayload,
   UserRole as ApiUserRole,
-  TemplateStepWithOrderPayload,
   ReorderTemplateStepsPayload,
   TagResponse as ApiTagResponse,
   CreateGlobalTaskStepPayload,
@@ -72,7 +71,6 @@ export type {
   UpdateTaskPayload,
   UpdateTaskStepPayload,
   CreateTemplatePayload,
-  TemplateStepWithOrderPayload,
   UpdateTemplatePayload,
   ReorderTemplateStepsPayload,
   UpdateProfilePayload,
@@ -99,8 +97,8 @@ export type TaskWithSteps = ApiTaskWithStepsResponse;
 export type TaskStep = ApiTaskStepResponse;
 export type Tag = ApiTagResponse;
 export type TemplateStep = Omit<ApiTemplateStepResponse, 'taskStep'> & { taskStep: TaskStep };
-export type Template = Omit<ApiTemplateResponse, 'steps' | 'comment'> & {
-  comment: string | null;
+export type Template = Omit<ApiTemplateResponse, 'steps' | 'description'> & {
+  description: string | null;
   steps: TemplateStep[];
 };
 export type StepProgress = ApiStepProgressResponse;
@@ -172,7 +170,7 @@ export const mapTemplateStepFromApi = (step: ApiTemplateStepResponse): TemplateS
 
 export const mapTemplateFromApi = (template: ApiTemplateResponse): Template => ({
   ...template,
-  comment: template.comment ?? null,
+  description: template.description ?? null,
   steps: Array.isArray(template.steps) ? template.steps.map(mapTemplateStepFromApi) : [],
 });
 

@@ -15,10 +15,10 @@ export class Template {
   id!: string;
 
   @Column({ name: 'name', type: 'varchar', length: 255 })
-  title!: string;
+  name!: string;
 
-  @Column({ type: 'varchar', length: 1000, nullable: true, default: null })
-  comment!: string | null;
+  @Column({ name: 'comment', type: 'varchar', length: 1000, nullable: true, default: null })
+  description!: string | null;
 
   @OneToMany(() => TemplateStep, (step) => step.template, {
     cascade: true,

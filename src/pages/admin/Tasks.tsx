@@ -711,7 +711,7 @@ export default function AdminTasks() {
                       <SelectContent>
                         {templates.map((template) => (
                           <SelectItem key={template.id} value={template.id}>
-                            {template.title}
+                            {template.name}
                           </SelectItem>
                         ))}
                       </SelectContent>
@@ -810,8 +810,8 @@ export default function AdminTasks() {
                     <p className="text-sm text-muted-foreground">
                       Žingsnių skaičius: {selectedTemplate.steps.length}
                     </p>
-                    {selectedTemplate.comment && (
-                      <p className="text-sm text-muted-foreground">{selectedTemplate.comment}</p>
+                    {selectedTemplate.description && (
+                      <p className="text-sm text-muted-foreground">{selectedTemplate.description}</p>
                     )}
                   </div>
                 )}

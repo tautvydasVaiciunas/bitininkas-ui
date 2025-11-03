@@ -130,8 +130,8 @@ export interface TemplateStepResponse {
 
 export interface TemplateResponse {
   id: string;
-  title: string;
-  comment?: string | null;
+  name: string;
+  description?: string | null;
   createdAt: string;
   updatedAt: string;
   steps: TemplateStepResponse[];
@@ -220,23 +220,16 @@ export type UpdateTaskStepPayload = Partial<CreateTaskStepPayload> & {
 
 export type CreateGlobalTaskStepPayload = CreateTaskStepPayload;
 
-export interface TemplateStepWithOrderPayload {
-  stepId: string;
-  order: number;
-}
-
 export interface CreateTemplatePayload {
-  title: string;
-  comment?: string | null;
-  stepsWithOrder: TemplateStepWithOrderPayload[];
-  steps?: string[];
+  name: string;
+  description?: string | null;
+  stepIds?: string[];
 }
 
 export interface UpdateTemplatePayload {
-  title?: string;
-  comment?: string | null;
-  stepsWithOrder?: TemplateStepWithOrderPayload[];
-  steps?: string[];
+  name?: string;
+  description?: string | null;
+  stepIds?: string[];
 }
 
 export interface ReorderTemplateStepsPayload {

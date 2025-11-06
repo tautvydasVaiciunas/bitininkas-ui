@@ -751,10 +751,17 @@ export const api = {
     },
   },
   notifications: {
-    list: (params?: { page?: number; limit?: number }) =>
-      get<PaginatedResponse<NotificationResponse>>('/notifications', { query: params }).then(
+    list: (params?: { page?: number; limit?: number }) => {
+      const query = {
+        ...params,
+        page: params?.page ?? 1,
+        limit: params?.limit ?? 10,
+      };
+
+      return get<PaginatedResponse<NotificationResponse>>('/notifications', { query }).then(
         attachPaginationMetadata,
-      ),
+      );
+    },
     markRead: (id: string) => patch<{ success: boolean }>(`/notifications/${id}/read`),
     markAllRead: () => patch<{ success: boolean }>('/notifications/mark-all-read'),
     unreadCount: () => get<NotificationsUnreadCountResponse>('/notifications/unread-count'),

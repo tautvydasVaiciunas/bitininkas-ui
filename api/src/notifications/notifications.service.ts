@@ -96,7 +96,7 @@ export class NotificationsService {
 
   private parseLimit(input?: number) {
     const DEFAULT_LIMIT = 10;
-    const MAX_LIMIT = 50;
+    const MAX_LIMIT = 100;
     const value = Number(input);
 
     if (!Number.isFinite(value)) {

@@ -8,6 +8,6 @@ export class ListNotificationsQueryDto extends PaginationQueryDto {
   @Type(() => Number)
   @IsInt({ message: 'Netinkamas kiekio parametras' })
   @Min(1, { message: 'Per mažas rezultatų kiekis' })
-  @Max(50, { message: 'Per didelis rezultatų kiekis' })
+  @Max(100, { message: 'Per didelis rezultatų kiekis' })
   override limit?: number;
 }

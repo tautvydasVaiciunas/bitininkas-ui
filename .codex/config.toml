@@ -1,0 +1,3 @@
+[shell]
+path = "C:\\Program Files\\Git\\bin\\bash.exe"
+args = ["-l", "-c"]

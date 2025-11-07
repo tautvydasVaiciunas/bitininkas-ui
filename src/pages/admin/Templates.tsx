@@ -208,7 +208,41 @@ export default function AdminTemplates() {
     }
   };
 
-  const isSubmitting = createMutation.isLoading || updateMutation.isLoading || reorderMutation.isLoading;
+  const handleDialogReorder = async (stepIds: string[]) => {
+    if (!templateToEdit) {
+      return;
+    }
+
+    const templateId = templateToEdit.id;
+
+    try {
+      await reorderMutation.mutateAsync({ id: templateId, stepIds });
+      toast.success(messages.reorderSuccess);
+      await invalidateTemplates();
+
+      setTemplateToEdit((prev) => {
+        if (!prev || prev.id !== templateId) {
+          return prev;
+        }
+
+        const stepMap = new Map(prev.steps.map((step) => [step.id, step]));
+        const reorderedSteps = stepIds
+          .map((templateStepId, index) => {
+            const step = stepMap.get(templateStepId);
+            return step ? { ...step, orderIndex: index } : null;
+          })
+          .filter((step): step is Template['steps'][number] => Boolean(step));
+
+        return { ...prev, steps: reorderedSteps };
+      });
+    } catch (error) {
+      showError(error, messages.reorderError);
+      throw error;
+    }
+  };
+
+  const isSubmitting = createMutation.isLoading || updateMutation.isLoading;
+  const isReordering = reorderMutation.isLoading;
 
   return (
     <MainLayout>
@@ -254,7 +288,9 @@ export default function AdminTemplates() {
               tags={tags}
               onCancel={closeDialog}
               onSubmit={handleFormSubmit}
+              onReorderSteps={templateToEdit ? handleDialogReorder : undefined}
               isSubmitting={isSubmitting}
+              isReordering={isReordering}
             />
           </DialogContent>
         </Dialog>
@@ -286,9 +322,7 @@ export default function AdminTemplates() {
                     onEdit={() => handleEdit(template)}
                     onDelete={() => handleDelete(template.id)}
                     onReorder={(stepId, direction) => handleCardReorder(template, stepId, direction)}
-                    disableActions={
-                      isSubmitting || deleteMutation.isLoading || reorderMutation.isLoading
-                    }
+                    disableActions={isSubmitting || deleteMutation.isLoading || isReordering}
                   />
                 ))}
               </div>
@@ -305,10 +339,20 @@ type TemplateFormProps = {
   tags: Tag[];
   onCancel: () => void;
   onSubmit: (values: TemplateFormValues) => Promise<void>;
+  onReorderSteps?: (templateStepIds: string[]) => Promise<void>;
   isSubmitting: boolean;
+  isReordering: boolean;
 };
 
-function TemplateForm({ template, tags, onCancel, onSubmit, isSubmitting }: TemplateFormProps) {
+function TemplateForm({
+  template,
+  tags,
+  onCancel,
+  onSubmit,
+  onReorderSteps,
+  isSubmitting,
+  isReordering,
+}: TemplateFormProps) {
   const [name, setName] = useState(template?.name ?? '');
   const [description, setDescription] = useState(template?.description ?? '');
   const [selectedTagId, setSelectedTagId] = useState<string>('');
@@ -378,7 +422,7 @@ function TemplateForm({ template, tags, onCancel, onSubmit, isSubmitting }: Temp
     setTemplateSteps((prev) => prev.filter((step) => step.taskStepId !== taskStepId));
   };
 
-  const handleReorder = (taskStepId: string, direction: 'up' | 'down') => {
+  const handleReorder = async (taskStepId: string, direction: 'up' | 'down') => {
     const index = templateSteps.findIndex((step) => step.taskStepId === taskStepId);
     if (index === -1) {
       return;
@@ -389,12 +433,25 @@ function TemplateForm({ template, tags, onCancel, onSubmit, isSubmitting }: Temp
       return;
     }
 
-    setTemplateSteps((prev) => {
-      const updated = [...prev];
-      const [moved] = updated.splice(index, 1);
-      updated.splice(swapIndex, 0, moved);
-      return updated;
-    });
+    const previous = templateSteps.map((step) => ({ ...step }));
+    const updated = [...templateSteps];
+    const [moved] = updated.splice(index, 1);
+    updated.splice(swapIndex, 0, moved);
+    setTemplateSteps(updated);
+
+    const canPersistReorder =
+      template?.id &&
+      typeof onReorderSteps === 'function' &&
+      updated.every((step) => Boolean(step.templateStepId));
+
+    if (canPersistReorder) {
+      const templateStepIds = updated.map((step) => step.templateStepId!) as string[];
+      try {
+        await onReorderSteps!(templateStepIds);
+      } catch {
+        setTemplateSteps(previous);
+      }
+    }
   };
 
   const handleSubmit = async (event: FormEvent<HTMLFormElement>) => {
@@ -541,7 +598,7 @@ function TemplateForm({ template, tags, onCancel, onSubmit, isSubmitting }: Temp
                             variant="ghost"
                             size="icon"
                             onClick={() => handleReorder(step.taskStepId, 'up')}
-                            disabled={isSubmitting || index === 0}
+                            disabled={isSubmitting || isReordering || index === 0}
                           >
                             <ArrowUp className="h-4 w-4" />
                           </Button>
@@ -549,7 +606,7 @@ function TemplateForm({ template, tags, onCancel, onSubmit, isSubmitting }: Temp
                             variant="ghost"
                             size="icon"
                             onClick={() => handleReorder(step.taskStepId, 'down')}
-                            disabled={isSubmitting || index === templateSteps.length - 1}
+                            disabled={isSubmitting || isReordering || index === templateSteps.length - 1}
                           >
                             <ArrowDown className="h-4 w-4" />
                           </Button>

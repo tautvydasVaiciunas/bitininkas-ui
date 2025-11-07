@@ -4,7 +4,8 @@
   "description": "Busmedaus API built with NestJS and TypeORM",
   "scripts": {
     "app:boot": "npm run migration:run && (npm run seed:prod || true) && npm run start:prod",
-    "build": "nest build",
+    "build": "npm run clean && tsc -p tsconfig.build.json",
+    "clean": "rimraf dist",
     "format": "prettier --write \"src/**/*.ts\"",
     "start": "node dist/main.js",
     "start:dev": "nest start --watch",
@@ -60,6 +61,7 @@
     "eslint": "^8.57.1",
     "eslint-config-prettier": "^9.0.0",
     "eslint-plugin-prettier": "^5.0.0",
+    "rimraf": "^5.0.5",
     "jest": "^29.6.1",
     "prettier": "^3.0.0",
     "supertest": "^6.3.3",

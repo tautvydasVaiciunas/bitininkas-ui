@@ -6,7 +6,7 @@ import {
   NotFoundException,
 } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
-import { DataSource, In, Repository } from 'typeorm';
+import { DataSource, EntityManager, In, Repository } from 'typeorm';
 
 import { Task, TaskFrequency } from '../task.entity';
 import { TaskStep, type TaskStepMediaType } from './task-step.entity';
@@ -35,6 +35,14 @@ export class TaskStepsService {
     private readonly dataSource: DataSource,
     private readonly activityLog: ActivityLogService,
   ) {}
+
+  private getStepsRepository(manager?: EntityManager) {
+    return manager ? manager.getRepository(TaskStep) : this.stepsRepository;
+  }
+
+  private getTagsRepository(manager?: EntityManager) {
+    return manager ? manager.getRepository(Tag) : this.tagsRepository;
+  }
 
   private assertManager(role: UserRole) {
     if (![UserRole.MANAGER, UserRole.ADMIN].includes(role)) {
@@ -71,6 +79,7 @@ export class TaskStepsService {
   }
 
   private async syncStepTags(
+    manager: EntityManager,
     stepId: string,
     tagIds: string[] | null | undefined,
     context: DatabaseErrorContext,
@@ -82,7 +91,7 @@ export class TaskStepsService {
     const normalizedIds = this.normalizeTagIds(tagIds);
 
     if (normalizedIds.length > 0) {
-      const existing = await this.tagsRepository.find({
+      const existing = await this.getTagsRepository(manager).find({
         where: { id: In(normalizedIds) },
       });
 
@@ -95,18 +104,31 @@ export class TaskStepsService {
     }
 
     await runWithDatabaseErrorHandling(
-      () =>
-        this.stepsRepository
-          .createQueryBuilder()
-          .relation(TaskStep, 'tags')
-          .of(stepId)
-          .set(normalizedIds),
+      async () => {
+        const relation = manager.createQueryBuilder().relation(TaskStep, 'tags').of(stepId);
+        const currentTags = await relation.loadMany<Tag>();
+
+        const currentIds = currentTags.map((tag) => tag.id);
+        const currentSet = new Set(currentIds);
+        const nextSet = new Set(normalizedIds);
+
+        const toRemove = currentIds.filter((id) => !nextSet.has(id));
+        const toAdd = normalizedIds.filter((id) => !currentSet.has(id));
+
+        if (toRemove.length) {
+          await relation.remove(toRemove);
+        }
+
+        if (toAdd.length) {
+          await relation.add(toAdd);
+        }
+      },
       context,
     );
   }
 
-  private createBaseQueryBuilder() {
-    return this.stepsRepository
+  private createBaseQueryBuilder(manager?: EntityManager) {
+    return this.getStepsRepository(manager)
       .createQueryBuilder('step')
       .leftJoinAndSelect('step.tags', 'tag');
   }
@@ -200,8 +222,10 @@ export class TaskStepsService {
     }
   }
 
-  private async getNextOrderIndex(taskId: string) {
-    const lastStep = await this.stepsRepository.findOne({
+  private async getNextOrderIndex(taskId: string, manager?: EntityManager) {
+    const repository = this.getStepsRepository(manager);
+
+    const lastStep = await repository.findOne({
       where: { taskId },
       order: { orderIndex: 'DESC' },
     });
@@ -267,9 +291,9 @@ export class TaskStepsService {
     return query.getMany();
   }
 
-  async findOne(taskId: string, stepId: string) {
+  async findOne(taskId: string, stepId: string, manager?: EntityManager) {
     await this.ensureTaskExists(taskId);
-    const step = await this.createBaseQueryBuilder()
+    const step = await this.createBaseQueryBuilder(manager)
       .where('step.id = :stepId', { stepId })
       .andWhere('step.taskId = :taskId', { taskId })
       .getOne();
@@ -281,8 +305,8 @@ export class TaskStepsService {
     return step;
   }
 
-  async findById(stepId: string) {
-    const step = await this.createBaseQueryBuilder()
+  async findById(stepId: string, manager?: EntityManager) {
+    const step = await this.createBaseQueryBuilder(manager)
       .where('step.id = :stepId', { stepId })
       .getOne();
 
@@ -316,41 +340,33 @@ export class TaskStepsService {
     this.assertManager(user.role);
     await this.ensureTaskExists(taskId);
 
-    const fallbackOrder = await this.getNextOrderIndex(taskId);
-    const normalized = this.normalizeStepInput(dto, fallbackOrder);
-    if (!normalized.title) {
-      this.logger.warn('Nepavyko sukurti žingsnio: pavadinimas privalomas');
-      throw new BadRequestException({
-        message: 'Nepavyko sukurti žingsnio',
-        details: 'Pavadinimas privalomas',
-      });
-    }
-
-    const step = this.stepsRepository.create({
-      ...normalized,
-      taskId,
-    });
-
     const saved = await runWithDatabaseErrorHandling(
-      () => this.stepsRepository.save(step),
+      () =>
+        this.dataSource.transaction(async (manager) => {
+          const stepsRepo = this.getStepsRepository(manager);
+          const fallbackOrder = await this.getNextOrderIndex(taskId, manager);
+          const normalized = this.normalizeStepInput(dto, fallbackOrder);
+          if (!normalized.title) {
+            this.logger.warn('Nepavyko sukurti žingsnio: pavadinimas privalomas');
+            throw new BadRequestException({
+              message: 'Nepavyko sukurti žingsnio',
+              details: 'Pavadinimas privalomas',
+            });
+          }
+
+          const step = stepsRepo.create({
+            ...normalized,
+            taskId,
+          });
+
+          const created = await stepsRepo.save(step);
+          await this.syncStepTags(manager, created.id, dto.tagIds, { message: 'Nepavyko sukurti žingsnio' });
+
+          return created;
+        }),
       { message: 'Nepavyko sukurti žingsnio' },
     );
 
-    try {
-      await this.syncStepTags(saved.id, dto.tagIds ?? [], { message: 'Nepavyko sukurti žingsnio' });
-    } catch (error) {
-      try {
-        await this.stepsRepository.delete(saved.id);
-      } catch (cleanupError) {
-        const cleanupErrorInstance = cleanupError instanceof Error ? cleanupError : undefined;
-        this.logger.error(
-          'Nepavyko pašalinti nesėkmingai sukurto žingsnio',
-          cleanupErrorInstance?.stack ?? cleanupErrorInstance?.message,
-        );
-      }
-
-      throw error;
-    }
     await this.activityLog.log('task_step_created', user.id, 'task', taskId);
     return this.findOne(taskId, saved.id);
   }
@@ -362,51 +378,58 @@ export class TaskStepsService {
     user: { id: string; role: UserRole },
   ) {
     this.assertManager(user.role);
-    const step = await this.findOne(taskId, stepId);
-    const shouldUpdateTags = dto.tagIds !== undefined;
-
-    if (dto.title !== undefined) {
-      const title = dto.title.trim();
-      if (!title) {
-        this.logger.warn('Nepavyko atnaujinti žingsnio: pavadinimas privalomas');
-        throw new BadRequestException({
-          message: 'Nepavyko atnaujinti žingsnio',
-          details: 'Pavadinimas privalomas',
-        });
-      }
-      step.title = title;
-    }
-
-    if (dto.description !== undefined) {
-      step.contentText = this.normalizeNullableString(dto.description);
-    } else if (dto.contentText !== undefined) {
-      step.contentText = this.normalizeNullableString(dto.contentText);
-    }
-
-    if (dto.mediaUrl !== undefined) {
-      step.mediaUrl = this.normalizeNullableString(dto.mediaUrl);
-    }
-
-    if (dto.mediaType !== undefined) {
-      step.mediaType = this.normalizeMediaType(dto.mediaType);
-    }
-
-    if (dto.requireUserMedia !== undefined) {
-      step.requireUserMedia = dto.requireUserMedia;
-    }
-
-    if (dto.orderIndex !== undefined) {
-      step.orderIndex = dto.orderIndex;
-    }
 
     const saved = await runWithDatabaseErrorHandling(
-      () => this.stepsRepository.save(step),
+      () =>
+        this.dataSource.transaction(async (manager) => {
+          const stepsRepo = this.getStepsRepository(manager);
+          const step = await this.findOne(taskId, stepId, manager);
+          const shouldUpdateTags = dto.tagIds !== undefined;
+
+          if (dto.title !== undefined) {
+            const title = dto.title.trim();
+            if (!title) {
+              this.logger.warn('Nepavyko atnaujinti žingsnio: pavadinimas privalomas');
+              throw new BadRequestException({
+                message: 'Nepavyko atnaujinti žingsnio',
+                details: 'Pavadinimas privalomas',
+              });
+            }
+            step.title = title;
+          }
+
+          if (dto.description !== undefined) {
+            step.contentText = this.normalizeNullableString(dto.description);
+          } else if (dto.contentText !== undefined) {
+            step.contentText = this.normalizeNullableString(dto.contentText);
+          }
+
+          if (dto.mediaUrl !== undefined) {
+            step.mediaUrl = this.normalizeNullableString(dto.mediaUrl);
+          }
+
+          if (dto.mediaType !== undefined) {
+            step.mediaType = this.normalizeMediaType(dto.mediaType);
+          }
+
+          if (dto.requireUserMedia !== undefined) {
+            step.requireUserMedia = dto.requireUserMedia;
+          }
+
+          if (dto.orderIndex !== undefined) {
+            step.orderIndex = dto.orderIndex;
+          }
+
+          const savedStep = await stepsRepo.save(step);
+
+          if (shouldUpdateTags) {
+            await this.syncStepTags(manager, savedStep.id, dto.tagIds, { message: 'Nepavyko atnaujinti žingsnio' });
+          }
+
+          return savedStep;
+        }),
       { message: 'Nepavyko atnaujinti žingsnio' },
     );
-
-    if (shouldUpdateTags) {
-      await this.syncStepTags(saved.id, dto.tagIds ?? [], { message: 'Nepavyko atnaujinti žingsnio' });
-    }
 
     await this.activityLog.log('task_step_updated', user.id, 'task', taskId);
     return this.findOne(taskId, saved.id);
@@ -425,44 +448,34 @@ export class TaskStepsService {
       });
     }
 
-    const fallbackOrder = await this.getNextOrderIndex(globalTaskId);
-    const normalized = this.normalizeStepInput(dto, fallbackOrder);
-    const normalizedTagIds = this.normalizeTagIds(dto.tagIds);
-
-    if (!normalized.title) {
-      this.logger.warn('Nepavyko sukurti žingsnio: pavadinimas privalomas');
-      throw new BadRequestException({
-        message: 'Nepavyko sukurti žingsnio',
-        details: 'Pavadinimas privalomas',
-      });
-    }
-
-    const step = this.stepsRepository.create({
-      ...normalized,
-      taskId: globalTaskId,
-      tags: normalizedTagIds.map((id) => ({ id } as Tag)),
-    });
-
     const saved = await runWithDatabaseErrorHandling(
-      () => this.stepsRepository.save(step),
+      () =>
+        this.dataSource.transaction(async (manager) => {
+          const stepsRepo = this.getStepsRepository(manager);
+          const fallbackOrder = await this.getNextOrderIndex(globalTaskId, manager);
+          const normalized = this.normalizeStepInput(dto, fallbackOrder);
+
+          if (!normalized.title) {
+            this.logger.warn('Nepavyko sukurti žingsnio: pavadinimas privalomas');
+            throw new BadRequestException({
+              message: 'Nepavyko sukurti žingsnio',
+              details: 'Pavadinimas privalomas',
+            });
+          }
+
+          const step = stepsRepo.create({
+            ...normalized,
+            taskId: globalTaskId,
+          });
+
+          const created = await stepsRepo.save(step);
+          await this.syncStepTags(manager, created.id, dto.tagIds, { message: 'Nepavyko sukurti žingsnio' });
+
+          return created;
+        }),
       { message: 'Nepavyko sukurti žingsnio' },
     );
 
-    try {
-      await this.syncStepTags(saved.id, dto.tagIds ?? [], { message: 'Nepavyko sukurti žingsnio' });
-    } catch (error) {
-      try {
-        await this.stepsRepository.delete(saved.id);
-      } catch (cleanupError) {
-        const cleanupErrorInstance = cleanupError instanceof Error ? cleanupError : undefined;
-        this.logger.error(
-          'Nepavyko pašalinti nesėkmingai sukurto globalaus žingsnio',
-          cleanupErrorInstance?.stack ?? cleanupErrorInstance?.message,
-        );
-      }
-
-      throw error;
-    }
     await this.activityLog.log('task_step_created', user.id, 'task', globalTaskId);
 
     return this.findById(saved.id);

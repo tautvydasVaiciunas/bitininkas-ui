@@ -1,8 +1,6 @@
 import { MigrationInterface, QueryRunner } from 'typeorm';
 
-export class AddNotificationsTitleBodyLink20251107 implements MigrationInterface {
-  name = 'AddNotificationsTitleBodyLink20251107';
-
+export class AddNotificationsTitleBodyLink1730985600000 implements MigrationInterface {
   public async up(queryRunner: QueryRunner): Promise<void> {
     await queryRunner.query(`
       ALTER TABLE "notifications"

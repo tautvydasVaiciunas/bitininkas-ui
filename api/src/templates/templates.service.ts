@@ -159,13 +159,13 @@ export class TemplatesService {
     }
   }
 
-  private async setTemplateSteps(template: Template, taskStepIds: string[], manager: EntityManager) {
+  private async setTemplateSteps(templateId: string, taskStepIds: string[], manager: EntityManager) {
     const repository = this.getTemplateStepRepository(manager);
-    const existing = await repository.find({ where: { templateId: template.id } });
+    const existing = await repository.find({ where: { templateId } });
 
     if (!taskStepIds.length) {
       if (existing.length) {
-        await repository.delete({ templateId: template.id });
+        await repository.delete({ templateId });
       }
       return;
     }
@@ -175,7 +175,7 @@ export class TemplatesService {
 
     if (existing.length) {
       await manager.query('UPDATE template_steps SET order_index = order_index + 1000 WHERE template_id = $1', [
-        template.id,
+        templateId,
       ]);
     }
 
@@ -187,7 +187,8 @@ export class TemplatesService {
         processedStepIds.add(existingStep.id);
       } else {
         const entity = repository.create({
-          template,
+          template: { id: templateId } as Template,
+          templateId,
           taskStepId,
           orderIndex: index,
         });
@@ -232,7 +233,7 @@ export class TemplatesService {
           });
 
           const saved = await templateRepo.save(created);
-          await this.setTemplateSteps(saved, stepIds, manager);
+          await this.setTemplateSteps(saved.id, stepIds, manager);
 
           return this.ensureTemplate(saved.id, manager);
         }),
@@ -251,13 +252,14 @@ export class TemplatesService {
         this.dataSource.transaction(async (manager) => {
           const templateRepo = this.getTemplateRepository(manager);
           const templateEntity = await this.ensureTemplate(id, manager);
+          const updatePayload: Partial<Template> = {};
 
           if (dto.name !== undefined) {
-            templateEntity.name = this.normalizeName(dto.name);
+            updatePayload.name = this.normalizeName(dto.name);
           }
 
           if (dto.description !== undefined) {
-            templateEntity.description = this.normalizeDescription(dto.description ?? null);
+            updatePayload.description = this.normalizeDescription(dto.description ?? null);
           }
 
           if (dto.stepIds !== undefined) {
@@ -270,15 +272,18 @@ export class TemplatesService {
               .map((step) => step.taskStepId);
             const shouldUpdateSteps =
               existingOrder.length !== stepIds.length ||
-              existingOrder.some((id, index) => id !== stepIds[index]);
+              existingOrder.some((taskStepId, index) => taskStepId !== stepIds[index]);
 
             if (shouldUpdateSteps) {
-              await this.setTemplateSteps(templateEntity, stepIds, manager);
+              await this.setTemplateSteps(templateEntity.id, stepIds, manager);
             }
           }
 
-          const saved = await templateRepo.save(templateEntity);
-          return this.ensureTemplate(saved.id, manager);
+          if (Object.keys(updatePayload).length) {
+            await templateRepo.update(id, updatePayload);
+          }
+
+          return this.ensureTemplate(id, manager);
         }),
       'Nepavyko atnaujinti šablono',
     );

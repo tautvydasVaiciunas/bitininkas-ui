@@ -16,7 +16,6 @@ import { Roles } from '../../common/decorators/roles.decorator';
 import { UserRole } from '../../users/user.entity';
 import { TaskStepsService } from './task-steps.service';
 import { UpdateTaskStepDto } from './dto/update-task-step.dto';
-import { CreateGlobalStepRequestDto } from './dto/create-global-step-request.dto';
 import { CreateGlobalTaskStepDto } from './dto/create-global-task-step.dto';
 
 @Controller('steps')
@@ -44,15 +43,10 @@ export class StepsController {
   @Post()
   @HttpCode(HttpStatus.CREATED)
   create(
-    @Body() dto: CreateGlobalStepRequestDto,
+    @Body() dto: CreateGlobalTaskStepDto,
     @Request() req: { user: { id: string; role: UserRole } },
   ) {
-    const payload = new CreateGlobalTaskStepDto();
-    payload.title = dto.name;
-    payload.description = dto.description;
-    payload.tagIds = dto.tagIds ?? [];
-
-    return this.taskStepsService.createGlobal(payload, req.user);
+    return this.taskStepsService.createGlobal(dto, req.user);
   }
 
   @Roles(UserRole.MANAGER, UserRole.ADMIN)

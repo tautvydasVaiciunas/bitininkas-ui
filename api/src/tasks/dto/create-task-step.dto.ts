@@ -1,3 +1,4 @@
+import { Transform } from 'class-transformer';
 import {
   ArrayUnique,
   IsArray,
@@ -14,23 +15,39 @@ import {
 } from 'class-validator';
 import type { TaskStepMediaType } from '../steps/task-step.entity';
 
+const trimValue = ({ value }: { value: unknown }) =>
+  typeof value === 'string' ? value.trim() : value;
+
+const optionalStringValue = ({ value }: { value: unknown }) => {
+  if (typeof value !== 'string') {
+    return value ?? undefined;
+  }
+
+  const trimmed = value.trim();
+  return trimmed.length > 0 ? trimmed : undefined;
+};
+
 export class CreateTaskStepInputDto {
+  @Transform(trimValue)
   @IsString({ message: 'Pavadinimas turi būti tekstas' })
   @IsNotEmpty({ message: 'Pavadinimas privalomas' })
   @MaxLength(255, { message: 'Pavadinimas gali būti iki 255 simbolių' })
   title: string;
 
   @IsOptional()
+  @Transform(optionalStringValue)
   @IsString({ message: 'Turinys turi būti tekstas' })
   @MaxLength(1000, { message: 'Turinys gali būti iki 1000 simbolių' })
   contentText?: string;
 
   @IsOptional()
+  @Transform(optionalStringValue)
   @IsString({ message: 'Turinys turi būti tekstas' })
   @MaxLength(1000, { message: 'Turinys gali būti iki 1000 simbolių' })
   description?: string;
 
   @IsOptional()
+  @Transform(optionalStringValue)
   @IsString({ message: 'Nuoroda turi būti tekstas' })
   @MaxLength(500, { message: 'Nuoroda gali būti iki 500 simbolių' })
   @Matches(/^(?:\/uploads\/|https?:\/\/).+/i, {

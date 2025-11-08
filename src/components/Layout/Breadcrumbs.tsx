@@ -88,7 +88,11 @@ export const Breadcrumbs = () => {
 
       if (cached?.pages) {
         for (const page of cached.pages) {
-          const found = page.items.find((item) => item.id === segment);
+          if (!Array.isArray(page.data)) {
+            continue;
+          }
+
+          const found = page.data.find((item) => item.id === segment);
           if (found) {
             return found.title;
           }

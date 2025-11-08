@@ -1,7 +1,7 @@
 import ltMessages from '@/i18n/messages.lt.json';
 
 const rawBaseUrl = import.meta.env.VITE_API_BASE_URL ?? '';
-const API_BASE_URL = rawBaseUrl.replace(/\/$/, '');
+export const API_BASE_URL = rawBaseUrl.replace(/\/$/, '');
 
 const ACCESS_TOKEN_KEY = 'bitininkas_access_token';
 const REFRESH_TOKEN_KEY = 'bitininkas_refresh_token';

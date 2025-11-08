@@ -25,15 +25,18 @@ import {
   type TaskStepMediaType,
   type UpdateTaskStepPayload,
 } from '@/lib/types';
+import { inferMediaType, resolveMediaUrl } from '@/lib/media';
 import ltMessages from '@/i18n/messages.lt.json';
 
 const messages = ltMessages.steps;
+
+type StepMediaTypeOption = TaskStepMediaType | '';
 
 const defaultCreateForm = () => ({
   title: '',
   description: '',
   mediaUrl: '',
-  mediaType: undefined as TaskStepMediaType | undefined,
+  mediaType: '' as StepMediaTypeOption,
   requireUserMedia: false,
   tagIds: [] as string[],
 });
@@ -402,7 +405,7 @@ export default function AdminSteps() {
       title: step.title,
       description: step.contentText ?? '',
       mediaUrl: step.mediaUrl ?? '',
-      mediaType: step.mediaType ?? undefined,
+      mediaType: step.mediaType ?? '',
       requireUserMedia: step.requireUserMedia ?? false,
       tagIds:
         step.tags?.map((tag) => tag.id).filter((id): id is string => typeof id === 'string' && id.length > 0) ?? [],
@@ -575,7 +578,7 @@ export default function AdminSteps() {
                 <div className="space-y-2">
                   <Label htmlFor="create-step-media-type">Media tipas</Label>
                   <Select
-                    value={createForm.mediaType || undefined}
+                    value={createForm.mediaType}
                     onValueChange={(value: TaskStepMediaType) =>
                       setCreateForm((prev) => ({ ...prev, mediaType: value }))
                     }
@@ -709,7 +712,7 @@ export default function AdminSteps() {
                 <div className="space-y-2">
                   <Label htmlFor="edit-step-media-type">Media tipas</Label>
                   <Select
-                    value={editForm.mediaType || undefined}
+                    value={editForm.mediaType}
                     onValueChange={(value: TaskStepMediaType) =>
                       setEditForm((prev) => ({ ...prev, mediaType: value }))
                     }
@@ -943,11 +946,14 @@ type StepCardProps = {
 };
 
 function StepCard({ step, onEdit, onDelete, disableActions }: StepCardProps) {
-  const mediaLabel = step.mediaType === 'image' ? 'Nuotrauka' : step.mediaType === 'video' ? 'Vaizdo įrašas' : null;
+  const resolvedMediaUrl = resolveMediaUrl(step.mediaUrl);
+  const mediaKind = step.mediaType ?? inferMediaType(null, resolvedMediaUrl);
+  const mediaLabel = mediaKind === 'image' ? 'Nuotrauka' : mediaKind === 'video' ? 'Vaizdo įrašas' : null;
   const visibleTags = (step.tags ?? []).filter(
     (tag): tag is NonNullable<TaskStep['tags']>[number] & { id: string } =>
       Boolean(tag) && typeof tag.id === 'string' && tag.id.length > 0,
   );
+  const shouldShowMediaMeta = Boolean(resolvedMediaUrl || mediaLabel || step.requireUserMedia);
 
   return (
     <Card className="border-muted shadow-none">
@@ -988,22 +994,44 @@ function StepCard({ step, onEdit, onDelete, disableActions }: StepCardProps) {
         ) : (
           <p className="text-muted-foreground">Aprašymo nėra</p>
         )}
-        {(step.mediaUrl || mediaLabel || step.requireUserMedia) && (
-          <div className="flex flex-wrap items-center gap-2 text-muted-foreground">
-            {step.mediaUrl ? (
+        {resolvedMediaUrl ? (
+          <div className="space-y-2">
+            {mediaKind === 'video' ? (
+              <video
+                src={resolvedMediaUrl}
+                controls
+                preload="metadata"
+                className="w-full max-h-80 rounded-lg border border-border bg-black"
+              />
+            ) : (
+              <img
+                src={resolvedMediaUrl}
+                alt={`Žingsnio „${step.title}“ iliustracija`}
+                loading="lazy"
+                className="w-full rounded-lg border border-border object-cover"
+              />
+            )}
+          </div>
+        ) : null}
+
+        {shouldShowMediaMeta ? (
+          <div className="flex flex-wrap items-center gap-2 text-xs text-muted-foreground">
+            {resolvedMediaUrl ? (
               <a
-                href={step.mediaUrl}
+                href={resolvedMediaUrl}
                 target="_blank"
                 rel="noreferrer"
                 className="text-primary underline-offset-4 hover:underline"
               >
-                Media
+                Atsisiųsti failą
               </a>
             ) : null}
             {mediaLabel ? <Badge variant="outline">{mediaLabel}</Badge> : null}
-            {step.requireUserMedia ? <Badge variant="secondary">Reikia vartotojo nuotraukos/video</Badge> : null}
+            {step.requireUserMedia ? (
+              <Badge variant="secondary">Reikia vartotojo nuotraukos ar vaizdo įrašo</Badge>
+            ) : null}
           </div>
-        )}
+        ) : null}
       </CardContent>
     </Card>
   );

@@ -54,6 +54,7 @@ import type {
   PaginatedResponse as ApiPaginatedResponse,
   NewsGroupResponse as ApiNewsGroupResponse,
 } from './api';
+import { inferMediaType, resolveMediaUrl } from '@/lib/media';
 
 export type {
   CreateAssignmentPayload,
@@ -144,14 +145,19 @@ export const mapHiveFromApi = (hive: ApiHiveResponse): Hive => ({
     : [],
 });
 
-export const mapTaskStepFromApi = (step: ApiTaskStepResponse): TaskStep => ({
-  ...step,
-  contentText: step.contentText ?? null,
-  mediaUrl: step.mediaUrl ?? null,
-  mediaType: step.mediaType ?? null,
-  requireUserMedia: step.requireUserMedia ?? false,
-  tags: Array.isArray(step.tags) ? step.tags.map((tag) => ({ ...tag })) : [],
-});
+export const mapTaskStepFromApi = (step: ApiTaskStepResponse): TaskStep => {
+  const resolvedMediaUrl = resolveMediaUrl(step.mediaUrl);
+  const mediaKind = inferMediaType(step.mediaType ?? null, resolvedMediaUrl);
+
+  return {
+    ...step,
+    contentText: step.contentText ?? null,
+    mediaUrl: resolvedMediaUrl,
+    mediaType: mediaKind,
+    requireUserMedia: step.requireUserMedia ?? false,
+    tags: Array.isArray(step.tags) ? step.tags.map((tag) => ({ ...tag })) : [],
+  };
+};
 
 export const mapTaskFromApi = (task: ApiTaskResponse): Task => ({
   ...task,
@@ -208,7 +214,7 @@ export const mapNotificationFromApi = (notification: ApiNotificationResponse): N
 
 export const mapNewsPostFromApi = (post: ApiNewsPostResponse): NewsPost => ({
   ...post,
-  imageUrl: post.imageUrl ?? null,
+  imageUrl: resolveMediaUrl(post.imageUrl),
   groups: Array.isArray(post.groups)
     ? post.groups.map((group) => ({ id: group.id, name: group.name }))
     : [],

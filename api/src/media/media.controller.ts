@@ -10,7 +10,6 @@ import { FileInterceptor } from '@nestjs/platform-express';
 import { Throttle } from '@nestjs/throttler';
 import { diskStorage } from 'multer';
 import { extname } from 'node:path';
-import { existsSync, mkdirSync } from 'node:fs';
 import { unlink } from 'node:fs/promises';
 import { randomUUID } from 'node:crypto';
 import { Express } from 'express';
@@ -25,8 +24,8 @@ import {
   getMaxBytesForMime,
   UPLOAD_MAX_VIDEO_BYTES,
 } from '../common/config/security.config';
+import { UPLOADS_DIR, ensureUploadsDirExists } from '../common/config/storage.config';
 
-const UPLOADS_DIR = '/app/uploads';
 const MIME_EXTENSION_MAP: Record<string, string> = {
   'image/jpeg': '.jpg',
   'image/png': '.png',
@@ -34,12 +33,6 @@ const MIME_EXTENSION_MAP: Record<string, string> = {
   'video/mp4': '.mp4',
 };
 const SINGLE_FILE_FLAG = '__hasUploadedFile';
-
-const ensureUploadsDirExists = () => {
-  if (!existsSync(UPLOADS_DIR)) {
-    mkdirSync(UPLOADS_DIR, { recursive: true });
-  }
-};
 
 const resolveFileName = (file: Express.Multer.File) => {
   const extension = MIME_EXTENSION_MAP[file.mimetype] ?? extname(file.originalname) ?? '';

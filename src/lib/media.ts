@@ -2,6 +2,8 @@ import { API_BASE_URL } from '@/lib/api';
 
 const VIDEO_EXTENSIONS = ['.mp4', '.webm', '.ogg'];
 
+export const FALLBACK_MEDIA_SRC = '/fallback-media.png';
+
 export const resolveMediaUrl = (value?: string | null) => {
   if (!value) {
     return null;
@@ -36,4 +38,17 @@ export const inferMediaType = (
   }
 
   return 'image';
+};
+
+export const applyImageFallback = (img: HTMLImageElement | null) => {
+  if (!img) {
+    return;
+  }
+
+  if (img.dataset.fallbackApplied === '1') {
+    return;
+  }
+
+  img.dataset.fallbackApplied = '1';
+  img.src = FALLBACK_MEDIA_SRC;
 };

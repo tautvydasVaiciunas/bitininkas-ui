@@ -22,8 +22,8 @@ export const RATE_LIMIT_TTL_SECONDS = Math.max(1, Math.ceil(RATE_LIMIT_WINDOW_MS
 
 export const RATE_LIMIT_MAX = parsePositiveNumber(process.env.RATE_LIMIT_MAX, 10);
 
-export const UPLOAD_MAX_IMAGE_MB = parsePositiveNumber(process.env.UPLOAD_MAX_IMAGE_MB, 5);
-export const UPLOAD_MAX_VIDEO_MB = parsePositiveNumber(process.env.UPLOAD_MAX_VIDEO_MB, 100);
+export const UPLOAD_MAX_IMAGE_MB = parsePositiveNumber(process.env.UPLOAD_MAX_IMAGE_MB, 10);
+export const UPLOAD_MAX_VIDEO_MB = parsePositiveNumber(process.env.UPLOAD_MAX_VIDEO_MB, 30);
 
 export const UPLOAD_MAX_IMAGE_BYTES = UPLOAD_MAX_IMAGE_MB * 1024 * 1024;
 export const UPLOAD_MAX_VIDEO_BYTES = UPLOAD_MAX_VIDEO_MB * 1024 * 1024;

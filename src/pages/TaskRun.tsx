@@ -23,7 +23,7 @@ import {
   type StepProgressToggleResult,
   type UpdateProgressPayload,
 } from '@/lib/types';
-import { inferMediaType, resolveMediaUrl } from '@/lib/media';
+import { applyImageFallback, inferMediaType, resolveMediaUrl } from '@/lib/media';
 import { Calendar, CheckCircle2, ChevronLeft, ChevronRight, Loader2, RotateCcw } from 'lucide-react';
 import { toast } from 'sonner';
 
@@ -105,6 +105,11 @@ export default function TaskRun() {
   const currentProgress = currentStep ? progressMap.get(currentStep.id) : undefined;
   const currentMediaUrl = resolveMediaUrl(currentStep?.mediaUrl ?? null);
   const currentMediaType = inferMediaType(currentStep?.mediaType ?? null, currentMediaUrl);
+  const [videoError, setVideoError] = useState(false);
+
+  useEffect(() => {
+    setVideoError(false);
+  }, [currentStep?.id]);
 
   const scheduleNoteSave = (stepId: string, value: string) => {
     const progressEntry = progressMap.get(stepId);
@@ -436,21 +441,32 @@ export default function TaskRun() {
                   <div className="space-y-2">
                     <h4 className="font-semibold">Prisegtas failas</h4>
                     {currentMediaType === 'video' ? (
-                      <video
-                        key={currentMediaUrl}
-                        src={currentMediaUrl}
-                        controls
-                        preload="metadata"
-                        className="w-full max-h-[420px] rounded-lg border border-border bg-black"
-                      />
+                      videoError ? (
+                        <div className="rounded-lg border border-dashed border-border bg-muted/30 p-4 text-center text-muted-foreground">
+                          Nepavyko įkelti vaizdo įrašo.
+                        </div>
+                      ) : (
+                        <video
+                          key={currentMediaUrl}
+                          src={currentMediaUrl}
+                          controls
+                          preload="metadata"
+                          className="w-full max-h-[420px] rounded-lg border border-border bg-black"
+                          crossOrigin="anonymous"
+                          onError={() => setVideoError(true)}
+                        />
+                      )
                     ) : (
                       <img
                         src={currentMediaUrl}
-                        alt={`Žingsnio „${currentStep?.title ?? ''}“ iliustracija`}
+                        alt={`Žingsnio „${currentStep?.title ?? ''}” iliustracija`}
                         loading="lazy"
                         className="w-full rounded-lg border border-border object-cover"
+                        crossOrigin="anonymous"
+                        onError={(event) => applyImageFallback(event.currentTarget)}
                       />
                     )}
+
                     <a
                       href={currentMediaUrl}
                       target="_blank"
@@ -538,4 +554,5 @@ export default function TaskRun() {
     </MainLayout>
   );
 }
+
 

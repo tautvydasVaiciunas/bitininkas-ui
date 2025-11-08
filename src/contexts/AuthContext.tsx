@@ -15,7 +15,6 @@ interface AuthContextType {
   isBootstrapping: boolean;
   login: (email: string, password: string) => Promise<{ success: boolean; error?: string }>;
   logout: () => void;
-  register: (name: string, email: string, password: string) => Promise<{ success: boolean; error?: string }>;
   updateUserProfile: (updates: Partial<User>) => void;
 }
 
@@ -167,48 +166,11 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     }
   };
 
-  const register = async (
-    name: string,
-    email: string,
-    password: string
-  ): Promise<{ success: boolean; error?: string }> => {
-    const getErrorMessage = (err: unknown) => {
-      if (err instanceof HttpError) {
-        const data = err.data as { message?: string } | undefined;
-        if (data?.message) {
-          return data.message;
-        }
-        return err.message;
-      }
-      if (err instanceof Error) {
-        return err.message;
-      }
-      return 'Registracija nepavyko. Bandykite dar kartą vėliau.';
-    };
-
-    try {
-      const result = await api.auth.register({ name, email, password });
-      setToken(result.accessToken, result.refreshToken);
-
-      const profile = await api.auth.me();
-      const normalizedUser = normalizeUser(mapUserFromApi(profile));
-      if (normalizedUser) {
-        setUser(normalizedUser);
-        persistUser(normalizedUser);
-      }
-
-      return { success: true };
-    } catch (error) {
-      logout();
-      return { success: false, error: getErrorMessage(error) };
-    }
-  };
-
   const isAuthenticated = !!user;
 
   return (
     <AuthContext.Provider
-      value={{ user, isAuthenticated, isBootstrapping, login, logout, register, updateUserProfile }}
+      value={{ user, isAuthenticated, isBootstrapping, login, logout, updateUserProfile }}
     >
       {children}
     </AuthContext.Provider>

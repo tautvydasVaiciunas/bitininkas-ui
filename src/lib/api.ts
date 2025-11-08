@@ -388,10 +388,9 @@ export interface LoginPayload {
   password: string;
 }
 
-export interface RegisterPayload {
-  name: string;
-  email: string;
-  password: string;
+export interface ResetPasswordPayload {
+  token: string;
+  newPassword: string;
 }
 
 export interface CreateHivePayload {
@@ -722,15 +721,6 @@ export const api = {
       persistUser(result.user);
       return result;
     },
-    register: async (payload: RegisterPayload) => {
-      const result = await post<AuthResponse>('/auth/register', {
-        json: payload,
-        skipAuth: true,
-      });
-      setToken(result.accessToken, result.refreshToken);
-      persistUser(result.user);
-      return result;
-    },
     refresh: async (refreshToken: string) => {
       const result = await post<AuthResponse>('/auth/refresh', {
         json: { refreshToken },
@@ -741,9 +731,14 @@ export const api = {
       return result;
     },
     me: () => get<AuthenticatedUser>('/auth/me'),
-    requestPasswordReset: (email: string) =>
-      post<{ message: string; token?: string }>('/auth/request-reset', {
+    forgotPassword: (email: string) =>
+      post<{ message: string; token?: string }>('/auth/forgot-password', {
         json: { email },
+        skipAuth: true,
+      }),
+    resetPassword: (payload: ResetPasswordPayload) =>
+      post<{ message: string }>('/auth/reset-password', {
+        json: payload,
         skipAuth: true,
       }),
     logout: () => {

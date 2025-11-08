@@ -1,13 +1,14 @@
 import { useState } from 'react';
 import { useNavigate, Link } from 'react-router-dom';
+import { toast } from 'sonner';
+import { Box, Eye, EyeOff, Loader2 } from 'lucide-react';
+
 import { useAuth } from '@/contexts/AuthContext';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Checkbox } from '@/components/ui/checkbox';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
-import { Box, Eye, EyeOff, Loader2 } from 'lucide-react';
-import { toast } from 'sonner';
 
 export default function Login() {
   const [email, setEmail] = useState('');
@@ -23,15 +24,15 @@ export default function Login() {
     return null;
   }
 
-  const handleSubmit = async (e: React.FormEvent) => {
-    e.preventDefault();
+  const handleSubmit = async (event: React.FormEvent) => {
+    event.preventDefault();
     setLoading(true);
 
     const result = await login(email, password);
     setLoading(false);
 
     if (result.success) {
-      toast.success('SÄ—kmingai prisijungta!');
+      toast.success('Sekmingai prisijungta!');
       navigate('/');
     } else {
       toast.error(result.error || 'Nepavyko prisijungti');
@@ -51,33 +52,31 @@ export default function Login() {
             <Box className="w-7 h-7 text-primary-foreground" />
           </div>
           <CardTitle className="text-2xl">Prisijungimas</CardTitle>
-          <CardDescription>
-            Ä®veskite savo prisijungimo duomenis
-          </CardDescription>
+          <CardDescription>Iveskite savo prisijungimo duomenis</CardDescription>
         </CardHeader>
         <CardContent>
           <form onSubmit={handleSubmit} className="space-y-4">
             <div className="space-y-2">
-              <Label htmlFor="email">El. paÅ¡tas</Label>
+              <Label htmlFor="email">El. paštas</Label>
               <Input
                 id="email"
                 type="email"
                 placeholder="vardas@example.com"
                 value={email}
-                onChange={(e) => setEmail(e.target.value)}
+                onChange={(event) => setEmail(event.target.value)}
                 required
               />
             </div>
 
             <div className="space-y-2">
-              <Label htmlFor="password">SlaptaÅ¾odis</Label>
+              <Label htmlFor="password">Slaptažodis</Label>
               <div className="relative">
                 <Input
                   id="password"
                   type={showPassword ? 'text' : 'password'}
-                  placeholder="â€¢â€¢â€¢â€¢â€¢â€¢â€¢â€¢"
+                  placeholder="••••••••"
                   value={password}
-                  onChange={(e) => setPassword(e.target.value)}
+                  onChange={(event) => setPassword(event.target.value)}
                   required
                 />
                 <Button
@@ -85,13 +84,9 @@ export default function Login() {
                   variant="ghost"
                   size="icon"
                   className="absolute right-0 top-0"
-                  onClick={() => setShowPassword(!showPassword)}
+                  onClick={() => setShowPassword((prev) => !prev)}
                 >
-                  {showPassword ? (
-                    <EyeOff className="w-4 h-4" />
-                  ) : (
-                    <Eye className="w-4 h-4" />
-                  )}
+                  {showPassword ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
                 </Button>
               </div>
             </div>
@@ -101,17 +96,14 @@ export default function Login() {
                 <Checkbox
                   id="remember"
                   checked={rememberMe}
-                  onCheckedChange={(checked) => setRememberMe(checked as boolean)}
+                  onCheckedChange={(checked) => setRememberMe(Boolean(checked))}
                 />
                 <Label htmlFor="remember" className="text-sm cursor-pointer">
                   Prisiminti mane
                 </Label>
               </div>
-              <Link
-                to="/auth/forgot"
-                className="text-sm text-primary hover:underline"
-              >
-                PamirÅ¡ote slaptaÅ¾odÄ¯?
+              <Link to="/auth/forgot" className="text-sm text-primary hover:underline">
+                Pamiršai slaptažodi? Atkurk
               </Link>
             </div>
 
@@ -125,9 +117,7 @@ export default function Login() {
                 <div className="w-full border-t border-border" />
               </div>
               <div className="relative flex justify-center text-xs">
-                <span className="bg-card px-2 text-muted-foreground">
-                  Demonstraciniai prisijungimai
-                </span>
+                <span className="bg-card px-2 text-muted-foreground">Demonstraciniai prisijungimai</span>
               </div>
             </div>
 
@@ -149,13 +139,6 @@ export default function Login() {
                 Vartotojas: jonas@example.com / password
               </Button>
             </div>
-
-            <p className="text-center text-sm text-muted-foreground">
-              Neturite paskyros?{' '}
-              <Link to="/auth/register" className="text-primary hover:underline">
-                Registruotis
-              </Link>
-            </p>
           </form>
         </CardContent>
       </Card>

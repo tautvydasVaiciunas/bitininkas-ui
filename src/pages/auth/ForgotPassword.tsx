@@ -1,6 +1,6 @@
 import { useState } from 'react';
 import { Link } from 'react-router-dom';
-import { Box, Loader2, ArrowLeft } from 'lucide-react';
+import { ArrowLeft, Box, Loader2 } from 'lucide-react';
 import { toast } from 'sonner';
 
 import api, { HttpError } from '@/lib/api';
@@ -13,42 +13,32 @@ export default function ForgotPassword() {
   const [email, setEmail] = useState('');
   const [loading, setLoading] = useState(false);
   const [sent, setSent] = useState(false);
-  const [resetToken, setResetToken] = useState<string | undefined>();
+  const [devToken, setDevToken] = useState<string | undefined>();
 
-  const handleSubmit = async (e: React.FormEvent) => {
-    e.preventDefault();
+  const handleSubmit = async (event: React.FormEvent) => {
+    event.preventDefault();
     setLoading(true);
 
     try {
-      const result = await api.auth.requestPasswordReset(email);
+      const response = await api.auth.forgotPassword(email);
       setSent(true);
-      setResetToken(result.token);
-      toast.success('Slaptažodžio atstatymo nuoroda išsiųsta!');
+      setDevToken(response.token);
+      toast.success('Slapta�od�io atstatymo nuoroda i�siusta.');
     } catch (error) {
-      const description = (() => {
+      const message = (() => {
         if (error instanceof HttpError) {
-          if (
-            error.data &&
-            typeof error.data === 'object' &&
-            'message' in error.data &&
-            typeof (error.data as { message?: unknown }).message === 'string'
-          ) {
-            return (error.data as { message?: string }).message;
+          if (error.data && typeof error.data === 'object' && 'message' in error.data) {
+            return (error.data as { message?: string }).message ?? 'Nepavyko i�siusti nuorodos.';
           }
-
           return error.message;
         }
-
         if (error instanceof Error) {
           return error.message;
         }
-
-        return 'Nepavyko išsiųsti atstatymo nuorodos.';
+        return 'Nepavyko i�siusti nuorodos.';
       })();
 
-      toast.error('Nepavyko išsiųsti atstatymo nuorodos.', {
-        description,
-      });
+      toast.error('Nepavyko i�siusti nuorodos.', { description: message });
     } finally {
       setLoading(false);
     }
@@ -61,11 +51,11 @@ export default function ForgotPassword() {
           <div className="mx-auto w-12 h-12 rounded-xl bg-primary flex items-center justify-center mb-4">
             <Box className="w-7 h-7 text-primary-foreground" />
           </div>
-          <CardTitle className="text-2xl">Pamiršote slaptažodį?</CardTitle>
+          <CardTitle className="text-2xl">Pamir�ai slapta�odi?</CardTitle>
           <CardDescription>
             {sent
-              ? 'Patikrinkite savo el. paštą'
-              : 'Įveskite savo el. paštą ir atsiųsime atstatymo nuorodą'}
+              ? 'Patikrink el. pa�ta ir sek atstatymo nuoroda.'
+              : 'Ira�yk savo el. pa�to adresa ir atsiusime atstatymo nuoroda.'}
           </CardDescription>
         </CardHeader>
         <CardContent>
@@ -73,47 +63,45 @@ export default function ForgotPassword() {
             <div className="space-y-4">
               <div className="rounded-lg bg-success/10 border border-success/20 p-4 text-sm text-success-foreground">
                 <p>
-                  Slaptažodžio atstatymo nuoroda išsiųsta į <strong>{email}</strong>
+                  Atstatymo nuoroda i�siusta adresu <strong>{email}</strong>.
                 </p>
                 <p className="mt-2 text-muted-foreground">
-                  Patikrinkite savo el. pašto dėžutę ir sekite instrukcijas.
+                  Jei �inutes nematai, patikrink �lam�to aplanka.
                 </p>
-                {resetToken ? (
-                  <p className="mt-3 text-xs font-medium text-muted-foreground">
-                    Dev tokenas: <span className="break-all font-mono">{resetToken}</span>
+                {devToken ? (
+                  <p className="mt-3 text-xs font-mono break-all text-muted-foreground">
+                    Dev tokenas: {devToken}
                   </p>
                 ) : null}
               </div>
               <Button asChild variant="outline" className="w-full">
                 <Link to="/auth/login">
-                  <ArrowLeft className="mr-2 w-4 h-4" />
-                  Grįžti į prisijungimą
+                  <ArrowLeft className="mr-2 w-4 h-4" /> Gri�ti i prisijungima
                 </Link>
               </Button>
             </div>
           ) : (
             <form onSubmit={handleSubmit} className="space-y-4">
               <div className="space-y-2">
-                <Label htmlFor="email">El. paštas</Label>
+                <Label htmlFor="email">El. pa�tas</Label>
                 <Input
                   id="email"
                   type="email"
                   placeholder="vardas@example.com"
                   value={email}
-                  onChange={(e) => setEmail(e.target.value)}
+                  onChange={(event) => setEmail(event.target.value)}
                   required
                 />
               </div>
 
               <Button type="submit" className="w-full" disabled={loading}>
                 {loading && <Loader2 className="mr-2 w-4 h-4 animate-spin" />}
-                Siųsti nuorodą
+                Siusti nuoroda
               </Button>
 
               <Button asChild variant="ghost" className="w-full">
                 <Link to="/auth/login">
-                  <ArrowLeft className="mr-2 w-4 h-4" />
-                  Grįžti į prisijungimą
+                  <ArrowLeft className="mr-2 w-4 h-4" /> Gri�ti i prisijungima
                 </Link>
               </Button>
             </form>

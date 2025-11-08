@@ -8,8 +8,8 @@ import { ProtectedRoute } from "@/components/auth/ProtectedRoute";
 import News from "./pages/News";
 import NewsDetail from "./pages/NewsDetail";
 import Login from "./pages/auth/Login";
-import Register from "./pages/auth/Register";
 import ForgotPassword from "./pages/auth/ForgotPassword";
+import ResetPassword from "./pages/auth/ResetPassword";
 import Hives from "./pages/Hives";
 import HiveDetail from "./pages/HiveDetail";
 import Tasks from "./pages/Tasks";
@@ -37,8 +37,8 @@ const App = () => (
         <BrowserRouter>
           <Routes>
             <Route path="/auth/login" element={<Login />} />
-            <Route path="/auth/register" element={<Register />} />
             <Route path="/auth/forgot" element={<ForgotPassword />} />
+            <Route path="/auth/reset" element={<ResetPassword />} />
             <Route element={<ProtectedRoute />}>
               <Route path="/" element={<Navigate to="/news" replace />} />
               <Route path="/news" element={<News />} />

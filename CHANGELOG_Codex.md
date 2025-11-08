@@ -1,5 +1,12 @@
 # Changelog (Codex AI updates)
 
+# Changelog (Codex AI updates)
+
+## 2025-02-17
+- Pašalinta vieša registracija iš prisijungimo ekrano ir pridėtos naujos pamiršto slaptažodžio bei atstatymo formos (tik UI; backend bus papildytas vėliau).
+- API klientas gavo naujus `/auth/forgot-password` ir `/auth/reset-password` kvietimus, o maršrutizatorius papildytas `/auth/reset`.
+- Login/Forgot puslapiai atnaujinti su lietuviškais pranešimais ir nuorodomis į naują atstatymo srautą.
+
 ## 2025-02-16
 - Implemented password reset tokens end-to-end: API now stores one-hour tokens, surfaces dev responses, and the Vite UI consumes the endpoint with proper error handling.
 - Normalized email handling across registration and user management to avoid duplicate entries with mixed casing.

@@ -16,6 +16,7 @@ import { toast } from 'sonner';
 import { Edit, Loader2, Plus, Search, Trash2 } from 'lucide-react';
 
 import { MainLayout } from '@/components/Layout/MainLayout';
+import { ResponsiveMedia } from '@/components/media/ResponsiveMedia';
 import api, { HttpError } from '@/lib/api';
 import {
   mapTaskStepFromApi,
@@ -25,7 +26,7 @@ import {
   type TaskStepMediaType,
   type UpdateTaskStepPayload,
 } from '@/lib/types';
-import { applyImageFallback, inferMediaType, resolveMediaUrl } from '@/lib/media';
+import { inferMediaType, resolveMediaUrl } from '@/lib/media';
 import ltMessages from '@/i18n/messages.lt.json';
 
 const messages = ltMessages.steps;
@@ -430,7 +431,7 @@ export default function AdminSteps() {
         <div className="flex flex-col gap-4 lg:flex-row lg:items-center lg:justify-between">
           <div>
             <h1 className="text-3xl font-bold">Å½ingsniai</h1>
-            <p className="text-muted-foreground mt-1">Vienas visÅ³ Å¾ingsniÅ³ sÄ…raÅ¡as</p>
+            <p className="text-muted-foreground mt-1">Vienas visÅ³ Å¾ingsniÅ³ sÄ…raÅ?as</p>
           </div>
           <Button onClick={() => setIsCreateOpen(true)}>
             <Plus className="mr-2 h-4 w-4" />
@@ -461,14 +462,14 @@ export default function AdminSteps() {
             </div>
 
             <div className="space-y-2">
-              <Label htmlFor="search-steps">PaieÅ¡ka</Label>
+              <Label htmlFor="search-steps">PaieÅ?ka</Label>
               <div className="relative">
                 <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
                 <Input
                   id="search-steps"
                   value={searchQuery}
                   onChange={(event) => setSearchQuery(event.target.value)}
-                  placeholder="IeÅ¡koti pagal pavadinimÄ… ar Å¾ymas"
+                  placeholder="IeÅ?koti pagal pavadinimÄ… ar Å¾ymas"
                   className="pl-9"
                 />
               </div>
@@ -482,7 +483,7 @@ export default function AdminSteps() {
               </div>
             ) : stepsError ? (
               <div className="rounded-md border border-destructive bg-destructive/10 p-6 text-destructive">
-                Nepavyko Ä¯kelti Å¾ingsniÅ³
+                Nepavyko ÄÆkelti Å¾ingsniÅ³
               </div>
             ) : filteredSteps.length === 0 ? (
               <div className="rounded-md border border-dashed p-6 text-center text-muted-foreground">
@@ -518,7 +519,7 @@ export default function AdminSteps() {
           <DialogContent className="max-h-[90vh] overflow-y-auto sm:max-w-2xl">
             <DialogHeader>
               <DialogTitle>Naujas Å¾ingsnis</DialogTitle>
-              <DialogDescription>UÅ¾pildykite informacijÄ… apie naujÄ… Å¾ingsnÄ¯.</DialogDescription>
+              <DialogDescription>UÅ¾pildykite informacijÄ… apie naujÄ… Å¾ingsnÄÆ.</DialogDescription>
             </DialogHeader>
             <form onSubmit={handleCreateSubmit} className="space-y-6">
               {createFormError ? (
@@ -539,7 +540,7 @@ export default function AdminSteps() {
                   />
                 </div>
                 <div className="space-y-2 md:col-span-2">
-                  <Label htmlFor="create-step-description">ApraÅ¡ymas</Label>
+                  <Label htmlFor="create-step-description">ApraÅ?ymas</Label>
                   <Textarea
                     id="create-step-description"
                     value={createForm.description}
@@ -555,7 +556,7 @@ export default function AdminSteps() {
                       id="create-step-media-url"
                       value={createForm.mediaUrl}
                       onChange={(event) => setCreateForm((prev) => ({ ...prev, mediaUrl: event.target.value }))}
-                      placeholder="https://â€¦"
+                      placeholder="https://a€¦"
                       disabled={createFormDisabled}
                     />
                     <Button
@@ -564,7 +565,7 @@ export default function AdminSteps() {
                       onClick={() => createFileInputRef.current?.click()}
                       disabled={createFormDisabled}
                     >
-                      {isUploadingCreateMedia ? 'Ä®keliamaâ€¦' : 'Ä®kelti failÄ…'}
+                      {isUploadingCreateMedia ? 'Ä®keliamaa€¦' : 'Ä®kelti failÄ…'}
                     </Button>
                     <input
                       ref={createFileInputRef}
@@ -589,7 +590,7 @@ export default function AdminSteps() {
                     </SelectTrigger>
                     <SelectContent>
                       <SelectItem value="image">Nuotrauka</SelectItem>
-                      <SelectItem value="video">Vaizdo Ä¯raÅ¡as</SelectItem>
+                      <SelectItem value="video">Vaizdo ÄÆraÅ?as</SelectItem>
                     </SelectContent>
                   </Select>
                 </div>
@@ -599,7 +600,7 @@ export default function AdminSteps() {
                     options={tagOptions}
                     value={createForm.tagIds}
                     onChange={(next) => setCreateForm((prev) => ({ ...prev, tagIds: next }))}
-                    placeholder={tagsLoading ? 'Kraunamaâ€¦' : 'Pasirinkite Å¾ymas'}
+                    placeholder={tagsLoading ? 'Kraunamaa€¦' : 'Pasirinkite Å¾ymas'}
                     disabled={createFormDisabled || tagsLoading}
                     onCreateTag={() => openCreateTagDialog('create')}
                     creatingTag={createTagMutation.isLoading && tagDialogContext === 'create'}
@@ -629,13 +630,13 @@ export default function AdminSteps() {
                   }}
                   disabled={createFormDisabled}
                 >
-                  AtÅ¡aukti
+                  AtÅ?aukti
                 </Button>
                 <Button type="submit" disabled={createFormDisabled}>
                   {createMutation.isLoading ? (
                     <>
                       <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-                      Saugomaâ€¦
+                      Saugomaa€¦
                     </>
                   ) : (
                     'Saugoti'
@@ -649,9 +650,9 @@ export default function AdminSteps() {
         <Dialog open={isEditOpen} onOpenChange={(open) => (open ? setIsEditOpen(true) : closeEditDialog())}>
           <DialogContent className="max-h-[90vh] overflow-y-auto sm:max-w-2xl">
             <DialogHeader>
-              <DialogTitle>Redaguoti Å¾ingsnÄ¯</DialogTitle>
+              <DialogTitle>Redaguoti Å¾ingsnÄÆ</DialogTitle>
               <DialogDescription>
-                {stepToEdit ? `Atnaujinkite Å¾ingsnÄ¯ â€ž${stepToEdit.title}â€œ.` : ''}
+                {stepToEdit ? `Atnaujinkite Å¾ingsnÄÆ a€?${stepToEdit.title}a€?.` : ''}
               </DialogDescription>
             </DialogHeader>
             <form onSubmit={handleEditSubmit} className="space-y-6">
@@ -673,7 +674,7 @@ export default function AdminSteps() {
                   />
                 </div>
                 <div className="space-y-2 md:col-span-2">
-                  <Label htmlFor="edit-step-description">ApraÅ¡ymas</Label>
+                  <Label htmlFor="edit-step-description">ApraÅ?ymas</Label>
                   <Textarea
                     id="edit-step-description"
                     value={editForm.description}
@@ -689,7 +690,7 @@ export default function AdminSteps() {
                       id="edit-step-media-url"
                       value={editForm.mediaUrl}
                       onChange={(event) => setEditForm((prev) => ({ ...prev, mediaUrl: event.target.value }))}
-                      placeholder="https://â€¦"
+                      placeholder="https://a€¦"
                       disabled={editFormDisabled}
                     />
                     <Button
@@ -698,7 +699,7 @@ export default function AdminSteps() {
                       onClick={() => editFileInputRef.current?.click()}
                       disabled={editFormDisabled}
                     >
-                      {isUploadingEditMedia ? 'Ä®keliamaâ€¦' : 'Ä®kelti failÄ…'}
+                      {isUploadingEditMedia ? 'Ä®keliamaa€¦' : 'Ä®kelti failÄ…'}
                     </Button>
                     <input
                       ref={editFileInputRef}
@@ -723,7 +724,7 @@ export default function AdminSteps() {
                     </SelectTrigger>
                     <SelectContent>
                       <SelectItem value="image">Nuotrauka</SelectItem>
-                      <SelectItem value="video">Vaizdo Ä¯raÅ¡as</SelectItem>
+                      <SelectItem value="video">Vaizdo ÄÆraÅ?as</SelectItem>
                     </SelectContent>
                   </Select>
                 </div>
@@ -733,7 +734,7 @@ export default function AdminSteps() {
                     options={tagOptions}
                     value={editForm.tagIds}
                     onChange={(next) => setEditForm((prev) => ({ ...prev, tagIds: next }))}
-                    placeholder={tagsLoading ? 'Kraunamaâ€¦' : 'Pasirinkite Å¾ymas'}
+                    placeholder={tagsLoading ? 'Kraunamaa€¦' : 'Pasirinkite Å¾ymas'}
                     disabled={editFormDisabled || tagsLoading}
                     onCreateTag={() => openCreateTagDialog('edit')}
                     creatingTag={createTagMutation.isLoading && tagDialogContext === 'edit'}
@@ -759,19 +760,19 @@ export default function AdminSteps() {
                     value={editForm.orderIndex}
                     onChange={(event) => setEditForm((prev) => ({ ...prev, orderIndex: event.target.value }))}
                     disabled={editFormDisabled}
-                    placeholder="Palikite tuÅ¡ÄiÄ…, jei nekeiÄiate"
+                    placeholder="Palikite tuÅ?Ä¨iÄ…, jei nekeiÄ¨iate"
                   />
                 </div>
               </div>
               <DialogFooter className="flex flex-col gap-2 sm:flex-row sm:justify-end">
                 <Button type="button" variant="outline" onClick={closeEditDialog} disabled={editFormDisabled}>
-                  AtÅ¡aukti
+                  AtÅ?aukti
                 </Button>
                 <Button type="submit" disabled={editFormDisabled}>
                   {updateMutation.isLoading ? (
                     <>
                       <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-                      Saugomaâ€¦
+                      Saugomaa€¦
                     </>
                   ) : (
                     'Saugoti'
@@ -813,13 +814,13 @@ export default function AdminSteps() {
               </div>
               <DialogFooter className="flex flex-col gap-2 sm:flex-row sm:justify-end">
                 <Button type="button" variant="outline" onClick={closeCreateTagDialog} disabled={createTagMutation.isLoading}>
-                  AtÅ¡aukti
+                  AtÅ?aukti
                 </Button>
                 <Button type="submit" disabled={createTagMutation.isLoading}>
                   {createTagMutation.isLoading ? (
                     <>
                       <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-                      Saugomaâ€¦
+                      Saugomaa€¦
                     </>
                   ) : (
                     'Saugoti'
@@ -833,13 +834,13 @@ export default function AdminSteps() {
         <AlertDialog open={Boolean(stepToDelete)} onOpenChange={(open) => (!open ? setStepToDelete(null) : undefined)}>
           <AlertDialogContent>
             <AlertDialogHeader>
-              <AlertDialogTitle>Patvirtinkite Å¾ingsnio Å¡alinimÄ…</AlertDialogTitle>
+              <AlertDialogTitle>Patvirtinkite Å¾ingsnio Å?alinimÄ…</AlertDialogTitle>
               <AlertDialogDescription>
-                {stepToDelete ? `Ar tikrai norite iÅ¡trinti Å¾ingsnÄ¯ â€ž${stepToDelete.title}â€œ?` : ''}
+                {stepToDelete ? `Ar tikrai norite iÅ?trinti Å¾ingsnÄÆ a€?${stepToDelete.title}a€??` : ''}
               </AlertDialogDescription>
             </AlertDialogHeader>
             <AlertDialogFooter>
-              <AlertDialogCancel disabled={deleteMutation.isLoading}>AtÅ¡aukti</AlertDialogCancel>
+              <AlertDialogCancel disabled={deleteMutation.isLoading}>AtÅ?aukti</AlertDialogCancel>
               <AlertDialogAction
                 className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
                 disabled={deleteMutation.isLoading}
@@ -852,7 +853,7 @@ export default function AdminSteps() {
                   }
                 }}
               >
-                IÅ¡trinti
+                IÅ?trinti
               </AlertDialogAction>
             </AlertDialogFooter>
           </AlertDialogContent>
@@ -948,7 +949,7 @@ type StepCardProps = {
 function StepCard({ step, onEdit, onDelete, disableActions }: StepCardProps) {
   const resolvedMediaUrl = resolveMediaUrl(step.mediaUrl);
   const mediaKind = step.mediaType ?? inferMediaType(null, resolvedMediaUrl);
-  const mediaLabel = mediaKind === 'image' ? 'Nuotrauka' : mediaKind === 'video' ? 'Vaizdo Ä¯raÅ¡as' : null;
+  const mediaLabel = mediaKind === 'image' ? 'Nuotrauka' : mediaKind === 'video' ? 'Vaizdo ÄÆraÅ?as' : null;
   const visibleTags = (step.tags ?? []).filter(
     (tag): tag is NonNullable<TaskStep['tags']>[number] & { id: string } =>
       Boolean(tag) && typeof tag.id === 'string' && tag.id.length > 0,
@@ -993,52 +994,29 @@ function StepCard({ step, onEdit, onDelete, disableActions }: StepCardProps) {
         {step.contentText ? (
           <p className="whitespace-pre-line text-foreground">{step.contentText}</p>
         ) : (
-          <p className="text-muted-foreground">ApraÅ¡ymo nÄ—ra</p>
+          <p className="text-muted-foreground">ApraÅ?ymo nÄ—ra</p>
         )}
         {resolvedMediaUrl ? (
-          <div className="space-y-2">
-            {mediaKind === 'video' ? (
-              videoError ? (
-                <div className="rounded-lg border border-dashed border-border bg-muted/30 p-4 text-center text-muted-foreground">
-                  Nepavyko Ä¯kelti vaizdo Ä¯raÅ¡o.
-                </div>
-              ) : (
-                <video
-                  src={resolvedMediaUrl}
-                  controls
-                  preload="metadata"
-                  className="w-full max-h-80 rounded-lg border border-border bg-black"
-                  crossOrigin="anonymous"
-                  onError={() => setVideoError(true)}
-                />
-              )
-            ) : (
-              <img
-                src={resolvedMediaUrl}
-                alt={`?ingsnio ?${step.title}? iliustracija`}
-                loading="lazy"
-                className="w-full rounded-lg border border-border object-cover"
-                crossOrigin="anonymous"
-                onError={(event) => applyImageFallback(event.currentTarget)}
-              />
-            )}
-          </div>
+          <ResponsiveMedia
+            url={resolvedMediaUrl}
+            type={mediaKind ?? undefined}
+            title={step.title}
+            className="w-full max-w-3xl"
+          />
         ) : null}
         {shouldShowMediaMeta ? (
           <div className="flex flex-wrap items-center gap-2 text-xs text-muted-foreground">
             {resolvedMediaUrl ? (
-              <a
-                href={resolvedMediaUrl}
-                target="_blank"
-                rel="noreferrer"
-                className="text-primary underline-offset-4 hover:underline"
-              >
-                AtsisiÅ³sti failÄ…
-              </a>
-            ) : null}
+          <ResponsiveMedia
+            url={resolvedMediaUrl}
+            type={mediaKind ?? undefined}
+            title={step.title}
+            className="w-full max-w-3xl"
+          />
+        ) : null}
             {mediaLabel ? <Badge variant="outline">{mediaLabel}</Badge> : null}
             {step.requireUserMedia ? (
-              <Badge variant="secondary">Reikia vartotojo nuotraukos ar vaizdo Ä¯raÅ¡o</Badge>
+              <Badge variant="secondary">Reikia vartotojo nuotraukos ar vaizdo ÄÆraÅ?o</Badge>
             ) : null}
           </div>
         ) : null}
@@ -1046,4 +1024,5 @@ function StepCard({ step, onEdit, onDelete, disableActions }: StepCardProps) {
     </Card>
   );
 }
+
 

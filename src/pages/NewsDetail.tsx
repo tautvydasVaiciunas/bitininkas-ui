@@ -1,4 +1,4 @@
-import { useMemo, useState } from "react";
+import { useMemo } from "react";
 import { useParams, Link, Navigate } from "react-router-dom";
 import { useQuery } from "@tanstack/react-query";
 import { ArrowLeft } from "lucide-react";
@@ -9,7 +9,8 @@ import { Button } from "@/components/ui/button";
 import { Skeleton } from "@/components/ui/skeleton";
 import api from "@/lib/api";
 import { mapNewsPostFromApi } from "@/lib/types";
-import { applyImageFallback, inferMediaType, resolveMediaUrl, FALLBACK_MEDIA_SRC } from "@/lib/media";
+import { inferMediaType, resolveMediaUrl } from "@/lib/media";
+import { ResponsiveMedia } from "@/components/media/ResponsiveMedia";
 
 const formatDateTime = (date: string) =>
   new Date(date).toLocaleString("lt-LT", {
@@ -44,9 +45,6 @@ const NewsDetail = () => {
   const groups = useMemo(() => data?.groups ?? [], [data]);
   const coverUrl = data ? resolveMediaUrl(data.imageUrl) : null;
   const coverMediaType = data ? inferMediaType(null, coverUrl) : null;
-  const coverIsVideo = coverMediaType === "video";
-  const [coverVideoError, setCoverVideoError] = useState(false);
-  const coverShowsVideo = coverIsVideo && Boolean(coverUrl) && !coverVideoError;
 
   if (!newsId) {
     return <Navigate to="/news" replace />;
@@ -88,33 +86,12 @@ const NewsDetail = () => {
           </div>
         ) : (
           <Card className="overflow-hidden">
-            {coverUrl ? (
-              <div className="max-h-[360px] overflow-hidden">
-                {coverShowsVideo ? (
-                  <video
-                    src={coverUrl}
-                    controls
-                    preload="metadata"
-                    className="h-full w-full bg-black object-cover"
-                    crossOrigin="anonymous"
-                    onError={() => setCoverVideoError(true)}
-                  />
-                ) : coverIsVideo ? (
-                  <div className="flex h-full w-full items-center justify-center bg-muted text-sm font-medium uppercase tracking-wide text-muted-foreground">
-                    Nepavyko įkelti vaizdo įrašo
-                  </div>
-                ) : (
-                  <img
-                    src={coverUrl ?? FALLBACK_MEDIA_SRC}
-                    alt={data.title}
-                    className="h-full w-full object-cover"
-                    loading="lazy"
-                    crossOrigin="anonymous"
-                    onError={(event) => applyImageFallback(event.currentTarget)}
-                  />
-                )}
-              </div>
-            ) : null}
+            <ResponsiveMedia
+              url={coverUrl ?? undefined}
+              type={coverMediaType}
+              title={data.title}
+              className="rounded-none"
+            />
             <CardHeader className="space-y-4">
               <div className="flex flex-col gap-2 text-sm text-muted-foreground sm:flex-row sm:items-center sm:justify-between">
                 <span>Paskelbta: {formatDateTime(data.createdAt)}</span>

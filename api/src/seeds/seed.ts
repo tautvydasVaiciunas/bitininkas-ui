@@ -1,11 +1,12 @@
 import 'reflect-metadata';
 
-import * as fs from 'fs';
-import * as path from 'path';
 import * as bcrypt from 'bcryptjs';
 
 import { AppDataSource } from '../ormdatasource';
-import { resolveUploadsDir } from '../common/config/storage.config';
+import {
+  NEWS_PLACEHOLDER_URI,
+  ensureNewsPlaceholderFile,
+} from '../common/config/storage.config';
 import { User, UserRole } from '../users/user.entity';
 import { Hive, HiveStatus } from '../hives/hive.entity';
 import { Task, TaskFrequency } from '../tasks/task.entity';
@@ -22,33 +23,6 @@ import { Notification } from '../notifications/notification.entity';
 import { Group } from '../groups/group.entity';
 import { GroupMember } from '../groups/group-member.entity';
 import { NewsPost } from '../news/news-post.entity';
-
-const ensureUploadFile = (targetName: string, sourceRelative: string) => {
-  try {
-    const uploadsDir = resolveUploadsDir();
-    if (!fs.existsSync(uploadsDir)) {
-      fs.mkdirSync(uploadsDir, { recursive: true });
-    }
-
-    const destination = path.join(uploadsDir, targetName);
-    if (fs.existsSync(destination)) {
-      console.log(`Failas ${targetName} jau egzistuoja uploads aplanke – praleidžiame kopijavimą.`);
-      return destination;
-    }
-
-    const sourcePath = path.resolve(process.cwd(), sourceRelative);
-    fs.copyFileSync(sourcePath, destination);
-    console.log(`Nukopijuotas failas ${targetName} į uploads aplanką.`);
-    return destination;
-  } catch (error) {
-    console.warn(
-      `Nepavyko nukopijuoti failo ${targetName}: ${(error as Error)?.message ?? 'nežinoma klaida'}`,
-    );
-    return null;
-  }
-};
-
-const NEWS_PLACEHOLDER = '/uploads/seed/news-default.jpg';
 
 async function runSeed(): Promise<void> {
   const dataSource = AppDataSource;
@@ -432,14 +406,14 @@ async function runSeed(): Promise<void> {
       console.warn('Nepavyko įterpti pranešimų – tęsiame be jų.', notificationError);
     }
 
-    ensureUploadFile('seed/news-default.jpg', 'public/fallback-media.png');
+    ensureNewsPlaceholderFile();
 
     const seasonNews = newsRepository.create({
       title: 'Pavasario sezonas prasideda',
       body: 'Patikrinkite avilius, papildykite pašarus ir suplanuokite pirmuosius darbus.',
       targetAll: true,
       imageUrl:
-        NEWS_PLACEHOLDER,
+        NEWS_PLACEHOLDER_URI,
     });
 
     const forestNews = newsRepository.create({
@@ -455,7 +429,7 @@ async function runSeed(): Promise<void> {
       body: 'Bendrystės klubo nariai kviečiami į šeštadienio dirbtuves – dalinsimės medaus produktų receptais ir pasiruošimo vasarai patarimais.',
       targetAll: false,
       imageUrl:
-        NEWS_PLACEHOLDER,
+        NEWS_PLACEHOLDER_URI,
       groups: [communityGroup],
     });
 

@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useRef, useState } from "react";
+import { useEffect, useMemo, useRef } from "react";
 import { useInfiniteQuery } from "@tanstack/react-query";
 import { Link } from "react-router-dom";
 import { MainLayout } from "@/components/Layout/MainLayout";
@@ -10,7 +10,8 @@ import api, { HttpError } from "@/lib/api";
 import { mapPaginatedNewsFromApi, type NewsPost } from "@/lib/types";
 import { useToast } from "@/components/ui/use-toast";
 import { ToastAction } from "@/components/ui/toast";
-import { applyImageFallback, inferMediaType, resolveMediaUrl, FALLBACK_MEDIA_SRC } from "@/lib/media";
+import { inferMediaType, resolveMediaUrl } from "@/lib/media";
+import { ResponsiveMedia } from "@/components/media/ResponsiveMedia";
 
 const PAGE_SIZE = 6;
 
@@ -102,7 +103,7 @@ const News = () => {
             {Array.from({ length: 3 }).map((_, index) => (
               <Card key={index} className="overflow-hidden">
                 <div className="grid gap-0 md:grid-cols-[minmax(0,320px),1fr]">
-                  <div className="relative aspect-[16/9] w-full md:aspect-auto md:h-full">
+                  <div className="relative w-full overflow-hidden rounded-lg bg-muted aspect-square md:aspect-[16/9]">
                     <Skeleton className="absolute inset-0 h-full w-full" />
                   </div>
                   <div className="flex flex-1 flex-col">
@@ -151,9 +152,7 @@ const News = () => {
                 return (
                   <Card key={post.id} className="overflow-hidden">
                     <div className="grid gap-0 md:grid-cols-[minmax(0,320px),1fr]">
-                      <div className="relative aspect-[16/9] w-full md:aspect-auto md:h-full">
-                        <NewsMediaPreview url={coverUrl} mediaType={coverType} title={post.title} />
-                      </div>
+                      <ResponsiveMedia url={coverUrl} type={coverType} title={post.title} />
                       <div className="flex flex-1 flex-col">
                         <CardHeader className="space-y-3 md:space-y-4">
                           <span className="text-sm font-medium uppercase tracking-wide text-muted-foreground">
@@ -210,50 +209,3 @@ const News = () => {
 };
 
 export default News;
-
-type NewsMediaPreviewProps = {
-  url: string | null;
-  mediaType: 'image' | 'video' | null;
-  title: string;
-};
-
-const NewsMediaPreview = ({ url, mediaType, title }: NewsMediaPreviewProps) => {
-  const [videoError, setVideoError] = useState(false);
-  const baseMediaClass = 'absolute inset-0 h-full w-full object-cover';
-
-  if (mediaType === 'video') {
-    if (!url || videoError) {
-      return (
-        <div className="absolute inset-0 flex items-center justify-center bg-muted text-center text-sm font-medium uppercase tracking-wide text-muted-foreground">
-          <span className="px-4">
-            {videoError ? 'Nepavyko įkelti vaizdo įrašo' : 'Vaizdo įrašas nepateiktas'}
-          </span>
-        </div>
-      );
-    }
-
-    return (
-      <video
-        src={url}
-        controls
-        preload="metadata"
-        className={`${baseMediaClass} bg-black`}
-        crossOrigin="anonymous"
-        onError={() => setVideoError(true)}
-      />
-    );
-  }
-
-  const src = url ?? FALLBACK_MEDIA_SRC;
-
-  return (
-    <img
-      src={src}
-      alt={title}
-      className={baseMediaClass}
-      loading="lazy"
-      crossOrigin="anonymous"
-      onError={(event) => applyImageFallback(event.currentTarget)}
-    />
-  );
-};

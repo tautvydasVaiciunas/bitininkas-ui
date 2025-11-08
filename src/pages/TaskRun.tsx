@@ -1,8 +1,9 @@
-import { useEffect, useMemo, useRef, useState } from 'react';
+﻿import { useEffect, useMemo, useRef, useState } from 'react';
 import { useNavigate, useParams } from 'react-router-dom';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { MainLayout } from '@/components/Layout/MainLayout';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
+import { ResponsiveMedia } from '@/components/media/ResponsiveMedia';
 import { Button } from '@/components/ui/button';
 import { Textarea } from '@/components/ui/textarea';
 import { Label } from '@/components/ui/label';
@@ -23,14 +24,14 @@ import {
   type StepProgressToggleResult,
   type UpdateProgressPayload,
 } from '@/lib/types';
-import { applyImageFallback, inferMediaType, resolveMediaUrl } from '@/lib/media';
+import { inferMediaType, resolveMediaUrl } from '@/lib/media';
 import { Calendar, CheckCircle2, ChevronLeft, ChevronRight, Loader2, RotateCcw } from 'lucide-react';
 import { toast } from 'sonner';
 
 const formatDate = (value?: string | null) => {
-  if (!value) return '—';
+  if (!value) return 'a��';
   const date = new Date(value);
-  if (Number.isNaN(date.getTime())) return '—';
+  if (Number.isNaN(date.getTime())) return 'a��';
   return date.toLocaleDateString('lt-LT', { year: 'numeric', month: 'long', day: 'numeric' });
 };
 
@@ -171,7 +172,7 @@ export default function TaskRun() {
       if (variables) {
         delete saveTimeouts.current[variables.taskStepId];
       }
-      toast.error('Nepavyko išsaugoti pastabų', {
+      toast.error('Nepavyko i�?saugoti pastabų', {
         description: getErrorMessage(mutationError),
       });
     },
@@ -262,7 +263,7 @@ export default function TaskRun() {
         updateAssignmentStatusMutation.mutate('in_progress');
       }
 
-      toast.success('Žingsnis grąžintas į neįvykdytą');
+      toast.success('Žingsnis grąžintas �� ne��vykdytą');
     },
     onError: (stepError: HttpError | Error) => {
       toast.error('Nepavyko atnaujinti žingsnio būsenos', {
@@ -288,7 +289,7 @@ export default function TaskRun() {
       <MainLayout>
         <div className="space-y-6">
           <Button variant="ghost" onClick={() => navigate(-1)} className="pl-0">
-            <ChevronLeft className="mr-2 h-4 w-4" /> Grįžti
+            <ChevronLeft className="mr-2 h-4 w-4" /> Gr��žti
           </Button>
           <Card className="shadow-custom">
             <CardContent className="space-y-6 p-6">
@@ -309,7 +310,7 @@ export default function TaskRun() {
           <CardContent className="p-12 text-center">
             <h3 className="text-lg font-semibold mb-2">Užduotis nerasta</h3>
             <p className="text-muted-foreground mb-6">{getErrorMessage(error)}</p>
-            <Button onClick={() => navigate('/tasks')}>Grįžti į užduotis</Button>
+            <Button onClick={() => navigate('/tasks')}>Gr��žti �� užduotis</Button>
           </CardContent>
         </Card>
       </MainLayout>
@@ -356,7 +357,7 @@ export default function TaskRun() {
             <h1 className="text-3xl font-bold">{data.task.title}</h1>
             <p className="text-muted-foreground mt-1 flex items-center gap-3 text-sm md:text-base">
               <span>Avilys: {hive?.label ?? assignment.hiveId}</span>
-              <span className="hidden md:inline">•</span>
+              <span className="hidden md:inline">a��</span>
               <span>Terminas: {formatDate(assignment.dueDate)}</span>
             </p>
           </div>
@@ -422,7 +423,7 @@ export default function TaskRun() {
                 <div className="flex items-start justify-between">
                   <div className="flex-1">
                     <p className="mb-1 text-sm text-muted-foreground">
-                      Žingsnis {currentStepIndex + 1} iš {steps.length}
+                      Žingsnis {currentStepIndex + 1} i�? {steps.length}
                     </p>
                     <CardTitle className="text-2xl">{currentStep?.title ?? 'Žingsnis nerastas'}</CardTitle>
                   </div>
@@ -440,52 +441,30 @@ export default function TaskRun() {
                 {currentMediaUrl ? (
                   <div className="space-y-2">
                     <h4 className="font-semibold">Prisegtas failas</h4>
-                    {currentMediaType === 'video' ? (
-                      videoError ? (
-                        <div className="rounded-lg border border-dashed border-border bg-muted/30 p-4 text-center text-muted-foreground">
-                          Nepavyko įkelti vaizdo įrašo.
-                        </div>
-                      ) : (
-                        <video
-                          key={currentMediaUrl}
-                          src={currentMediaUrl}
-                          controls
-                          preload="metadata"
-                          className="w-full max-h-[420px] rounded-lg border border-border bg-black"
-                          crossOrigin="anonymous"
-                          onError={() => setVideoError(true)}
-                        />
-                      )
-                    ) : (
-                      <img
-                        src={currentMediaUrl}
-                        alt={`Žingsnio „${currentStep?.title ?? ''}” iliustracija`}
-                        loading="lazy"
-                        className="w-full rounded-lg border border-border object-cover"
-                        crossOrigin="anonymous"
-                        onError={(event) => applyImageFallback(event.currentTarget)}
-                      />
-                    )}
-
+                    <ResponsiveMedia
+                      url={currentMediaUrl}
+                      type={currentMediaType}
+                      title={currentStep?.title ?? 'Žingsnis'}
+                    />
                     <a
                       href={currentMediaUrl}
                       target="_blank"
                       rel="noreferrer"
                       className="text-sm text-primary underline-offset-4 hover:underline"
                     >
-                      Atsisiųsti failą
+                      Atsisiusti faila
                     </a>
                   </div>
                 ) : null}
 
                 {currentStep?.requireUserMedia ? (
                   <Badge variant="outline" className="border-amber-500/40 bg-amber-50 text-amber-700">
-                    Šiam žingsniui reikalinga jūsų nuotrauka arba vaizdo įrašas
+                    Šiam žingsniui reikalinga jūsų nuotrauka arba vaizdo ��ra�?as
                   </Badge>
                 ) : null}
 
                 <div className="space-y-2">
-                  <Label htmlFor="notes">Pastabos (išsaugoma automatiškai)</Label>
+                  <Label htmlFor="notes">Pastabos (i�?saugoma automati�?kai)</Label>
                   <Textarea
                     id="notes"
                     placeholder="Įveskite savo pastabas..."
@@ -504,7 +483,7 @@ export default function TaskRun() {
 
                 <div className="flex items-center gap-4 text-sm text-muted-foreground">
                   <Calendar className="h-4 w-4" />
-                  <span>Žingsnis sukurtas: {currentStep ? formatDate(currentStep.createdAt) : '—'}</span>
+                  <span>Žingsnis sukurtas: {currentStep ? formatDate(currentStep.createdAt) : 'a��'}</span>
                 </div>
               </CardContent>
             </Card>
@@ -554,5 +533,7 @@ export default function TaskRun() {
     </MainLayout>
   );
 }
+
+
 
 

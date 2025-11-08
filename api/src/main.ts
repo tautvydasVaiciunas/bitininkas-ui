@@ -5,8 +5,12 @@ import { ValidationError } from 'class-validator';
 import { ConfigService } from '@nestjs/config';
 import helmet from 'helmet';
 import * as express from 'express';
+import * as fs from 'fs';
+import * as path from 'path';
 import {
   ensureUploadsDir,
+  ensureNewsPlaceholderFile,
+  resolvePublicFallback,
   resolveUploadsDir,
   uploadsPrefix,
 } from './common/config/storage.config';
@@ -83,11 +87,41 @@ async function bootstrap() {
 
   ensureUploadsDir();
   const uploadsDir = resolveUploadsDir();
+  const ensuredPlaceholder = ensureNewsPlaceholderFile();
+  const fallbackPublic = resolvePublicFallback();
+
   app.use(
     uploadsPrefix(),
     (req, res, next) => {
       res.setHeader('Cross-Origin-Resource-Policy', 'cross-origin');
       res.setHeader('Cache-Control', 'public, max-age=31536000, immutable');
+
+      const requestPath = decodeURIComponent(req.path || '/');
+      const sanitized = path
+        .normalize(requestPath)
+        .replace(/^(\.\.(\/|\\|$))+/g, '')
+        .replace(/^[/\\]+/, '');
+      const requestedAbsolute = path.join(uploadsDir, sanitized);
+
+      const fileExists =
+        requestedAbsolute.startsWith(uploadsDir) &&
+        fs.existsSync(requestedAbsolute) &&
+        fs.statSync(requestedAbsolute).isFile();
+
+      if (fileExists) {
+        next();
+        return;
+      }
+
+      const fallbackCandidate =
+        (ensuredPlaceholder && fs.existsSync(ensuredPlaceholder) ? ensuredPlaceholder : null) ??
+        (fs.existsSync(fallbackPublic) ? fallbackPublic : null);
+
+      if (fallbackCandidate) {
+        res.sendFile(fallbackCandidate);
+        return;
+      }
+
       next();
     },
     express.static(uploadsDir, { index: false, fallthrough: true }),

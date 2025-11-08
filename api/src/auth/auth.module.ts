@@ -11,6 +11,7 @@ import { User } from '../users/user.entity';
 import { JwtStrategy } from './jwt.strategy';
 import { ActivityLogModule } from '../activity-log/activity-log.module';
 import { PasswordResetToken } from './password-reset-token.entity';
+import { NotificationsModule } from '../notifications/notifications.module';
 
 @Module({
   imports: [
@@ -26,6 +27,7 @@ import { PasswordResetToken } from './password-reset-token.entity';
     TypeOrmModule.forFeature([User, PasswordResetToken]),
     UsersModule,
     ActivityLogModule,
+    NotificationsModule,
   ],
   providers: [AuthService, JwtStrategy],
   controllers: [AuthController],

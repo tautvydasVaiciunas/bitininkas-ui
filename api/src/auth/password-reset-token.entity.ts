@@ -6,10 +6,12 @@ import {
   JoinColumn,
   ManyToOne,
   PrimaryGeneratedColumn,
+  Unique,
 } from 'typeorm';
 import { User } from '../users/user.entity';
 
 @Entity({ name: 'password_reset_tokens' })
+@Unique('UQ_password_reset_tokens_token_hash', ['tokenHash'])
 export class PasswordResetToken {
   @PrimaryGeneratedColumn('uuid')
   id!: string;
@@ -25,12 +27,12 @@ export class PasswordResetToken {
   user!: User;
 
   @Column({
+    name: 'token_hash',
     type: 'varchar',
-    length: 255,
-    unique: true,
+    length: 128,
     nullable: false,
   })
-  token!: string;
+  tokenHash!: string;
 
   @Column({ name: 'expires_at', type: 'timestamptz', nullable: false })
   expiresAt!: Date;

@@ -1,24 +1,60 @@
 import { API_BASE_URL } from '@/lib/api';
 
-const VIDEO_EXTENSIONS = ['.mp4', '.webm', '.ogg'];
+const IMAGE_EXTENSIONS = ['.png', '.jpg', '.jpeg', '.webp', '.gif', '.avif'];
+const VIDEO_EXTENSIONS = ['.mp4', '.webm', '.ogg', '.mov'];
 
 export const FALLBACK_MEDIA_SRC = '/fallback-media.png';
 
+const normalizeUrl = (value?: string | null) => value?.trim() ?? '';
+
+export const withApiBase = (value?: string | null) => {
+  const normalized = normalizeUrl(value);
+  if (!normalized) {
+    return normalized;
+  }
+
+  if (/^https?:\/\//i.test(normalized)) {
+    return normalized;
+  }
+
+  if (normalized.startsWith('/uploads')) {
+    return API_BASE_URL ? `${API_BASE_URL}${normalized}` : normalized;
+  }
+
+  return normalized;
+};
+
 export const resolveMediaUrl = (value?: string | null) => {
-  if (!value) {
+  const normalized = normalizeUrl(value);
+  if (!normalized) {
     return null;
   }
 
-  if (/^https?:\/\//i.test(value)) {
-    return value;
-  }
-
-  if (value.startsWith('/uploads/')) {
-    return API_BASE_URL ? `${API_BASE_URL}${value}` : value;
-  }
-
-  return value;
+  return withApiBase(normalized);
 };
+
+const endsWithExtension = (value: string, extensions: string[]) =>
+  extensions.some((extension) => value.toLowerCase().endsWith(extension));
+
+export const isImage = (value?: string | null) => {
+  const normalized = normalizeUrl(value);
+  if (!normalized) {
+    return false;
+  }
+
+  return endsWithExtension(normalized, IMAGE_EXTENSIONS);
+};
+
+export const isVideo = (value?: string | null) => {
+  const normalized = normalizeUrl(value);
+  if (!normalized) {
+    return false;
+  }
+
+  return endsWithExtension(normalized, VIDEO_EXTENSIONS);
+};
+
+export const thumbUrl = (value?: string | null) => resolveMediaUrl(value);
 
 export const inferMediaType = (
   explicit?: string | null,
@@ -32,12 +68,15 @@ export const inferMediaType = (
     return null;
   }
 
-  const lower = url.toLowerCase();
-  if (VIDEO_EXTENSIONS.some((extension) => lower.endsWith(extension))) {
+  if (isVideo(url)) {
     return 'video';
   }
 
-  return 'image';
+  if (isImage(url)) {
+    return 'image';
+  }
+
+  return null;
 };
 
 export const applyImageFallback = (img: HTMLImageElement | null) => {

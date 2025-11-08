@@ -1,6 +1,11 @@
 import 'reflect-metadata';
 
+import * as fs from 'fs';
+import * as path from 'path';
+import * as bcrypt from 'bcryptjs';
+
 import { AppDataSource } from '../ormdatasource';
+import { resolveUploadsDir } from '../common/config/storage.config';
 import { User, UserRole } from '../users/user.entity';
 import { Hive, HiveStatus } from '../hives/hive.entity';
 import { Task, TaskFrequency } from '../tasks/task.entity';
@@ -17,7 +22,33 @@ import { Notification } from '../notifications/notification.entity';
 import { Group } from '../groups/group.entity';
 import { GroupMember } from '../groups/group-member.entity';
 import { NewsPost } from '../news/news-post.entity';
-import * as bcrypt from 'bcryptjs';
+
+const ensureUploadFile = (targetName: string, sourceRelative: string) => {
+  try {
+    const uploadsDir = resolveUploadsDir();
+    if (!fs.existsSync(uploadsDir)) {
+      fs.mkdirSync(uploadsDir, { recursive: true });
+    }
+
+    const destination = path.join(uploadsDir, targetName);
+    if (fs.existsSync(destination)) {
+      console.log(`Failas ${targetName} jau egzistuoja uploads aplanke – praleidžiame kopijavimą.`);
+      return destination;
+    }
+
+    const sourcePath = path.resolve(process.cwd(), sourceRelative);
+    fs.copyFileSync(sourcePath, destination);
+    console.log(`Nukopijuotas failas ${targetName} į uploads aplanką.`);
+    return destination;
+  } catch (error) {
+    console.warn(
+      `Nepavyko nukopijuoti failo ${targetName}: ${(error as Error)?.message ?? 'nežinoma klaida'}`,
+    );
+    return null;
+  }
+};
+
+const NEWS_PLACEHOLDER = '/uploads/seed/news-default.jpg';
 
 async function runSeed(): Promise<void> {
   const dataSource = AppDataSource;
@@ -331,29 +362,84 @@ async function runSeed(): Promise<void> {
 
     await progressRepository.save(baseProgressEntries);
 
-    await notificationRepository.save([
-      notificationRepository.create({
+    let hasIsReadColumn = false;
+    try {
+      const columnRows = (await dataSource.query(
+        `SELECT column_name
+         FROM information_schema.columns
+         WHERE table_name = 'notifications'
+           AND table_schema = current_schema()`,
+      )) as Array<{ column_name?: string }>;
+
+      const columnNames = columnRows
+        .map((row) => row.column_name?.toLowerCase())
+        .filter((name): name is string => Boolean(name));
+
+      hasIsReadColumn = columnNames.includes('is_read');
+      if (!hasIsReadColumn) {
+        console.warn('Įspėjimas: is_read stulpelio nėra – praleidžiame lauką pranešimų seede.');
+      }
+    } catch (schemaError) {
+      console.warn(
+        'Nepavyko patikrinti pranešimų stulpelių – tęsiame be is_read laukelio.',
+        schemaError,
+      );
+    }
+
+    type NotificationSeedInput = {
+      userId: string;
+      type: Notification['type'];
+      title: string;
+      body: string;
+      link: string;
+      isRead?: boolean;
+    };
+
+    const baseNotificationPayloads: NotificationSeedInput[] = [
+      {
         userId: user.id,
         type: 'assignment',
         title: 'Primename apie užduotį',
         body: 'Primename apie artėjančią užduotį jūsų aviliui.',
         link: `/tasks/${assignment1.id}/run`,
-      }),
-      notificationRepository.create({
+      },
+      {
         userId: manager.id,
         type: 'message',
         title: 'Užduoties progresas',
         body: 'Bitininkas pažymėjo užduoties žingsnį kaip atliktą.',
         link: `/tasks/${assignment1.id}/run`,
-      }),
-    ]);
+      },
+    ];
+
+    const notificationPayloads = baseNotificationPayloads.map((payload) => {
+      if (hasIsReadColumn) {
+        return { ...payload, isRead: false };
+      }
+
+      const { isRead, ...rest } = payload;
+      return rest;
+    });
+
+    try {
+      await notificationRepository
+        .createQueryBuilder()
+        .insert()
+        .values(notificationPayloads)
+        .orIgnore()
+        .execute();
+    } catch (notificationError) {
+      console.warn('Nepavyko įterpti pranešimų – tęsiame be jų.', notificationError);
+    }
+
+    ensureUploadFile('seed/news-default.jpg', 'public/fallback-media.png');
 
     const seasonNews = newsRepository.create({
       title: 'Pavasario sezonas prasideda',
       body: 'Patikrinkite avilius, papildykite pašarus ir suplanuokite pirmuosius darbus.',
       targetAll: true,
       imageUrl:
-        'https://images.unsplash.com/photo-1501700493788-fa1a0d4e783d?auto=format&fit=crop&w=1200&q=80',
+        NEWS_PLACEHOLDER,
     });
 
     const forestNews = newsRepository.create({
@@ -369,7 +455,7 @@ async function runSeed(): Promise<void> {
       body: 'Bendrystės klubo nariai kviečiami į šeštadienio dirbtuves – dalinsimės medaus produktų receptais ir pasiruošimo vasarai patarimais.',
       targetAll: false,
       imageUrl:
-        'https://images.unsplash.com/photo-1514996937319-344454492b37?auto=format&fit=crop&w=1200&q=80',
+        NEWS_PLACEHOLDER,
       groups: [communityGroup],
     });
 

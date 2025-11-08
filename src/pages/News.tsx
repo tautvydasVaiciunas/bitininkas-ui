@@ -10,6 +10,7 @@ import api, { HttpError } from "@/lib/api";
 import { mapPaginatedNewsFromApi, type NewsPost } from "@/lib/types";
 import { useToast } from "@/components/ui/use-toast";
 import { ToastAction } from "@/components/ui/toast";
+import { inferMediaType, resolveMediaUrl } from "@/lib/media";
 
 const PAGE_SIZE = 6;
 
@@ -143,51 +144,66 @@ const News = () => {
         ) : (
           <div className="space-y-8">
             <div className="space-y-6">
-              {newsItems.map((post) => (
-                <Card key={post.id} className="overflow-hidden">
-                  <div className="grid gap-0 md:grid-cols-[minmax(0,320px),1fr]">
-                    <div className="relative aspect-[16/9] w-full md:aspect-auto md:h-full">
-                      {post.imageUrl ? (
-                        <img
-                          src={post.imageUrl}
-                          alt={post.title}
-                          className="absolute inset-0 h-full w-full object-cover"
-                          loading="lazy"
-                        />
-                      ) : (
-                        <div className="absolute inset-0 flex items-center justify-center bg-muted text-center text-sm font-medium uppercase tracking-wide text-muted-foreground">
-                          <span className="px-4">Nuotrauka nepateikta</span>
-                        </div>
-                      )}
+              {newsItems.map((post) => {
+                const coverUrl = resolveMediaUrl(post.imageUrl);
+                const coverType = inferMediaType(null, coverUrl);
+                const isVideo = coverType === 'video';
+
+                return (
+                  <Card key={post.id} className="overflow-hidden">
+                    <div className="grid gap-0 md:grid-cols-[minmax(0,320px),1fr]">
+                      <div className="relative aspect-[16/9] w-full md:aspect-auto md:h-full">
+                        {coverUrl ? (
+                          isVideo ? (
+                            <video
+                              src={coverUrl}
+                              controls
+                              preload="metadata"
+                              className="absolute inset-0 h-full w-full object-cover bg-black"
+                            />
+                          ) : (
+                            <img
+                              src={coverUrl}
+                              alt={post.title}
+                              className="absolute inset-0 h-full w-full object-cover"
+                              loading="lazy"
+                            />
+                          )
+                        ) : (
+                          <div className="absolute inset-0 flex items-center justify-center bg-muted text-center text-sm font-medium uppercase tracking-wide text-muted-foreground">
+                            <span className="px-4">Media nepateikta</span>
+                          </div>
+                        )}
+                      </div>
+                      <div className="flex flex-1 flex-col">
+                        <CardHeader className="space-y-3 md:space-y-4">
+                          <span className="text-sm font-medium uppercase tracking-wide text-muted-foreground">
+                            {formatDate(post.createdAt)}
+                          </span>
+                          <CardTitle className="text-2xl leading-tight md:text-3xl">{post.title}</CardTitle>
+                        </CardHeader>
+                        <CardContent className="flex-1">
+                          <p className="text-base text-muted-foreground md:text-lg">
+                            {buildSnippet(post.body)}
+                          </p>
+                        </CardContent>
+                        <CardFooter className="mt-auto flex flex-col gap-3 border-t border-border/60 bg-muted/10 p-6 md:flex-row md:items-center md:justify-between">
+                          <div className="text-sm text-muted-foreground">
+                            {post.targetAll
+                              ? 'Matoma visiems nariams'
+                              : post.groups.length > 0
+                                ? `Matoma grupėms: ${post.groups.map((group) => group.name).join(', ')}`
+                                : 'Matoma pasirinktoms grupėms'}
+                          </div>
+                          <Button asChild>
+                            <Link to={`/news/${post.id}`}>Skaityti</Link>
+                          </Button>
+                        </CardFooter>
+                      </div>
                     </div>
-                    <div className="flex flex-1 flex-col">
-                      <CardHeader className="space-y-3 md:space-y-4">
-                        <span className="text-sm font-medium uppercase tracking-wide text-muted-foreground">
-                          {formatDate(post.createdAt)}
-                        </span>
-                        <CardTitle className="text-2xl leading-tight md:text-3xl">{post.title}</CardTitle>
-                      </CardHeader>
-                      <CardContent className="flex-1">
-                        <p className="text-base text-muted-foreground md:text-lg">
-                          {buildSnippet(post.body)}
-                        </p>
-                      </CardContent>
-                      <CardFooter className="mt-auto flex flex-col gap-3 border-t border-border/60 bg-muted/10 p-6 md:flex-row md:items-center md:justify-between">
-                        <div className="text-sm text-muted-foreground">
-                          {post.targetAll
-                            ? 'Matoma visiems nariams'
-                            : post.groups.length > 0
-                              ? `Matoma grupėms: ${post.groups.map((group) => group.name).join(', ')}`
-                              : 'Matoma pasirinktoms grupėms'}
-                        </div>
-                        <Button asChild>
-                          <Link to={`/news/${post.id}`}>Skaityti</Link>
-                        </Button>
-                      </CardFooter>
-                    </div>
-                  </div>
-                </Card>
-              ))}
+                  </Card>
+                );
+              })}
             </div>
 
             {hasNextPage ? (

@@ -9,6 +9,7 @@ import { Button } from "@/components/ui/button";
 import { Skeleton } from "@/components/ui/skeleton";
 import api from "@/lib/api";
 import { mapNewsPostFromApi } from "@/lib/types";
+import { inferMediaType, resolveMediaUrl } from "@/lib/media";
 
 const formatDateTime = (date: string) =>
   new Date(date).toLocaleString("lt-LT", {
@@ -41,6 +42,9 @@ const NewsDetail = () => {
   });
 
   const groups = useMemo(() => data?.groups ?? [], [data]);
+  const coverUrl = data ? resolveMediaUrl(data.imageUrl) : null;
+  const coverMediaType = data ? inferMediaType(null, coverUrl) : null;
+  const coverIsVideo = coverMediaType === "video";
 
   if (!newsId) {
     return <Navigate to="/news" replace />;
@@ -82,14 +86,23 @@ const NewsDetail = () => {
           </div>
         ) : (
           <Card className="overflow-hidden">
-            {data.imageUrl ? (
+            {coverUrl ? (
               <div className="max-h-[360px] overflow-hidden">
-                <img
-                  src={data.imageUrl}
-                  alt={data.title}
-                  className="h-full w-full object-cover"
-                  loading="lazy"
-                />
+                {coverIsVideo ? (
+                  <video
+                    src={coverUrl}
+                    controls
+                    preload="metadata"
+                    className="h-full w-full bg-black object-cover"
+                  />
+                ) : (
+                  <img
+                    src={coverUrl}
+                    alt={data.title}
+                    className="h-full w-full object-cover"
+                    loading="lazy"
+                  />
+                )}
               </div>
             ) : null}
             <CardHeader className="space-y-4">

@@ -9,6 +9,7 @@ import { Label } from '@/components/ui/label';
 import { Progress } from '@/components/ui/progress';
 import { Skeleton } from '@/components/ui/skeleton';
 import { AssignmentStatusBadge } from '@/components/AssignmentStatusBadge';
+import { Badge } from '@/components/ui/badge';
 import api, { type HttpError } from '@/lib/api';
 import {
   mapAssignmentDetailsFromApi,
@@ -22,6 +23,7 @@ import {
   type StepProgressToggleResult,
   type UpdateProgressPayload,
 } from '@/lib/types';
+import { inferMediaType, resolveMediaUrl } from '@/lib/media';
 import { Calendar, CheckCircle2, ChevronLeft, ChevronRight, Loader2, RotateCcw } from 'lucide-react';
 import { toast } from 'sonner';
 
@@ -101,6 +103,8 @@ export default function TaskRun() {
   const hiveId = assignment?.hiveId;
   const currentNotes = currentStep ? stepNotes[currentStep.id] ?? '' : '';
   const currentProgress = currentStep ? progressMap.get(currentStep.id) : undefined;
+  const currentMediaUrl = resolveMediaUrl(currentStep?.mediaUrl ?? null);
+  const currentMediaType = inferMediaType(currentStep?.mediaType ?? null, currentMediaUrl);
 
   const scheduleNoteSave = (stepId: string, value: string) => {
     const progressEntry = progressMap.get(stepId);
@@ -427,6 +431,42 @@ export default function TaskRun() {
                     {currentStep?.contentText ?? 'Šio žingsnio instrukcijos nepateiktos.'}
                   </p>
                 </div>
+
+                {currentMediaUrl ? (
+                  <div className="space-y-2">
+                    <h4 className="font-semibold">Prisegtas failas</h4>
+                    {currentMediaType === 'video' ? (
+                      <video
+                        key={currentMediaUrl}
+                        src={currentMediaUrl}
+                        controls
+                        preload="metadata"
+                        className="w-full max-h-[420px] rounded-lg border border-border bg-black"
+                      />
+                    ) : (
+                      <img
+                        src={currentMediaUrl}
+                        alt={`Žingsnio „${currentStep?.title ?? ''}“ iliustracija`}
+                        loading="lazy"
+                        className="w-full rounded-lg border border-border object-cover"
+                      />
+                    )}
+                    <a
+                      href={currentMediaUrl}
+                      target="_blank"
+                      rel="noreferrer"
+                      className="text-sm text-primary underline-offset-4 hover:underline"
+                    >
+                      Atsisiųsti failą
+                    </a>
+                  </div>
+                ) : null}
+
+                {currentStep?.requireUserMedia ? (
+                  <Badge variant="outline" className="border-amber-500/40 bg-amber-50 text-amber-700">
+                    Šiam žingsniui reikalinga jūsų nuotrauka arba vaizdo įrašas
+                  </Badge>
+                ) : null}
 
                 <div className="space-y-2">
                   <Label htmlFor="notes">Pastabos (išsaugoma automatiškai)</Label>

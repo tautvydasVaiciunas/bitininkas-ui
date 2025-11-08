@@ -423,6 +423,10 @@ function TemplateForm({
   };
 
   const handleReorder = async (taskStepId: string, direction: 'up' | 'down') => {
+    if (isReordering) {
+      return;
+    }
+
     const index = templateSteps.findIndex((step) => step.taskStepId === taskStepId);
     if (index === -1) {
       return;
@@ -557,6 +561,7 @@ function TemplateForm({
                         <StepTagList tags={step.tags ?? []} />
                       </div>
                       <Button
+                        type="button"
                         size="sm"
                         onClick={() => handleAddStep(step)}
                         disabled={isSubmitting || alreadySelected}
@@ -595,6 +600,7 @@ function TemplateForm({
                       <div className="flex flex-col items-end gap-2">
                         <div className="flex gap-1">
                           <Button
+                            type="button"
                             variant="ghost"
                             size="icon"
                             onClick={() => handleReorder(step.taskStepId, 'up')}
@@ -603,6 +609,7 @@ function TemplateForm({
                             <ArrowUp className="h-4 w-4" />
                           </Button>
                           <Button
+                            type="button"
                             variant="ghost"
                             size="icon"
                             onClick={() => handleReorder(step.taskStepId, 'down')}
@@ -612,6 +619,7 @@ function TemplateForm({
                           </Button>
                         </div>
                         <Button
+                          type="button"
                           variant="ghost"
                           size="sm"
                           onClick={() => handleRemoveStep(step.taskStepId)}
@@ -691,6 +699,7 @@ function TemplateCard({ template, onEdit, onDelete, onReorder, disableActions }:
                     <div className="flex flex-col gap-1">
                       <div className="flex gap-1">
                         <Button
+                          type="button"
                           variant="ghost"
                           size="icon"
                           onClick={() => onReorder(step.id, 'up')}
@@ -699,6 +708,7 @@ function TemplateCard({ template, onEdit, onDelete, onReorder, disableActions }:
                           <ArrowUp className="w-4 h-4" />
                         </Button>
                         <Button
+                          type="button"
                           variant="ghost"
                           size="icon"
                           onClick={() => onReorder(step.id, 'down')}

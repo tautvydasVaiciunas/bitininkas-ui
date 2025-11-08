@@ -4,7 +4,12 @@ import { BadRequestException, ValidationPipe } from '@nestjs/common';
 import { ValidationError } from 'class-validator';
 import { ConfigService } from '@nestjs/config';
 import helmet from 'helmet';
-import { ensureUploadsDirExists, UPLOADS_DIR } from './common/config/storage.config';
+import * as express from 'express';
+import {
+  ensureUploadsDir,
+  resolveUploadsDir,
+  uploadsPrefix,
+} from './common/config/storage.config';
 
 import { AppModule } from './app.module';
 import { HttpExceptionFilter } from './common/filters/http-exception.filter';
@@ -76,10 +81,8 @@ async function bootstrap() {
   const requestLogger = new RequestLoggingMiddleware();
   app.use(requestLogger.use.bind(requestLogger));
 
-  ensureUploadsDirExists();
-  app.useStaticAssets(UPLOADS_DIR, {
-    prefix: '/uploads',
-  });
+  ensureUploadsDir();
+  app.use(uploadsPrefix(), express.static(resolveUploadsDir(), { index: false, maxAge: '1y' }));
 
   const port = Number(configService.get('PORT') || 3000);
   await app.listen(port);

@@ -1,19 +1,25 @@
-import fs from 'node:fs';
-import path from 'node:path';
+import * as fs from 'fs';
+import * as path from 'path';
 
-const resolveUploadsDir = () => {
-  const configured = process.env.UPLOADS_DIR?.trim();
+export function resolveUploadsDir(): string {
+  const configured =
+    process.env.UPLOAD_DIR?.trim() || process.env.UPLOADS_DIR?.trim();
+
   if (configured) {
     return path.resolve(configured);
   }
 
   return path.resolve(process.cwd(), 'uploads');
-};
+}
 
-export const UPLOADS_DIR = resolveUploadsDir();
+export function ensureUploadsDir(): void {
+  const dir = resolveUploadsDir();
 
-export const ensureUploadsDirExists = () => {
-  if (!fs.existsSync(UPLOADS_DIR)) {
-    fs.mkdirSync(UPLOADS_DIR, { recursive: true });
+  if (!fs.existsSync(dir)) {
+    fs.mkdirSync(dir, { recursive: true });
   }
-};
+}
+
+export function uploadsPrefix(): string {
+  return '/uploads';
+}

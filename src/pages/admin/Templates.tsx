@@ -4,16 +4,25 @@ import { ArrowDown, ArrowUp, Edit, Loader2, Plus, Search, Trash2 } from 'lucide-
 import { toast } from 'sonner';
 
 import { MainLayout } from '@/components/Layout/MainLayout';
+import { Thumbnail } from '@/components/media/Thumbnail';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader } from '@/components/ui/card';
-import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from '@/components/ui/dialog';
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogFooter,
+  DialogHeader,
+  DialogTitle,
+} from '@/components/ui/dialog';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Textarea } from '@/components/ui/textarea';
 import ltMessages from '@/i18n/messages.lt.json';
 import api, { HttpError } from '@/lib/api';
+import { applyImageFallback, isVideo, withApiBase } from '@/lib/media';
 import {
   mapTaskStepFromApi,
   mapTemplateFromApi,
@@ -25,6 +34,14 @@ import {
 } from '@/lib/types';
 
 const messages = ltMessages.templates;
+
+const truncateText = (value: string, limit = 120) => {
+  const trimmed = value.trim();
+  if (trimmed.length <= limit) {
+    return trimmed;
+  }
+  return `${trimmed.slice(0, Math.max(0, limit - 1))}…`;
+};
 
 type TemplateStepDraft = {
   templateStepId?: string;
@@ -367,6 +384,8 @@ function TemplateForm({
           }))
       : [],
   );
+  const [previewStep, setPreviewStep] = useState<TaskStep | null>(null);
+  const [isPreviewOpen, setIsPreviewOpen] = useState(false);
 
   useEffect(() => {
     setName(template?.name ?? '');
@@ -461,6 +480,11 @@ function TemplateForm({
   const handleSubmit = async (event: FormEvent<HTMLFormElement>) => {
     event.preventDefault();
     await onSubmit({ name, description, steps: templateSteps });
+  };
+
+  const openPreview = (step: TaskStep) => {
+    setPreviewStep(step);
+    setIsPreviewOpen(true);
   };
 
   const selectableTags = useMemo(
@@ -587,18 +611,23 @@ function TemplateForm({
               {templateSteps.map((step, index) => (
                 <Card key={step.taskStepId} className="border-muted shadow-none">
                   <CardContent className="flex flex-col gap-3 p-4">
-                    <div className="flex items-start justify-between gap-3">
-                      <div className="space-y-2">
+                    <div className="flex items-start gap-3">
+                      <Thumbnail
+                        url={step.taskStep.mediaUrl}
+                        className="w-24 h-20"
+                        onClick={() => openPreview(step.taskStep)}
+                      />
+                      <div className="flex-1 space-y-2">
                         <div className="font-medium">{step.taskStep.title}</div>
-                        {step.taskStep.contentText && (
-                          <p className="text-sm text-muted-foreground line-clamp-2">
-                            {step.taskStep.contentText}
+                        {step.taskStep.contentText ? (
+                          <p className="text-sm text-muted-foreground">
+                            {truncateText(step.taskStep.contentText)}
                           </p>
-                        )}
+                        ) : null}
                         <StepTagList tags={step.taskStep.tags ?? []} />
                       </div>
                       <div className="flex flex-col items-end gap-2">
-                        <div className="flex gap-1">
+                        <div className="flex flex-wrap gap-1 justify-end">
                           <Button
                             type="button"
                             variant="ghost"
@@ -616,6 +645,14 @@ function TemplateForm({
                             disabled={isSubmitting || isReordering || index === templateSteps.length - 1}
                           >
                             <ArrowDown className="h-4 w-4" />
+                          </Button>
+                          <Button
+                            type="button"
+                            variant="outline"
+                            size="sm"
+                            onClick={() => openPreview(step.taskStep)}
+                          >
+                            Peržiūra
                           </Button>
                         </div>
                         <Button
@@ -653,6 +690,16 @@ function TemplateForm({
           Atšaukti
         </Button>
       </DialogFooter>
+      <StepPreviewDialog
+        step={previewStep}
+        open={isPreviewOpen}
+        onOpenChange={(open) => {
+          setIsPreviewOpen(open);
+          if (!open) {
+            setPreviewStep(null);
+          }
+        }}
+      />
     </form>
   );
 }
@@ -667,6 +714,8 @@ type TemplateCardProps = {
 
 function TemplateCard({ template, onEdit, onDelete, onReorder, disableActions }: TemplateCardProps) {
   const orderedSteps = [...template.steps].sort((a, b) => a.orderIndex - b.orderIndex);
+  const [previewStep, setPreviewStep] = useState<TaskStep | null>(null);
+  const [isPreviewOpen, setIsPreviewOpen] = useState(false);
 
   return (
     <Card className="shadow-sm">
@@ -686,18 +735,26 @@ function TemplateCard({ template, onEdit, onDelete, onReorder, disableActions }:
             <div className="space-y-3">
               {orderedSteps.map((step, index) => (
                 <div key={step.id} className="rounded-md border border-muted px-3 py-2 space-y-2">
-                  <div className="flex items-start justify-between gap-3">
-                    <div className="space-y-1">
+                  <div className="flex items-start gap-3">
+                    <Thumbnail
+                      url={step.taskStep.mediaUrl}
+                      className="w-24 h-20"
+                      onClick={() => {
+                        setPreviewStep(step.taskStep);
+                        setIsPreviewOpen(true);
+                      }}
+                    />
+                    <div className="flex-1 space-y-1">
                       <div className="font-medium text-sm">{step.taskStep.title}</div>
-                      {step.taskStep.contentText && (
-                        <p className="text-xs text-muted-foreground line-clamp-2">
-                          {step.taskStep.contentText}
+                      {step.taskStep.contentText ? (
+                        <p className="text-xs text-muted-foreground">
+                          {truncateText(step.taskStep.contentText)}
                         </p>
-                      )}
+                      ) : null}
                       <StepTagList tags={step.taskStep.tags ?? []} />
                     </div>
                     <div className="flex flex-col gap-1">
-                      <div className="flex gap-1">
+                      <div className="flex flex-wrap gap-1 justify-end">
                         <Button
                           type="button"
                           variant="ghost"
@@ -715,6 +772,17 @@ function TemplateCard({ template, onEdit, onDelete, onReorder, disableActions }:
                           disabled={disableActions || index === orderedSteps.length - 1}
                         >
                           <ArrowDown className="w-4 h-4" />
+                        </Button>
+                        <Button
+                          type="button"
+                          variant="outline"
+                          size="sm"
+                          onClick={() => {
+                            setPreviewStep(step.taskStep);
+                            setIsPreviewOpen(true);
+                          }}
+                        >
+                          Peržiūra
                         </Button>
                       </div>
                     </div>
@@ -736,6 +804,16 @@ function TemplateCard({ template, onEdit, onDelete, onReorder, disableActions }:
           </div>
         </div>
       </CardContent>
+      <StepPreviewDialog
+        step={previewStep}
+        open={isPreviewOpen}
+        onOpenChange={(open) => {
+          setIsPreviewOpen(open);
+          if (!open) {
+            setPreviewStep(null);
+          }
+        }}
+      />
     </Card>
   );
 }
@@ -762,5 +840,68 @@ function StepTagList({ tags }: StepTagListProps) {
         </Badge>
       ))}
     </div>
+  );
+}
+
+type StepPreviewDialogProps = {
+  step: TaskStep | null;
+  open: boolean;
+  onOpenChange: (open: boolean) => void;
+};
+
+function StepPreviewDialog({ step, open, onOpenChange }: StepPreviewDialogProps) {
+  const [videoError, setVideoError] = useState(false);
+  const mediaUrl = step?.mediaUrl ? withApiBase(step.mediaUrl) : null;
+  const showVideo = mediaUrl ? isVideo(step?.mediaUrl ?? mediaUrl) : false;
+
+  useEffect(() => {
+    setVideoError(false);
+  }, [step?.id]);
+
+  return (
+    <Dialog open={open} onOpenChange={onOpenChange}>
+      <DialogContent className="sm:max-w-lg space-y-4">
+        <DialogHeader>
+          <DialogTitle>{step?.title ?? 'Žingsnio peržiūra'}</DialogTitle>
+          <DialogDescription>
+            {step?.contentText && step.contentText.trim().length > 0
+              ? step.contentText
+              : 'Šiam žingsniui aprašymas nepateiktas.'}
+          </DialogDescription>
+        </DialogHeader>
+        {mediaUrl ? (
+          showVideo ? (
+            videoError ? (
+              <div className="rounded-lg border border-dashed border-border bg-muted/30 p-4 text-center text-muted-foreground">
+                Nepavyko įkelti vaizdo įrašo.
+              </div>
+            ) : (
+              <video
+                key={mediaUrl}
+                src={mediaUrl}
+                controls
+                preload="metadata"
+                className="w-full rounded-lg border border-border bg-black"
+                crossOrigin="anonymous"
+                onError={() => setVideoError(true)}
+              />
+            )
+          ) : (
+            <img
+              src={mediaUrl}
+              alt={step?.title ?? 'Žingsnio iliustracija'}
+              className="w-full rounded-lg border border-border object-cover"
+              crossOrigin="anonymous"
+              onError={(event) => applyImageFallback(event.currentTarget)}
+            />
+          )
+        ) : (
+          <div className="rounded-lg border border-dashed border-border bg-muted/30 p-4 text-center text-muted-foreground">
+            Medija nepateikta.
+          </div>
+        )}
+        <StepTagList tags={step?.tags ?? []} />
+      </DialogContent>
+    </Dialog>
   );
 }

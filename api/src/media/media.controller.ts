@@ -24,7 +24,7 @@ import {
   getMaxBytesForMime,
   UPLOAD_MAX_VIDEO_BYTES,
 } from '../common/config/security.config';
-import { UPLOADS_DIR, ensureUploadsDirExists } from '../common/config/storage.config';
+import { ensureUploadsDir, resolveUploadsDir, uploadsPrefix } from '../common/config/storage.config';
 
 const MIME_EXTENSION_MAP: Record<string, string> = {
   'image/jpeg': '.jpg',
@@ -49,11 +49,12 @@ export class MediaController {
     FileInterceptor('file', {
       storage: diskStorage({
         destination: (_req, _file, cb) => {
+          const targetDir = resolveUploadsDir();
           try {
-            ensureUploadsDirExists();
-            cb(null, UPLOADS_DIR);
+            ensureUploadsDir();
+            cb(null, targetDir);
           } catch (error) {
-            cb(error as Error, UPLOADS_DIR);
+            cb(error as Error, targetDir);
           }
         },
         filename: (_req, file, cb) => {
@@ -98,6 +99,6 @@ export class MediaController {
       throw new BadRequestException('Failas per didelis');
     }
 
-    return { url: `/uploads/${file.filename}` };
+    return { url: `${uploadsPrefix()}/${file.filename}` };
   }
 }

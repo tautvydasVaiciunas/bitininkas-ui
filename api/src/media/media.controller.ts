@@ -79,7 +79,7 @@ export class MediaController {
         }
 
         if (!ALLOWED_UPLOAD_MIME_TYPES.has(file.mimetype)) {
-          cb(new BadRequestException('Failo tipas nepriimtinas'), false);
+          cb(new BadRequestException('Nepalaikomas failo tipas'), false);
           return;
         }
 

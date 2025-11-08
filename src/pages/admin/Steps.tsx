@@ -25,7 +25,7 @@ import {
   type TaskStepMediaType,
   type UpdateTaskStepPayload,
 } from '@/lib/types';
-import { inferMediaType, resolveMediaUrl } from '@/lib/media';
+import { applyImageFallback, inferMediaType, resolveMediaUrl } from '@/lib/media';
 import ltMessages from '@/i18n/messages.lt.json';
 
 const messages = ltMessages.steps;
@@ -578,7 +578,7 @@ export default function AdminSteps() {
                 <div className="space-y-2">
                   <Label htmlFor="create-step-media-type">Media tipas</Label>
                   <Select
-                    value={createForm.mediaType}
+                    value={createForm.mediaType || ''}
                     onValueChange={(value: TaskStepMediaType) =>
                       setCreateForm((prev) => ({ ...prev, mediaType: value }))
                     }
@@ -712,7 +712,7 @@ export default function AdminSteps() {
                 <div className="space-y-2">
                   <Label htmlFor="edit-step-media-type">Media tipas</Label>
                   <Select
-                    value={editForm.mediaType}
+                    value={editForm.mediaType || ''}
                     onValueChange={(value: TaskStepMediaType) =>
                       setEditForm((prev) => ({ ...prev, mediaType: value }))
                     }
@@ -954,6 +954,7 @@ function StepCard({ step, onEdit, onDelete, disableActions }: StepCardProps) {
       Boolean(tag) && typeof tag.id === 'string' && tag.id.length > 0,
   );
   const shouldShowMediaMeta = Boolean(resolvedMediaUrl || mediaLabel || step.requireUserMedia);
+  const [videoError, setVideoError] = useState(false);
 
   return (
     <Card className="border-muted shadow-none">
@@ -997,23 +998,32 @@ function StepCard({ step, onEdit, onDelete, disableActions }: StepCardProps) {
         {resolvedMediaUrl ? (
           <div className="space-y-2">
             {mediaKind === 'video' ? (
-              <video
-                src={resolvedMediaUrl}
-                controls
-                preload="metadata"
-                className="w-full max-h-80 rounded-lg border border-border bg-black"
-              />
+              videoError ? (
+                <div className="rounded-lg border border-dashed border-border bg-muted/30 p-4 text-center text-muted-foreground">
+                  Nepavyko įkelti vaizdo įrašo.
+                </div>
+              ) : (
+                <video
+                  src={resolvedMediaUrl}
+                  controls
+                  preload="metadata"
+                  className="w-full max-h-80 rounded-lg border border-border bg-black"
+                  crossOrigin="anonymous"
+                  onError={() => setVideoError(true)}
+                />
+              )
             ) : (
               <img
                 src={resolvedMediaUrl}
-                alt={`Žingsnio „${step.title}“ iliustracija`}
+                alt={`?ingsnio ?${step.title}? iliustracija`}
                 loading="lazy"
                 className="w-full rounded-lg border border-border object-cover"
+                crossOrigin="anonymous"
+                onError={(event) => applyImageFallback(event.currentTarget)}
               />
             )}
           </div>
         ) : null}
-
         {shouldShowMediaMeta ? (
           <div className="flex flex-wrap items-center gap-2 text-xs text-muted-foreground">
             {resolvedMediaUrl ? (
@@ -1036,3 +1046,4 @@ function StepCard({ step, onEdit, onDelete, disableActions }: StepCardProps) {
     </Card>
   );
 }
+

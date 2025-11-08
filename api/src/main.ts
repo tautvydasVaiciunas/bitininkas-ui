@@ -82,7 +82,16 @@ async function bootstrap() {
   app.use(requestLogger.use.bind(requestLogger));
 
   ensureUploadsDir();
-  app.use(uploadsPrefix(), express.static(resolveUploadsDir(), { index: false, maxAge: '1y' }));
+  const uploadsDir = resolveUploadsDir();
+  app.use(
+    uploadsPrefix(),
+    (req, res, next) => {
+      res.setHeader('Cross-Origin-Resource-Policy', 'cross-origin');
+      res.setHeader('Cache-Control', 'public, max-age=31536000, immutable');
+      next();
+    },
+    express.static(uploadsDir, { index: false, fallthrough: true }),
+  );
 
   const port = Number(configService.get('PORT') || 3000);
   await app.listen(port);

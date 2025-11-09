@@ -308,6 +308,20 @@ export class UsersService {
     return saved;
   }
 
+  async setAvatar(id: string, avatarUrl: string) {
+    const user = await this.usersRepository.findOne({ where: { id } });
+
+    if (!user) {
+      throw new NotFoundException('Vartotojas nerastas');
+    }
+
+    user.avatarUrl = avatarUrl;
+    await this.usersRepository.save(user);
+    await this.activityLog.log('avatar_updated', user.id, 'user', user.id);
+
+    return { avatarUrl };
+  }
+
   async updatePassword(id: string, { oldPassword, newPassword }: UpdatePasswordDto) {
     const user = await this.usersRepository.findOne({ where: { id } });
 

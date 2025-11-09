@@ -45,6 +45,9 @@ export class User {
   @Column({ type: 'varchar', length: 255, nullable: true, default: null })
   address!: string | null;
 
+  @Column({ name: 'avatar_url', type: 'varchar', length: 255, nullable: true, default: null })
+  avatarUrl!: string | null;
+
   @CreateDateColumn({ name: 'created_at' })
   createdAt: Date;
 

@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react';
+﻿import { useEffect, useState, ChangeEvent } from 'react';
 import { useMutation } from '@tanstack/react-query';
 import { MainLayout } from '@/components/Layout/MainLayout';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
@@ -6,12 +6,12 @@ import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
-import { Avatar, AvatarFallback } from '@/components/ui/avatar';
+import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 import { Badge } from '@/components/ui/badge';
 import { useAuth } from '@/contexts/AuthContext';
 import api, { HttpError } from '@/lib/api';
 import { mapProfileFromApi, type ChangePasswordPayload } from '@/lib/types';
-import { User, Mail, Edit2, Lock } from 'lucide-react';
+import { User, Mail, Edit2, Lock, Upload } from 'lucide-react';
 import { toast } from 'sonner';
 import ltMessages from '@/i18n/messages.lt.json';
 
@@ -24,6 +24,7 @@ export default function Profile() {
     next: '',
     confirm: '',
   });
+  const [avatarUploading, setAvatarUploading] = useState(false);
 
   const updateMutation = useMutation({
     mutationFn: async (payload: { name: string; email: string }) => {
@@ -36,6 +37,7 @@ export default function Profile() {
         email: updated.email,
         phone: updated.phone ?? undefined,
         address: updated.address ?? undefined,
+        avatarUrl: updated.avatarUrl ?? undefined,
       });
       toast.success('Profilis atnaujintas');
       setIsEditing(false);
@@ -46,18 +48,13 @@ export default function Profile() {
   });
 
   const changePasswordMutation = useMutation({
-    mutationFn: async (payload: ChangePasswordPayload) => {
-      return api.profile.changePassword(payload);
-    },
+    mutationFn: async (payload: ChangePasswordPayload) => api.profile.changePassword(payload),
     onSuccess: () => {
       toast.success(ltMessages.profile.passwordChanged);
       setPasswordForm({ current: '', next: '', confirm: '' });
     },
     onError: (error: unknown) => {
-      const message =
-        error instanceof HttpError
-          ? error.message
-          : ltMessages.profile.passwordChangeFailed;
+      const message = error instanceof HttpError ? error.message : ltMessages.profile.passwordChangeFailed;
       toast.error(message || ltMessages.profile.passwordChangeFailed);
     },
   });
@@ -68,14 +65,13 @@ export default function Profile() {
     }
   }, [user]);
 
-  const getInitials = (name: string) => {
-    return name
+  const getInitials = (name: string) =>
+    name
       .split(' ')
       .map((n) => n[0])
       .join('')
       .toUpperCase()
       .slice(0, 2);
-  };
 
   const getRoleLabel = (role: string) => {
     const labels: Record<string, string> = {
@@ -96,7 +92,7 @@ export default function Profile() {
     }
 
     if (!passwordForm.current || !passwordForm.next || !passwordForm.confirm) {
-      toast.error('Užpildykite visus laukus');
+      toast.error('Įveskite visus slaptažodžio laukus');
       return;
     }
 
@@ -106,7 +102,7 @@ export default function Profile() {
     }
 
     if (passwordForm.next !== passwordForm.confirm) {
-      toast.error('Nauji slaptažodžiai nesutampa');
+      toast.error('Du kartus įvesti slaptažodžiai nesutampa');
       return;
     }
 
@@ -114,6 +110,28 @@ export default function Profile() {
       oldPassword: passwordForm.current,
       newPassword: passwordForm.next,
     });
+  };
+
+  const handleAvatarUpload = async (event: ChangeEvent<HTMLInputElement>) => {
+    const file = event.target.files?.[0];
+    if (!file) {
+      return;
+    }
+
+    const formData = new FormData();
+    formData.append('file', file);
+
+    setAvatarUploading(true);
+    try {
+      const response = await api.profile.uploadAvatar(formData);
+      updateUserProfile({ avatarUrl: response.avatarUrl });
+      toast.success('Avataras atnaujintas');
+    } catch (error) {
+      const message = error instanceof HttpError ? error.message : 'Nepavyko įkelti avataro';
+      toast.error(message);
+    } finally {
+      setAvatarUploading(false);
+    }
   };
 
   if (!user) {
@@ -126,38 +144,48 @@ export default function Profile() {
         <div className="flex items-center justify-between">
           <div>
             <h1 className="text-3xl font-bold">Profilis</h1>
-            <p className="text-muted-foreground mt-1">Valdykite savo paskyros informaciją</p>
+            <p className="text-muted-foreground mt-1">Valdykite savo paskyros informaciją ir saugumą</p>
           </div>
         </div>
 
-        {/* Profile Header */}
         <Card className="shadow-custom">
-          <CardContent className="p-8">
-            <div className="flex items-start gap-6">
-              <Avatar className="w-24 h-24">
-                <AvatarFallback className="bg-primary text-primary-foreground text-2xl">
-                  {getInitials(user.name)}
-                </AvatarFallback>
+          <CardContent className="flex flex-col md:flex-row items-center gap-6">
+            <div className="relative">
+              <Avatar className="h-24 w-24">
+                {user.avatarUrl ? (
+                  <AvatarImage src={user.avatarUrl} alt={user.name ?? 'Avataras'} />
+                ) : (
+                  <AvatarFallback className="text-xl">{getInitials(user.name ?? user.email)}</AvatarFallback>
+                )}
               </Avatar>
-              <div className="flex-1">
-                <h2 className="text-2xl font-bold mb-2">{user.name}</h2>
-                <div className="flex items-center gap-2 mb-4">
-                  <Badge variant="default">{getRoleLabel(user.role)}</Badge>
-                </div>
-                <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 text-sm">
-                  {user.email && (
-                    <div className="flex items-center gap-2 text-muted-foreground">
-                      <Mail className="w-4 h-4" />
-                      {user.email}
-                    </div>
-                  )}
-                </div>
+              <Label
+                htmlFor="avatar-upload"
+                className="absolute -right-2 bottom-0 inline-flex h-9 w-9 cursor-pointer items-center justify-center rounded-full border bg-background shadow"
+              >
+                {avatarUploading ? <Upload className="animate-spin h-4 w-4" /> : <Upload className="h-4 w-4" />}
+              </Label>
+              <Input
+                id="avatar-upload"
+                type="file"
+                accept="image/*"
+                onChange={handleAvatarUpload}
+                className="hidden"
+                disabled={avatarUploading}
+              />
+            </div>
+            <div className="text-center md:text-left space-y-2">
+              <h2 className="text-2xl font-semibold">{user.name ?? user.email}</h2>
+              <div className="flex items-center justify-center md:justify-start gap-2 text-muted-foreground">
+                <Mail className="h-4 w-4" />
+                <span>{user.email}</span>
               </div>
+              <Badge variant="outline" className="text-sm">
+                {getRoleLabel(user.role)}
+              </Badge>
             </div>
           </CardContent>
         </Card>
 
-        {/* Tabs */}
         <Tabs defaultValue="info" className="space-y-6">
           <TabsList>
             <TabsTrigger value="info">Profilio informacija</TabsTrigger>
@@ -175,9 +203,7 @@ export default function Profile() {
                     disabled={updateMutation.isLoading}
                     onClick={() => (isEditing ? handleSave() : setIsEditing(true))}
                   >
-                    {isEditing ? (
-                      updateMutation.isLoading ? 'Saugoma...' : 'Išsaugoti'
-                    ) : (
+                    {isEditing ? (updateMutation.isLoading ? 'Saugoma...' : 'Išsaugoti') : (
                       <>
                         <Edit2 className="mr-2 w-4 h-4" />
                         Redaguoti
@@ -211,11 +237,7 @@ export default function Profile() {
 
                   <div className="space-y-2">
                     <Label htmlFor="role">Rolė</Label>
-                    <Input
-                      id="role"
-                      value={getRoleLabel(user.role)}
-                      disabled
-                    />
+                    <Input id="role" value={getRoleLabel(user.role)} disabled />
                   </div>
                 </div>
               </CardContent>
@@ -258,7 +280,7 @@ export default function Profile() {
                   </div>
 
                   <div className="space-y-2">
-                    <Label htmlFor="confirm-password">Patvirtinti naują slaptažodį</Label>
+                    <Label htmlFor="confirm-password">Patvirtink naują slaptažodį</Label>
                     <Input
                       id="confirm-password"
                       type="password"

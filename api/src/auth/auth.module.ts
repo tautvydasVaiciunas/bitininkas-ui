@@ -10,8 +10,7 @@ import { UsersModule } from '../users/users.module';
 import { User } from '../users/user.entity';
 import { JwtStrategy } from './jwt.strategy';
 import { ActivityLogModule } from '../activity-log/activity-log.module';
-import { PasswordResetToken } from './password-reset-token.entity';
-import { NotificationsModule } from '../notifications/notifications.module';
+import { PasswordResetModule } from './password-reset.module';
 
 @Module({
   imports: [
@@ -24,10 +23,10 @@ import { NotificationsModule } from '../notifications/notifications.module';
         signOptions: { expiresIn: '15m' },
       }),
     }),
-    TypeOrmModule.forFeature([User, PasswordResetToken]),
+    TypeOrmModule.forFeature([User]),
+    PasswordResetModule,
     UsersModule,
     ActivityLogModule,
-    NotificationsModule,
   ],
   providers: [AuthService, JwtStrategy],
   controllers: [AuthController],

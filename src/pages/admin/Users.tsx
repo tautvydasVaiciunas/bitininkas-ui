@@ -272,16 +272,19 @@ export default function AdminUsers() {
           toast.info('Pakeitimų nerasta');
         }
       } else {
-        if (!formValues.password || formValues.password.length < 6) {
+        if (formValues.password && formValues.password.length < 6) {
           setFormError('Slaptažodis turi būti bent 6 simbolių.');
           return;
         }
 
         const payload: CreateUserPayload = {
           email: trimmedEmail,
-          password: formValues.password,
           name: trimmedName || undefined,
         };
+
+        if (formValues.password) {
+          payload.password = formValues.password;
+        }
 
         if (isAdmin) {
           payload.role = formValues.role;
@@ -459,17 +462,14 @@ export default function AdminUsers() {
                 </Select>
               </div>
               <div className="space-y-2">
-                <Label htmlFor="password">
-                  {editingUser ? 'Slaptažodis (pasirinktinai)' : 'Slaptažodis *'}
-                </Label>
+                <Label htmlFor="password">Slaptažodis (pasirinktinai)</Label>
                 <Input
                   id="password"
                   type="password"
                   value={formValues.password}
                   onChange={(event) => handleInputChange('password', event.target.value)}
-                  placeholder={editingUser ? 'Palikite tuščią, jei nekeičiate' : 'Bent 6 simboliai'}
-                  minLength={editingUser ? undefined : 6}
-                  required={!editingUser}
+                  placeholder="Palikite tuščią, jei norite išsiųsti kvietimą el. paštu"
+                  minLength={6}
                 />
               </div>
               {formError ? <p className="text-sm text-destructive">{formError}</p> : null}

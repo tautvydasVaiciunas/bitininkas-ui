@@ -4,13 +4,11 @@ import {
   Injectable,
   UnauthorizedException,
   Logger,
-  Inject,
 } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
 import { JwtService } from '@nestjs/jwt';
 import { ConfigService } from '@nestjs/config';
 import { Repository } from 'typeorm';
-import { randomBytes, createHash } from 'crypto';
 import * as bcrypt from 'bcryptjs';
 
 import { User, UserRole } from '../users/user.entity';
@@ -18,25 +16,20 @@ import { RegisterDto } from './dto/register.dto';
 import { LoginDto } from './dto/login.dto';
 import { UsersService } from '../users/users.service';
 import { ActivityLogService } from '../activity-log/activity-log.service';
-import { PasswordResetToken } from './password-reset-token.entity';
-import { MAILER_SERVICE, MailerService } from '../notifications/mailer.service';
+import { PasswordResetService } from './password-reset.service';
 
 @Injectable()
 export class AuthService {
   private readonly logger = new Logger(AuthService.name);
-  private readonly RESET_TOKEN_TTL_MS = 60 * 60 * 1000;
-  private readonly RESET_COOLDOWN_MS = 10 * 60 * 1000;
 
   constructor(
     @InjectRepository(User)
     private readonly usersRepository: Repository<User>,
-    @InjectRepository(PasswordResetToken)
-    private readonly resetTokensRepository: Repository<PasswordResetToken>,
     private readonly jwtService: JwtService,
     private readonly configService: ConfigService,
     private readonly usersService: UsersService,
     private readonly activityLog: ActivityLogService,
-    @Inject(MAILER_SERVICE) private readonly mailer: MailerService,
+    private readonly passwordResetService: PasswordResetService,
   ) {}
 
   private normalizeEmail(email: string) {
@@ -109,69 +102,18 @@ export class AuthService {
       return genericResponse;
     }
 
-    const latestToken = await this.resetTokensRepository.findOne({
-      where: { userId: user.id },
-      order: { createdAt: 'DESC' },
-    });
-
-    if (
-      latestToken &&
-      !latestToken.usedAt &&
-      latestToken.createdAt &&
-      Date.now() - latestToken.createdAt.getTime() < this.RESET_COOLDOWN_MS
-    ) {
-      throw new BadRequestException(
-        'Slaptažodžio atstatymo nuoroda jau išsiųsta. Patikrink el. pašto dėžutę.',
-      );
-    }
-
-    await this.resetTokensRepository.delete({ userId: user.id });
-
-    const rawToken = randomBytes(32).toString('hex');
-    const tokenHash = createHash('sha256').update(rawToken).digest('hex');
-    const expiresAt = new Date(Date.now() + this.RESET_TOKEN_TTL_MS);
-
-    const resetToken = this.resetTokensRepository.create({
-      userId: user.id,
-      tokenHash,
-      expiresAt,
-    });
-
-    await this.resetTokensRepository.save(resetToken);
-    await this.activityLog.log(
-      'password_reset_requested',
-      user.id,
-      'password_reset_token',
-      resetToken.id,
-    );
-
-    const baseUrl =
-      (this.configService.get<string>('APP_BASE_URL') ?? 'https://app.busmedaus.lt').replace(
-        /\/$/,
-        '',
-      );
-    const resetLink = `${baseUrl}/auth/reset?token=${rawToken}`;
-    const subject = 'Slaptažodžio atstatymas';
-    const textBody = [
-      'Sveiki,',
-      '',
-      'Norėdami atkurti slaptažodį, atverkite nuorodą žemiau (ji galioja 1 valandą):',
-      resetLink,
-      '',
-      'Jei slaptažodžio neatkūrinėjote, ignoruokite šį laišką.',
-      '',
-      'Bus medaus komanda',
-    ].join('\n');
-    const htmlBody = textBody
-      .split('\n')
-      .map((line) => (line === resetLink ? `<p><a href="${resetLink}">${resetLink}</a></p>` : `<p>${line || '&nbsp;'}</p>`))
-      .join('');
-
     try {
-      await this.mailer.sendNotificationEmail(user.email, subject, htmlBody, textBody);
+      await this.passwordResetService.createTokenForUser(user, {
+        template: 'forgot',
+        enforceCooldown: true,
+      });
     } catch (error) {
+      if (error instanceof BadRequestException) {
+        throw error;
+      }
+
       this.logger.warn(
-        `Nepavyko išsiųsti slaptažodžio atstatymo el. laiško: ${
+        `Nepavyko sukurti slaptažodžio atstatymo nuorodos: ${
           error instanceof Error ? error.message : String(error)
         }`,
       );
@@ -181,37 +123,7 @@ export class AuthService {
   }
 
   async resetPassword(token: string, newPassword: string) {
-    if (!token) {
-      throw new BadRequestException('Trūksta atstatymo kodo.');
-    }
-
-    const tokenHash = createHash('sha256').update(token).digest('hex');
-    const existing = await this.resetTokensRepository.findOne({
-      where: { tokenHash },
-      relations: { user: true },
-    });
-
-    if (!existing || existing.usedAt) {
-      throw new BadRequestException('Atstatymo nuoroda neteisinga arba jau panaudota.');
-    }
-
-    if (existing.expiresAt.getTime() < Date.now()) {
-      throw new BadRequestException('Atstatymo nuoroda nebegalioja.');
-    }
-
-    const user = existing.user ?? (await this.usersService.findById(existing.userId));
-
-    if (!user) {
-      throw new BadRequestException('Atstatymo nuoroda neteisinga.');
-    }
-
-    user.passwordHash = await bcrypt.hash(newPassword, 10);
-    await this.usersRepository.save(user);
-
-    existing.usedAt = new Date();
-    await this.resetTokensRepository.save(existing);
-    await this.activityLog.log('password_reset', user.id, 'user', user.id);
-
+    await this.passwordResetService.resetPassword(token, newPassword);
     return { message: 'Slaptažodis sėkmingai atnaujintas.' };
   }
 

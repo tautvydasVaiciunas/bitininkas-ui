@@ -430,28 +430,28 @@ export default function AdminSteps() {
       <div className="space-y-6">
         <div className="flex flex-col gap-4 lg:flex-row lg:items-center lg:justify-between">
           <div>
-            <h1 className="text-3xl font-bold">Žingsniai</h1>
-            <p className="text-muted-foreground mt-1">Vienas visų žingsnių sąra�?as</p>
+            <h1 className="text-3xl font-bold">Å½ingsniai</h1>
+            <p className="text-muted-foreground mt-1">Vienas visÅ³ Å¾ingsniÅ³ sÄ…raÅ?as</p>
           </div>
           <Button onClick={() => setIsCreateOpen(true)}>
             <Plus className="mr-2 h-4 w-4" />
-            Naujas žingsnis
+            Naujas Å¾ingsnis
           </Button>
         </div>
 
         <div className="grid gap-4 lg:grid-cols-[minmax(0,280px)_1fr]">
           <div className="space-y-4">
             <div className="space-y-2">
-              <Label htmlFor="tag-filter">Filtruoti pagal žymą</Label>
+              <Label htmlFor="tag-filter">Filtruoti pagal Å¾ymÄ…</Label>
               <Select
                 value={tagFilterSelectValue}
                 onValueChange={(value) => setTagFilter(value === 'all' ? '' : value)}
               >
                 <SelectTrigger id="tag-filter">
-                  <SelectValue placeholder="Pasirinkite žymą" />
+                  <SelectValue placeholder="Pasirinkite Å¾ymÄ…" />
                 </SelectTrigger>
                 <SelectContent>
-                  <SelectItem value="all">Visos žymos</SelectItem>
+                  <SelectItem value="all">Visos Å¾ymos</SelectItem>
                   {tagOptions.map((tag) => (
                     <SelectItem key={tag.id} value={tag.id}>
                       {tag.name}
@@ -462,14 +462,14 @@ export default function AdminSteps() {
             </div>
 
             <div className="space-y-2">
-              <Label htmlFor="search-steps">Paie�?ka</Label>
+              <Label htmlFor="search-steps">PaieÅ?ka</Label>
               <div className="relative">
                 <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
                 <Input
                   id="search-steps"
                   value={searchQuery}
                   onChange={(event) => setSearchQuery(event.target.value)}
-                  placeholder="Ie�?koti pagal pavadinimą ar žymas"
+                  placeholder="IeÅ?koti pagal pavadinimÄ… ar Å¾ymas"
                   className="pl-9"
                 />
               </div>
@@ -483,11 +483,11 @@ export default function AdminSteps() {
               </div>
             ) : stepsError ? (
               <div className="rounded-md border border-destructive bg-destructive/10 p-6 text-destructive">
-                Nepavyko ��kelti žingsnių
+                Nepavyko ÄĘkelti Å¾ingsniÅ³
               </div>
             ) : filteredSteps.length === 0 ? (
               <div className="rounded-md border border-dashed p-6 text-center text-muted-foreground">
-                Žingsnių nerasta
+                Å½ingsniÅ³ nerasta
               </div>
             ) : (
               <div className="grid gap-4">
@@ -518,8 +518,8 @@ export default function AdminSteps() {
         >
           <DialogContent className="max-h-[90vh] overflow-y-auto sm:max-w-2xl">
             <DialogHeader>
-              <DialogTitle>Naujas žingsnis</DialogTitle>
-              <DialogDescription>Užpildykite informaciją apie naują žingsn��.</DialogDescription>
+              <DialogTitle>Naujas Å¾ingsnis</DialogTitle>
+              <DialogDescription>UÅ¾pildykite informacijÄ… apie naujÄ… Å¾ingsnÄĘ.</DialogDescription>
             </DialogHeader>
             <form onSubmit={handleCreateSubmit} className="space-y-6">
               {createFormError ? (
@@ -540,7 +540,7 @@ export default function AdminSteps() {
                   />
                 </div>
                 <div className="space-y-2 md:col-span-2">
-                  <Label htmlFor="create-step-description">Apra�?ymas</Label>
+                  <Label htmlFor="create-step-description">ApraÅ?ymas</Label>
                   <Textarea
                     id="create-step-description"
                     value={createForm.description}
@@ -556,7 +556,7 @@ export default function AdminSteps() {
                       id="create-step-media-url"
                       value={createForm.mediaUrl}
                       onChange={(event) => setCreateForm((prev) => ({ ...prev, mediaUrl: event.target.value }))}
-                      placeholder="https://a��"
+                      placeholder="https://a€¦"
                       disabled={createFormDisabled}
                     />
                     <Button
@@ -565,7 +565,7 @@ export default function AdminSteps() {
                       onClick={() => createFileInputRef.current?.click()}
                       disabled={createFormDisabled}
                     >
-                      {isUploadingCreateMedia ? 'Įkeliamaa��' : 'Įkelti failą'}
+                      {isUploadingCreateMedia ? 'Ä®keliamaa€¦' : 'Ä®kelti failÄ…'}
                     </Button>
                     <input
                       ref={createFileInputRef}
@@ -586,21 +586,21 @@ export default function AdminSteps() {
                     disabled={createFormDisabled}
                   >
                     <SelectTrigger id="create-step-media-type">
-                      <SelectValue placeholder="Pasirinkite tipą" />
+                      <SelectValue placeholder="Pasirinkite tipÄ…" />
                     </SelectTrigger>
                     <SelectContent>
                       <SelectItem value="image">Nuotrauka</SelectItem>
-                      <SelectItem value="video">Vaizdo ��ra�?as</SelectItem>
+                      <SelectItem value="video">Vaizdo ÄĘraÅ?as</SelectItem>
                     </SelectContent>
                   </Select>
                 </div>
                 <div className="space-y-2 md:col-span-2">
-                  <Label>Žymos</Label>
+                  <Label>Å½ymos</Label>
                   <TagMultiSelect
                     options={tagOptions}
                     value={createForm.tagIds}
                     onChange={(next) => setCreateForm((prev) => ({ ...prev, tagIds: next }))}
-                    placeholder={tagsLoading ? 'Kraunamaa��' : 'Pasirinkite žymas'}
+                    placeholder={tagsLoading ? 'Kraunamaa€¦' : 'Pasirinkite Å¾ymas'}
                     disabled={createFormDisabled || tagsLoading}
                     onCreateTag={() => openCreateTagDialog('create')}
                     creatingTag={createTagMutation.isLoading && tagDialogContext === 'create'}
@@ -630,13 +630,13 @@ export default function AdminSteps() {
                   }}
                   disabled={createFormDisabled}
                 >
-                  At�?aukti
+                  AtÅ?aukti
                 </Button>
                 <Button type="submit" disabled={createFormDisabled}>
                   {createMutation.isLoading ? (
                     <>
                       <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-                      Saugomaa��
+                      Saugomaa€¦
                     </>
                   ) : (
                     'Saugoti'
@@ -650,9 +650,9 @@ export default function AdminSteps() {
         <Dialog open={isEditOpen} onOpenChange={(open) => (open ? setIsEditOpen(true) : closeEditDialog())}>
           <DialogContent className="max-h-[90vh] overflow-y-auto sm:max-w-2xl">
             <DialogHeader>
-              <DialogTitle>Redaguoti žingsn��</DialogTitle>
+              <DialogTitle>Redaguoti Å¾ingsnÄĘ</DialogTitle>
               <DialogDescription>
-                {stepToEdit ? `Atnaujinkite žingsn�� a�?${stepToEdit.title}a�?.` : ''}
+                {stepToEdit ? `Atnaujinkite Å¾ingsnÄĘ a€?${stepToEdit.title}a€?.` : ''}
               </DialogDescription>
             </DialogHeader>
             <form onSubmit={handleEditSubmit} className="space-y-6">
@@ -674,7 +674,7 @@ export default function AdminSteps() {
                   />
                 </div>
                 <div className="space-y-2 md:col-span-2">
-                  <Label htmlFor="edit-step-description">Apra�?ymas</Label>
+                  <Label htmlFor="edit-step-description">ApraÅ?ymas</Label>
                   <Textarea
                     id="edit-step-description"
                     value={editForm.description}
@@ -690,7 +690,7 @@ export default function AdminSteps() {
                       id="edit-step-media-url"
                       value={editForm.mediaUrl}
                       onChange={(event) => setEditForm((prev) => ({ ...prev, mediaUrl: event.target.value }))}
-                      placeholder="https://a��"
+                      placeholder="https://a€¦"
                       disabled={editFormDisabled}
                     />
                     <Button
@@ -699,7 +699,7 @@ export default function AdminSteps() {
                       onClick={() => editFileInputRef.current?.click()}
                       disabled={editFormDisabled}
                     >
-                      {isUploadingEditMedia ? 'Įkeliamaa��' : 'Įkelti failą'}
+                      {isUploadingEditMedia ? 'Ä®keliamaa€¦' : 'Ä®kelti failÄ…'}
                     </Button>
                     <input
                       ref={editFileInputRef}
@@ -720,21 +720,21 @@ export default function AdminSteps() {
                     disabled={editFormDisabled}
                   >
                     <SelectTrigger id="edit-step-media-type">
-                      <SelectValue placeholder="Pasirinkite tipą" />
+                      <SelectValue placeholder="Pasirinkite tipÄ…" />
                     </SelectTrigger>
                     <SelectContent>
                       <SelectItem value="image">Nuotrauka</SelectItem>
-                      <SelectItem value="video">Vaizdo ��ra�?as</SelectItem>
+                      <SelectItem value="video">Vaizdo ÄĘraÅ?as</SelectItem>
                     </SelectContent>
                   </Select>
                 </div>
                 <div className="space-y-2 md:col-span-2">
-                  <Label>Žymos</Label>
+                  <Label>Å½ymos</Label>
                   <TagMultiSelect
                     options={tagOptions}
                     value={editForm.tagIds}
                     onChange={(next) => setEditForm((prev) => ({ ...prev, tagIds: next }))}
-                    placeholder={tagsLoading ? 'Kraunamaa��' : 'Pasirinkite žymas'}
+                    placeholder={tagsLoading ? 'Kraunamaa€¦' : 'Pasirinkite Å¾ymas'}
                     disabled={editFormDisabled || tagsLoading}
                     onCreateTag={() => openCreateTagDialog('edit')}
                     creatingTag={createTagMutation.isLoading && tagDialogContext === 'edit'}
@@ -754,25 +754,25 @@ export default function AdminSteps() {
                   </Label>
                 </div>
                 <div className="space-y-2">
-                  <Label htmlFor="edit-step-order">Eilės numeris</Label>
+                  <Label htmlFor="edit-step-order">EilÄ—s numeris</Label>
                   <Input
                     id="edit-step-order"
                     value={editForm.orderIndex}
                     onChange={(event) => setEditForm((prev) => ({ ...prev, orderIndex: event.target.value }))}
                     disabled={editFormDisabled}
-                    placeholder="Palikite tu�?Ĩią, jei nekeiĨiate"
+                    placeholder="Palikite tuÅ?ÄØiÄ…, jei nekeiÄØiate"
                   />
                 </div>
               </div>
               <DialogFooter className="flex flex-col gap-2 sm:flex-row sm:justify-end">
                 <Button type="button" variant="outline" onClick={closeEditDialog} disabled={editFormDisabled}>
-                  At�?aukti
+                  AtÅ?aukti
                 </Button>
                 <Button type="submit" disabled={editFormDisabled}>
                   {updateMutation.isLoading ? (
                     <>
                       <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-                      Saugomaa��
+                      Saugomaa€¦
                     </>
                   ) : (
                     'Saugoti'
@@ -786,8 +786,8 @@ export default function AdminSteps() {
         <Dialog open={isCreateTagOpen} onOpenChange={(open) => (open ? setIsCreateTagOpen(true) : closeCreateTagDialog())}>
           <DialogContent className="sm:max-w-md">
             <DialogHeader>
-              <DialogTitle>Nauja žyma</DialogTitle>
-              <DialogDescription>Įveskite žymos pavadinimą.</DialogDescription>
+              <DialogTitle>Nauja Å¾yma</DialogTitle>
+              <DialogDescription>Ä®veskite Å¾ymos pavadinimÄ….</DialogDescription>
             </DialogHeader>
             <form onSubmit={handleCreateTagSubmit} className="space-y-4">
               {createTagError ? (
@@ -814,13 +814,13 @@ export default function AdminSteps() {
               </div>
               <DialogFooter className="flex flex-col gap-2 sm:flex-row sm:justify-end">
                 <Button type="button" variant="outline" onClick={closeCreateTagDialog} disabled={createTagMutation.isLoading}>
-                  At�?aukti
+                  AtÅ?aukti
                 </Button>
                 <Button type="submit" disabled={createTagMutation.isLoading}>
                   {createTagMutation.isLoading ? (
                     <>
                       <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-                      Saugomaa��
+                      Saugomaa€¦
                     </>
                   ) : (
                     'Saugoti'
@@ -834,13 +834,13 @@ export default function AdminSteps() {
         <AlertDialog open={Boolean(stepToDelete)} onOpenChange={(open) => (!open ? setStepToDelete(null) : undefined)}>
           <AlertDialogContent>
             <AlertDialogHeader>
-              <AlertDialogTitle>Patvirtinkite žingsnio �?alinimą</AlertDialogTitle>
+              <AlertDialogTitle>Patvirtinkite Å¾ingsnio Å?alinimÄ…</AlertDialogTitle>
               <AlertDialogDescription>
-                {stepToDelete ? `Ar tikrai norite i�?trinti žingsn�� a�?${stepToDelete.title}a�??` : ''}
+                {stepToDelete ? `Ar tikrai norite iÅ?trinti Å¾ingsnÄĘ a€?${stepToDelete.title}a€??` : ''}
               </AlertDialogDescription>
             </AlertDialogHeader>
             <AlertDialogFooter>
-              <AlertDialogCancel disabled={deleteMutation.isLoading}>At�?aukti</AlertDialogCancel>
+              <AlertDialogCancel disabled={deleteMutation.isLoading}>AtÅ?aukti</AlertDialogCancel>
               <AlertDialogAction
                 className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
                 disabled={deleteMutation.isLoading}
@@ -849,11 +849,11 @@ export default function AdminSteps() {
                   try {
                     await deleteMutation.mutateAsync(stepToDelete.id);
                   } catch {
-                    /* paliekame dialogą atidarytą jei nepavyko */
+                    /* paliekame dialogÄ… atidarytÄ… jei nepavyko */
                   }
                 }}
               >
-                I�?trinti
+                IÅ?trinti
               </AlertDialogAction>
             </AlertDialogFooter>
           </AlertDialogContent>
@@ -889,7 +889,7 @@ function TagMultiSelect({ options, value, onChange, placeholder, disabled, onCre
         .filter((option) => value.includes(option.id))
         .map((option) => option.name)
         .join(', ')
-    : placeholder ?? 'Pasirinkite žymas';
+    : placeholder ?? 'Pasirinkite Å¾ymas';
 
   return (
     <Popover open={open} onOpenChange={setOpen}>
@@ -901,7 +901,7 @@ function TagMultiSelect({ options, value, onChange, placeholder, disabled, onCre
       <PopoverContent className="w-64 p-2" align="start">
         <div className="max-h-56 space-y-2 overflow-y-auto">
           {options.length === 0 ? (
-            <p className="px-2 text-sm text-muted-foreground">Žymų nėra</p>
+            <p className="px-2 text-sm text-muted-foreground">Å½ymÅ³ nÄ—ra</p>
           ) : (
             options.map((option) => {
               const checked = value.includes(option.id);
@@ -930,7 +930,7 @@ function TagMultiSelect({ options, value, onChange, placeholder, disabled, onCre
               disabled={disabled || creatingTag}
             >
               {creatingTag ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <Plus className="mr-2 h-4 w-4" />}
-              Sukurti naują žymą
+              Sukurti naujÄ… Å¾ymÄ…
             </Button>
           </div>
         ) : null}
@@ -949,7 +949,7 @@ type StepCardProps = {
 function StepCard({ step, onEdit, onDelete, disableActions }: StepCardProps) {
   const resolvedMediaUrl = resolveMediaUrl(step.mediaUrl);
   const mediaKind = step.mediaType ?? inferMediaType(null, resolvedMediaUrl);
-  const mediaLabel = mediaKind === 'image' ? 'Nuotrauka' : mediaKind === 'video' ? 'Vaizdo ��ra�?as' : null;
+  const mediaLabel = mediaKind === 'image' ? 'Nuotrauka' : mediaKind === 'video' ? 'Vaizdo ÄĘraÅ?as' : null;
   const visibleTags = (step.tags ?? []).filter(
     (tag): tag is NonNullable<TaskStep['tags']>[number] & { id: string } =>
       Boolean(tag) && typeof tag.id === 'string' && tag.id.length > 0,
@@ -994,7 +994,7 @@ function StepCard({ step, onEdit, onDelete, disableActions }: StepCardProps) {
         {step.contentText ? (
           <p className="whitespace-pre-line text-foreground">{step.contentText}</p>
         ) : (
-          <p className="text-muted-foreground">Apra�?ymo nėra</p>
+          <p className="text-muted-foreground">ApraÅ?ymo nÄ—ra</p>
         )}
         {resolvedMediaUrl ? (
           <ResponsiveMedia
@@ -1016,7 +1016,7 @@ function StepCard({ step, onEdit, onDelete, disableActions }: StepCardProps) {
         ) : null}
             {mediaLabel ? <Badge variant="outline">{mediaLabel}</Badge> : null}
             {step.requireUserMedia ? (
-              <Badge variant="secondary">Reikia vartotojo nuotraukos ar vaizdo ��ra�?o</Badge>
+              <Badge variant="secondary">Reikia vartotojo nuotraukos ar vaizdo ÄĘraÅ?o</Badge>
             ) : null}
           </div>
         ) : null}

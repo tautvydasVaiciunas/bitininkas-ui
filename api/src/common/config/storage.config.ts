@@ -23,6 +23,13 @@ export function ensureUploadsDir(): void {
   }
 }
 
+export async function ensureUploadsSubdir(name: string): Promise<string> {
+  const baseDir = resolveUploadsDir();
+  const targetDir = path.join(baseDir, name);
+  await fs.promises.mkdir(targetDir, { recursive: true });
+  return targetDir;
+}
+
 export function uploadsPrefix(): string {
   return UPLOADS_PREFIX;
 }

@@ -72,7 +72,10 @@ export class ProfileController {
       },
     }),
   )
-  async uploadAvatar(@UploadedFile() file?: Express.Multer.File, @Request() req) {
+  async uploadAvatar(
+    @UploadedFile() file: Express.Multer.File | undefined,
+    @Request() req,
+  ) {
     if (!file) {
       throw new BadRequestException('Failas nebuvo pateiktas');
     }

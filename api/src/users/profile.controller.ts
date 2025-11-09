@@ -2,6 +2,7 @@
   BadRequestException,
   Body,
   Controller,
+  NotFoundException,
   Patch,
   Post,
   Request,
@@ -16,7 +17,12 @@ import { randomUUID } from 'crypto';
 import { UsersService } from './users.service';
 import { UpdateProfileDto } from './dto/update-profile.dto';
 import { UpdatePasswordDto } from './dto/update-password.dto';
-import { ensureUploadsDir, resolveUploadsDir, uploadsPrefix } from '../common/config/storage.config';
+import {
+  ensureUploadsDir,
+  ensureUploadsSubdir,
+  resolveUploadsDir,
+  uploadsPrefix,
+} from '../common/config/storage.config';
 
 @Controller('profile')
 export class ProfileController {
@@ -47,13 +53,12 @@ export class ProfileController {
     FileInterceptor('file', {
       storage: diskStorage({
         destination: (_req, _file, cb) => {
-          const dir = `${resolveUploadsDir()}/avatars`;
-          try {
-            ensureUploadsDir();
-            cb(null, dir);
-          } catch (error) {
-            cb(error as Error, dir);
-          }
+          ensureUploadsDir();
+          ensureUploadsSubdir('avatars')
+            .then((dir) => cb(null, dir))
+            .catch((error) => {
+              cb(error as Error, resolveUploadsDir());
+            });
         },
         filename: (_req, file, cb) => {
           const extension = extname(file.originalname) || '.png';
@@ -81,7 +86,14 @@ export class ProfileController {
     }
 
     const avatarUrl = `${uploadsPrefix()}/avatars/${file.filename}`;
-    await this.usersService.setAvatar(req.user.id, avatarUrl);
-    return { avatarUrl };
+    try {
+      await this.usersService.setAvatar(req.user.id, avatarUrl);
+      return { avatarUrl };
+    } catch (error) {
+      if (error instanceof BadRequestException || error instanceof NotFoundException) {
+        throw error;
+      }
+      throw new BadRequestException('Nepavyko įkelti avataro. Bandykite dar kartą.');
+    }
   }
 }

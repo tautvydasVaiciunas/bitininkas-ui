@@ -851,6 +851,8 @@ export const api = {
     update: (payload: UpdateProfilePayload) => patch<ProfileResponse>('/profile', { json: payload }),
     changePassword: (payload: ChangePasswordPayload) =>
       patch<{ success: boolean }>('/profile/password', { json: payload }),
+    uploadAvatar: (formData: FormData) =>
+      post<{ avatarUrl: string }>('/profile/avatar', { body: formData }),
   },
   groups: {
     list: (params?: { page?: number; limit?: number }) =>

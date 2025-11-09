@@ -3,10 +3,12 @@ import {
   ConflictException,
   Injectable,
   NotFoundException,
+  Logger,
 } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
 import { Repository } from 'typeorm';
 import * as bcrypt from 'bcryptjs';
+import { randomBytes } from 'crypto';
 
 import { User, UserRole } from './user.entity';
 import { CreateUserDto } from './dto/create-user.dto';
@@ -20,6 +22,7 @@ import {
   PaginationOptions,
 } from '../common/pagination/pagination.service';
 import { UpdatePasswordDto } from './dto/update-password.dto';
+import { PasswordResetService } from '../auth/password-reset.service';
 
 type UserGroupDto = {
   id: string;
@@ -41,11 +44,13 @@ type UserWithGroups = {
 
 @Injectable()
 export class UsersService {
+  private readonly logger = new Logger(UsersService.name);
   constructor(
     @InjectRepository(User)
     private readonly usersRepository: Repository<User>,
     private readonly activityLog: ActivityLogService,
     private readonly pagination: PaginationService,
+    private readonly passwordResetService: PasswordResetService,
   ) {}
 
   private normalizeNullableString(value?: string | null) {
@@ -65,7 +70,13 @@ export class UsersService {
       throw new ConflictException('Email already registered');
     }
 
-    const passwordHash = await bcrypt.hash(createUserDto.password, 10);
+    const hasPassword =
+      typeof createUserDto.password === 'string' &&
+      createUserDto.password.trim().length >= 6;
+    const plainPassword = hasPassword
+      ? createUserDto.password.trim()
+      : randomBytes(12).toString('hex');
+    const passwordHash = await bcrypt.hash(plainPassword, 10);
     const user = this.usersRepository.create({
       email,
       passwordHash,
@@ -77,6 +88,22 @@ export class UsersService {
 
     const saved = await this.usersRepository.save(user);
     await this.activityLog.log('user_created', saved.id, 'user', saved.id);
+
+    if (!hasPassword) {
+      try {
+        await this.passwordResetService.createTokenForUser(saved, {
+          template: 'invite',
+          enforceCooldown: false,
+        });
+      } catch (error) {
+        this.logger.warn(
+          `Nepavyko siųsti kvietimo vartotojui ${saved.email}: ${
+            error instanceof Error ? error.message : String(error)
+          }`,
+        );
+      }
+    }
+
     return saved;
   }
 

@@ -10,30 +10,31 @@ import {
 import { UserRole } from '../user.entity';
 
 export class CreateUserDto {
-  @IsEmail({}, { message: 'Neteisingas el. pašto adresas' })
-  @MaxLength(255, { message: 'El. paštas per ilgas' })
+  @IsEmail({}, { message: 'Neteisingas el. pa�to adresas' })
+  @MaxLength(255, { message: 'El. pa�tas per ilgas' })
   email!: string;
 
-  @IsString({ message: 'Slaptažodis privalomas' })
-  @MinLength(6, { message: 'Slaptažodis turi būti bent 6 simbolių' })
-  password!: string;
+  @IsOptional()
+  @IsString({ message: 'Slapta�odis turi buti tekstas' })
+  @MinLength(6, { message: 'Jei nurodote, slapta�odis turi buti bent 6 simboliu' })
+  password?: string;
 
-  @IsEnum(UserRole, { message: 'Neteisinga rolė' })
+  @IsEnum(UserRole, { message: 'Neteisinga role' })
   @IsOptional()
   role?: UserRole;
 
   @IsOptional()
-  @IsString({ message: 'Vardas turi būti tekstas' })
+  @IsString({ message: 'Vardas turi buti tekstas' })
   @MaxLength(150, { message: 'Vardas per ilgas' })
   name?: string;
 
   @IsOptional()
-  @IsString({ message: 'Telefono numeris turi būti tekstas' })
+  @IsString({ message: 'Telefono numeris turi buti tekstas' })
   @MaxLength(50, { message: 'Telefono numeris per ilgas' })
   phone?: string;
 
   @IsOptional()
-  @IsString({ message: 'Adresas turi būti tekstas' })
+  @IsString({ message: 'Adresas turi buti tekstas' })
   @MaxLength(255, { message: 'Adresas per ilgas' })
   address?: string;
 }

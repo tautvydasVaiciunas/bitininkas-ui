@@ -25,7 +25,8 @@ import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 import { Badge } from '@/components/ui/badge';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import api, { type NotificationsUnreadCountResponse } from '@/lib/api';
-import { mapNotificationFromApi, type Notification, type NotificationType } from '@/lib/types';
+import { type Notification, type NotificationType } from '@/lib/types';
+import { mapNotificationFromApi } from '@/lib/mappers';
 import { buildAvatarSrc } from '@/lib/avatar';
 
 export const Topbar = () => {

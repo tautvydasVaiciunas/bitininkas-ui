@@ -19,13 +19,13 @@ import { MainLayout } from '@/components/Layout/MainLayout';
 import { ResponsiveMedia } from '@/components/media/ResponsiveMedia';
 import api, { HttpError } from '@/lib/api';
 import {
-  mapTaskStepFromApi,
   type CreateGlobalTaskStepPayload,
   type Tag,
   type TaskStep,
   type TaskStepMediaType,
   type UpdateTaskStepPayload,
 } from '@/lib/types';
+import { mapTaskStepFromApi } from '@/lib/mappers';
 import { inferMediaType, resolveMediaUrl } from '@/lib/media';
 import ltMessages from '@/i18n/messages.lt.json';
 

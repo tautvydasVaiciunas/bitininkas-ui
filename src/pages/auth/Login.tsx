@@ -32,7 +32,7 @@ export default function Login() {
     setLoading(false);
 
     if (result.success) {
-      toast.success('Sekmingai prisijungta!');
+      toast.success('SÄ—kmingai prisijungta!');
       navigate('/');
     } else {
       toast.error(result.error || 'Nepavyko prisijungti');
@@ -52,12 +52,12 @@ export default function Login() {
             <Box className="w-7 h-7 text-primary-foreground" />
           </div>
           <CardTitle className="text-2xl">Prisijungimas</CardTitle>
-          <CardDescription>Iveskite savo prisijungimo duomenis</CardDescription>
+          <CardDescription>Ä®veskite savo prisijungimo duomenis</CardDescription>
         </CardHeader>
         <CardContent>
           <form onSubmit={handleSubmit} className="space-y-4">
             <div className="space-y-2">
-              <Label htmlFor="email">El. paštas</Label>
+              <Label htmlFor="email">El. paÅ¡tas</Label>
               <Input
                 id="email"
                 type="email"
@@ -69,12 +69,12 @@ export default function Login() {
             </div>
 
             <div className="space-y-2">
-              <Label htmlFor="password">Slaptažodis</Label>
+              <Label htmlFor="password">SlaptaÅ¾odis</Label>
               <div className="relative">
                 <Input
                   id="password"
                   type={showPassword ? 'text' : 'password'}
-                  placeholder="••••••••"
+                  placeholder="â€¢â€¢â€¢â€¢â€¢â€¢â€¢â€¢"
                   value={password}
                   onChange={(event) => setPassword(event.target.value)}
                   required
@@ -103,7 +103,7 @@ export default function Login() {
                 </Label>
               </div>
               <Link to="/auth/forgot" className="text-sm text-primary hover:underline">
-                Pamiršai slaptažodi? Atkurk
+                PamirÅ¡ai slaptaÅ¾odÄ¯? Atkurk
               </Link>
             </div>
 
@@ -145,3 +145,4 @@ export default function Login() {
     </div>
   );
 }
+

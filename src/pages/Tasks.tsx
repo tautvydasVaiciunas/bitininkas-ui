@@ -13,11 +13,6 @@ import { useAuth } from '@/contexts/AuthContext';
 import api, { HttpError } from '@/lib/api';
 import { getApiErrorMessage } from '@/lib/errors';
 import {
-  mapAssignmentFromApi,
-  mapHiveFromApi,
-  mapTaskFromApi,
-  mapTemplateFromApi,
-  mapGroupFromApi,
   type Assignment,
   type Hive,
   type Task,
@@ -28,6 +23,13 @@ import {
   type BulkAssignmentsFromTemplatePayload,
   type BulkAssignmentsFromTemplateResponse,
 } from '@/lib/types';
+import {
+  mapAssignmentFromApi,
+  mapHiveFromApi,
+  mapTaskFromApi,
+  mapTemplateFromApi,
+  mapGroupFromApi,
+} from '@/lib/mappers';
 import { AssignmentStatusBadge } from '@/components/AssignmentStatusBadge';
 import { assignmentStatusFilterOptions, resolveAssignmentUiStatus } from '@/lib/assignmentStatus';
 import {

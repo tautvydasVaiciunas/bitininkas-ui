@@ -20,12 +20,8 @@ import { Input } from '@/components/ui/input';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import ltMessages from '@/i18n/messages.lt.json';
 import api, { HttpError } from '@/lib/api';
-import {
-  mapTaskFromApi,
-  type CreateTaskPayload,
-  type Task,
-  type UpdateTaskPayload,
-} from '@/lib/types';
+import { type CreateTaskPayload, type Task, type UpdateTaskPayload } from '@/lib/types';
+import { mapTaskFromApi } from '@/lib/mappers';
 import { TaskDetailsForm, type TaskDetailsFormValues, type TaskDetailsFormStep } from '@/components/tasks/TaskDetailsForm';
 
 const messages = ltMessages.tasks;

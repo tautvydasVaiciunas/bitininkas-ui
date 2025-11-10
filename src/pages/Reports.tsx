@@ -13,13 +13,8 @@ import { Badge } from "@/components/ui/badge";
 import { Progress } from "@/components/ui/progress";
 import { Skeleton } from "@/components/ui/skeleton";
 import api from "@/lib/api";
-import {
-  mapGroupFromApi,
-  mapTaskFromApi,
-  type AssignmentReportItem,
-  type Group,
-  type Task,
-} from "@/lib/types";
+import { type AssignmentReportItem, type Group, type Task } from "@/lib/types";
+import { mapGroupFromApi, mapTaskFromApi } from "@/lib/mappers";
 import { AssignmentStatusBadge } from "@/components/AssignmentStatusBadge";
 import { resolveAssignmentUiStatus } from "@/lib/assignmentStatus";
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";

@@ -10,17 +10,13 @@ import { Label } from '@/components/ui/label';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Progress } from '@/components/ui/progress';
 import api, { HttpError, type AdminUserResponse } from '@/lib/api';
+import { type Assignment, type AssignmentStatus, type Hive, type Task, type UpdateHivePayload } from '@/lib/types';
 import {
   mapAssignmentDetailsFromApi,
   mapAssignmentFromApi,
   mapHiveFromApi,
   mapTaskFromApi,
-  type Assignment,
-  type AssignmentStatus,
-  type Hive,
-  type Task,
-  type UpdateHivePayload,
-} from '@/lib/types';
+} from '@/lib/mappers';
 import { resolveAssignmentUiStatus } from '@/lib/assignmentStatus';
 import { MapPin, Calendar, Edit, Archive, Box, ChevronRight, Loader2 } from 'lucide-react';
 import { useAuth } from '@/contexts/AuthContext';

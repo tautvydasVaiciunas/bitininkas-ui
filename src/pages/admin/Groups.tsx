@@ -34,7 +34,8 @@ import { Label } from "@/components/ui/label";
 import { Badge } from "@/components/ui/badge";
 import { MainLayout } from "@/components/Layout/MainLayout";
 import api, { type AdminUserResponse, type HiveResponse } from "@/lib/api";
-import { mapGroupFromApi, type Group, type GroupMember } from "@/lib/types";
+import { type Group, type GroupMember } from "@/lib/types";
+import { mapGroupFromApi } from "@/lib/mappers";
 import { useToast } from "@/components/ui/use-toast";
 import {
   Loader2,

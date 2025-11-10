@@ -13,10 +13,6 @@ import { AssignmentStatusBadge } from '@/components/AssignmentStatusBadge';
 import { Badge } from '@/components/ui/badge';
 import api, { type HttpError } from '@/lib/api';
 import {
-  mapAssignmentDetailsFromApi,
-  mapAssignmentFromApi,
-  mapHiveFromApi,
-  mapStepToggleResponseFromApi,
   type AssignmentDetails,
   type AssignmentStatus,
   type Hive,
@@ -24,6 +20,13 @@ import {
   type StepProgressToggleResult,
   type UpdateProgressPayload,
 } from '@/lib/types';
+import {
+  mapAssignmentDetailsFromApi,
+  mapAssignmentFromApi,
+  mapHiveFromApi,
+  mapStepProgressFromApi,
+  mapStepToggleResponseFromApi,
+} from '@/lib/mappers';
 import { inferMediaType, resolveMediaUrl } from '@/lib/media';
 import { Calendar, CheckCircle2, ChevronLeft, ChevronRight, Loader2, RotateCcw } from 'lucide-react';
 import { toast } from 'sonner';

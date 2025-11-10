@@ -31,14 +31,8 @@ import { useToast } from "@/components/ui/use-toast";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Loader2, Plus, Edit2, Trash2, Image as ImageIcon } from "lucide-react";
 import api from "@/lib/api";
-import {
-  mapGroupFromApi,
-  mapNewsPostFromApi,
-  mapPaginatedNewsFromApi,
-  type Group,
-  type NewsPost,
-  type PaginatedNews,
-} from "@/lib/types";
+import { type Group, type NewsPost, type PaginatedNews, type CreateNewsPayload, type UpdateNewsPayload } from "@/lib/types";
+import { mapGroupFromApi, mapNewsPostFromApi, mapPaginatedNewsFromApi } from "@/lib/mappers";
 
 interface NewsFormState {
   title: string;

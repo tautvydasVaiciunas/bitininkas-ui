@@ -8,7 +8,8 @@ import { Badge } from '@/components/ui/badge';
 import { Skeleton } from '@/components/ui/skeleton';
 import { AssignmentStatusBadge } from '@/components/AssignmentStatusBadge';
 import api from '@/lib/api';
-import { mapAssignmentDetailsFromApi, type AssignmentDetails } from '@/lib/types';
+import { type AssignmentDetails } from '@/lib/types';
+import { mapAssignmentDetailsFromApi } from '@/lib/mappers';
 import { Calendar, ChevronLeft, ClipboardList, Loader2 } from 'lucide-react';
 
 const formatDate = (dateStr?: string | null) => {

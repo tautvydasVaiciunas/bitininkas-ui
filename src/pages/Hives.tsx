@@ -48,12 +48,12 @@ import { useAuth } from "@/contexts/AuthContext";
 import api, { HttpError, type AdminUserResponse } from "@/lib/api";
 import { getApiErrorMessage } from "@/lib/errors";
 import {
-  mapHiveFromApi,
   type CreateHivePayload,
   type Hive,
   type HiveStatus,
   type UpdateHivePayload,
 } from "@/lib/types";
+import { mapHiveFromApi } from "@/lib/mappers";
 import {
   Box,
   Calendar,

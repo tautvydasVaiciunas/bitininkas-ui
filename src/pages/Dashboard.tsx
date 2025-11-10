@@ -8,16 +8,13 @@ import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { Progress } from '@/components/ui/progress';
 import api from '@/lib/api';
+import { type Assignment, type AssignmentStatus, type Hive, type Task } from '@/lib/types';
 import {
   mapAssignmentDetailsFromApi,
   mapAssignmentFromApi,
   mapHiveFromApi,
   mapTaskFromApi,
-  type Assignment,
-  type AssignmentStatus,
-  type Hive,
-  type Task,
-} from '@/lib/types';
+} from '@/lib/mappers';
 import { resolveAssignmentUiStatus } from '@/lib/assignmentStatus';
 import { Box, ListTodo, CheckCircle2, AlertCircle, MapPin, Calendar, ChevronRight } from 'lucide-react';
 

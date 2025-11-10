@@ -1,7 +1,7 @@
 ﻿import React, { createContext, useContext, useState, useEffect, useCallback } from 'react';
 import api, { HttpError, clearCredentials, setToken } from '@/lib/api';
 import type { AuthenticatedUser, UserRole } from '@/lib/types';
-import { mapUserFromApi } from '@/lib/types';
+import { mapUserFromApi } from '@/lib/mappers';
 export type User = AuthenticatedUser & {
   phone?: string | null;
   address?: string | null;

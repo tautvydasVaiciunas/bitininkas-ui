@@ -24,14 +24,14 @@ import ltMessages from '@/i18n/messages.lt.json';
 import api, { HttpError } from '@/lib/api';
 import { applyImageFallback, isVideo, withApiBase } from '@/lib/media';
 import {
-  mapTaskStepFromApi,
-  mapTemplateFromApi,
   type CreateTemplatePayload,
   type Tag,
   type TaskStep,
   type Template,
+  type TemplateStep,
   type UpdateTemplatePayload,
 } from '@/lib/types';
+import { mapTaskStepFromApi, mapTemplateFromApi } from '@/lib/mappers';
 
 const messages = ltMessages.templates;
 

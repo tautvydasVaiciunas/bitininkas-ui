@@ -1,4 +1,4 @@
-﻿import { useEffect, useState, ChangeEvent } from 'react';
+﻿import { useEffect, useState, ChangeEvent, useMemo } from 'react';
 import { useMutation } from '@tanstack/react-query';
 import { MainLayout } from '@/components/Layout/MainLayout';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
@@ -14,6 +14,7 @@ import { mapProfileFromApi, type ChangePasswordPayload } from '@/lib/types';
 import { User, Mail, Edit2, Lock, Upload } from 'lucide-react';
 import { toast } from 'sonner';
 import ltMessages from '@/i18n/messages.lt.json';
+import { buildAvatarSrc } from '@/lib/avatar';
 
 export default function Profile() {
   const { user, updateUserProfile } = useAuth();
@@ -25,6 +26,9 @@ export default function Profile() {
     confirm: '',
   });
   const [avatarUploading, setAvatarUploading] = useState(false);
+  const avatarSrc = useMemo(() => buildAvatarSrc(user?.avatarUrl), [user?.avatarUrl]);
+  const avatarAlt = user?.name ?? user?.email ?? 'Avataras';
+  const avatarInitials = getInitials(user?.name ?? user?.email ?? 'U');
 
   const updateMutation = useMutation({
     mutationFn: async (payload: { name: string; email: string }) => {
@@ -65,13 +69,15 @@ export default function Profile() {
     }
   }, [user]);
 
-  const getInitials = (name: string) =>
-    name
-      .split(' ')
-      .map((n) => n[0])
+  const getInitials = (value?: string | null) => {
+    const source = value && value.trim().length > 0 ? value.trim() : 'U';
+    return source
+      .split(/\s+/)
+      .map((segment) => segment[0])
       .join('')
       .toUpperCase()
       .slice(0, 2);
+  };
 
   const getRoleLabel = (role: string) => {
     const labels: Record<string, string> = {
@@ -152,10 +158,10 @@ export default function Profile() {
           <CardContent className="flex flex-col md:flex-row items-center gap-6">
             <div className="relative">
               <Avatar className="h-24 w-24">
-                {user.avatarUrl ? (
-                  <AvatarImage src={user.avatarUrl} alt={user.name ?? 'Avataras'} />
+                {avatarSrc ? (
+                  <AvatarImage src={avatarSrc} alt={avatarAlt} />
                 ) : (
-                  <AvatarFallback className="text-xl">{getInitials(user.name ?? user.email)}</AvatarFallback>
+                  <AvatarFallback className="text-xl">{avatarInitials}</AvatarFallback>
                 )}
               </Avatar>
               <Label

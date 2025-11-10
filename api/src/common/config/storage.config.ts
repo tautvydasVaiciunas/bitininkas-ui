@@ -23,10 +23,14 @@ export function ensureUploadsDir(): void {
   }
 }
 
-export async function ensureUploadsSubdir(name: string): Promise<string> {
+export function ensureUploadsSubdir(name: string): string {
   const baseDir = resolveUploadsDir();
   const targetDir = path.join(baseDir, name);
-  await fs.promises.mkdir(targetDir, { recursive: true });
+
+  if (!fs.existsSync(targetDir)) {
+    fs.mkdirSync(targetDir, { recursive: true });
+  }
+
   return targetDir;
 }
 

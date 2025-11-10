@@ -53,12 +53,13 @@ export class ProfileController {
     FileInterceptor('file', {
       storage: diskStorage({
         destination: (_req, _file, cb) => {
-          ensureUploadsDir();
-          ensureUploadsSubdir('avatars')
-            .then((dir) => cb(null, dir))
-            .catch((error) => {
-              cb(error as Error, resolveUploadsDir());
-            });
+          try {
+            ensureUploadsDir();
+            const dir = ensureUploadsSubdir('avatars');
+            cb(null, dir);
+          } catch (error) {
+            cb(error as Error, resolveUploadsDir());
+          }
         },
         filename: (_req, file, cb) => {
           const extension = extname(file.originalname) || '.png';
@@ -70,7 +71,7 @@ export class ProfileController {
       },
       fileFilter: (_req, file, cb) => {
         if (!file.mimetype.startsWith('image/')) {
-          cb(new BadRequestException('Leidžiami tik paveikslėlių failai'), false);
+          cb(new BadRequestException('Leidžiami tik paveiksleliu failai'), false);
           return;
         }
         cb(null, true);
@@ -97,3 +98,4 @@ export class ProfileController {
     }
   }
 }
+

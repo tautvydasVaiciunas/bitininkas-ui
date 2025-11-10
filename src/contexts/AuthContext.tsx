@@ -1,12 +1,14 @@
-import React, { createContext, useContext, useState, useEffect, useCallback } from 'react';
+﻿import React, { createContext, useContext, useState, useEffect, useCallback } from 'react';
 import api, { HttpError, clearCredentials, setToken } from '@/lib/api';
 import type { AuthenticatedUser, UserRole } from '@/lib/types';
 import { mapUserFromApi } from '@/lib/types';
+import { resolveMediaUrl } from '@/lib/media';
 
 export type User = AuthenticatedUser & {
   phone?: string | null;
   address?: string | null;
   createdAt?: string | null;
+  avatarUrl?: string | null;
 };
 
 interface AuthContextType {
@@ -38,6 +40,10 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     }
 
     const fallbackCreatedAt = new Date().toISOString();
+    const avatarUrl =
+      data && typeof data === 'object' && 'avatarUrl' in data
+        ? resolveMediaUrl((data as { avatarUrl?: string | null }).avatarUrl ?? null)
+        : null;
 
     return {
       id: data.id,
@@ -47,6 +53,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
       phone: 'phone' in data ? data.phone ?? null : undefined,
       address: 'address' in data ? data.address ?? null : undefined,
       createdAt: 'createdAt' in data && data.createdAt ? data.createdAt : fallbackCreatedAt,
+      avatarUrl,
     };
   }, []);
 
@@ -145,7 +152,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
       if (err instanceof Error) {
         return err.message;
       }
-      return 'Neteisingas el. paštas arba slaptažodis';
+      return 'Neteisingas el. paÅ¡tas arba slaptaÅ¾odis';
     };
 
     try {
@@ -176,3 +183,5 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     </AuthContext.Provider>
   );
 };
+
+

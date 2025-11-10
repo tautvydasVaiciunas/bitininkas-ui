@@ -86,16 +86,18 @@ async function bootstrap() {
   app.use(requestLogger.use.bind(requestLogger));
 
   ensureUploadsDir();
+  try {
+    ensureNewsPlaceholderFile();
+  } catch (error) {
+    console.warn('Nepavyko sukurti numatyto naujienų paveikslėlio:', error);
+  }
+
   const uploadsDir = resolveUploadsDir();
-  const ensuredPlaceholder = ensureNewsPlaceholderFile();
   const fallbackPublic = resolvePublicFallback();
 
   app.use(
     uploadsPrefix(),
-    (req, res, next) => {
-      res.setHeader('Cross-Origin-Resource-Policy', 'cross-origin');
-      res.setHeader('Cache-Control', 'public, max-age=31536000, immutable');
-
+    async (req, res, next) => {
       const requestPath = decodeURIComponent(req.path || '/');
       const sanitized = path
         .normalize(requestPath)
@@ -103,26 +105,23 @@ async function bootstrap() {
         .replace(/^[/\\]+/, '');
       const requestedAbsolute = path.join(uploadsDir, sanitized);
 
-      const fileExists =
-        requestedAbsolute.startsWith(uploadsDir) &&
-        fs.existsSync(requestedAbsolute) &&
-        fs.statSync(requestedAbsolute).isFile();
+      const respondWithFallback = () => {
+        res.setHeader('Cross-Origin-Resource-Policy', 'cross-origin');
+        res.setHeader('Cache-Control', 'public, max-age=86400, immutable');
+        return res.sendFile(fallbackPublic);
+      };
 
-      if (fileExists) {
-        next();
-        return;
+      const isInsideUploads = requestedAbsolute.startsWith(uploadsDir);
+      if (!isInsideUploads) {
+        return respondWithFallback();
       }
 
-      const fallbackCandidate =
-        (ensuredPlaceholder && fs.existsSync(ensuredPlaceholder) ? ensuredPlaceholder : null) ??
-        (fs.existsSync(fallbackPublic) ? fallbackPublic : null);
-
-      if (fallbackCandidate) {
-        res.sendFile(fallbackCandidate);
-        return;
+      try {
+        await fs.promises.access(requestedAbsolute, fs.constants.R_OK);
+        return next();
+      } catch {
+        return respondWithFallback();
       }
-
-      next();
     },
     express.static(uploadsDir, { index: false, fallthrough: true }),
   );

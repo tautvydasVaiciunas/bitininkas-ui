@@ -1,4 +1,4 @@
-import { API_BASE_URL } from '@/lib/api';
+import { API_BASE_URL } from '@/lib/config';
 
 const IMAGE_EXTENSIONS = ['.png', '.jpg', '.jpeg', '.webp', '.gif', '.avif'];
 const VIDEO_EXTENSIONS = ['.mp4', '.webm', '.ogg', '.mov'];

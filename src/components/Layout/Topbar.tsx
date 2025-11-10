@@ -29,6 +29,8 @@ import { type Notification, type NotificationType } from '@/lib/types';
 import { mapNotificationFromApi } from '@/lib/mappers';
 import { buildAvatarSrc } from '@/lib/avatar';
 
+console.debug('[INIT] Topbar');
+
 export const Topbar = () => {
   const [theme, setTheme] = useState<'light' | 'dark'>('light');
   const { user, logout } = useAuth();

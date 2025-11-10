@@ -1,4 +1,4 @@
-import { NestFactory } from '@nestjs/core';
+﻿import { NestFactory } from '@nestjs/core';
 import { NestExpressApplication } from '@nestjs/platform-express';
 import { BadRequestException, ValidationPipe } from '@nestjs/common';
 import { ValidationError } from 'class-validator';
@@ -89,7 +89,7 @@ async function bootstrap() {
   try {
     ensureNewsPlaceholderFile();
   } catch (error) {
-    console.warn('Nepavyko sukurti numatyto naujienų paveikslėlio:', error);
+    console.warn('Nepavyko sukurti numatyto naujienÅ³ paveikslÄ—lio:', error);
   }
 
   const uploadsDir = resolveUploadsDir();
@@ -130,3 +130,4 @@ async function bootstrap() {
   await app.listen(port);
 }
 bootstrap();
+

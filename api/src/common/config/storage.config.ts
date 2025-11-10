@@ -1,9 +1,10 @@
-import * as fs from 'fs';
+﻿import * as fs from 'fs';
 import * as path from 'path';
 
 const UPLOADS_PREFIX = '/uploads';
 const NEWS_PLACEHOLDER_RELATIVE = path.join('seed', 'news-default.jpg');
-const PUBLIC_FALLBACK = path.resolve(process.cwd(), 'public', 'fallback-media.png');
+const API_PUBLIC_DIR = path.resolve(__dirname, '..', '..', '..', 'public');
+const PUBLIC_FALLBACK = path.join(API_PUBLIC_DIR, 'fallback-media.png');
 
 export function resolveUploadsDir(): string {
   const configured = process.env.UPLOAD_DIR?.trim() || process.env.UPLOADS_DIR?.trim();
@@ -38,7 +39,7 @@ export function uploadsPrefix(): string {
   return UPLOADS_PREFIX;
 }
 
-export const NEWS_PLACEHOLDER_URI = `${uploadsPrefix()}/${NEWS_PLACEHOLDER_RELATIVE.replace(/\\/g, '/')}`;
+export const NEWS_PLACEHOLDER_URI = ${uploadsPrefix()}/;
 
 export function ensureUploadsFile(targetRelative: string, sourceAbsolute: string): string | null {
   try {
@@ -51,7 +52,7 @@ export function ensureUploadsFile(targetRelative: string, sourceAbsolute: string
     }
 
     if (!fs.existsSync(sourceAbsolute)) {
-      console.warn(`Įspėjimas: šaltinio failas ${sourceAbsolute} nerastas – praleidžiame kopijavimą.`);
+      console.warn(Įspėjimas: šaltinio failas  nerastas – praleidžiame kopijavimą.);
       return null;
     }
 
@@ -62,14 +63,17 @@ export function ensureUploadsFile(targetRelative: string, sourceAbsolute: string
     fs.copyFileSync(sourceAbsolute, destination);
     return destination;
   } catch (error) {
-    console.warn(
-      `Nepavyko nukopijuoti failo į uploads: ${(error as Error)?.message ?? 'nežinoma klaida'}`,
-    );
+    console.warn(Nepavyko nukopijuoti failo į uploads: );
     return null;
   }
 }
 
 export function ensureNewsPlaceholderFile(): string | null {
+  if (!fs.existsSync(PUBLIC_FALLBACK)) {
+    console.warn(Fallback paveikslėlis  nerastas – praleidžiame kopijavimą.);
+    return null;
+  }
+
   return ensureUploadsFile(NEWS_PLACEHOLDER_RELATIVE, PUBLIC_FALLBACK);
 }
 

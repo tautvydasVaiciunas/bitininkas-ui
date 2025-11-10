@@ -1,4 +1,4 @@
-import { useCallback, useState } from 'react';
+import { useCallback, useMemo, useState } from 'react';
 import {
   Search,
   Bell,
@@ -21,11 +21,12 @@ import {
   DropdownMenuSeparator,
   DropdownMenuTrigger,
 } from '@/components/ui/dropdown-menu';
-import { Avatar, AvatarFallback } from '@/components/ui/avatar';
+import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 import { Badge } from '@/components/ui/badge';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import api, { type NotificationsUnreadCountResponse } from '@/lib/api';
 import { mapNotificationFromApi, type Notification, type NotificationType } from '@/lib/types';
+import { buildAvatarSrc } from '@/lib/avatar';
 
 export const Topbar = () => {
   const [theme, setTheme] = useState<'light' | 'dark'>('light');
@@ -40,6 +41,10 @@ export const Topbar = () => {
   });
 
   const unreadCount = unreadCountData?.count ?? 0;
+
+  const avatarSrc = useMemo(() => buildAvatarSrc(user?.avatarUrl), [user?.avatarUrl]);
+  const userDisplayName = user?.name ?? user?.email ?? 'Vartotojas';
+  const avatarInitials = getInitials(userDisplayName);
 
   const {
     data: latestNotifications = [],
@@ -183,10 +188,11 @@ export const Topbar = () => {
     navigate('/auth/login');
   };
 
-  const getInitials = (name: string) => {
-    return name
-      .split(' ')
-      .map((n) => n[0])
+  const getInitials = (value?: string | null) => {
+    const source = value && value.trim().length > 0 ? value.trim() : 'U';
+    return source
+      .split(/\s+/)
+      .map((segment) => segment[0])
       .join('')
       .toUpperCase()
       .slice(0, 2);
@@ -318,9 +324,13 @@ export const Topbar = () => {
             <DropdownMenuTrigger asChild>
               <Button variant="ghost" className="gap-2 pl-2 pr-3">
                 <Avatar className="w-8 h-8">
-                  <AvatarFallback className="bg-primary text-primary-foreground text-sm">
-                    {user ? getInitials(user.name) : 'U'}
-                  </AvatarFallback>
+                  {avatarSrc ? (
+                    <AvatarImage src={avatarSrc} alt={userDisplayName} />
+                  ) : (
+                    <AvatarFallback className="bg-primary text-primary-foreground text-sm">
+                      {avatarInitials}
+                    </AvatarFallback>
+                  )}
                 </Avatar>
                 <div className="flex flex-col items-start text-left">
                   <span className="text-sm font-medium">{user?.name}</span>

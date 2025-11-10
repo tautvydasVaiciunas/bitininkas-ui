@@ -39,6 +39,7 @@ export interface AuthenticatedUser {
   email: string;
   role: UserRole;
   name?: string | null;
+  avatarUrl?: string | null;
 }
 
 export interface AuthResponse {
@@ -309,6 +310,7 @@ export interface ProfileResponse {
   address?: string | null;
   createdAt: string;
   updatedAt: string;
+  avatarUrl?: string | null;
 }
 
 export interface UpdateProfilePayload {

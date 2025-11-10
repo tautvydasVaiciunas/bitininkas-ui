@@ -39,7 +39,7 @@ export function uploadsPrefix(): string {
   return UPLOADS_PREFIX;
 }
 
-export const NEWS_PLACEHOLDER_URI = ${uploadsPrefix()}/;
+export const NEWS_PLACEHOLDER_URI = `${uploadsPrefix()}/${NEWS_PLACEHOLDER_RELATIVE.replace(/\\/g, '/')}`;
 
 export function ensureUploadsFile(targetRelative: string, sourceAbsolute: string): string | null {
   try {
@@ -52,7 +52,7 @@ export function ensureUploadsFile(targetRelative: string, sourceAbsolute: string
     }
 
     if (!fs.existsSync(sourceAbsolute)) {
-      console.warn(Įspėjimas: šaltinio failas  nerastas – praleidžiame kopijavimą.);
+      console.warn(`Ispejimas: saltinio failas ${sourceAbsolute} nerastas - praleidziame kopijavima.`);
       return null;
     }
 
@@ -63,14 +63,14 @@ export function ensureUploadsFile(targetRelative: string, sourceAbsolute: string
     fs.copyFileSync(sourceAbsolute, destination);
     return destination;
   } catch (error) {
-    console.warn(Nepavyko nukopijuoti failo į uploads: );
+    console.warn('Nepavyko nukopijuoti failo i uploads:', error);
     return null;
   }
 }
 
 export function ensureNewsPlaceholderFile(): string | null {
   if (!fs.existsSync(PUBLIC_FALLBACK)) {
-    console.warn(Fallback paveikslėlis  nerastas – praleidžiame kopijavimą.);
+    console.warn(`Fallback paveikslelis ${PUBLIC_FALLBACK} nerastas - praleidziame kopijavima.`);
     return null;
   }
 

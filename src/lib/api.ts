@@ -1,5 +1,8 @@
 import ltMessages from '@/i18n/messages.lt.json';
 import { API_BASE_URL } from '@/lib/config';
+import { markInit } from '@/lib/cycleGuard';
+
+markInit('lib/api');
 
 const ACCESS_TOKEN_KEY = 'bitininkas_access_token';
 const REFRESH_TOKEN_KEY = 'bitininkas_refresh_token';

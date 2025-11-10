@@ -1,4 +1,7 @@
 import { API_BASE_URL } from '@/lib/config';
+import { markInit } from '@/lib/cycleGuard';
+
+markInit('lib/media');
 
 const IMAGE_EXTENSIONS = ['.png', '.jpg', '.jpeg', '.webp', '.gif', '.avif'];
 const VIDEO_EXTENSIONS = ['.mp4', '.webm', '.ogg', '.mov'];

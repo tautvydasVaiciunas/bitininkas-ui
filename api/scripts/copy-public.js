@@ -24,9 +24,9 @@ function copyRecursive(src, dest) {
 }
 
 if (!fs.existsSync(sourceDir)) {
-  console.warn([copy-public] source directory  nerastas – praleidžiame.);
+  console.warn(`[copy-public] Saltinio katalogas ${sourceDir} nerastas - praleidziame.`);
   process.exit(0);
 }
 
 copyRecursive(sourceDir, targetDir);
-console.log([copy-public] Nukopijuota  -> );
+console.log(`[copy-public] Nukopijuota ${sourceDir} -> ${targetDir}`);

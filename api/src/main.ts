@@ -89,7 +89,7 @@ async function bootstrap() {
   try {
     ensureNewsPlaceholderFile();
   } catch (error) {
-    console.warn('Nepavyko sukurti numatyto naujienÅ³ paveikslÄ—lio:', error);
+    console.warn('Nepavyko sukurti numatyto naujienų ų ³ paveikslÄ—lio:', error);
   }
 
   const uploadsDir = resolveUploadsDir();
@@ -130,4 +130,5 @@ async function bootstrap() {
   await app.listen(port);
 }
 bootstrap();
+
 

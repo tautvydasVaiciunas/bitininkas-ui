@@ -2,6 +2,9 @@
 import api, { HttpError, clearCredentials, setToken } from '@/lib/api';
 import type { AuthenticatedUser, UserRole } from '@/lib/types';
 import { mapUserFromApi } from '@/lib/mappers';
+import { markInit } from '@/lib/cycleGuard';
+
+markInit('contexts/AuthContext');
 export type User = AuthenticatedUser & {
   phone?: string | null;
   address?: string | null;
@@ -152,4 +155,6 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     </AuthContext.Provider>
   );
 };
+
+
 

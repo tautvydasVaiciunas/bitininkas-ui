@@ -1,4 +1,4 @@
-import { ChangeEvent, FormEvent, useMemo, useRef, useState } from 'react';
+﻿import { ChangeEvent, FormEvent, useMemo, useRef, useState } from 'react';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle } from '@/components/ui/alert-dialog';
 import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
@@ -430,8 +430,9 @@ export default function AdminSteps() {
       <div className="space-y-6">
         <div className="flex flex-col gap-4 lg:flex-row lg:items-center lg:justify-between">
           <div>
+            <p className="text-sm uppercase tracking-wide text-muted-foreground">Administravimas</p>
             <h1 className="text-3xl font-bold">Žingsniai</h1>
-            <p className="text-muted-foreground mt-1">Vienas visų žingsnių sąra�?as</p>
+            <p className="text-muted-foreground mt-1">Vienas visų žingsnių sąrašas</p>
           </div>
           <Button onClick={() => setIsCreateOpen(true)}>
             <Plus className="mr-2 h-4 w-4" />
@@ -462,14 +463,14 @@ export default function AdminSteps() {
             </div>
 
             <div className="space-y-2">
-              <Label htmlFor="search-steps">Paie�?ka</Label>
+              <Label htmlFor="search-steps">Paieška</Label>
               <div className="relative">
                 <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
                 <Input
                   id="search-steps"
                   value={searchQuery}
                   onChange={(event) => setSearchQuery(event.target.value)}
-                  placeholder="Ie�?koti pagal pavadinimą ar žymas"
+                  placeholder="Ieškoti pagal pavadinimą ar žymas"
                   className="pl-9"
                 />
               </div>
@@ -483,7 +484,7 @@ export default function AdminSteps() {
               </div>
             ) : stepsError ? (
               <div className="rounded-md border border-destructive bg-destructive/10 p-6 text-destructive">
-                Nepavyko ��kelti žingsnių
+                Nepavyko įkelti žingsnių
               </div>
             ) : filteredSteps.length === 0 ? (
               <div className="rounded-md border border-dashed p-6 text-center text-muted-foreground">
@@ -519,7 +520,7 @@ export default function AdminSteps() {
           <DialogContent className="max-h-[90vh] overflow-y-auto sm:max-w-2xl">
             <DialogHeader>
               <DialogTitle>Naujas žingsnis</DialogTitle>
-              <DialogDescription>Užpildykite informaciją apie naują žingsn��.</DialogDescription>
+              <DialogDescription>Užpildykite informaciją apie naują žingsnį.</DialogDescription>
             </DialogHeader>
             <form onSubmit={handleCreateSubmit} className="space-y-6">
               {createFormError ? (
@@ -540,7 +541,7 @@ export default function AdminSteps() {
                   />
                 </div>
                 <div className="space-y-2 md:col-span-2">
-                  <Label htmlFor="create-step-description">Apra�?ymas</Label>
+                  <Label htmlFor="create-step-description">Aprašymas</Label>
                   <Textarea
                     id="create-step-description"
                     value={createForm.description}
@@ -556,7 +557,7 @@ export default function AdminSteps() {
                       id="create-step-media-url"
                       value={createForm.mediaUrl}
                       onChange={(event) => setCreateForm((prev) => ({ ...prev, mediaUrl: event.target.value }))}
-                      placeholder="https://a��"
+                      placeholder="https://a¦"
                       disabled={createFormDisabled}
                     />
                     <Button
@@ -565,7 +566,7 @@ export default function AdminSteps() {
                       onClick={() => createFileInputRef.current?.click()}
                       disabled={createFormDisabled}
                     >
-                      {isUploadingCreateMedia ? 'Įkeliamaa��' : 'Įkelti failą'}
+                      {isUploadingCreateMedia ? 'Įkeliamaa¦' : 'Įkelti failą'}
                     </Button>
                     <input
                       ref={createFileInputRef}
@@ -590,7 +591,7 @@ export default function AdminSteps() {
                     </SelectTrigger>
                     <SelectContent>
                       <SelectItem value="image">Nuotrauka</SelectItem>
-                      <SelectItem value="video">Vaizdo ��ra�?as</SelectItem>
+                      <SelectItem value="video">Vaizdo įrašas</SelectItem>
                     </SelectContent>
                   </Select>
                 </div>
@@ -600,7 +601,7 @@ export default function AdminSteps() {
                     options={tagOptions}
                     value={createForm.tagIds}
                     onChange={(next) => setCreateForm((prev) => ({ ...prev, tagIds: next }))}
-                    placeholder={tagsLoading ? 'Kraunamaa��' : 'Pasirinkite žymas'}
+                    placeholder={tagsLoading ? 'Kraunama…' : 'Pasirinkite žymas'}
                     disabled={createFormDisabled || tagsLoading}
                     onCreateTag={() => openCreateTagDialog('create')}
                     creatingTag={createTagMutation.isLoading && tagDialogContext === 'create'}
@@ -630,13 +631,13 @@ export default function AdminSteps() {
                   }}
                   disabled={createFormDisabled}
                 >
-                  At�?aukti
+                  Atšaukti
                 </Button>
                 <Button type="submit" disabled={createFormDisabled}>
                   {createMutation.isLoading ? (
                     <>
                       <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-                      Saugomaa��
+                      Saugomaa¦
                     </>
                   ) : (
                     'Saugoti'
@@ -650,9 +651,9 @@ export default function AdminSteps() {
         <Dialog open={isEditOpen} onOpenChange={(open) => (open ? setIsEditOpen(true) : closeEditDialog())}>
           <DialogContent className="max-h-[90vh] overflow-y-auto sm:max-w-2xl">
             <DialogHeader>
-              <DialogTitle>Redaguoti žingsn��</DialogTitle>
+              <DialogTitle>Redaguoti žingsnį</DialogTitle>
               <DialogDescription>
-                {stepToEdit ? `Atnaujinkite žingsn�� a�?${stepToEdit.title}a�?.` : ''}
+                {stepToEdit ? `Atnaujinkite žingsnį a?${stepToEdit.title}a?.` : ''}
               </DialogDescription>
             </DialogHeader>
             <form onSubmit={handleEditSubmit} className="space-y-6">
@@ -674,7 +675,7 @@ export default function AdminSteps() {
                   />
                 </div>
                 <div className="space-y-2 md:col-span-2">
-                  <Label htmlFor="edit-step-description">Apra�?ymas</Label>
+                  <Label htmlFor="edit-step-description">Aprašymas</Label>
                   <Textarea
                     id="edit-step-description"
                     value={editForm.description}
@@ -690,7 +691,7 @@ export default function AdminSteps() {
                       id="edit-step-media-url"
                       value={editForm.mediaUrl}
                       onChange={(event) => setEditForm((prev) => ({ ...prev, mediaUrl: event.target.value }))}
-                      placeholder="https://a��"
+                      placeholder="https://a¦"
                       disabled={editFormDisabled}
                     />
                     <Button
@@ -699,7 +700,7 @@ export default function AdminSteps() {
                       onClick={() => editFileInputRef.current?.click()}
                       disabled={editFormDisabled}
                     >
-                      {isUploadingEditMedia ? 'Įkeliamaa��' : 'Įkelti failą'}
+                      {isUploadingEditMedia ? 'Įkeliamaa¦' : 'Įkelti failą'}
                     </Button>
                     <input
                       ref={editFileInputRef}
@@ -724,7 +725,7 @@ export default function AdminSteps() {
                     </SelectTrigger>
                     <SelectContent>
                       <SelectItem value="image">Nuotrauka</SelectItem>
-                      <SelectItem value="video">Vaizdo ��ra�?as</SelectItem>
+                      <SelectItem value="video">Vaizdo įrašas</SelectItem>
                     </SelectContent>
                   </Select>
                 </div>
@@ -734,7 +735,7 @@ export default function AdminSteps() {
                     options={tagOptions}
                     value={editForm.tagIds}
                     onChange={(next) => setEditForm((prev) => ({ ...prev, tagIds: next }))}
-                    placeholder={tagsLoading ? 'Kraunamaa��' : 'Pasirinkite žymas'}
+                    placeholder={tagsLoading ? 'Kraunama…' : 'Pasirinkite žymas'}
                     disabled={editFormDisabled || tagsLoading}
                     onCreateTag={() => openCreateTagDialog('edit')}
                     creatingTag={createTagMutation.isLoading && tagDialogContext === 'edit'}
@@ -754,25 +755,25 @@ export default function AdminSteps() {
                   </Label>
                 </div>
                 <div className="space-y-2">
-                  <Label htmlFor="edit-step-order">Eilės numeris</Label>
+                  <Label htmlFor="edit-step-order">EilÄs numeris</Label>
                   <Input
                     id="edit-step-order"
                     value={editForm.orderIndex}
                     onChange={(event) => setEditForm((prev) => ({ ...prev, orderIndex: event.target.value }))}
                     disabled={editFormDisabled}
-                    placeholder="Palikite tu�?Ĩią, jei nekeiĨiate"
+                    placeholder="Palikite tušÄ¨ią, jei nekeiÄ¨iate"
                   />
                 </div>
               </div>
               <DialogFooter className="flex flex-col gap-2 sm:flex-row sm:justify-end">
                 <Button type="button" variant="outline" onClick={closeEditDialog} disabled={editFormDisabled}>
-                  At�?aukti
+                  Atšaukti
                 </Button>
                 <Button type="submit" disabled={editFormDisabled}>
                   {updateMutation.isLoading ? (
                     <>
                       <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-                      Saugomaa��
+                      Saugomaa¦
                     </>
                   ) : (
                     'Saugoti'
@@ -814,13 +815,13 @@ export default function AdminSteps() {
               </div>
               <DialogFooter className="flex flex-col gap-2 sm:flex-row sm:justify-end">
                 <Button type="button" variant="outline" onClick={closeCreateTagDialog} disabled={createTagMutation.isLoading}>
-                  At�?aukti
+                  Atšaukti
                 </Button>
                 <Button type="submit" disabled={createTagMutation.isLoading}>
                   {createTagMutation.isLoading ? (
                     <>
                       <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-                      Saugomaa��
+                      Saugomaa¦
                     </>
                   ) : (
                     'Saugoti'
@@ -834,13 +835,13 @@ export default function AdminSteps() {
         <AlertDialog open={Boolean(stepToDelete)} onOpenChange={(open) => (!open ? setStepToDelete(null) : undefined)}>
           <AlertDialogContent>
             <AlertDialogHeader>
-              <AlertDialogTitle>Patvirtinkite žingsnio �?alinimą</AlertDialogTitle>
+              <AlertDialogTitle>Patvirtinkite žingsnio šalinimą</AlertDialogTitle>
               <AlertDialogDescription>
-                {stepToDelete ? `Ar tikrai norite i�?trinti žingsn�� a�?${stepToDelete.title}a�??` : ''}
+                {stepToDelete ? `Ar tikrai norite ištrinti žingsnį a?${stepToDelete.title}a??` : ''}
               </AlertDialogDescription>
             </AlertDialogHeader>
             <AlertDialogFooter>
-              <AlertDialogCancel disabled={deleteMutation.isLoading}>At�?aukti</AlertDialogCancel>
+              <AlertDialogCancel disabled={deleteMutation.isLoading}>Atšaukti</AlertDialogCancel>
               <AlertDialogAction
                 className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
                 disabled={deleteMutation.isLoading}
@@ -853,7 +854,7 @@ export default function AdminSteps() {
                   }
                 }}
               >
-                I�?trinti
+                Ištrinti
               </AlertDialogAction>
             </AlertDialogFooter>
           </AlertDialogContent>
@@ -901,7 +902,7 @@ function TagMultiSelect({ options, value, onChange, placeholder, disabled, onCre
       <PopoverContent className="w-64 p-2" align="start">
         <div className="max-h-56 space-y-2 overflow-y-auto">
           {options.length === 0 ? (
-            <p className="px-2 text-sm text-muted-foreground">Žymų nėra</p>
+            <p className="px-2 text-sm text-muted-foreground">Žymų nÄra</p>
           ) : (
             options.map((option) => {
               const checked = value.includes(option.id);
@@ -949,7 +950,7 @@ type StepCardProps = {
 function StepCard({ step, onEdit, onDelete, disableActions }: StepCardProps) {
   const resolvedMediaUrl = resolveMediaUrl(step.mediaUrl);
   const mediaKind = step.mediaType ?? inferMediaType(null, resolvedMediaUrl);
-  const mediaLabel = mediaKind === 'image' ? 'Nuotrauka' : mediaKind === 'video' ? 'Vaizdo ��ra�?as' : null;
+  const mediaLabel = mediaKind === 'image' ? 'Nuotrauka' : mediaKind === 'video' ? 'Vaizdo įrašas' : null;
   const visibleTags = (step.tags ?? []).filter(
     (tag): tag is NonNullable<TaskStep['tags']>[number] & { id: string } =>
       Boolean(tag) && typeof tag.id === 'string' && tag.id.length > 0,
@@ -994,7 +995,7 @@ function StepCard({ step, onEdit, onDelete, disableActions }: StepCardProps) {
         {step.contentText ? (
           <p className="whitespace-pre-line text-foreground">{step.contentText}</p>
         ) : (
-          <p className="text-muted-foreground">Apra�?ymo nėra</p>
+          <p className="text-muted-foreground">Aprašymo nÄra</p>
         )}
         {resolvedMediaUrl ? (
           <ResponsiveMedia
@@ -1016,7 +1017,7 @@ function StepCard({ step, onEdit, onDelete, disableActions }: StepCardProps) {
         ) : null}
             {mediaLabel ? <Badge variant="outline">{mediaLabel}</Badge> : null}
             {step.requireUserMedia ? (
-              <Badge variant="secondary">Reikia vartotojo nuotraukos ar vaizdo ��ra�?o</Badge>
+              <Badge variant="secondary">Reikia vartotojo nuotraukos ar vaizdo įrašo</Badge>
             ) : null}
           </div>
         ) : null}

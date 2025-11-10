@@ -2,15 +2,12 @@
 import api, { HttpError, clearCredentials, setToken } from '@/lib/api';
 import type { AuthenticatedUser, UserRole } from '@/lib/types';
 import { mapUserFromApi } from '@/lib/types';
-import { resolveMediaUrl } from '@/lib/media';
-
 export type User = AuthenticatedUser & {
   phone?: string | null;
   address?: string | null;
   createdAt?: string | null;
   avatarUrl?: string | null;
 };
-
 interface AuthContextType {
   user: User | null;
   isAuthenticated: boolean;
@@ -19,9 +16,7 @@ interface AuthContextType {
   logout: () => void;
   updateUserProfile: (updates: Partial<User>) => void;
 }
-
 const AuthContext = createContext<AuthContextType | undefined>(undefined);
-
 export const useAuth = () => {
   const context = useContext(AuthContext);
   if (!context) {
@@ -29,22 +24,14 @@ export const useAuth = () => {
   }
   return context;
 };
-
 export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children }) => {
   const [user, setUser] = useState<User | null>(null);
   const [isBootstrapping, setIsBootstrapping] = useState(true);
-
   const normalizeUser = useCallback((data: Partial<AuthenticatedUser> | Partial<User> | null | undefined): User | null => {
     if (!data || !data.id || !data.email) {
       return null;
     }
-
     const fallbackCreatedAt = new Date().toISOString();
-    const avatarUrl =
-      data && typeof data === 'object' && 'avatarUrl' in data
-        ? resolveMediaUrl((data as { avatarUrl?: string | null }).avatarUrl ?? null)
-        : null;
-
     return {
       id: data.id,
       email: data.email,
@@ -53,10 +40,9 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
       phone: 'phone' in data ? data.phone ?? null : undefined,
       address: 'address' in data ? data.address ?? null : undefined,
       createdAt: 'createdAt' in data && data.createdAt ? data.createdAt : fallbackCreatedAt,
-      avatarUrl,
+      avatarUrl: 'avatarUrl' in data ? (data as { avatarUrl?: string | null }).avatarUrl ?? null : undefined,
     };
   }, []);
-
   const persistUser = useCallback((value: User | null) => {
     if (typeof window === 'undefined') return;
     if (value) {
@@ -65,7 +51,6 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
       window.localStorage.removeItem('bitininkas_user');
     }
   }, []);
-
   const updateUserProfile = useCallback(
     (updates: Partial<User>) => {
       setUser((previous) => {
@@ -78,16 +63,13 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     },
     [normalizeUser, persistUser]
   );
-
   const logout = useCallback(() => {
     clearCredentials();
     setUser(null);
     setIsBootstrapping(false);
   }, []);
-
   useEffect(() => {
     if (typeof window === 'undefined') return;
-
     const savedUserRaw = window.localStorage.getItem('bitininkas_user');
     if (savedUserRaw) {
       try {
@@ -100,19 +82,14 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
         console.warn('Failed to parse stored user', error);
       }
     }
-
     const storedAccessToken = window.localStorage.getItem('bitininkas_access_token');
     const storedRefreshToken = window.localStorage.getItem('bitininkas_refresh_token');
-
     if (!storedAccessToken) {
       setIsBootstrapping(false);
       return;
     }
-
     setToken(storedAccessToken, storedRefreshToken);
-
     let cancelled = false;
-
     const bootstrap = async () => {
       try {
         const profile = await api.auth.me();
@@ -132,14 +109,11 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
         }
       }
     };
-
     void bootstrap();
-
     return () => {
       cancelled = true;
     };
   }, [normalizeUser, logout, persistUser]);
-
   const login = async (email: string, password: string): Promise<{ success: boolean; error?: string }> => {
     const getErrorMessage = (err: unknown) => {
       if (err instanceof HttpError) {
@@ -152,29 +126,24 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
       if (err instanceof Error) {
         return err.message;
       }
-      return 'Neteisingas el. paÅ¡tas arba slaptaÅ¾odis';
+      return 'Neteisingas el. paštas arba slaptažodis';
     };
-
     try {
       const result = await api.auth.login({ email, password });
       setToken(result.accessToken, result.refreshToken);
-
       const profile = await api.auth.me();
       const normalizedUser = normalizeUser(mapUserFromApi(profile));
       if (normalizedUser) {
         setUser(normalizedUser);
         persistUser(normalizedUser);
       }
-
       return { success: true };
     } catch (error) {
       logout();
       return { success: false, error: getErrorMessage(error) };
     }
   };
-
   const isAuthenticated = !!user;
-
   return (
     <AuthContext.Provider
       value={{ user, isAuthenticated, isBootstrapping, login, logout, updateUserProfile }}
@@ -183,5 +152,4 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     </AuthContext.Provider>
   );
 };
-
 

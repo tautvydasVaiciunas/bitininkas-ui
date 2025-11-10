@@ -4,8 +4,9 @@
   "description": "Busmedaus API built with NestJS and TypeORM",
   "scripts": {
     "app:boot": "npm run migration:run && (npm run seed:prod || true) && npm run start:prod",
-    "build": "npm run clean && tsc -p tsconfig.build.json",
+    "build": "npm run clean && tsc -p tsconfig.build.json && npm run copy:public",
     "clean": "rimraf dist",
+    "copy:public": "node scripts/copy-public.js",
     "format": "prettier --write \"src/**/*.ts\"",
     "start": "node dist/main.js",
     "start:dev": "nest start --watch",

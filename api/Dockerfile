@@ -15,7 +15,7 @@ RUN node -v && npm -v
 RUN npm ci --no-audit --no-fund
 COPY . .
 # Aiškiai kviečiam lokalią Nest CLI
-RUN ./node_modules/.bin/nest build
+RUN ./node_modules/.bin/nest build && node ./scripts/copy-public.js
 
 # ---------- RUNTIME STAGE ----------
 FROM node:20-alpine AS runtime

@@ -70,12 +70,11 @@ export class UsersService {
       throw new ConflictException('Email already registered');
     }
 
-    const hasPassword =
-      typeof createUserDto.password === 'string' &&
-      createUserDto.password.trim().length >= 6;
-    const plainPassword = hasPassword
-      ? createUserDto.password.trim()
-      : randomBytes(12).toString('hex');
+    const rawPassword =
+      typeof createUserDto.password === 'string' ? createUserDto.password : '';
+    const trimmedPassword = rawPassword.trim();
+    const hasPassword = trimmedPassword.length >= 6;
+    const plainPassword = hasPassword ? trimmedPassword : randomBytes(12).toString('hex');
     const passwordHash = await bcrypt.hash(plainPassword, 10);
     const user = this.usersRepository.create({
       email,

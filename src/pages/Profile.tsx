@@ -12,6 +12,7 @@ import { useAuth } from '@/contexts/AuthContext';
 import api, { HttpError } from '@/lib/api';
 import { mapProfileFromApi, type ChangePasswordPayload } from '@/lib/types';
 import { buildAvatarSrc } from '@/lib/avatar';
+import { resolveMediaUrl } from '@/lib/media';
 import { User, Mail, Edit2, Lock, Upload } from 'lucide-react';
 import { toast } from 'sonner';
 import ltMessages from '@/i18n/messages.lt.json';
@@ -151,7 +152,8 @@ export default function Profile() {
     setAvatarUploading(true);
     try {
       const response = await api.profile.uploadAvatar(formData);
-      updateUserProfile({ avatarUrl: response.avatarUrl });
+      const resolvedAvatar = resolveMediaUrl(response.avatarUrl) ?? response.avatarUrl;
+      updateUserProfile({ avatarUrl: resolvedAvatar });
       toast.success('Avataras atnaujintas');
     } catch (error) {
       const message = error instanceof HttpError ? error.message : 'Nepavyko įkelti avataro';
@@ -253,7 +255,9 @@ export default function Profile() {
                       maxLength={MAX_NAME_LENGTH}
                       onChange={(event) => handleNameInput(event.target.value)}
                     />
-                    <p className="text-xs text-muted-foreground">Didžiausias ilgis – 60 simbolių.</p>
+                    {nameLimitReached && (
+                      <p className="text-xs text-destructive">Pasiektas 60 simbolių limitas.</p>
+                    )}
                   </div>
 
                   <div className="space-y-2">

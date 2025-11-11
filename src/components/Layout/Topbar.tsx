@@ -42,6 +42,8 @@ export const Topbar = () => {
 
   const unreadCount = unreadCountData?.count ?? 0;
   const avatarSrc = useMemo(() => buildAvatarSrc(user?.avatarUrl), [user?.avatarUrl]);
+  const userDisplayName = user?.name ?? user?.email ?? 'Vartotojas';
+  const avatarInitials = getInitials(userDisplayName);
 
   const {
     data: latestNotifications = [],
@@ -321,15 +323,15 @@ export const Topbar = () => {
               <Button variant="ghost" className="gap-2 pl-2 pr-3">
                 <Avatar className="w-8 h-8">
                   {avatarSrc ? (
-                    <AvatarImage src={avatarSrc} alt={user?.name ?? 'Avataras'} />
+                    <AvatarImage src={avatarSrc} alt={userDisplayName} />
                   ) : (
                     <AvatarFallback className="bg-primary text-primary-foreground text-sm">
-                      {user ? getInitials(user.name ?? user.email) : 'U'}
+                      {avatarInitials}
                     </AvatarFallback>
                   )}
                 </Avatar>
                 <div className="flex flex-col items-start text-left">
-                  <span className="text-sm font-medium">{user?.name}</span>
+                  <span className="text-sm font-medium">{user?.name ?? user?.email}</span>
                   <span className="text-xs text-muted-foreground">
                     {user && getRoleLabel(user.role)}
                   </span>

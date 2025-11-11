@@ -126,6 +126,7 @@ export interface PaginatedNews extends Paginated<NewsPost> {
 export interface User extends ApiAuthenticatedUser {
   phone?: string | null;
   address?: string | null;
+  avatarUrl?: string | null;
   createdAt?: string | null;
 }
 
@@ -230,6 +231,7 @@ export const mapPaginatedNewsFromApi = (
 
 export const mapUserFromApi = (user: ApiAuthenticatedUser): User => ({
   ...user,
+  avatarUrl: resolveMediaUrl(user.avatarUrl),
 });
 
 export const mapGroupMemberFromApi = (member: ApiGroupMemberResponse): GroupMember => ({
@@ -264,4 +266,5 @@ export const mapProfileFromApi = (profile: ApiProfileResponse): Profile => ({
   name: mapOptionalString(profile.name),
   phone: mapOptionalString(profile.phone),
   address: mapOptionalString(profile.address),
+  avatarUrl: resolveMediaUrl(profile.avatarUrl),
 });

@@ -18,14 +18,23 @@ import {
   type Assignment,
   type AssignmentStatus,
   type Hive,
+  type Tag,
   type Task,
   type UpdateHivePayload,
 } from '@/lib/types';
 import { resolveAssignmentUiStatus } from '@/lib/assignmentStatus';
-import { MapPin, Calendar, Edit, Archive, Box, ChevronRight, Loader2 } from 'lucide-react';
+import { MapPin, Calendar, Edit, Archive, Box, ChevronRight, Loader2, Tag as TagIcon } from 'lucide-react';
 import { useAuth } from '@/contexts/AuthContext';
 import { useToast } from '@/components/ui/use-toast';
 import { UserMultiSelect, type MultiSelectOption } from '@/components/UserMultiSelect';
+import { TagSelect } from '@/components/TagSelect';
+
+type EditFormState = {
+  label: string;
+  location: string;
+  tagId: string | null;
+  members: string[];
+};
 
 export default function HiveDetail() {
   const { id } = useParams();
@@ -85,10 +94,10 @@ export default function HiveDetail() {
   const hive = data?.hive;
 
   const [activeTab, setActiveTab] = useState<'tasks' | 'history' | 'settings'>('tasks');
-  const [editForm, setEditForm] = useState({
+  const [editForm, setEditForm] = useState<EditFormState>({
     label: '',
     location: '',
-    queenYear: '',
+    tagId: null,
     members: [] as string[],
   });
 
@@ -98,6 +107,31 @@ export default function HiveDetail() {
     queryKey: ['users', 'all'],
     queryFn: () => api.users.list(),
     enabled: canManageMembers,
+  });
+
+  const { data: tags = [], isLoading: tagsLoading } = useQuery<Tag[]>({
+    queryKey: ['tags', 'all'],
+    queryFn: () => api.tags.list(),
+  });
+
+  const createTagMutation = useMutation({
+    mutationFn: (name: string) => api.tags.create({ name }),
+    onSuccess: (tag) => {
+      queryClient.invalidateQueries({ queryKey: ['tags', 'all'] });
+      setEditForm((prev) => ({ ...prev, tagId: tag.id }));
+      toast({
+        title: 'Žyma sukurta',
+        description: `Žyma „${tag.name}“ sėkmingai pridėta.`,
+      });
+    },
+    onError: (error: unknown) => {
+      const description = error instanceof HttpError ? error.message : error instanceof Error ? error.message : undefined;
+      toast({
+        title: 'Nepavyko sukurti žymos',
+        description,
+        variant: 'destructive',
+      });
+    },
   });
 
   const memberOptions: MultiSelectOption[] = useMemo(() => {
@@ -114,7 +148,7 @@ export default function HiveDetail() {
     setEditForm({
       label: hive.label,
       location: hive.location ?? '',
-      queenYear: hive.queenYear ? String(hive.queenYear) : '',
+      tagId: hive.tag?.id ?? null,
       members: hive.members.map((member) => member.id),
     });
   }, [hive]);
@@ -124,7 +158,7 @@ export default function HiveDetail() {
     setEditForm({
       label: hive.label,
       location: hive.location ?? '',
-      queenYear: hive.queenYear ? String(hive.queenYear) : '',
+      tagId: hive.tag?.id ?? null,
       members: hive.members.map((member) => member.id),
     });
   };
@@ -176,22 +210,13 @@ export default function HiveDetail() {
     const payload: UpdateHivePayload = {
       label: editForm.label.trim(),
       location: editForm.location.trim() || undefined,
-      queenYear: editForm.queenYear ? Number(editForm.queenYear) : undefined,
+      tagId: editForm.tagId ?? null,
     };
 
     if (!payload.label) {
       toast({
         title: 'Trūksta pavadinimo',
         description: 'Įveskite avilio pavadinimą prieš išsaugant.',
-        variant: 'destructive',
-      });
-      return;
-    }
-
-    if (payload.queenYear && Number.isNaN(payload.queenYear)) {
-      toast({
-        title: 'Neteisingi karalienės metai',
-        description: 'Prašome įvesti teisingą metų skaičių.',
         variant: 'destructive',
       });
       return;
@@ -312,8 +337,8 @@ export default function HiveDetail() {
                 <p className="font-medium">{hive.location ?? 'Nenurodyta'}</p>
               </div>
               <div>
-                <p className="text-sm text-muted-foreground mb-1">Karalienės metai</p>
-                <p className="font-medium">{hive.queenYear ?? 'Nenurodyta'}</p>
+                <p className="text-sm text-muted-foreground mb-1">Žyma</p>
+                <p className="font-medium">{hive.tag?.name ?? 'Nenurodyta'}</p>
               </div>
               <div>
                 <p className="text-sm text-muted-foreground mb-1">Sukurta</p>
@@ -444,15 +469,16 @@ export default function HiveDetail() {
                       />
                     </div>
                     <div className="space-y-2">
-                      <Label htmlFor="edit-hive-queen-year">Karalienės metai</Label>
-                      <Input
-                        id="edit-hive-queen-year"
-                        type="number"
-                        value={editForm.queenYear}
-                        onChange={(event) => setEditForm((prev) => ({ ...prev, queenYear: event.target.value }))}
-                        placeholder="Pvz., 2023"
-                        min={1900}
-                        max={2100}
+                      <Label>?yma</Label>
+                      <TagSelect
+                        tags={tags}
+                        value={editForm.tagId}
+                        onChange={(tagId) => setEditForm((prev) => ({ ...prev, tagId }))}
+                        placeholder={tagsLoading ? "Kraunama..." : "Pasirinkite ?ym?"}
+                        disabled={tagsLoading || updateHiveMutation.isPending}
+                        allowCreate
+                        onCreateTag={(name) => createTagMutation.mutate(name)}
+                        creatingTag={createTagMutation.isPending}
                       />
                     </div>
                     {canManageMembers ? (

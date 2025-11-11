@@ -13,6 +13,7 @@ import {
 } from 'typeorm';
 import { User } from '../users/user.entity';
 import { Assignment } from '../assignments/assignment.entity';
+import { Tag } from '../tasks/tags/tag.entity';
 
 export enum HiveStatus {
   ACTIVE = 'active',
@@ -51,6 +52,13 @@ export class Hive {
 
   @Column({ type: 'enum', enum: HiveStatus, default: HiveStatus.ACTIVE })
   status: HiveStatus;
+
+  @ManyToOne(() => Tag, { nullable: true, eager: false })
+  @JoinColumn({ name: 'tag_id' })
+  tag?: Tag | null;
+
+  @Column({ name: 'tag_id', type: 'uuid', nullable: true })
+  tagId!: string | null;
 
   @CreateDateColumn({ name: 'created_at' })
   createdAt: Date;

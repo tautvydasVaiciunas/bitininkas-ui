@@ -135,6 +135,8 @@ export const mapHiveFromApi = (hive: ApiHiveResponse): Hive => ({
   ...hive,
   location: hive.location ?? null,
   queenYear: hive.queenYear ?? null,
+  tag: hive.tag ? { ...hive.tag } : null,
+  tagId: hive.tagId ?? hive.tag?.id ?? null,
   members: Array.isArray(hive.members)
     ? hive.members.map((member) => ({
         ...member,

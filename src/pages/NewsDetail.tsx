@@ -4,7 +4,6 @@ import { useQuery } from "@tanstack/react-query";
 import { ArrowLeft } from "lucide-react";
 import { MainLayout } from "@/components/Layout/MainLayout";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
-import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Skeleton } from "@/components/ui/skeleton";
 import api from "@/lib/api";
@@ -100,22 +99,6 @@ const NewsDetail = () => {
                 ) : null}
               </div>
               <CardTitle className="text-3xl leading-tight">{data.title}</CardTitle>
-              {!data.targetAll && groups.length ? (
-                <div className="flex flex-wrap gap-2">
-                  <Badge variant="secondary" className="bg-muted text-muted-foreground">
-                    Tik pasirinktos grupės
-                  </Badge>
-                  {groups.map((group) => (
-                    <Badge key={group.id} variant="outline">
-                      {group.name}
-                    </Badge>
-                  ))}
-                </div>
-              ) : (
-                <Badge variant="secondary" className="w-fit bg-success/90 text-success-foreground">
-                  Matoma visiems naudotojams
-                </Badge>
-              )}
             </CardHeader>
             <CardContent className="space-y-4">
               <div className="prose max-w-none whitespace-pre-line text-foreground">

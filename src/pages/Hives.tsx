@@ -1,4 +1,4 @@
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { Link } from "react-router-dom";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import ltMessages from "@/i18n/messages.lt.json";
@@ -52,6 +52,7 @@ import {
   type CreateHivePayload,
   type Hive,
   type HiveStatus,
+  type Tag,
   type UpdateHivePayload,
 } from "@/lib/types";
 import {
@@ -63,11 +64,13 @@ import {
   MoreVertical,
   Plus,
   Search,
+  Tag as TagIcon,
 } from "lucide-react";
 import {
   UserMultiSelect,
   type MultiSelectOption,
 } from "@/components/UserMultiSelect";
+import { TagSelect } from "@/components/TagSelect";
 
 type StatusFilter = HiveStatus | "all";
 
@@ -87,6 +90,13 @@ type HiveCardProps = {
   isArchiving: boolean;
   isDeleting: boolean;
   canManage: boolean;
+};
+
+type CreateHiveFormState = {
+  label: string;
+  location: string;
+  members: string[];
+  tagId: string | null;
 };
 
 const statusMetadata: Record<
@@ -155,53 +165,14 @@ function HiveCard({
             ) : null}
           </div>
           <div className="flex flex-wrap items-center justify-end gap-2 sm:flex-nowrap">
-            <Badge variant={statusMeta.badgeVariant}>{statusMeta.label}</Badge>
-            {canManage ? (
-              <DropdownMenu>
-                <DropdownMenuTrigger asChild>
-                  <Button variant="ghost" size="icon" className="h-8 w-8">
-                    <MoreVertical className="h-4 w-4" />
-                  </Button>
-                </DropdownMenuTrigger>
-                <DropdownMenuContent align="end" className="w-48">
-                  <DropdownMenuItem
-                    disabled={hive.status === "active" || isUpdating}
-                    onSelect={() => {
-                      onUpdateStatus(hive.id, "active");
-                    }}
-                  >
-                    Pažymėti kaip aktyvų
-                  </DropdownMenuItem>
-                  <DropdownMenuItem
-                    disabled={hive.status === "paused" || isUpdating}
-                    onSelect={() => {
-                      onUpdateStatus(hive.id, "paused");
-                    }}
-                  >
-                    Pristabdyti
-                  </DropdownMenuItem>
-                  <DropdownMenuSeparator />
-                  <DropdownMenuItem
-                    disabled={isArchiving || hive.status === "archived"}
-                    onSelect={() => {
-                      setConfirmAction("archive");
-                    }}
-                  >
-                    Archyvuoti
-                  </DropdownMenuItem>
-                  <DropdownMenuItem
-                    disabled={isDeleting}
-                    className="text-destructive focus:text-destructive"
-                    onSelect={() => {
-                      setConfirmAction("delete");
-                    }}
-                  >
-                    Ištrinti
-                  </DropdownMenuItem>
-                </DropdownMenuContent>
-              </DropdownMenu>
-            ) : null}
-          </div>
+            {hive.tag ? (
+            <div className="flex items-center gap-2">
+              <TagIcon className="w-4 h-4 text-muted-foreground" />
+              <span className="text-muted-foreground">?yma:</span>
+              <span>{hive.tag.name}</span>
+            </div>
+          ) : null}
+        </div>
         </div>
       </CardHeader>
       <CardContent className="space-y-4">
@@ -211,11 +182,11 @@ function HiveCard({
             <span className="text-muted-foreground">Sukurta:</span>
             <span>{formatDate(hive.createdAt)}</span>
           </div>
-          {hive.queenYear ? (
+          {hive.tag ? (
             <div className="flex items-center gap-2">
-              <Box className="w-4 h-4 text-muted-foreground" />
-              <span className="text-muted-foreground">Karalienės metai:</span>
-              <span>{hive.queenYear} m.</span>
+              <TagIcon className="w-4 h-4 text-muted-foreground" />
+              <span className="text-muted-foreground">?yma:</span>
+              <span>{hive.tag.name}</span>
             </div>
           ) : null}
         </div>
@@ -313,11 +284,11 @@ export default function Hives() {
   const [searchQuery, setSearchQuery] = useState("");
   const [statusFilter, setStatusFilter] = useState<StatusFilter>("all");
   const [isCreateDialogOpen, setIsCreateDialogOpen] = useState(false);
-  const [createForm, setCreateForm] = useState({
+  const [createForm, setCreateForm] = useState<CreateHiveFormState>({
     label: "",
     location: "",
-    queenYear: "",
-    members: [] as string[],
+    members: [],
+    tagId: null,
   });
 
   const isAdmin = user?.role === "admin";
@@ -353,8 +324,28 @@ export default function Hives() {
     },
   });
 
+  const { data: tags = [], isLoading: tagsLoading } = useQuery<Tag[]>({
+    queryKey: ["tags", "all"],
+    queryFn: () => api.tags.list(),
+  });
+
+  const defaultHiveLabel = useMemo(() => {
+    const total = hives.length;
+    return `Avilys ${total + 1}`;
+  }, [hives.length]);
+
+  useEffect(() => {
+    if (!isCreateDialogOpen) {
+      return;
+    }
+    setCreateForm((prev) => ({
+      ...prev,
+      label: prev.label.trim().length > 0 ? prev.label : defaultHiveLabel,
+    }));
+  }, [isCreateDialogOpen, defaultHiveLabel]);
+
   const resetCreateForm = () =>
-    setCreateForm({ label: "", location: "", queenYear: "", members: [] });
+    setCreateForm({ label: "", location: "", members: [], tagId: null });
 
   const showErrorToast = (title: string, errorValue: unknown) => {
     const description = getApiErrorMessage(errorValue);
@@ -364,6 +355,21 @@ export default function Hives() {
       variant: "destructive",
     });
   };
+
+  const createTagMutation = useMutation({
+    mutationFn: (name: string) => api.tags.create({ name }),
+    onSuccess: (tag) => {
+      queryClient.invalidateQueries({ queryKey: ["tags", "all"] });
+      setCreateForm((prev) => ({ ...prev, tagId: tag.id }));
+      toast({
+        title: "Žyma sukurta",
+        description: `Žyma „${tag.name}“ sėkmingai pridėta.`,
+      });
+    },
+    onError: (err: unknown) => {
+      showErrorToast("Nepavyko sukurti žymos", err);
+    },
+  });
 
   const createHiveMutation = useMutation<
     Hive,
@@ -466,13 +472,12 @@ export default function Hives() {
     event.preventDefault();
     if (createHiveMutation.isPending) return;
 
+    const trimmedLabel = createForm.label.trim() || defaultHiveLabel;
     const payload: CreateHivePayload = {
-      label: createForm.label.trim(),
+      label: trimmedLabel,
       location: createForm.location.trim() || undefined,
-      queenYear: createForm.queenYear
-        ? Number(createForm.queenYear)
-        : undefined,
       status: "active",
+      tagId: createForm.tagId ?? undefined,
     };
 
     if (canManageMembers && createForm.members.length > 0) {
@@ -483,15 +488,6 @@ export default function Hives() {
       toast({
         title: "Trūksta pavadinimo",
         description: "Įveskite avilio pavadinimą prieš išsaugant.",
-        variant: "destructive",
-      });
-      return;
-    }
-
-    if (payload.queenYear && Number.isNaN(payload.queenYear)) {
-      toast({
-        title: "Neteisingi karalienės metai",
-        description: "Prašome įvesti teisingą metų skaičių.",
         variant: "destructive",
       });
       return;
@@ -588,20 +584,21 @@ export default function Hives() {
                     />
                   </div>
                   <div className="space-y-2">
-                    <Label htmlFor="hive-queen-year">Karalienės metai</Label>
-                    <Input
-                      id="hive-queen-year"
-                      type="number"
-                      value={createForm.queenYear}
-                      onChange={(event) =>
+                    <Label>?yma</Label>
+                    <TagSelect
+                      tags={tags}
+                      value={createForm.tagId}
+                      onChange={(tagId) =>
                         setCreateForm((prev) => ({
                           ...prev,
-                          queenYear: event.target.value,
+                          tagId,
                         }))
                       }
-                      placeholder="Pvz., 2024"
-                      min={1900}
-                      max={2100}
+                      placeholder={tagsLoading ? "Kraunama..." : "Pasirinkite ?ym?"}
+                      disabled={tagsLoading || createHiveMutation.isPending}
+                      allowCreate
+                      onCreateTag={(name) => createTagMutation.mutate(name)}
+                      creatingTag={createTagMutation.isPending}
                     />
                   </div>
                   {canManageMembers ? (

@@ -78,6 +78,8 @@ export interface HiveResponse {
   status: HiveStatus;
   location?: string | null;
   queenYear?: number | null;
+  tagId?: string | null;
+  tag?: TagResponse | null;
   ownerUserId?: string;
   createdAt?: string;
   updatedAt?: string;
@@ -396,10 +398,10 @@ export interface ResetPasswordPayload {
 export interface CreateHivePayload {
   label: string;
   location?: string;
-  queenYear?: number;
   status?: HiveStatus;
   ownerUserId?: string;
   members?: string[];
+  tagId?: string | null;
 }
 
 export type UpdateHivePayload = Partial<CreateHivePayload>;

@@ -1,4 +1,4 @@
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -34,7 +34,7 @@ import { Label } from "@/components/ui/label";
 import { Badge } from "@/components/ui/badge";
 import { MainLayout } from "@/components/Layout/MainLayout";
 import api, { type AdminUserResponse, type HiveResponse } from "@/lib/api";
-import { mapGroupFromApi, type Group, type GroupMember } from "@/lib/types";
+import { mapGroupFromApi, type Group, type GroupMember, type Tag } from "@/lib/types";
 import { useToast } from "@/components/ui/use-toast";
 import {
   Loader2,
@@ -69,6 +69,7 @@ export default function AdminGroups() {
   >(null);
   const [memberToAdd, setMemberToAdd] = useState<string>('');
   const [memberHiveToAdd, setMemberHiveToAdd] = useState<string>('');
+  const [tagFilter, setTagFilter] = useState<string>('');
 
   const {
     data: groups = [],
@@ -93,6 +94,11 @@ export default function AdminGroups() {
     queryFn: () => api.hives.list(),
   });
 
+  const { data: tags = [] } = useQuery<Tag[]>({
+    queryKey: ["tags", "all"],
+    queryFn: () => api.tags.list(),
+  });
+
   const editingGroup = useMemo(
     () => groups.find((group) => group.id === editingGroupId) ?? null,
     [groups, editingGroupId],
@@ -115,10 +121,18 @@ export default function AdminGroups() {
   }, [hives]);
 
   const selectedUserHives = memberToAdd
-    ? userHivesMap.get(memberToAdd) ?? []
+    ? (userHivesMap.get(memberToAdd) ?? []).filter((hive) => {
+        if (!tagFilter) return true;
+        const hiveTagId = hive.tagId ?? hive.tag?.id ?? null;
+        return hiveTagId === tagFilter;
+      })
     : [];
   const hiveSelectValue = memberHiveToAdd;
   const canSelectHive = selectedUserHives.length > 0;
+
+  useEffect(() => {
+    setMemberHiveToAdd('');
+  }, [tagFilter]);
 
   const resetMemberSelection = () => {
     setMemberToAdd('');
@@ -274,7 +288,16 @@ export default function AdminGroups() {
     });
   };
 
-  const availableMembers = useMemo(() => users, [users]);
+  const availableMembers = useMemo(() => {
+    if (!tagFilter) return users;
+    return users.filter((candidate) => {
+      const ownedHives = userHivesMap.get(candidate.id) ?? [];
+      return ownedHives.some((hive) => {
+        const hiveTagId = hive.tagId ?? hive.tag?.id ?? null;
+        return hiveTagId === tagFilter;
+      });
+    });
+  }, [users, userHivesMap, tagFilter]);
 
   const getErrorMessage = (value: unknown) => {
     if (!value) return undefined;
@@ -582,6 +605,24 @@ export default function AdminGroups() {
                 <div className="flex flex-col gap-4">
                   <div className="flex flex-col gap-2 sm:flex-row sm:items-end sm:gap-4">
                     <Select
+                      value={tagFilter || "all"}
+                      onValueChange={(value) => {
+                        setTagFilter(value === "all" ? "" : value);
+                      }}
+                    >
+                      <SelectTrigger className="w-full sm:w-64">
+                        <SelectValue placeholder="Filtruoti pagal žymą" />
+                      </SelectTrigger>
+                      <SelectContent>
+                        <SelectItem value="all">Visos žymos</SelectItem>
+                        {tags.map((tag) => (
+                          <SelectItem key={tag.id} value={tag.id}>
+                            {tag.name}
+                          </SelectItem>
+                        ))}
+                      </SelectContent>
+                    </Select>
+                    <Select
                       value={memberToAdd}
                       onValueChange={(value) => {
                         setMemberToAdd(value);
@@ -621,7 +662,9 @@ export default function AdminGroups() {
                           <SelectValue placeholder="Pasirinkite avilį" />
                         </SelectTrigger>
                         <SelectContent>
-                          <SelectItem value={ALL_HIVES_VALUE}>Visi aviliai</SelectItem>
+                          {!tagFilter ? (
+                            <SelectItem value={ALL_HIVES_VALUE}>Visi aviliai</SelectItem>
+                          ) : null}
                           {canSelectHive ? (
                             selectedUserHives.map((hive) => (
                               <SelectItem key={hive.id} value={hive.id}>
@@ -630,7 +673,7 @@ export default function AdminGroups() {
                             ))
                           ) : (
                             <SelectItem value="__no_hives" disabled>
-                              Vartotojas neturi avilių
+                              {tagFilter ? 'Vartotojas neturi avilių su pasirinkta žyma' : 'Vartotojas neturi avilių'}
                             </SelectItem>
                           )}
                         </SelectContent>
@@ -646,13 +689,18 @@ export default function AdminGroups() {
                           memberHiveToAdd && memberHiveToAdd !== ALL_HIVES_VALUE
                             ? memberHiveToAdd
                             : undefined;
+                        if (tagFilter && !hiveId) {
+                          return;
+                        }
                         addMemberMutation.mutate({
                           groupId: membersDialogGroup.id,
                           userId: memberToAdd,
                           hiveId,
                         });
                       }}
-                      disabled={!memberToAdd || addMemberMutation.isPending}
+                      disabled={
+                        !memberToAdd || (Boolean(tagFilter) && !memberHiveToAdd) || addMemberMutation.isPending
+                      }
                     >
                       {addMemberMutation.isPending ? (
                         <Loader2 className="mr-2 h-4 w-4 animate-spin" />

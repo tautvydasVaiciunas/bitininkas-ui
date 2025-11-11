@@ -2,13 +2,13 @@ import {
   IsArray,
   IsEnum,
   IsNotEmpty,
-  IsNumber,
   IsOptional,
   IsString,
+  IsUUID,
   MaxLength,
   MinLength,
 } from 'class-validator';
-import { Transform, Type } from 'class-transformer';
+import { Transform } from 'class-transformer';
 import { HiveStatus } from '../hive.entity';
 
 export class CreateHiveDto {
@@ -24,11 +24,6 @@ export class CreateHiveDto {
   @Transform(({ value }) => (typeof value === 'string' ? value.trim() : value))
   @MaxLength(255, { message: 'Vieta per ilga' })
   location?: string;
-
-  @IsOptional()
-  @Type(() => Number)
-  @IsNumber({}, { message: 'Motinėlės metai turi būti skaičius' })
-  queenYear?: number;
 
   @IsOptional()
   @IsEnum(HiveStatus, { message: 'Neteisinga avilio būsena' })
@@ -47,4 +42,9 @@ export class CreateHiveDto {
   @IsArray({ message: 'Naudotojų sąrašas turi būti masyvas' })
   @IsString({ each: true, message: 'Naudotojų ID turi būti tekstiniai' })
   userIds?: string[];
+
+  @IsOptional()
+  @IsString({ message: 'Žymos ID turi būti tekstas' })
+  @IsUUID('4', { message: 'Neteisinga žymos reikšmė' })
+  tagId?: string | null;
 }

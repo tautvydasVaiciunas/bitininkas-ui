@@ -6,10 +6,11 @@ import { HivesController } from './hives.controller';
 import { ActivityLogModule } from '../activity-log/activity-log.module';
 import { AssignmentsModule } from '../assignments/assignments.module';
 import { User } from '../users/user.entity';
+import { Tag } from '../tasks/tags/tag.entity';
 
 @Module({
   imports: [
-    TypeOrmModule.forFeature([Hive, User]),
+    TypeOrmModule.forFeature([Hive, User, Tag]),
     ActivityLogModule,
     forwardRef(() => AssignmentsModule),
   ],

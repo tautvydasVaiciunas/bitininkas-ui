@@ -7,6 +7,7 @@ import { UpdateHiveDto } from './dto/update-hive.dto';
 import { User, UserRole } from '../users/user.entity';
 import { ActivityLogService } from '../activity-log/activity-log.service';
 import { runWithDatabaseErrorHandling } from '../common/errors/database-error.util';
+import { Tag } from '../tasks/tags/tag.entity';
 
 @Injectable()
 export class HivesService {
@@ -17,12 +18,34 @@ export class HivesService {
     private readonly hiveRepository: Repository<Hive>,
     @InjectRepository(User)
     private readonly userRepository: Repository<User>,
+    @InjectRepository(Tag)
+    private readonly tagRepository: Repository<Tag>,
     private readonly activityLog: ActivityLogService,
   ) {}
 
   private normalizeNullableString(value?: string | null) {
     const trimmed = value?.trim();
     return trimmed && trimmed.length > 0 ? trimmed : null;
+  }
+
+  private async normalizeTagId(tagId?: string | null) {
+    if (!tagId) {
+      return null;
+    }
+
+    const tag = await this.tagRepository.findOne({
+      where: { id: tagId },
+      select: { id: true },
+    });
+
+    if (!tag) {
+      throw new BadRequestException({
+        message: 'Neteisingi duomenys',
+        details: 'Žyma nerasta',
+      });
+    }
+
+    return tag.id;
   }
 
   private async loadMembers(memberIds?: string[]) {
@@ -58,7 +81,7 @@ export class HivesService {
   private async getHiveWithRelations(id: string): Promise<Hive | null> {
     return this.hiveRepository.findOne({
       where: { id },
-      relations: { members: true, owner: true },
+      relations: { members: true, owner: true, tag: true },
     });
   }
 
@@ -67,6 +90,7 @@ export class HivesService {
       .createQueryBuilder('hive')
       .leftJoinAndSelect('hive.members', 'member')
       .leftJoinAndSelect('hive.owner', 'owner')
+      .leftJoinAndSelect('hive.tag', 'tag')
       .leftJoin('hive_members', 'hm', 'hm.hive_id = hive.id')
       .where('hive.deletedAt IS NULL')
       .distinct(true);
@@ -99,6 +123,7 @@ export class HivesService {
     }
 
     const normalizedUserIds = this.normalizeUserIds(dto.userIds ?? dto.members);
+    const normalizedTagId = await this.normalizeTagId(dto.tagId ?? null);
 
     const ownerUserId =
       role === UserRole.ADMIN || role === UserRole.MANAGER
@@ -124,10 +149,11 @@ export class HivesService {
           const hive = hiveRepo.create({
             label,
             location: this.normalizeNullableString(dto.location),
-            queenYear: dto.queenYear ?? null,
+            queenYear: null,
             status: dto.status ?? HiveStatus.ACTIVE,
             ownerUserId,
             members: [],
+            tagId: normalizedTagId,
           });
 
           if (memberIds.length) {
@@ -198,12 +224,12 @@ export class HivesService {
       hive.location = this.normalizeNullableString(dto.location);
     }
 
-    if (dto.queenYear !== undefined) {
-      hive.queenYear = dto.queenYear ?? null;
-    }
-
     if (dto.status !== undefined) {
       hive.status = dto.status;
+    }
+
+    if (dto.tagId !== undefined) {
+      hive.tagId = dto.tagId ? await this.normalizeTagId(dto.tagId) : null;
     }
 
     const saved = await runWithDatabaseErrorHandling(

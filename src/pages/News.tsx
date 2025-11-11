@@ -165,15 +165,8 @@ const News = () => {
                             {buildSnippet(post.body)}
                           </p>
                         </CardContent>
-                        <CardFooter className="mt-auto flex flex-col gap-3 border-t border-border/60 bg-muted/10 p-6 md:flex-row md:items-center md:justify-between">
-                          <div className="text-sm text-muted-foreground">
-                            {post.targetAll
-                              ? 'Matoma visiems nariams'
-                              : post.groups.length > 0
-                                ? `Matoma grupėms: ${post.groups.map((group) => group.name).join(', ')}`
-                                : 'Matoma pasirinktoms grupėms'}
-                          </div>
-                          <Button asChild>
+                        <CardFooter className="mt-auto border-t border-border/60 bg-muted/10 p-6">
+                          <Button asChild className="w-full sm:w-auto sm:ml-auto">
                             <Link to={`/news/${post.id}`}>Skaityti</Link>
                           </Button>
                         </CardFooter>

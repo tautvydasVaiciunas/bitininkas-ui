@@ -12,11 +12,37 @@ import { FileInterceptor } from '@nestjs/platform-express';
 import { diskStorage } from 'multer';
 import { extname } from 'path';
 import { randomUUID } from 'crypto';
+import { promises as fs } from 'fs';
 
 import { UsersService } from './users.service';
 import { UpdateProfileDto } from './dto/update-profile.dto';
 import { UpdatePasswordDto } from './dto/update-password.dto';
-import { ensureUploadsDir, resolveUploadsDir, uploadsPrefix } from '../common/config/storage.config';
+import {
+  ensureUploadsSubdir,
+  resolveUploadsDir,
+  uploadsPrefix,
+} from '../common/config/storage.config';
+
+const AVATAR_SUBDIR = 'avatars';
+const MAX_AVATAR_SIZE_BYTES = 5 * 1024 * 1024;
+const ALLOWED_MIME_TYPES = ['image/png', 'image/jpeg', 'image/webp'];
+
+const isAllowedMimeType = (mimetype: string) => ALLOWED_MIME_TYPES.includes(mimetype);
+
+const deleteFileIfExists = async (filePath?: string) => {
+  if (!filePath) {
+    return;
+  }
+
+  try {
+    await fs.unlink(filePath);
+  } catch (error) {
+    if ((error as NodeJS.ErrnoException).code !== 'ENOENT') {
+      // eslint-disable-next-line no-console
+      console.warn(`Nepavyko pašalinti failo ${filePath}: ${(error as Error).message}`);
+    }
+  }
+};
 
 @Controller('profile')
 export class ProfileController {
@@ -47,12 +73,11 @@ export class ProfileController {
     FileInterceptor('file', {
       storage: diskStorage({
         destination: (_req, _file, cb) => {
-          const dir = `${resolveUploadsDir()}/avatars`;
           try {
-            ensureUploadsDir();
+            const dir = ensureUploadsSubdir(AVATAR_SUBDIR);
             cb(null, dir);
           } catch (error) {
-            cb(error as Error, dir);
+            cb(error as Error, resolveUploadsDir());
           }
         },
         filename: (_req, file, cb) => {
@@ -60,14 +85,15 @@ export class ProfileController {
           cb(null, `${randomUUID()}${extension}`);
         },
       }),
-      limits: {
-        fileSize: 5 * 1024 * 1024,
-      },
       fileFilter: (_req, file, cb) => {
-        if (!file.mimetype.startsWith('image/')) {
-          cb(new BadRequestException('Leidžiami tik paveikslėlių failai'), false);
+        if (!isAllowedMimeType(file.mimetype)) {
+          cb(
+            new BadRequestException('Leidžiami tik PNG, JPEG arba WEBP formato paveikslėliai.'),
+            false,
+          );
           return;
         }
+
         cb(null, true);
       },
     }),
@@ -77,7 +103,17 @@ export class ProfileController {
       throw new BadRequestException('Failas nebuvo pateiktas');
     }
 
-    const avatarUrl = `${uploadsPrefix()}/avatars/${file.filename}`;
+    if (file.size > MAX_AVATAR_SIZE_BYTES) {
+      await deleteFileIfExists(file.path);
+      throw new BadRequestException('Leidžiamas maksimalus avataro dydis – 5 MB.');
+    }
+
+    if (!isAllowedMimeType(file.mimetype)) {
+      await deleteFileIfExists(file.path);
+      throw new BadRequestException('Leidžiami tik PNG, JPEG arba WEBP formato paveikslėliai.');
+    }
+
+    const avatarUrl = `${uploadsPrefix()}/${AVATAR_SUBDIR}/${file.filename}`;
     await this.usersService.setAvatar(req.user.id, avatarUrl);
     return { avatarUrl };
   }

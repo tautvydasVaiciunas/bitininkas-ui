@@ -11,14 +11,23 @@ import { Badge } from '@/components/ui/badge';
 import { useAuth } from '@/contexts/AuthContext';
 import api, { HttpError } from '@/lib/api';
 import { mapProfileFromApi, type ChangePasswordPayload } from '@/lib/types';
+import { buildAvatarSrc } from '@/lib/avatar';
 import { User, Mail, Edit2, Lock, Upload } from 'lucide-react';
 import { toast } from 'sonner';
 import ltMessages from '@/i18n/messages.lt.json';
 
+const MAX_NAME_LENGTH = 60;
+
+const collapseWhitespace = (value: string) => value.replace(/\s+/g, ' ');
+const normalizeNameForSubmit = (value: string) => collapseWhitespace(value).trim();
+
 export default function Profile() {
   const { user, updateUserProfile } = useAuth();
   const [isEditing, setIsEditing] = useState(false);
-  const [formValues, setFormValues] = useState({ name: user?.name ?? '', email: user?.email ?? '' });
+  const [formValues, setFormValues] = useState({
+    name: user?.name ? normalizeNameForSubmit(user.name) : '',
+    email: user?.email ?? '',
+  });
   const [passwordForm, setPasswordForm] = useState({
     current: '',
     next: '',
@@ -32,8 +41,10 @@ export default function Profile() {
       return mapProfileFromApi(response);
     },
     onSuccess: (updated) => {
+      const sanitizedName = updated.name ? normalizeNameForSubmit(updated.name) : '';
+      setFormValues((prev) => ({ ...prev, name: sanitizedName, email: updated.email }));
       updateUserProfile({
-        name: updated.name ?? undefined,
+        name: sanitizedName ? sanitizedName : null,
         email: updated.email,
         phone: updated.phone ?? undefined,
         address: updated.address ?? undefined,
@@ -61,7 +72,10 @@ export default function Profile() {
 
   useEffect(() => {
     if (user) {
-      setFormValues({ name: user.name, email: user.email });
+      setFormValues({
+        name: user.name ? normalizeNameForSubmit(user.name) : '',
+        email: user.email,
+      });
     }
   }, [user]);
 
@@ -82,8 +96,21 @@ export default function Profile() {
     return labels[role] || role;
   };
 
+  const handleNameInput = (value: string) => {
+    const collapsed = collapseWhitespace(value);
+    const truncated = collapsed.slice(0, MAX_NAME_LENGTH);
+    setFormValues((prev) => ({ ...prev, name: truncated }));
+  };
+
   const handleSave = () => {
-    updateMutation.mutate(formValues);
+    const normalizedName = normalizeNameForSubmit(formValues.name);
+    const payload = {
+      name: normalizedName,
+      email: formValues.email.trim(),
+    };
+
+    setFormValues((prev) => ({ ...prev, name: normalizedName }));
+    updateMutation.mutate(payload);
   };
 
   const handlePasswordChange = () => {
@@ -131,6 +158,7 @@ export default function Profile() {
       toast.error(message);
     } finally {
       setAvatarUploading(false);
+      event.target.value = '';
     }
   };
 
@@ -153,7 +181,7 @@ export default function Profile() {
             <div className="relative">
               <Avatar className="h-24 w-24">
                 {user.avatarUrl ? (
-                  <AvatarImage src={user.avatarUrl} alt={user.name ?? 'Avataras'} />
+                  <AvatarImage src={buildAvatarSrc(user.avatarUrl)} alt={user.name ?? 'Avataras'} />
                 ) : (
                   <AvatarFallback className="text-xl">{getInitials(user.name ?? user.email)}</AvatarFallback>
                 )}
@@ -167,7 +195,7 @@ export default function Profile() {
               <Input
                 id="avatar-upload"
                 type="file"
-                accept="image/*"
+                accept="image/png,image/jpeg,image/webp"
                 onChange={handleAvatarUpload}
                 className="hidden"
                 disabled={avatarUploading}
@@ -220,8 +248,10 @@ export default function Profile() {
                       id="name"
                       value={formValues.name}
                       disabled={!isEditing}
-                      onChange={(event) => setFormValues((prev) => ({ ...prev, name: event.target.value }))}
+                      maxLength={MAX_NAME_LENGTH}
+                      onChange={(event) => handleNameInput(event.target.value)}
                     />
+                    <p className="text-xs text-muted-foreground">Didžiausias ilgis – 60 simbolių.</p>
                   </div>
 
                   <div className="space-y-2">

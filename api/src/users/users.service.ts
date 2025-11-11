@@ -9,6 +9,8 @@ import { InjectRepository } from '@nestjs/typeorm';
 import { Repository } from 'typeorm';
 import * as bcrypt from 'bcryptjs';
 import { randomBytes } from 'crypto';
+import { promises as fs } from 'fs';
+import * as path from 'path';
 
 import { User, UserRole } from './user.entity';
 import { CreateUserDto } from './dto/create-user.dto';
@@ -23,6 +25,7 @@ import {
 } from '../common/pagination/pagination.service';
 import { UpdatePasswordDto } from './dto/update-password.dto';
 import { PasswordResetService } from '../auth/password-reset.service';
+import { resolveUploadsDir, uploadsPrefix } from '../common/config/storage.config';
 
 type UserGroupDto = {
   id: string;
@@ -45,6 +48,8 @@ type UserWithGroups = {
 @Injectable()
 export class UsersService {
   private readonly logger = new Logger(UsersService.name);
+  private static readonly AVATAR_SUBDIR = 'avatars';
+
   constructor(
     @InjectRepository(User)
     private readonly usersRepository: Repository<User>,
@@ -56,6 +61,42 @@ export class UsersService {
   private normalizeNullableString(value?: string | null) {
     const trimmed = value?.trim();
     return trimmed && trimmed.length > 0 ? trimmed : null;
+  }
+
+  private normalizeProfileName(value?: string | null) {
+    if (typeof value !== 'string') {
+      return null;
+    }
+
+    const normalized = value.replace(/\s+/g, ' ').trim();
+    return normalized.length > 0 ? normalized : null;
+  }
+
+  private async removeStoredAvatarIfLocal(avatarUrl?: string | null) {
+    if (!avatarUrl) {
+      return;
+    }
+
+    const prefix = `${uploadsPrefix()}/${UsersService.AVATAR_SUBDIR}/`;
+    if (!avatarUrl.startsWith(prefix)) {
+      return;
+    }
+
+    const filename = avatarUrl.slice(prefix.length);
+    if (!filename) {
+      return;
+    }
+
+    const filePath = path.join(resolveUploadsDir(), UsersService.AVATAR_SUBDIR, filename);
+    try {
+      await fs.unlink(filePath);
+    } catch (error) {
+      if ((error as NodeJS.ErrnoException).code !== 'ENOENT') {
+        this.logger.debug(
+          `Nepavyko pašalinti seno avataro failo ${filename}: ${(error as Error).message}`,
+        );
+      }
+    }
   }
 
   async create(createUserDto: CreateUserDto) {
@@ -291,7 +332,7 @@ export class UsersService {
     }
 
     if (updates.name !== undefined) {
-      user.name = this.normalizeNullableString(updates.name);
+      user.name = this.normalizeProfileName(updates.name);
     }
 
     if (updates.phone !== undefined) {
@@ -314,6 +355,7 @@ export class UsersService {
       throw new NotFoundException('Vartotojas nerastas');
     }
 
+    await this.removeStoredAvatarIfLocal(user.avatarUrl);
     user.avatarUrl = avatarUrl;
     await this.usersRepository.save(user);
     await this.activityLog.log('avatar_updated', user.id, 'user', user.id);

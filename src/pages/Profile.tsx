@@ -151,7 +151,8 @@ export default function Profile() {
     setAvatarUploading(true);
     try {
       const response = await api.profile.uploadAvatar(formData);
-      updateUserProfile({ avatarUrl: response.avatarUrl });
+      const resolved = (resolveMediaUrl(response.avatarUrl) ?? response.avatarUrl) || null;
+      updateUserProfile({ avatarUrl: resolved });
       toast.success('Avataras atnaujintas');
     } catch (error) {
       const message = error instanceof HttpError ? error.message : 'Nepavyko įkelti avataro';

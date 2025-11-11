@@ -2,11 +2,13 @@ import React, { createContext, useContext, useState, useEffect, useCallback } fr
 import api, { HttpError, clearCredentials, setToken } from '@/lib/api';
 import type { AuthenticatedUser, UserRole } from '@/lib/types';
 import { mapUserFromApi } from '@/lib/types';
+import { resolveMediaUrl } from '@/lib/media';
 
 export type User = AuthenticatedUser & {
   phone?: string | null;
   address?: string | null;
   createdAt?: string | null;
+  avatarUrl?: string | null;
 };
 
 interface AuthContextType {
@@ -47,6 +49,10 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
       phone: 'phone' in data ? data.phone ?? null : undefined,
       address: 'address' in data ? data.address ?? null : undefined,
       createdAt: 'createdAt' in data && data.createdAt ? data.createdAt : fallbackCreatedAt,
+      avatarUrl:
+        'avatarUrl' in data
+          ? resolveMediaUrl((data as { avatarUrl?: string | null }).avatarUrl) ?? null
+          : undefined,
     };
   }, []);
 

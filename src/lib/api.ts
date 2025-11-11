@@ -528,44 +528,10 @@ const getErrorMessage = (status: number, data: unknown, fallback?: string) => {
   return fallback ?? ltMessages.errors.unexpected;
 };
 
-const uploadAvatar = async (file: File): Promise<{ avatarUrl: string }> => {
+const uploadAvatar = (file: File) => {
   const formData = new FormData();
   formData.append('file', file);
-
-  const response = await fetch(buildUrl('/profile/avatar'), {
-    method: 'POST',
-    credentials: 'include',
-    body: formData,
-    headers: {
-      Accept: 'application/json',
-    },
-  });
-
-  const data = await safeParse(response);
-
-  if (response.ok) {
-    const avatarUrl =
-      data && typeof (data as { avatarUrl?: unknown }).avatarUrl === 'string'
-        ? (data as { avatarUrl: string }).avatarUrl
-        : null;
-
-    if (avatarUrl) {
-      return { avatarUrl };
-    }
-
-    throw new HttpError(
-      response.status,
-      data,
-      'Serveris grąžino netikėtą atsakymą į avataro įkėlimą.',
-    );
-  }
-
-  const message = getErrorMessage(
-    response.status,
-    data,
-    response.status === 400 ? 'Nepavyko įkelti avataro.' : 'Nepavyko įkelti avataro.',
-  );
-  throw new HttpError(response.status, data, message);
+  return post<{ avatarUrl: string }>('/profile/avatar', { body: formData });
 };
 
 const persistUser = (user: AuthenticatedUser | undefined) => {

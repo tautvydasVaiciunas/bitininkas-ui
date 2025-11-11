@@ -12,6 +12,7 @@ import { useAuth } from '@/contexts/AuthContext';
 import api, { HttpError } from '@/lib/api';
 import { mapProfileFromApi, type ChangePasswordPayload } from '@/lib/types';
 import { buildAvatarSrc } from '@/lib/avatar';
+import { resolveMediaUrl } from '@/lib/media';
 import { User, Mail, Edit2, Lock, Upload } from 'lucide-react';
 import { toast } from 'sonner';
 import ltMessages from '@/i18n/messages.lt.json';
@@ -337,4 +338,5 @@ export default function Profile() {
     </MainLayout>
   );
 }
+
 

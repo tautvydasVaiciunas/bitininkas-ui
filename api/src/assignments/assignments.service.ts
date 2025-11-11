@@ -363,6 +363,53 @@ export class AssignmentsService {
     }
   }
 
+  private async notifyAssignmentUpdated(
+    assignment: Assignment,
+    taskTitle: string,
+    changes: { startChanged: boolean; dueChanged: boolean },
+    sendEmail: boolean,
+  ) {
+    if (!changes.startChanged && !changes.dueChanged) {
+      return;
+    }
+
+    const participantIds = await this.getAssignmentParticipantIds(assignment);
+    const uniqueParticipantIds = participantIds.filter((participantId) => participantId) as string[];
+
+    if (!uniqueParticipantIds.length) {
+      return;
+    }
+
+    const changeLines: string[] = [];
+    if (changes.startChanged) {
+      changeLines.push(`Pradžios data: ${assignment.startDate ?? 'nenurodyta'}`);
+    }
+
+    if (changes.dueChanged) {
+      changeLines.push(`Pabaigos data: ${assignment.dueDate ?? 'nenurodyta'}`);
+    }
+
+    const body = [`Atnaujinta užduotis „${taskTitle}“`, ...changeLines].join('\n');
+    const link = this.buildAssignmentLink(assignment.id);
+    const emailCtaUrl = this.buildAssignmentEmailLink(assignment.id);
+
+    await Promise.all(
+      uniqueParticipantIds.map((participantId) =>
+        this.notifications.createNotification(participantId, {
+          type: 'assignment',
+          title: `Atnaujinta užduotis: ${taskTitle}`,
+          body,
+          link,
+          sendEmail,
+          emailSubject: `Atnaujinta užduotis: ${taskTitle}`,
+          emailBody: body,
+          emailCtaUrl,
+          emailCtaLabel: DEFAULT_CTA_LABEL,
+        }),
+      ),
+    );
+  }
+
   private buildAssignmentLink(assignmentId: string) {
     if (this.appBaseUrl) {
       return `${this.appBaseUrl}/tasks/${assignmentId}/run`;
@@ -703,6 +750,8 @@ export class AssignmentsService {
     if (dto.status && !Object.values(AssignmentStatus).includes(dto.status)) {
       throw new ForbiddenException("Invalid status");
     }
+    const previousStartDate = assignment.startDate;
+    const previousDueDate = assignment.dueDate;
     const nextStartDate =
       dto.startDate !== undefined ? dto.startDate ?? null : assignment.startDate;
     const nextDueDate = dto.dueDate ?? assignment.dueDate;
@@ -723,6 +772,22 @@ export class AssignmentsService {
 
     const saved = await this.assignmentsRepository.save(assignment);
     await this.activityLog.log("assignment_updated", user.id, "assignment", id);
+    const startChanged =
+      dto.startDate !== undefined &&
+      ((previousStartDate ?? null) ?? null) !== (assignment.startDate ?? null);
+    const dueChanged =
+      dto.dueDate !== undefined && (previousDueDate ?? null) !== (assignment.dueDate ?? null);
+
+    if (startChanged || dueChanged) {
+      const task = await this.taskRepository.findOne({ where: { id: assignment.taskId } });
+      await this.notifyAssignmentUpdated(
+        saved,
+        task?.title ?? 'Užduotis',
+        { startChanged, dueChanged },
+        true,
+      );
+    }
+
     return saved;
   }
   async getDetails(id: string, user, requestedUserId?: string) {

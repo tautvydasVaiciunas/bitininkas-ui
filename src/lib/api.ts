@@ -1,7 +1,5 @@
 import ltMessages from '@/i18n/messages.lt.json';
-
-const rawBaseUrl = import.meta.env.VITE_API_BASE_URL ?? '';
-export const API_BASE_URL = rawBaseUrl.replace(/\/$/, '');
+import { API_BASE_URL } from '@/lib/config';
 
 const ACCESS_TOKEN_KEY = 'bitininkas_access_token';
 const REFRESH_TOKEN_KEY = 'bitininkas_refresh_token';

@@ -528,6 +528,46 @@ const getErrorMessage = (status: number, data: unknown, fallback?: string) => {
   return fallback ?? ltMessages.errors.unexpected;
 };
 
+const uploadAvatar = async (file: File): Promise<{ avatarUrl: string }> => {
+  const formData = new FormData();
+  formData.append('file', file);
+
+  const response = await fetch(buildUrl('/profile/avatar'), {
+    method: 'POST',
+    credentials: 'include',
+    body: formData,
+    headers: {
+      Accept: 'application/json',
+    },
+  });
+
+  const data = await safeParse(response);
+
+  if (response.ok) {
+    const avatarUrl =
+      data && typeof (data as { avatarUrl?: unknown }).avatarUrl === 'string'
+        ? (data as { avatarUrl: string }).avatarUrl
+        : null;
+
+    if (avatarUrl) {
+      return { avatarUrl };
+    }
+
+    throw new HttpError(
+      response.status,
+      data,
+      'Serveris grąžino netikėtą atsakymą į avataro įkėlimą.',
+    );
+  }
+
+  const message = getErrorMessage(
+    response.status,
+    data,
+    response.status === 400 ? 'Nepavyko įkelti avataro.' : 'Nepavyko įkelti avataro.',
+  );
+  throw new HttpError(response.status, data, message);
+};
+
 const persistUser = (user: AuthenticatedUser | undefined) => {
   if (!isBrowser) return;
   if (user) {
@@ -851,8 +891,7 @@ export const api = {
     update: (payload: UpdateProfilePayload) => patch<ProfileResponse>('/profile', { json: payload }),
     changePassword: (payload: ChangePasswordPayload) =>
       patch<{ success: boolean }>('/profile/password', { json: payload }),
-    uploadAvatar: (formData: FormData) =>
-      post<{ avatarUrl: string }>('/profile/avatar', { body: formData }),
+    uploadAvatar: (file: File) => uploadAvatar(file),
   },
   groups: {
     list: (params?: { page?: number; limit?: number }) =>
@@ -913,3 +952,4 @@ export const api = {
 };
 
 export default api;
+

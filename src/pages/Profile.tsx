@@ -166,6 +166,8 @@ export default function Profile() {
     return null;
   }
 
+  const nameLimitReached = isEditing && formValues.name.length >= MAX_NAME_LENGTH;
+
   return (
     <MainLayout>
       <div className="space-y-6">

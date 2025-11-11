@@ -23,6 +23,17 @@ export function ensureUploadsDir(): void {
   }
 }
 
+export function ensureUploadsSubdir(relativePath: string): string {
+  const uploadsDir = resolveUploadsDir();
+  const targetDir = path.join(uploadsDir, relativePath);
+
+  if (!fs.existsSync(targetDir)) {
+    fs.mkdirSync(targetDir, { recursive: true });
+  }
+
+  return targetDir;
+}
+
 export function uploadsPrefix(): string {
   return UPLOADS_PREFIX;
 }

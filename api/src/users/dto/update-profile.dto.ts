@@ -1,9 +1,20 @@
-import { IsEmail, IsOptional, IsString, MaxLength } from 'class-validator';
+﻿import { IsEmail, IsOptional, IsString, MaxLength } from 'class-validator';
+import { Transform } from 'class-transformer';
+
+const sanitizeNameInput = (value: unknown) => {
+  if (typeof value !== 'string') {
+    return value;
+  }
+
+  const normalized = value.replace(/\s+/g, ' ').trim();
+  return normalized;
+};
 
 export class UpdateProfileDto {
   @IsOptional()
   @IsString({ message: 'Vardas turi būti tekstas' })
-  @MaxLength(150, { message: 'Vardas per ilgas' })
+  @Transform(({ value }) => sanitizeNameInput(value))
+  @MaxLength(60, { message: 'Vardo ilgis negali viršyti 60 simbolių.' })
   name?: string;
 
   @IsOptional()

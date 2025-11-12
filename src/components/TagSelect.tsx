@@ -1,4 +1,4 @@
-import { useMemo, useState } from 'react';
+ï»¿import { useMemo, useState } from 'react';
 import { Loader2, Plus } from 'lucide-react';
 
 import { Button } from '@/components/ui/button';
@@ -31,11 +31,11 @@ export function TagSelect({
   value,
   onChange,
   disabled,
-  placeholder = 'Pasirinkite žyma',
+  placeholder = 'Pasirinkite Å¾ymÄ…',
   allowCreate = false,
   onCreateTag,
   creatingTag = false,
-  emptyText = 'Žymu nera',
+  emptyText = 'Å½ymÅ³ nÄ—ra',
 }: TagSelectProps) {
   const [open, setOpen] = useState(false);
   const [search, setSearch] = useState('');
@@ -75,7 +75,7 @@ export function TagSelect({
       </PopoverTrigger>
       <PopoverContent className="w-72 p-0" align="start">
         <Command>
-          <CommandInput placeholder="Ieškoti žymos..." value={search} onValueChange={setSearch} />
+          <CommandInput placeholder="IeÅ¡koti Å¾ymos..." value={search} onValueChange={setSearch} />
           <CommandList>
             <CommandEmpty>{emptyText}</CommandEmpty>
             {tags.map((tag) => (
@@ -93,7 +93,7 @@ export function TagSelect({
           <CommandSeparator />
           <div className="flex items-center gap-2 p-2">
             <Button type="button" variant="outline" className="flex-1" onClick={() => handleSelect(null)}>
-              Išvalyti
+              IÅ¡valyti
             </Button>
             {allowCreate ? (
               <Button
@@ -104,7 +104,7 @@ export function TagSelect({
                 disabled={!canCreate || creatingTag}
               >
                 {creatingTag ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <Plus className="mr-2 h-4 w-4" />}
-                Nauja žyma
+                Nauja Å¾yma
               </Button>
             ) : null}
           </div>

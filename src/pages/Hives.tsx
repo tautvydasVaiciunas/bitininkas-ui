@@ -1,4 +1,4 @@
-﻿import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { Link } from "react-router-dom";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import ltMessages from "@/i18n/messages.lt.json";
@@ -35,13 +35,6 @@ import {
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { MainLayout } from "@/components/Layout/MainLayout";
-import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from "@/components/ui/select";
 import { Skeleton } from "@/components/ui/skeleton";
 import { useToast } from "@/components/ui/use-toast";
 import { useAuth } from "@/contexts/AuthContext";
@@ -63,7 +56,6 @@ import {
   MapPin,
   MoreVertical,
   Plus,
-  Search,
   Tag as TagIcon,
 } from "lucide-react";
 import {
@@ -71,8 +63,6 @@ import {
   type MultiSelectOption,
 } from "@/components/UserMultiSelect";
 import { TagSelect } from "@/components/TagSelect";
-
-type StatusFilter = HiveStatus | "all";
 
 type UpdateHiveVariables = {
   id: string;
@@ -108,21 +98,25 @@ const statusMetadata: Record<
   archived: { label: "Archyvuotas", badgeVariant: "outline" },
 };
 
-const statusFilterOptions: { value: StatusFilter; label: string }[] = [
-  { value: "all", label: "Visi statusai" },
-  { value: "active", label: "Aktyvūs" },
-  { value: "paused", label: "Pristabdyti" },
-  { value: "archived", label: "Archyvuoti" },
-];
 
 const formatDate = (value?: string | null) => {
-  if (!value) return "—";
+  if (!value) return "-";
   const date = new Date(value);
-  if (Number.isNaN(date.getTime())) return "—";
+  if (Number.isNaN(date.getTime())) return "-";
   return date.toLocaleDateString("lt-LT", {
     year: "numeric",
     month: "long",
     day: "numeric",
+  });
+};
+
+const formatMonthYear = (value?: string | null) => {
+  if (!value) return "-";
+  const date = new Date(value);
+  if (Number.isNaN(date.getTime())) return "-";
+  return date.toLocaleDateString("lt-LT", {
+    year: "numeric",
+    month: "long",
   });
 };
 
@@ -166,21 +160,21 @@ function HiveCard({
           </div>
           <div className="flex flex-wrap items-center justify-end gap-2 sm:flex-nowrap">
             {hive.tag ? (
-            <div className="flex items-center gap-2">
-              <TagIcon className="w-4 h-4 text-muted-foreground" />
-              <span className="text-muted-foreground">Žyma:</span>
-              <span>{hive.tag.name}</span>
-            </div>
-          ) : null}
-        </div>
+              <div className="flex items-center gap-2">
+                <TagIcon className="w-4 h-4 text-muted-foreground" />
+                <span className="text-muted-foreground">Žyma:</span>
+                <span>{hive.tag.name}</span>
+              </div>
+            ) : null}
+          </div>
         </div>
       </CardHeader>
       <CardContent className="space-y-4">
         <div className="space-y-2 text-sm">
           <div className="flex items-center gap-2">
             <Calendar className="w-4 h-4 text-muted-foreground" />
-            <span className="text-muted-foreground">Sukurta:</span>
-            <span>{formatDate(hive.createdAt)}</span>
+            <span className="text-muted-foreground">Bičių šeimos suleidimas:</span>
+            <span>{formatMonthYear(hive.createdAt)}</span>
           </div>
           {hive.tag ? (
             <div className="flex items-center gap-2">
@@ -281,8 +275,6 @@ export default function Hives() {
   const { user } = useAuth();
   const { toast } = useToast();
   const queryClient = useQueryClient();
-  const [searchQuery, setSearchQuery] = useState("");
-  const [statusFilter, setStatusFilter] = useState<StatusFilter>("all");
   const [isCreateDialogOpen, setIsCreateDialogOpen] = useState(false);
   const [createForm, setCreateForm] = useState<CreateHiveFormState>({
     label: "",
@@ -453,18 +445,7 @@ export default function Hives() {
     });
   }, [hives, isAdmin, user?.id]);
 
-  const filteredHives = useMemo(() => {
-    const normalizedSearch = searchQuery.trim().toLowerCase();
-    return accessibleHives.filter((hive) => {
-      const matchesSearch =
-        !normalizedSearch ||
-        hive.label.toLowerCase().includes(normalizedSearch) ||
-        (hive.location ?? "").toLowerCase().includes(normalizedSearch);
-      const matchesStatus =
-        statusFilter === "all" || hive.status === statusFilter;
-      return matchesSearch && matchesStatus;
-    });
-  }, [accessibleHives, searchQuery, statusFilter]);
+  const filteredHives = accessibleHives;
 
   const handleCreateSubmit = async (
     event: React.FormEvent<HTMLFormElement>,
@@ -638,38 +619,7 @@ export default function Hives() {
           ) : null}
         </div>
 
-        <Card className="shadow-custom">
-          <CardContent className="p-6">
-            <div className="flex flex-col sm:flex-row gap-4">
-              <div className="relative flex-1">
-                <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
-                <Input
-                  placeholder="Ieškoti avilių..."
-                  value={searchQuery}
-                  onChange={(event) => setSearchQuery(event.target.value)}
-                  className="pl-9"
-                />
-              </div>
-              <Select
-                value={statusFilter}
-                onValueChange={(value) =>
-                  setStatusFilter(value as StatusFilter)
-                }
-              >
-                <SelectTrigger className="w-full sm:w-48">
-                  <SelectValue placeholder="Statusas" />
-                </SelectTrigger>
-                <SelectContent>
-                  {statusFilterOptions.map((option) => (
-                    <SelectItem key={option.value} value={option.value}>
-                      {option.label}
-                    </SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
-            </div>
-          </CardContent>
-        </Card>
+        
 
         {isError ? (
           <Card className="shadow-custom">
@@ -709,11 +659,9 @@ export default function Hives() {
               <Box className="w-12 h-12 mx-auto mb-4 text-muted-foreground" />
               <h3 className="text-lg font-semibold mb-2">Nerasta avilių</h3>
               <p className="text-muted-foreground mb-6">
-                {searchQuery || statusFilter !== "all"
-                  ? "Pabandykite pakeisti paieškos kriterijus"
-                  : "Pradėkite pridėdami savo pirmą avilį"}
+                Pradėkite pridėdami savo pirmą avilį
               </p>
-              {canManageHives && !searchQuery && statusFilter === "all" && (
+              {canManageHives && (
                 <Button onClick={() => setIsCreateDialogOpen(true)}>
                   <Plus className="mr-2 w-4 h-4" />
                   Pridėti avilį

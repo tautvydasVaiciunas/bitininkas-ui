@@ -165,10 +165,17 @@ export default function HiveDetail() {
 
   const assignments = useMemo(() => data?.assignments ?? [], [data]);
 
-  const formatDate = (dateStr: string) => {
-    const date = new Date(dateStr);
-    return date.toLocaleDateString('lt-LT', { year: 'numeric', month: 'long', day: 'numeric' });
-  };
+const formatDate = (dateStr: string) => {
+  const date = new Date(dateStr);
+  return date.toLocaleDateString('lt-LT', { year: 'numeric', month: 'long', day: 'numeric' });
+};
+
+const formatMonthYear = (value?: string | null) => {
+  if (!value) return '-';
+  const date = new Date(value);
+  if (Number.isNaN(date.getTime())) return '-';
+  return date.toLocaleDateString('lt-LT', { year: 'numeric', month: 'long' });
+};
 
   const friendlyId = hive ? `HIVE-${hive.id.slice(0, 8).toUpperCase()}` : '';
   const showFriendlyId = import.meta.env.MODE === 'development';
@@ -303,7 +310,16 @@ export default function HiveDetail() {
             </div>
           </div>
 
-          <div className="flex gap-2">
+          <div className="flex flex-wrap gap-2 justify-end">
+            <Button asChild>
+              <a
+                href="https://www.busmedaus.lt/product-page/pradedan%C4%8Diojo-rinkinio-rezervacija"
+                target="_blank"
+                rel="noopener noreferrer"
+              >
+                + įsigyti papildomą rinkinį
+              </a>
+            </Button>
             <Button variant="outline" onClick={() => setActiveTab('settings')}>
               <Edit className="mr-2 w-4 h-4" />
               Redaguoti
@@ -322,12 +338,6 @@ export default function HiveDetail() {
           </CardHeader>
           <CardContent>
             <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
-              {showFriendlyId ? (
-                <div>
-                  <p className="text-sm text-muted-foreground mb-1">Identifikatorius</p>
-                  <p className="font-medium font-mono">{friendlyId || '—'}</p>
-                </div>
-              ) : null}
               <div>
                 <p className="text-sm text-muted-foreground mb-1">Pavadinimas</p>
                 <p className="font-medium">{hive.label}</p>
@@ -342,17 +352,7 @@ export default function HiveDetail() {
               </div>
               <div>
                 <p className="text-sm text-muted-foreground mb-1">Sukurta</p>
-                <p className="font-medium">{formatDate(hive.createdAt ?? new Date().toISOString())}</p>
-              </div>
-              <div>
-                <p className="text-sm text-muted-foreground mb-1">Statusas</p>
-                <p className="font-medium">
-                  {hive.status === 'active'
-                    ? 'Aktyvus'
-                    : hive.status === 'paused'
-                      ? 'Pristabdyta'
-                      : 'Archyvuota'}
-                </p>
+                <p className="font-medium">{formatMonthYear(hive.createdAt ?? null)}</p>
               </div>
               <div className="md:col-span-3">
                 <p className="text-sm text-muted-foreground mb-1">Priskirti vartotojai</p>
@@ -469,12 +469,12 @@ export default function HiveDetail() {
                       />
                     </div>
                     <div className="space-y-2">
-                      <Label>?yma</Label>
+                      <Label>Žyma</Label>
                       <TagSelect
                         tags={tags}
                         value={editForm.tagId}
                         onChange={(tagId) => setEditForm((prev) => ({ ...prev, tagId }))}
-                        placeholder={tagsLoading ? "Kraunama..." : "Pasirinkite ?ym?"}
+                        placeholder={tagsLoading ? "Kraunama..." : "Pasirinkite žymą"}
                         disabled={tagsLoading || updateHiveMutation.isPending}
                         allowCreate
                         onCreateTag={(name) => createTagMutation.mutate(name)}

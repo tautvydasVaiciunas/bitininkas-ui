@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from "react";
+﻿import { useEffect, useMemo, useState } from "react";
 import { Link } from "react-router-dom";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import ltMessages from "@/i18n/messages.lt.json";
@@ -52,7 +52,7 @@ import {
   type CreateHivePayload,
   type Hive,
   type HiveStatus,
-  type Tag,
+  type HiveTag,
   type UpdateHivePayload,
 } from "@/lib/types";
 import {
@@ -168,7 +168,7 @@ function HiveCard({
             {hive.tag ? (
             <div className="flex items-center gap-2">
               <TagIcon className="w-4 h-4 text-muted-foreground" />
-              <span className="text-muted-foreground">?yma:</span>
+              <span className="text-muted-foreground">Žyma:</span>
               <span>{hive.tag.name}</span>
             </div>
           ) : null}
@@ -185,7 +185,7 @@ function HiveCard({
           {hive.tag ? (
             <div className="flex items-center gap-2">
               <TagIcon className="w-4 h-4 text-muted-foreground" />
-              <span className="text-muted-foreground">?yma:</span>
+              <span className="text-muted-foreground">Žyma:</span>
               <span>{hive.tag.name}</span>
             </div>
           ) : null}
@@ -324,9 +324,9 @@ export default function Hives() {
     },
   });
 
-  const { data: tags = [], isLoading: tagsLoading } = useQuery<Tag[]>({
-    queryKey: ["tags", "all"],
-    queryFn: () => api.tags.list(),
+  const { data: tags = [], isLoading: tagsLoading } = useQuery<HiveTag[]>({
+    queryKey: ["hive-tags", "all"],
+    queryFn: () => api.hiveTags.list(),
   });
 
   const defaultHiveLabel = useMemo(() => {
@@ -357,9 +357,9 @@ export default function Hives() {
   };
 
   const createTagMutation = useMutation({
-    mutationFn: (name: string) => api.tags.create({ name }),
+    mutationFn: (name: string) => api.hiveTags.create({ name }),
     onSuccess: (tag) => {
-      queryClient.invalidateQueries({ queryKey: ["tags", "all"] });
+      queryClient.invalidateQueries({ queryKey: ["hive-tags", "all"] });
       setCreateForm((prev) => ({ ...prev, tagId: tag.id }));
       toast({
         title: "Žyma sukurta",
@@ -584,7 +584,7 @@ export default function Hives() {
                     />
                   </div>
                   <div className="space-y-2">
-                    <Label>?yma</Label>
+                    <Label>Žyma</Label>
                     <TagSelect
                       tags={tags}
                       value={createForm.tagId}
@@ -594,7 +594,7 @@ export default function Hives() {
                           tagId,
                         }))
                       }
-                      placeholder={tagsLoading ? "Kraunama..." : "Pasirinkite ?ym?"}
+                      placeholder={tagsLoading ? "Kraunama..." : "Pasirinkite žymą"}
                       disabled={tagsLoading || createHiveMutation.isPending}
                       allowCreate
                       onCreateTag={(name) => createTagMutation.mutate(name)}

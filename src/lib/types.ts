@@ -16,6 +16,7 @@ import type {
   GroupResponse as ApiGroupResponse,
   HiveMemberResponse as ApiHiveMemberResponse,
   HiveResponse as ApiHiveResponse,
+  HiveTagResponse,
   HiveStatus as ApiHiveStatus,
   HiveSummary as ApiHiveSummary,
   LoginPayload,
@@ -90,6 +91,7 @@ export type AssignmentDetails = ApiAssignmentDetails;
 export type AssignmentStatus = ApiAssignmentStatus;
 export type HiveMember = ApiHiveMemberResponse;
 export type Hive = Omit<ApiHiveResponse, 'members'> & { members: HiveMember[] };
+export type HiveTag = HiveTagResponse;
 export type HiveStatus = ApiHiveStatus;
 export type Task = ApiTaskResponse;
 export type TaskWithSteps = ApiTaskWithStepsResponse;

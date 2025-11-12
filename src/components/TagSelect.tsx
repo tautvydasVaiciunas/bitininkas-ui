@@ -11,11 +11,11 @@ import {
   CommandList,
   CommandSeparator,
 } from '@/components/ui/command';
-import type { Tag } from '@/lib/types';
+import type { HiveTag } from '@/lib/types';
 import { cn } from '@/lib/utils';
 
 export type TagSelectProps = {
-  tags: Tag[];
+  tags: HiveTag[];
   value?: string | null;
   onChange: (tagId: string | null) => void;
   disabled?: boolean;
@@ -31,11 +31,11 @@ export function TagSelect({
   value,
   onChange,
   disabled,
-  placeholder = 'Pasirinkite Å¾ymÄ…',
+  placeholder = 'Pasirinkite žyma',
   allowCreate = false,
   onCreateTag,
   creatingTag = false,
-  emptyText = 'Å½ymÅ³ nÄ—ra',
+  emptyText = 'Žymu nera',
 }: TagSelectProps) {
   const [open, setOpen] = useState(false);
   const [search, setSearch] = useState('');
@@ -75,7 +75,7 @@ export function TagSelect({
       </PopoverTrigger>
       <PopoverContent className="w-72 p-0" align="start">
         <Command>
-          <CommandInput placeholder="IeÅ¡koti Å¾ymos..." value={search} onValueChange={setSearch} />
+          <CommandInput placeholder="Ieškoti žymos..." value={search} onValueChange={setSearch} />
           <CommandList>
             <CommandEmpty>{emptyText}</CommandEmpty>
             {tags.map((tag) => (
@@ -93,7 +93,7 @@ export function TagSelect({
           <CommandSeparator />
           <div className="flex items-center gap-2 p-2">
             <Button type="button" variant="outline" className="flex-1" onClick={() => handleSelect(null)}>
-              IÅ¡valyti
+              Išvalyti
             </Button>
             {allowCreate ? (
               <Button
@@ -104,7 +104,7 @@ export function TagSelect({
                 disabled={!canCreate || creatingTag}
               >
                 {creatingTag ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <Plus className="mr-2 h-4 w-4" />}
-                Nauja Å¾yma
+                Nauja žyma
               </Button>
             ) : null}
           </div>

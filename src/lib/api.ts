@@ -79,11 +79,18 @@ export interface HiveResponse {
   location?: string | null;
   queenYear?: number | null;
   tagId?: string | null;
-  tag?: TagResponse | null;
+  tag?: HiveTagResponse | null;
   ownerUserId?: string;
   createdAt?: string;
   updatedAt?: string;
   members?: HiveMemberResponse[];
+}
+
+export interface HiveTagResponse {
+  id: string;
+  name: string;
+  createdAt?: string;
+  updatedAt?: string;
 }
 
 export interface HiveSummary {
@@ -828,6 +835,10 @@ export const api = {
     create: (payload: { name: string }) => post<TagResponse>('/tags', { json: payload }),
     update: (id: string, payload: { name: string }) => patch<TagResponse>(`/tags/${id}`, { json: payload }),
     remove: (id: string) => del<void>(`/tags/${id}`),
+  },
+  hiveTags: {
+    list: () => get<HiveTagResponse[]>('/hive-tags'),
+    create: (payload: { name: string }) => post<HiveTagResponse>('/hive-tags', { json: payload }),
   },
   assignments: {
     list: (params?: {

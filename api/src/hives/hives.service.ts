@@ -7,7 +7,7 @@ import { UpdateHiveDto } from './dto/update-hive.dto';
 import { User, UserRole } from '../users/user.entity';
 import { ActivityLogService } from '../activity-log/activity-log.service';
 import { runWithDatabaseErrorHandling } from '../common/errors/database-error.util';
-import { Tag } from '../tasks/tags/tag.entity';
+import { HiveTag } from './tags/hive-tag.entity';
 
 @Injectable()
 export class HivesService {
@@ -18,8 +18,8 @@ export class HivesService {
     private readonly hiveRepository: Repository<Hive>,
     @InjectRepository(User)
     private readonly userRepository: Repository<User>,
-    @InjectRepository(Tag)
-    private readonly tagRepository: Repository<Tag>,
+    @InjectRepository(HiveTag)
+    private readonly hiveTagRepository: Repository<HiveTag>,
     private readonly activityLog: ActivityLogService,
   ) {}
 
@@ -33,7 +33,7 @@ export class HivesService {
       return null;
     }
 
-    const tag = await this.tagRepository.findOne({
+    const tag = await this.hiveTagRepository.findOne({
       where: { id: tagId },
       select: { id: true },
     });

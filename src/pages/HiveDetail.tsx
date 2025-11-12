@@ -18,7 +18,7 @@ import {
   type Assignment,
   type AssignmentStatus,
   type Hive,
-  type Tag,
+  type HiveTag,
   type Task,
   type UpdateHivePayload,
 } from '@/lib/types';
@@ -109,15 +109,15 @@ export default function HiveDetail() {
     enabled: canManageMembers,
   });
 
-  const { data: tags = [], isLoading: tagsLoading } = useQuery<Tag[]>({
-    queryKey: ['tags', 'all'],
-    queryFn: () => api.tags.list(),
+  const { data: tags = [], isLoading: tagsLoading } = useQuery<HiveTag[]>({
+    queryKey: ['hive-tags', 'all'],
+    queryFn: () => api.hiveTags.list(),
   });
 
   const createTagMutation = useMutation({
-    mutationFn: (name: string) => api.tags.create({ name }),
+    mutationFn: (name: string) => api.hiveTags.create({ name }),
     onSuccess: (tag) => {
-      queryClient.invalidateQueries({ queryKey: ['tags', 'all'] });
+      queryClient.invalidateQueries({ queryKey: ['hive-tags', 'all'] });
       setEditForm((prev) => ({ ...prev, tagId: tag.id }));
       toast({
         title: 'Žyma sukurta',

@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from "react";
+﻿import { useEffect, useMemo, useState } from "react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -34,7 +34,7 @@ import { Label } from "@/components/ui/label";
 import { Badge } from "@/components/ui/badge";
 import { MainLayout } from "@/components/Layout/MainLayout";
 import api, { type AdminUserResponse, type HiveResponse } from "@/lib/api";
-import { mapGroupFromApi, type Group, type GroupMember, type Tag } from "@/lib/types";
+import { mapGroupFromApi, type Group, type GroupMember, type HiveTag } from "@/lib/types";
 import { useToast } from "@/components/ui/use-toast";
 import {
   Loader2,
@@ -92,6 +92,11 @@ export default function AdminGroups() {
   const { data: hives = [] } = useQuery<HiveResponse[]>({
     queryKey: ["hives", "all"],
     queryFn: () => api.hives.list(),
+  });
+
+  const { data: hiveTags = [] } = useQuery<HiveTag[]>({
+    queryKey: ["hive-tags", "all"],
+    queryFn: () => api.hiveTags.list(),
   });
 
   const { data: tags = [] } = useQuery<Tag[]>({
@@ -609,13 +614,14 @@ export default function AdminGroups() {
                       onValueChange={(value) => {
                         setTagFilter(value === "all" ? "" : value);
                       }}
+                      disabled={hiveTags.length === 0 && !tagFilter}
                     >
                       <SelectTrigger className="w-full sm:w-64">
                         <SelectValue placeholder="Filtruoti pagal žymą" />
                       </SelectTrigger>
                       <SelectContent>
                         <SelectItem value="all">Visos žymos</SelectItem>
-                        {tags.map((tag) => (
+                        {hiveTags.map((tag) => (
                           <SelectItem key={tag.id} value={tag.id}>
                             {tag.name}
                           </SelectItem>

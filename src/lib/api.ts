@@ -89,8 +89,14 @@ export interface HiveResponse {
 export interface HiveTagResponse {
   id: string;
   name: string;
+  color: string;
   createdAt?: string;
   updatedAt?: string;
+}
+
+export interface CreateHiveTagPayload {
+  name: string;
+  color?: string;
 }
 
 export interface HiveSummary {
@@ -838,7 +844,7 @@ export const api = {
   },
   hiveTags: {
     list: () => get<HiveTagResponse[]>('/hive-tags'),
-    create: (payload: { name: string }) => post<HiveTagResponse>('/hive-tags', { json: payload }),
+    create: (payload: CreateHiveTagPayload) => post<HiveTagResponse>('/hive-tags', { json: payload }),
   },
   assignments: {
     list: (params?: {

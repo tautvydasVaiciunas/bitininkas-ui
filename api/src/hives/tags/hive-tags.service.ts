@@ -1,4 +1,4 @@
-import { BadRequestException, Injectable } from '@nestjs/common';
+ï»¿import { BadRequestException, Injectable } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
 import { Repository } from 'typeorm';
 import { HiveTag } from './hive-tag.entity';
@@ -21,13 +21,16 @@ export class HiveTagsService {
     if (!name) {
       throw new BadRequestException({
         message: 'Neteisingi duomenys',
-        details: 'Žymos pavadinimas privalomas',
+        details: 'Zymos pavadinimas privalomas',
       });
     }
 
-    const entity = this.hiveTagRepository.create({ name });
+    const defaultColor = '#F9D776';
+    const normalizedColor = dto.color ? dto.color.trim().toUpperCase() : defaultColor;
+
+    const entity = this.hiveTagRepository.create({ name, color: normalizedColor });
     return runWithDatabaseErrorHandling(() => this.hiveTagRepository.save(entity), {
-      message: 'Nepavyko sukurti žymos',
+      message: 'Nepavyko sukurti zymos',
     });
   }
 }

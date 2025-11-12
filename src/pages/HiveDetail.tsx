@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from 'react';
+import { Suspense, lazy, useEffect, useMemo, useState } from 'react';
 import { useParams, Link } from 'react-router-dom';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { MainLayout } from '@/components/Layout/MainLayout';
@@ -10,12 +10,6 @@ import { Label } from '@/components/ui/label';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Progress } from '@/components/ui/progress';
 import api, { HttpError, type AdminUserResponse } from '@/lib/api';
-import {
-  describeHiveHistoryEvent,
-  formatHiveHistoryTimestamp,
-  getHiveHistoryActorLabel,
-  getHiveHistoryEventLabel,
-} from '@/lib/hiveHistory';
 import {
   mapAssignmentDetailsFromApi,
   mapAssignmentFromApi,
@@ -42,12 +36,7 @@ type EditFormState = {
   members: string[];
 };
 
-type HiveHistoryResponse = {
-  data: HiveHistoryEventResponse[];
-  page: number;
-  limit: number;
-  total: number;
-};
+const HiveHistoryTabLazy = lazy(() => import('./HiveHistoryTab'));
 
 export default function HiveDetail() {
   const { id } = useParams();
@@ -105,23 +94,14 @@ export default function HiveDetail() {
   });
 
   const hive = data?.hive;
-  const historyItems = historyData?.data ?? [];
-  const historyTotalPages = historyData ? Math.max(1, Math.ceil(historyData.total / historyData.limit)) : 1;
-  const currentHistoryPage = historyData?.page ?? historyPage;
 
   const [activeTab, setActiveTab] = useState<'tasks' | 'history' | 'settings'>('tasks');
-  const historyPageSize = 10;
-  const [historyPage, setHistoryPage] = useState(1);
   const [editForm, setEditForm] = useState<EditFormState>({
     label: '',
     location: '',
     tagId: null,
     members: [] as string[],
   });
-
-  useEffect(() => {
-    setHistoryPage(1);
-  }, [id]);
 
   const canManageMembers = user?.role === 'admin' || user?.role === 'manager';
 
@@ -153,23 +133,6 @@ export default function HiveDetail() {
         description,
         variant: 'destructive',
       });
-    },
-  });
-
-  const {
-    data: historyData,
-    isLoading: historyLoading,
-    isError: historyError,
-    isFetching: historyFetching,
-  } = useQuery<HiveHistoryResponse>({
-    queryKey: ['hive-history', id, historyPage],
-    enabled: !!id && activeTab === 'history',
-    keepPreviousData: true,
-    queryFn: async () => {
-      if (!id) {
-        throw new Error('Missing hive id');
-      }
-      return api.hives.history(id, { page: historyPage, limit: historyPageSize });
     },
   });
 
@@ -474,81 +437,25 @@ const formatMonthYear = (value?: string | null) => {
                 <CardTitle>Istorija</CardTitle>
               </CardHeader>
               <CardContent className="space-y-6">
-                {historyLoading && !historyData ? (
-                  <div className="flex items-center justify-center gap-2 py-8 text-muted-foreground">
-                    <Loader2 className="h-4 w-4 animate-spin" />
-                    Kraunama istorija...
-                  </div>
-                ) : historyError ? (
-                  <div className="text-center py-8 text-destructive">
-                    Nepavyko įkelti istorijos. Pabandykite dar kartą.
-                  </div>
-                ) : historyItems.length === 0 ? (
-                  <div className="text-center py-8 text-muted-foreground">Istorija dar tuščia.</div>
-                ) : (
-                  <>
-                    <ul className="divide-y divide-border">
-                      {historyItems.map((event) => {
-                        const descriptor = describeHiveHistoryEvent(event);
-                        const actorLabel = getHiveHistoryActorLabel(event);
-                        return (
-                          <li key={event.id} className="py-4 first:pt-0 last:pb-0">
-                            <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
-                              <div className="space-y-2">
-                                <div className="flex flex-wrap items-center gap-2">
-                                  <Badge variant="secondary">
-                                    {getHiveHistoryEventLabel(event.type)}
-                                  </Badge>
-                                  <p className="font-semibold">{descriptor.title}</p>
-                                </div>
-                                <p className="text-sm text-muted-foreground">{descriptor.description}</p>
-                                {descriptor.link ? (
-                                  <Button variant="link" className="px-0" asChild>
-                                    <Link to={descriptor.link}>{descriptor.linkLabel ?? 'Peržiūrėti'}</Link>
-                                  </Button>
-                                ) : null}
-                              </div>
-                              <div className="text-sm text-muted-foreground text-left sm:text-right">
-                                <p className="font-medium text-foreground">{actorLabel}</p>
-                                <p>{formatHiveHistoryTimestamp(event.createdAt)}</p>
-                              </div>
-                            </div>
-                          </li>
-                        );
-                      })}
-                    </ul>
-                    <div className="flex flex-col gap-3 text-sm text-muted-foreground md:flex-row md:items-center md:justify-between">
-                      <span>
-                        Puslapis {currentHistoryPage} iš {historyTotalPages}
-                      </span>
-                      <div className="flex gap-2">
-                        <Button
-                          variant="outline"
-                          size="sm"
-                          disabled={currentHistoryPage <= 1 || historyFetching}
-                          onClick={() => setHistoryPage((prev) => Math.max(1, prev - 1))}
-                        >
-                          Ankstesnis
-                        </Button>
-                        <Button
-                          variant="outline"
-                          size="sm"
-                          disabled={currentHistoryPage >= historyTotalPages || historyFetching}
-                          onClick={() => setHistoryPage((prev) => prev + 1)}
-                        >
-                          Kitas
-                        </Button>
-                      </div>
+                <Suspense
+                  fallback={
+                    <div className="flex items-center justify-center gap-2 py-8 text-muted-foreground">
+                      <Loader2 className="h-4 w-4 animate-spin" />
+                      Kraunama istorija...
                     </div>
-                    {historyFetching && historyData ? (
-                      <p className="text-xs text-muted-foreground">Atnaujinama...</p>
-                    ) : null}
-                  </>
-                )}
+                  }
+                >
+                  {id ? (
+                    <HiveHistoryTabLazy hiveId={id} />
+                  ) : (
+                    <div className="text-center py-8 text-muted-foreground">
+                      Avilio istorija nepasiekiama.
+                    </div>
+                  )}
+                </Suspense>
               </CardContent>
             </Card>
           </TabsContent>
-
           <TabsContent value="settings">
             <Card className="shadow-custom">
               <CardHeader>

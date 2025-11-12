@@ -17,6 +17,7 @@ import { TemplateStep } from '../templates/template-step.entity';
 import { NotificationsModule } from '../notifications/notifications.module';
 import { AssignmentsScheduler } from './assignments.scheduler';
 import { Notification } from '../notifications/notification.entity';
+import { HiveEventsModule } from '../hives/hive-events.module';
 
 @Module({
   imports: [
@@ -34,6 +35,7 @@ import { Notification } from '../notifications/notification.entity';
     ]),
     ActivityLogModule,
     NotificationsModule,
+    HiveEventsModule,
     forwardRef(() => HivesModule),
   ],
   providers: [AssignmentsService, AssignmentsScheduler],

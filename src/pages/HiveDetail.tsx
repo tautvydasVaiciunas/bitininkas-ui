@@ -9,7 +9,7 @@ import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Progress } from '@/components/ui/progress';
-import api, { HttpError, type AdminUserResponse } from '@/lib/api';
+import api, { HttpError, type AdminUserResponse, type HiveHistoryEventResponse } from '@/lib/api';
 import {
   mapAssignmentDetailsFromApi,
   mapAssignmentFromApi,
@@ -34,6 +34,13 @@ type EditFormState = {
   location: string;
   tagId: string | null;
   members: string[];
+};
+
+type HiveHistoryResponse = {
+  data: HiveHistoryEventResponse[];
+  page: number;
+  limit: number;
+  total: number;
 };
 
 export default function HiveDetail() {
@@ -92,14 +99,23 @@ export default function HiveDetail() {
   });
 
   const hive = data?.hive;
+  const historyItems = historyData?.data ?? [];
+  const historyTotalPages = historyData ? Math.max(1, Math.ceil(historyData.total / historyData.limit)) : 1;
+  const currentHistoryPage = historyData?.page ?? historyPage;
 
   const [activeTab, setActiveTab] = useState<'tasks' | 'history' | 'settings'>('tasks');
+  const historyPageSize = 10;
+  const [historyPage, setHistoryPage] = useState(1);
   const [editForm, setEditForm] = useState<EditFormState>({
     label: '',
     location: '',
     tagId: null,
     members: [] as string[],
   });
+
+  useEffect(() => {
+    setHistoryPage(1);
+  }, [id]);
 
   const canManageMembers = user?.role === 'admin' || user?.role === 'manager';
 
@@ -131,6 +147,23 @@ export default function HiveDetail() {
         description,
         variant: 'destructive',
       });
+    },
+  });
+
+  const {
+    data: historyData,
+    isLoading: historyLoading,
+    isError: historyError,
+    isFetching: historyFetching,
+  } = useQuery<HiveHistoryResponse>({
+    queryKey: ['hive-history', id, historyPage],
+    enabled: !!id && activeTab === 'history',
+    keepPreviousData: true,
+    queryFn: async () => {
+      if (!id) {
+        throw new Error('Missing hive id');
+      }
+      return api.hives.history(id, { page: historyPage, limit: historyPageSize });
     },
   });
 
@@ -434,10 +467,76 @@ const formatMonthYear = (value?: string | null) => {
               <CardHeader>
                 <CardTitle>Istorija</CardTitle>
               </CardHeader>
-              <CardContent>
-                <div className="text-center py-8 text-muted-foreground">
-                  Veiksmų istorija bus rodoma čia
-                </div>
+              <CardContent className="space-y-6">
+                {historyLoading && !historyData ? (
+                  <div className="flex items-center justify-center gap-2 py-8 text-muted-foreground">
+                    <Loader2 className="h-4 w-4 animate-spin" />
+                    Kraunama istorija...
+                  </div>
+                ) : historyError ? (
+                  <div className="text-center py-8 text-destructive">
+                    Nepavyko įkelti istorijos. Pabandykite dar kartą.
+                  </div>
+                ) : historyItems.length === 0 ? (
+                  <div className="text-center py-8 text-muted-foreground">Istorija dar tuščia.</div>
+                ) : (
+                  <>
+                    <ul className="divide-y divide-border">
+                      {historyItems.map((event) => {
+                        const descriptor = describeHistoryEvent(event);
+                        const actorLabel = getHistoryActorLabel(event);
+                        return (
+                          <li key={event.id} className="py-4 first:pt-0 last:pb-0">
+                            <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
+                              <div className="space-y-2">
+                                <div className="flex flex-wrap items-center gap-2">
+                                  <Badge variant="secondary">{getHistoryEventLabel(event.type)}</Badge>
+                                  <p className="font-semibold">{descriptor.title}</p>
+                                </div>
+                                <p className="text-sm text-muted-foreground">{descriptor.description}</p>
+                                {descriptor.link ? (
+                                  <Button variant="link" className="px-0" asChild>
+                                    <Link to={descriptor.link}>{descriptor.linkLabel ?? 'Peržiūrėti'}</Link>
+                                  </Button>
+                                ) : null}
+                              </div>
+                              <div className="text-sm text-muted-foreground text-left sm:text-right">
+                                <p className="font-medium text-foreground">{actorLabel}</p>
+                                <p>{formatHistoryTimestamp(event.createdAt)}</p>
+                              </div>
+                            </div>
+                          </li>
+                        );
+                      })}
+                    </ul>
+                    <div className="flex flex-col gap-3 text-sm text-muted-foreground md:flex-row md:items-center md:justify-between">
+                      <span>
+                        Puslapis {currentHistoryPage} iš {historyTotalPages}
+                      </span>
+                      <div className="flex gap-2">
+                        <Button
+                          variant="outline"
+                          size="sm"
+                          disabled={currentHistoryPage <= 1 || historyFetching}
+                          onClick={() => setHistoryPage((prev) => Math.max(1, prev - 1))}
+                        >
+                          Ankstesnis
+                        </Button>
+                        <Button
+                          variant="outline"
+                          size="sm"
+                          disabled={currentHistoryPage >= historyTotalPages || historyFetching}
+                          onClick={() => setHistoryPage((prev) => prev + 1)}
+                        >
+                          Kitas
+                        </Button>
+                      </div>
+                    </div>
+                    {historyFetching && historyData ? (
+                      <p className="text-xs text-muted-foreground">Atnaujinama...</p>
+                    ) : null}
+                  </>
+                )}
               </CardContent>
             </Card>
           </TabsContent>
@@ -522,3 +621,176 @@ const formatMonthYear = (value?: string | null) => {
     </MainLayout>
   );
 }
+
+type HistoryEventDescriptor = {
+  title: string;
+  description: string;
+  link?: string;
+  linkLabel?: string;
+};
+
+const HISTORY_FIELD_LABELS: Record<string, string> = {
+  label: 'Pavadinimas',
+  location: 'Lokacija',
+  tag: 'Žyma',
+};
+
+const HISTORY_EVENT_LABELS: Record<HiveHistoryEventResponse['type'], string> = {
+  HIVE_UPDATED: 'Avilio pakeitimai',
+  TASK_ASSIGNED: 'Priskirta užduotis',
+  TASK_DATES_CHANGED: 'Atnaujinti terminai',
+  TASK_COMPLETED: 'Užduotis užbaigta',
+};
+
+const historyDateFormatter = new Intl.DateTimeFormat('lt-LT', { dateStyle: 'medium' });
+const historyDateTimeFormatter = new Intl.DateTimeFormat('lt-LT', {
+  dateStyle: 'medium',
+  timeStyle: 'short',
+});
+
+const parseDateValue = (value: unknown) => {
+  if (typeof value !== 'string' || !value) {
+    return null;
+  }
+
+  const timestamp = Date.parse(value);
+  if (Number.isNaN(timestamp)) {
+    return null;
+  }
+
+  return new Date(timestamp);
+};
+
+const formatHistoryTimestamp = (value: string) => {
+  const parsed = parseDateValue(value);
+  if (!parsed) {
+    return value;
+  }
+
+  return historyDateTimeFormatter.format(parsed);
+};
+
+const formatHistoryDateValue = (value: unknown) => {
+  const parsed = parseDateValue(value);
+  if (!parsed) {
+    return 'nenurodyta';
+  }
+
+  return historyDateFormatter.format(parsed);
+};
+
+const toPrintableValue = (value: unknown) => {
+  if (value === null || value === undefined) {
+    return '—';
+  }
+
+  const stringValue = String(value).trim();
+  return stringValue.length ? stringValue : '—';
+};
+
+const getHistoryEventLabel = (type: HiveHistoryEventResponse['type']) =>
+  HISTORY_EVENT_LABELS[type] ?? 'Įvykis';
+
+const getHistoryActorLabel = (event: HiveHistoryEventResponse) => {
+  const name = typeof event.user?.name === 'string' ? event.user.name.trim() : '';
+  if (name) {
+    return name;
+  }
+
+  const email = typeof event.user?.email === 'string' ? event.user.email.trim() : '';
+  if (email) {
+    return email;
+  }
+
+  return 'Sistema';
+};
+
+const buildAssignmentLink = (assignmentId?: unknown) => {
+  if (typeof assignmentId !== 'string' || !assignmentId) {
+    return undefined;
+  }
+
+  return `/tasks/${assignmentId}/run`;
+};
+
+const describeHistoryEvent = (event: HiveHistoryEventResponse): HistoryEventDescriptor => {
+  const payload = (event.payload ?? {}) as Record<string, unknown>;
+
+  switch (event.type) {
+    case 'HIVE_UPDATED': {
+      const changedFields = (payload.changedFields ?? {}) as Record<
+        string,
+        { before?: unknown; after?: unknown }
+      >;
+
+      const changeLines = Object.entries(changedFields).map(([fieldKey, values]) => {
+        const label = HISTORY_FIELD_LABELS[fieldKey] ?? fieldKey;
+        const before = toPrintableValue(values?.before ?? null);
+        const after = toPrintableValue(values?.after ?? null);
+        return `${label}: „${before}“ → „${after}“`;
+      });
+
+      return {
+        title: 'Atnaujinta avilio informacija',
+        description: changeLines.length
+          ? changeLines.join(' · ')
+          : 'Įrašyta nauja informacija apie avilį.',
+      };
+    }
+    case 'TASK_ASSIGNED': {
+      const taskTitle = typeof payload.taskTitle === 'string' ? payload.taskTitle : 'Užduotis';
+      const startLabel = formatHistoryDateValue(payload.startDate);
+      const dueLabel = formatHistoryDateValue(payload.dueDate);
+      const link = buildAssignmentLink(payload.assignmentId);
+      return {
+        title: `Priskirta užduotis „${taskTitle}“`,
+        description: `Pradžia: ${startLabel} · Pabaiga: ${dueLabel}`,
+        link,
+        linkLabel: link ? 'Peržiūrėti užduotį' : undefined,
+      };
+    }
+    case 'TASK_DATES_CHANGED': {
+      const taskTitle = typeof payload.taskTitle === 'string' ? payload.taskTitle : 'Užduotis';
+      const link = buildAssignmentLink(payload.assignmentId);
+      const dateChanges: string[] = [];
+
+      if ('previousStartDate' in payload || 'nextStartDate' in payload) {
+        dateChanges.push(
+          `Pradžia: ${formatHistoryDateValue(payload.previousStartDate)} → ${formatHistoryDateValue(
+            payload.nextStartDate,
+          )}`,
+        );
+      }
+
+      if ('previousDueDate' in payload || 'nextDueDate' in payload) {
+        dateChanges.push(
+          `Pabaiga: ${formatHistoryDateValue(payload.previousDueDate)} → ${formatHistoryDateValue(
+            payload.nextDueDate,
+          )}`,
+        );
+      }
+
+      return {
+        title: `Atnaujinti terminai „${taskTitle}“`,
+        description: dateChanges.length ? dateChanges.join(' · ') : 'Atnaujintas grafikas.',
+        link,
+        linkLabel: link ? 'Peržiūrėti užduotį' : undefined,
+      };
+    }
+    case 'TASK_COMPLETED': {
+      const taskTitle = typeof payload.taskTitle === 'string' ? payload.taskTitle : 'Užduotis';
+      const link = buildAssignmentLink(payload.assignmentId);
+      return {
+        title: `Užbaigta užduotis „${taskTitle}“`,
+        description: 'Visi šios užduoties veiksmai atlikti 100 %.',
+        link,
+        linkLabel: link ? 'Peržiūrėti užduotį' : undefined,
+      };
+    }
+    default:
+      return {
+        title: 'Įrašas istorijoje',
+        description: 'Užfiksuotas avilio įvykis.',
+      };
+  }
+};

@@ -94,6 +94,27 @@ export interface HiveTagResponse {
   updatedAt?: string;
 }
 
+export type HiveEventType =
+  | 'HIVE_UPDATED'
+  | 'TASK_ASSIGNED'
+  | 'TASK_DATES_CHANGED'
+  | 'TASK_COMPLETED';
+
+export interface HiveHistoryEventUser {
+  id: string;
+  name?: string | null;
+  email?: string | null;
+}
+
+export interface HiveHistoryEventResponse {
+  id: string;
+  hiveId: string;
+  type: HiveEventType;
+  payload: Record<string, unknown>;
+  user?: HiveHistoryEventUser | null;
+  createdAt: string;
+}
+
 export interface CreateHiveTagPayload {
   name: string;
   color?: string;
@@ -799,6 +820,10 @@ export const api = {
       patch<HiveResponse>(`/hives/${id}`, { json: payload }),
     remove: (id: string) => del<void>(`/hives/${id}`),
     summary: (id: string) => get<HiveSummary>(`/hives/${id}/summary`),
+    history: (id: string, params?: { page?: number; limit?: number }) =>
+      get<PaginatedResponse<HiveHistoryEventResponse>>(`/hives/${id}/history`, {
+        query: params,
+      }),
   },
   tasks: {
     list: (params?: { category?: string; frequency?: TaskFrequency; seasonMonth?: number }) =>

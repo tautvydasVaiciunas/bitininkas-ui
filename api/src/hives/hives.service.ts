@@ -8,6 +8,7 @@ import { User, UserRole } from '../users/user.entity';
 import { ActivityLogService } from '../activity-log/activity-log.service';
 import { runWithDatabaseErrorHandling } from '../common/errors/database-error.util';
 import { HiveTag } from './tags/hive-tag.entity';
+import { HiveEventsService } from './hive-events.service';
 
 @Injectable()
 export class HivesService {
@@ -21,6 +22,7 @@ export class HivesService {
     @InjectRepository(HiveTag)
     private readonly hiveTagRepository: Repository<HiveTag>,
     private readonly activityLog: ActivityLogService,
+    private readonly hiveEvents: HiveEventsService,
   ) {}
 
   private normalizeNullableString(value?: string | null) {
@@ -206,6 +208,11 @@ export class HivesService {
 
   async update(id: string, dto: UpdateHiveDto, userId: string, role: UserRole): Promise<Hive> {
     const hive = await this.findOne(id, userId, role);
+    const originalSnapshot = {
+      label: hive.label,
+      location: hive.location ?? null,
+      tagName: hive.tag?.name ?? null,
+    };
 
     if (dto.ownerUserId && role !== UserRole.USER) {
       hive.ownerUserId = dto.ownerUserId;
@@ -244,6 +251,11 @@ export class HivesService {
       throw new NotFoundException('Avilys nerastas');
     }
 
+    const changedFields = this.buildChangedFields(originalSnapshot, updatedHive);
+    if (Object.keys(changedFields).length) {
+      await this.hiveEvents.logHiveUpdated(updatedHive.id, changedFields, userId);
+    }
+
     return updatedHive;
   }
 
@@ -255,5 +267,27 @@ export class HivesService {
     await this.hiveRepository.softDelete(id);
     await this.activityLog.log('hive_deleted', userId, 'hive', id);
     return { success: true };
+  }
+
+  private buildChangedFields(
+    original: { label: string; location: string | null; tagName: string | null },
+    updated: Hive,
+  ) {
+    const changed: Record<string, { before: string | null; after: string | null }> = {};
+    const updatedTagName = updated.tag?.name ?? null;
+
+    if (original.label !== updated.label) {
+      changed.label = { before: original.label, after: updated.label };
+    }
+
+    if ((original.location ?? null) !== (updated.location ?? null)) {
+      changed.location = { before: original.location, after: updated.location ?? null };
+    }
+
+    if ((original.tagName ?? null) !== updatedTagName) {
+      changed.tag = { before: original.tagName, after: updatedTagName };
+    }
+
+    return changed;
   }
 }

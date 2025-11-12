@@ -9,11 +9,13 @@ import { User } from '../users/user.entity';
 import { HiveTag } from './tags/hive-tag.entity';
 import { HiveTagsService } from './tags/hive-tags.service';
 import { HiveTagsController } from './tags/hive-tags.controller';
+import { HiveEventsModule } from './hive-events.module';
 
 @Module({
   imports: [
     TypeOrmModule.forFeature([Hive, User, HiveTag]),
     ActivityLogModule,
+    HiveEventsModule,
     forwardRef(() => AssignmentsModule),
   ],
   providers: [HivesService, HiveTagsService],

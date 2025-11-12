@@ -37,6 +37,8 @@ import {
   PaginationService,
   PaginatedResult,
 } from "../common/pagination/pagination.service";
+import { HiveEventsService } from "../hives/hive-events.service";
+import { HiveEventType } from "../hives/hive-event.entity";
 @Injectable()
 export class AssignmentsService {
   private readonly logger = new Logger(AssignmentsService.name);
@@ -61,6 +63,7 @@ export class AssignmentsService {
     private readonly notifications: NotificationsService,
     private readonly configService: ConfigService,
     private readonly pagination: PaginationService,
+    private readonly hiveEvents: HiveEventsService,
   ) {
     this.appBaseUrl = this.normalizeBaseUrl(
       this.configService.get<string>("APP_URL") ??
@@ -468,6 +471,15 @@ export class AssignmentsService {
       "assignment",
       saved.id,
     );
+    await this.hiveEvents.logTaskAssigned(
+      saved.hiveId,
+      saved.id,
+      saved.taskId,
+      task.title,
+      saved.startDate ?? null,
+      saved.dueDate ?? null,
+      user.id,
+    );
     return saved;
   }
   async createBulkFromTemplate(dto: BulkFromTemplateDto, user) {
@@ -621,6 +633,20 @@ export class AssignmentsService {
         const summaryDueDate = dto.dueDate ?? assignments[0]?.dueDate ?? null;
         await this.sendBulkCreationSummary(assignments, trimmedTitle, summaryDueDate);
       }
+
+      await Promise.all(
+        assignments.map((assignment) =>
+          this.hiveEvents.logTaskAssigned(
+            assignment.hiveId,
+            assignment.id,
+            assignment.taskId,
+            trimmedTitle,
+            assignment.startDate ?? null,
+            assignment.dueDate ?? null,
+            user.id,
+          ),
+        ),
+      );
     }
 
     return {
@@ -747,6 +773,7 @@ export class AssignmentsService {
   }
   async update(id: string, dto: UpdateAssignmentDto, user) {
     const assignment = await this.findOne(id, user);
+    const previousStatus = assignment.status;
     if (dto.status && !Object.values(AssignmentStatus).includes(dto.status)) {
       throw new ForbiddenException("Invalid status");
     }
@@ -778,13 +805,43 @@ export class AssignmentsService {
     const dueChanged =
       dto.dueDate !== undefined && (previousDueDate ?? null) !== (assignment.dueDate ?? null);
 
+    let cachedTaskTitle: string | undefined;
+    const getTaskTitle = async (): Promise<string> => {
+      if (cachedTaskTitle !== undefined) {
+        return cachedTaskTitle;
+      }
+      const task = await this.taskRepository.findOne({
+        where: { id: assignment.taskId },
+        select: { title: true },
+      });
+      cachedTaskTitle = task?.title ?? 'Užduotis';
+      return cachedTaskTitle;
+    };
+
     if (startChanged || dueChanged) {
-      const task = await this.taskRepository.findOne({ where: { id: assignment.taskId } });
-      await this.notifyAssignmentUpdated(
-        saved,
-        task?.title ?? 'Užduotis',
-        { startChanged, dueChanged },
-        true,
+      const taskTitle = await getTaskTitle();
+      await this.notifyAssignmentUpdated(saved, taskTitle, { startChanged, dueChanged }, true);
+      await this.hiveEvents.logTaskDatesChanged(
+        saved.hiveId,
+        saved.id,
+        saved.taskId,
+        taskTitle,
+        previousStartDate ?? null,
+        saved.startDate ?? null,
+        previousDueDate ?? null,
+        saved.dueDate ?? null,
+        user.id,
+      );
+    }
+
+    if (previousStatus !== AssignmentStatus.DONE && saved.status === AssignmentStatus.DONE) {
+      const taskTitle = await getTaskTitle();
+      await this.hiveEvents.logTaskCompleted(
+        saved.hiveId,
+        saved.id,
+        saved.taskId,
+        taskTitle,
+        user.id,
       );
     }
 

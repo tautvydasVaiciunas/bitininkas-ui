@@ -6,12 +6,14 @@ import {
   AssignmentProgressStatus,
 } from './assignment-progress.entity';
 import { CompleteStepDto } from './dto/complete-step.dto';
-import { Assignment } from '../assignments/assignment.entity';
+import { Assignment, AssignmentStatus } from '../assignments/assignment.entity';
+import { Task } from '../tasks/task.entity';
 import { TaskStep } from '../tasks/steps/task-step.entity';
 import { UserRole } from '../users/user.entity';
 import { ActivityLogService } from '../activity-log/activity-log.service';
 import { Hive } from '../hives/hive.entity';
 import { UpdateProgressDto } from './dto/update-progress.dto';
+import { HiveEventsService } from '../hives/hive-events.service';
 
 @Injectable()
 export class ProgressService {
@@ -20,11 +22,14 @@ export class ProgressService {
     private readonly progressRepository: Repository<AssignmentProgress>,
     @InjectRepository(Assignment)
     private readonly assignmentsRepository: Repository<Assignment>,
+    @InjectRepository(Task)
+    private readonly taskRepository: Repository<Task>,
     @InjectRepository(TaskStep)
     private readonly stepRepository: Repository<TaskStep>,
     @InjectRepository(Hive)
     private readonly hiveRepository: Repository<Hive>,
     private readonly activityLog: ActivityLogService,
+    private readonly hiveEvents: HiveEventsService,
   ) {}
 
   private normalizeNullableString(value?: string | null) {
@@ -97,6 +102,61 @@ export class ProgressService {
     return requestedUserId;
   }
 
+  private async calculateAssignmentCompletionPercentage(
+    assignment: Assignment,
+    participantIds?: string[],
+  ) {
+    const steps = await this.stepRepository.find({ where: { taskId: assignment.taskId } });
+
+    if (!steps.length) {
+      return 0;
+    }
+
+    const participants = participantIds ?? (await this.getAssignmentParticipantIds(assignment));
+
+    if (!participants.length) {
+      return 0;
+    }
+
+    const allProgress = await this.progressRepository.find({ where: { assignmentId: assignment.id } });
+
+    const completionFractions = participants.map((participantId) => {
+      const completed = allProgress.filter(
+        (entry) =>
+          entry.userId === participantId &&
+          entry.status === AssignmentProgressStatus.COMPLETED,
+      ).length;
+
+      return completed / steps.length;
+    });
+
+    const average =
+      completionFractions.reduce((sum, value) => sum + value, 0) /
+      Math.max(completionFractions.length, 1);
+
+    return Math.round(average * 100);
+  }
+
+  private async logAssignmentCompletedEvent(assignment: Assignment, userId: string) {
+    const taskTitle = await this.getTaskTitle(assignment.taskId);
+    await this.hiveEvents.logTaskCompleted(
+      assignment.hiveId,
+      assignment.id,
+      assignment.taskId,
+      taskTitle,
+      userId,
+    );
+  }
+
+  private async getTaskTitle(taskId: string) {
+    const task = await this.taskRepository.findOne({
+      where: { id: taskId },
+      select: { title: true },
+    });
+
+    return task?.title ?? 'Užduotis';
+  }
+
   async completeStep(dto: CompleteStepDto, user) {
     const assignment = await this.ensureAssignmentAccess(dto.assignmentId, user);
     const step = await this.stepRepository.findOne({ where: { id: dto.taskStepId } });
@@ -156,6 +216,11 @@ export class ProgressService {
       };
     }
 
+    const completionBefore = await this.calculateAssignmentCompletionPercentage(
+      assignment,
+      participantIds,
+    );
+
     progress.status = AssignmentProgressStatus.COMPLETED;
     progress.completedAt = new Date();
     progress.notes = this.normalizeNullableString(dto.notes);
@@ -163,6 +228,20 @@ export class ProgressService {
 
     const saved = await this.progressRepository.save(progress);
     await this.activityLog.log('step_completed', user.id, 'assignment', assignment.id);
+
+    const completionAfter = await this.calculateAssignmentCompletionPercentage(
+      assignment,
+      participantIds,
+    );
+
+    if (
+      assignment.status !== AssignmentStatus.DONE &&
+      completionBefore < 100 &&
+      completionAfter === 100
+    ) {
+      await this.logAssignmentCompletedEvent(assignment, user.id);
+    }
+
     return { status: saved.status, taskStepId: saved.taskStepId, progress: saved };
   }
 

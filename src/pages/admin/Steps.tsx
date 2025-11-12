@@ -755,13 +755,13 @@ export default function AdminSteps() {
                   </Label>
                 </div>
                 <div className="space-y-2">
-                  <Label htmlFor="edit-step-order">EilÄs numeris</Label>
+                  <Label htmlFor="edit-step-order">Eilės numeris</Label>
                   <Input
                     id="edit-step-order"
                     value={editForm.orderIndex}
                     onChange={(event) => setEditForm((prev) => ({ ...prev, orderIndex: event.target.value }))}
                     disabled={editFormDisabled}
-                    placeholder="Palikite tušÄ¨ią, jei nekeiÄ¨iate"
+                    placeholder="Palikite tuščią, jei nekeičiate"
                   />
                 </div>
               </div>
@@ -902,7 +902,7 @@ function TagMultiSelect({ options, value, onChange, placeholder, disabled, onCre
       <PopoverContent className="w-64 p-2" align="start">
         <div className="max-h-56 space-y-2 overflow-y-auto">
           {options.length === 0 ? (
-            <p className="px-2 text-sm text-muted-foreground">Žymų nÄra</p>
+            <p className="px-2 text-sm text-muted-foreground">Žymų nėra</p>
           ) : (
             options.map((option) => {
               const checked = value.includes(option.id);
@@ -995,7 +995,7 @@ function StepCard({ step, onEdit, onDelete, disableActions }: StepCardProps) {
         {step.contentText ? (
           <p className="whitespace-pre-line text-foreground">{step.contentText}</p>
         ) : (
-          <p className="text-muted-foreground">Aprašymo nÄra</p>
+          <p className="text-muted-foreground">Aprašymo nėra</p>
         )}
         {resolvedMediaUrl ? (
           <ResponsiveMedia

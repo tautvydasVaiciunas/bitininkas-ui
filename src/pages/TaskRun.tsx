@@ -29,9 +29,9 @@ import { Calendar, CheckCircle2, ChevronLeft, ChevronRight, Loader2, RotateCcw }
 import { toast } from 'sonner';
 
 const formatDate = (value?: string | null) => {
-  if (!value) return 'a��';
+  if (!value) return '—';
   const date = new Date(value);
-  if (Number.isNaN(date.getTime())) return 'a��';
+  if (Number.isNaN(date.getTime())) return '—';
   return date.toLocaleDateString('lt-LT', { year: 'numeric', month: 'long', day: 'numeric' });
 };
 
@@ -172,7 +172,7 @@ export default function TaskRun() {
       if (variables) {
         delete saveTimeouts.current[variables.taskStepId];
       }
-      toast.error('Nepavyko i�?saugoti pastabų', {
+      toast.error('Nepavyko išsaugoti pastabų', {
         description: getErrorMessage(mutationError),
       });
     },
@@ -263,7 +263,7 @@ export default function TaskRun() {
         updateAssignmentStatusMutation.mutate('in_progress');
       }
 
-      toast.success('Žingsnis grąžintas �� ne��vykdytą');
+      toast.success('Žingsnis grąžintas į neįvykdytą');
     },
     onError: (stepError: HttpError | Error) => {
       toast.error('Nepavyko atnaujinti žingsnio būsenos', {
@@ -289,7 +289,7 @@ export default function TaskRun() {
       <MainLayout>
         <div className="space-y-6">
           <Button variant="ghost" onClick={() => navigate(-1)} className="pl-0">
-            <ChevronLeft className="mr-2 h-4 w-4" /> Gr��žti
+            <ChevronLeft className="mr-2 h-4 w-4" /> Grįžti
           </Button>
           <Card className="shadow-custom">
             <CardContent className="space-y-6 p-6">
@@ -310,7 +310,7 @@ export default function TaskRun() {
           <CardContent className="p-12 text-center">
             <h3 className="text-lg font-semibold mb-2">Užduotis nerasta</h3>
             <p className="text-muted-foreground mb-6">{getErrorMessage(error)}</p>
-            <Button onClick={() => navigate('/tasks')}>Gr��žti �� užduotis</Button>
+            <Button onClick={() => navigate('/tasks')}>Grįžti į užduotis</Button>
           </CardContent>
         </Card>
       </MainLayout>
@@ -357,7 +357,7 @@ export default function TaskRun() {
             <h1 className="text-3xl font-bold">{data.task.title}</h1>
             <p className="text-muted-foreground mt-1 flex items-center gap-3 text-sm md:text-base">
               <span>Avilys: {hive?.label ?? assignment.hiveId}</span>
-              <span className="hidden md:inline">a��</span>
+              <span className="hidden md:inline">—</span>
               <span>Terminas: {formatDate(assignment.dueDate)}</span>
             </p>
           </div>
@@ -423,7 +423,7 @@ export default function TaskRun() {
                 <div className="flex items-start justify-between">
                   <div className="flex-1">
                     <p className="mb-1 text-sm text-muted-foreground">
-                      Žingsnis {currentStepIndex + 1} i�? {steps.length}
+                      Žingsnis {currentStepIndex + 1} iš {steps.length}
                     </p>
                     <CardTitle className="text-2xl">{currentStep?.title ?? 'Žingsnis nerastas'}</CardTitle>
                   </div>
@@ -459,12 +459,12 @@ export default function TaskRun() {
 
                 {currentStep?.requireUserMedia ? (
                   <Badge variant="outline" className="border-amber-500/40 bg-amber-50 text-amber-700">
-                    Šiam žingsniui reikalinga jūsų nuotrauka arba vaizdo ��ra�?as
+                    Šiam žingsniui reikalinga jūsų nuotrauka arba vaizdo įrašas
                   </Badge>
                 ) : null}
 
                 <div className="space-y-2">
-                  <Label htmlFor="notes">Pastabos (i�?saugoma automati�?kai)</Label>
+                  <Label htmlFor="notes">Pastabos (išsaugoma automatiškai)</Label>
                   <Textarea
                     id="notes"
                     placeholder="Įveskite savo pastabas..."
@@ -483,7 +483,7 @@ export default function TaskRun() {
 
                 <div className="flex items-center gap-4 text-sm text-muted-foreground">
                   <Calendar className="h-4 w-4" />
-                  <span>Žingsnis sukurtas: {currentStep ? formatDate(currentStep.createdAt) : 'a��'}</span>
+                  <span>Žingsnis sukurtas: {currentStep ? formatDate(currentStep.createdAt) : '—'}</span>
                 </div>
               </CardContent>
             </Card>

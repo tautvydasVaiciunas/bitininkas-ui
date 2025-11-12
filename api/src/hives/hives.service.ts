@@ -89,22 +89,25 @@ export class HivesService {
     return uniqueIds;
   }
 
-  private async syncMembers(manager: EntityManager, hiveId: string, memberIds: string[]) {
-    const relation = manager.getRepository(Hive).createQueryBuilder().relation(Hive, 'members');
-    const existingMembers = await relation.of(hiveId).loadMany<User>();
-    const existingIds = new Set(existingMembers.map((member) => member.id));
-    const targetIds = new Set(memberIds);
+  private async replaceMembers(manager: EntityManager, hiveId: string, memberIds: string[]) {
+    await manager
+      .createQueryBuilder()
+      .delete()
+      .from('hive_members')
+      .where('hive_id = :hiveId', { hiveId })
+      .execute();
 
-    const toAdd = memberIds.filter((id) => !existingIds.has(id));
-    const toRemove = Array.from(existingIds).filter((id) => !targetIds.has(id));
-
-    if (toAdd.length) {
-      await relation.of(hiveId).add(toAdd);
+    if (!memberIds.length) {
+      return;
     }
 
-    if (toRemove.length) {
-      await relation.of(hiveId).remove(toRemove);
-    }
+    await manager
+      .createQueryBuilder()
+      .insert()
+      .into('hive_members')
+      .values(memberIds.map((userId) => ({ hive_id: hiveId, user_id: userId })))
+      .orIgnore()
+      .execute();
   }
 
   private async getHiveWithRelations(id: string): Promise<Hive | null> {
@@ -188,7 +191,7 @@ export class HivesService {
           });
 
           const savedHive = await hiveRepo.save(hive);
-          await this.syncMembers(manager, savedHive.id, memberIds);
+          await this.replaceMembers(manager, savedHive.id, memberIds);
           return savedHive;
         }),
       { message: 'Neteisingi duomenys' },
@@ -278,7 +281,7 @@ export class HivesService {
           const saved = await hiveRepo.save(hive);
 
           if (memberIds !== null) {
-            await this.syncMembers(manager, saved.id, memberIds);
+            await this.replaceMembers(manager, saved.id, memberIds);
           }
 
           const updated = await hiveRepo.findOne({

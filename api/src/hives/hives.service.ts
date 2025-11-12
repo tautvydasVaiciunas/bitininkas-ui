@@ -1,6 +1,6 @@
 import { BadRequestException, ForbiddenException, Injectable, Logger, NotFoundException } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
-import { In, Repository } from 'typeorm';
+import { EntityManager, In, Repository } from 'typeorm';
 import { Hive, HiveStatus } from './hive.entity';
 import { CreateHiveDto } from './dto/create-hive.dto';
 import { UpdateHiveDto } from './dto/update-hive.dto';
@@ -50,15 +50,6 @@ export class HivesService {
     return tag.id;
   }
 
-  private async loadMembers(memberIds?: string[]) {
-    if (!memberIds?.length) {
-      return [];
-    }
-
-    const uniqueIds = Array.from(new Set(memberIds));
-    return this.userRepository.findBy({ id: In(uniqueIds) });
-  }
-
   private async ensureAccess(hive: Hive, userId: string, role: UserRole) {
     if (role === UserRole.USER) {
       const isOwner = hive.ownerUserId === userId;
@@ -78,6 +69,42 @@ export class HivesService {
     return Array.from(
       new Set(values.filter((value) => typeof value === 'string' && value.trim().length > 0)),
     );
+  }
+
+  private async validateMemberIds(memberIds: string[]) {
+    if (!memberIds.length) {
+      return [];
+    }
+
+    const uniqueIds = Array.from(new Set(memberIds));
+    const foundCount = await this.userRepository.count({ where: { id: In(uniqueIds) } });
+
+    if (foundCount !== uniqueIds.length) {
+      throw new BadRequestException({
+        message: 'Neteisingi duomenys',
+        details: 'Kai kurie priskirti naudotojai nerasti',
+      });
+    }
+
+    return uniqueIds;
+  }
+
+  private async syncMembers(manager: EntityManager, hiveId: string, memberIds: string[]) {
+    const relation = manager.getRepository(Hive).createQueryBuilder().relation(Hive, 'members');
+    const existingMembers = await relation.of(hiveId).loadMany<User>();
+    const existingIds = new Set(existingMembers.map((member) => member.id));
+    const targetIds = new Set(memberIds);
+
+    const toAdd = memberIds.filter((id) => !existingIds.has(id));
+    const toRemove = Array.from(existingIds).filter((id) => !targetIds.has(id));
+
+    if (toAdd.length) {
+      await relation.of(hiveId).add(toAdd);
+    }
+
+    if (toRemove.length) {
+      await relation.of(hiveId).remove(toRemove);
+    }
   }
 
   private async getHiveWithRelations(id: string): Promise<Hive | null> {
@@ -132,7 +159,9 @@ export class HivesService {
         ? dto.ownerUserId ?? normalizedUserIds[0] ?? userId
         : userId;
 
-    const memberIds = normalizedUserIds.filter((id) => id !== ownerUserId);
+    const memberIds = await this.validateMemberIds(
+      normalizedUserIds.filter((id) => id !== ownerUserId),
+    );
 
     const saved = await runWithDatabaseErrorHandling(
       () =>
@@ -158,20 +187,9 @@ export class HivesService {
             tagId: normalizedTagId,
           });
 
-          if (memberIds.length) {
-            const members = await userRepo.findBy({ id: In(memberIds) });
-
-            if (members.length !== memberIds.length) {
-              throw new BadRequestException({
-                message: 'Neteisingi duomenys',
-                details: 'Kai kurie priskirti naudotojai nerasti',
-              });
-            }
-
-            hive.members = members;
-          }
-
-          return hiveRepo.save(hive);
+          const savedHive = await hiveRepo.save(hive);
+          await this.syncMembers(manager, savedHive.id, memberIds);
+          return savedHive;
         }),
       { message: 'Neteisingi duomenys' },
     );
@@ -207,56 +225,85 @@ export class HivesService {
   }
 
   async update(id: string, dto: UpdateHiveDto, userId: string, role: UserRole): Promise<Hive> {
-    const hive = await this.findOne(id, userId, role);
-    const originalSnapshot = {
-      label: hive.label,
-      location: hive.location ?? null,
-      tagName: hive.tag?.name ?? null,
-    };
+    const result = await runWithDatabaseErrorHandling(
+      () =>
+        this.hiveRepository.manager.transaction(async (manager) => {
+          const hiveRepo = manager.getRepository(Hive);
+          const hive = await hiveRepo.findOne({
+            where: { id },
+            relations: { members: true, owner: true, tag: true },
+          });
 
-    if (dto.ownerUserId && role !== UserRole.USER) {
-      hive.ownerUserId = dto.ownerUserId;
-    }
+          if (!hive) {
+            throw new NotFoundException('Avilys nerastas');
+          }
 
-    if (dto.members !== undefined || dto.userIds !== undefined) {
-      const normalized = this.normalizeUserIds(dto.userIds ?? dto.members ?? []);
-      hive.members = await this.loadMembers(normalized.filter((id) => id !== hive.ownerUserId));
-    }
+          await this.ensureAccess(hive, userId, role);
 
-    if (dto.label !== undefined) {
-      hive.label = dto.label.trim();
-    }
+          const originalSnapshot = {
+            label: hive.label,
+            location: hive.location ?? null,
+            tagName: hive.tag?.name ?? null,
+          };
 
-    if (dto.location !== undefined) {
-      hive.location = this.normalizeNullableString(dto.location);
-    }
+          if (dto.ownerUserId && role !== UserRole.USER) {
+            hive.ownerUserId = dto.ownerUserId;
+          }
 
-    if (dto.status !== undefined) {
-      hive.status = dto.status;
-    }
+          if (dto.label !== undefined) {
+            hive.label = dto.label.trim();
+          }
 
-    if (dto.tagId !== undefined) {
-      hive.tagId = dto.tagId ? await this.normalizeTagId(dto.tagId) : null;
-    }
+          if (dto.location !== undefined) {
+            hive.location = this.normalizeNullableString(dto.location);
+          }
 
-    const saved = await runWithDatabaseErrorHandling(
-      () => this.hiveRepository.save(hive),
+          if (dto.status !== undefined) {
+            hive.status = dto.status;
+          }
+
+          if (dto.tagId !== undefined) {
+            hive.tagId = dto.tagId ? await this.normalizeTagId(dto.tagId) : null;
+          }
+
+          let memberIds: string[] | null = null;
+
+          if (dto.members !== undefined || dto.userIds !== undefined) {
+            const normalized = this.normalizeUserIds(dto.userIds ?? dto.members ?? []);
+            memberIds = await this.validateMemberIds(
+              normalized.filter((memberId) => memberId !== hive.ownerUserId),
+            );
+          }
+
+          const saved = await hiveRepo.save(hive);
+
+          if (memberIds !== null) {
+            await this.syncMembers(manager, saved.id, memberIds);
+          }
+
+          const updated = await hiveRepo.findOne({
+            where: { id: saved.id },
+            relations: { members: true, owner: true, tag: true },
+          });
+
+          if (!updated) {
+            throw new NotFoundException('Avilys nerastas');
+          }
+
+          const changedFields = this.buildChangedFields(originalSnapshot, updated);
+
+          return { updated, changedFields };
+        }),
       { message: 'Neteisingi duomenys' },
     );
+
     await this.activityLog.log('hive_updated', userId, 'hive', id);
 
-    const updatedHive = await this.getHiveWithRelations(saved.id);
-
-    if (!updatedHive) {
-      throw new NotFoundException('Avilys nerastas');
+    if (Object.keys(result.changedFields).length) {
+      await this.hiveEvents.logHiveUpdated(result.updated.id, result.changedFields, userId);
     }
 
-    const changedFields = this.buildChangedFields(originalSnapshot, updatedHive);
-    if (Object.keys(changedFields).length) {
-      await this.hiveEvents.logHiveUpdated(updatedHive.id, changedFields, userId);
-    }
-
-    return updatedHive;
+    return result.updated;
   }
 
   async remove(id: string, userId: string, role: UserRole) {

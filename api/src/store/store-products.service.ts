@@ -146,6 +146,22 @@ export class StoreProductsService {
     return cents;
   }
 
+  private resolvePriceCents(input: { price?: number; priceCents?: number }): number {
+    if (typeof input.price === 'number' && Number.isFinite(input.price)) {
+      return this.priceToCents(input.price);
+    }
+
+    if (typeof input.priceCents === 'number' && Number.isFinite(input.priceCents)) {
+      const cents = Math.round(input.priceCents);
+      if (cents <= 0) {
+        throw new BadRequestException('Kaina turi būti teigiama');
+      }
+      return cents;
+    }
+
+    throw new BadRequestException('Kaina privaloma');
+  }
+
   async create(dto: CreateProductDto): Promise<StoreProductResponse> {
     const title = dto.title.trim();
     const description = dto.description.trim();
@@ -155,7 +171,7 @@ export class StoreProductsService {
       throw new BadRequestException('Pateikti duomenys neteisingi');
     }
 
-    const priceCents = this.priceToCents(dto.price);
+    const priceCents = this.resolvePriceCents(dto);
     const slug = await this.generateUniqueSlug(title);
 
     const product = this.productsRepository.create({
@@ -206,13 +222,8 @@ export class StoreProductsService {
       product.description = dto.description.trim();
     }
 
-    if (dto.price !== undefined) {
-      product.priceCents = this.priceToCents(dto.price);
-    } else if (dto.priceCents !== undefined) {
-      if (dto.priceCents <= 0) {
-        throw new BadRequestException('Kaina turi būti teigiama');
-      }
-      product.priceCents = dto.priceCents;
+    if (dto.price !== undefined || dto.priceCents !== undefined) {
+      product.priceCents = this.resolvePriceCents(dto);
     }
 
     if (dto.isActive !== undefined) {

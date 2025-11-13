@@ -1,9 +1,11 @@
-import { Transform } from 'class-transformer';
+import { Transform, Type } from 'class-transformer';
 import {
   IsBoolean,
+  IsInt,
   IsNumber,
   IsOptional,
   IsString,
+  Matches,
   MaxLength,
   Min,
   MinLength,
@@ -12,27 +14,24 @@ import {
 const trimString = ({ value }: { value: unknown }) =>
   typeof value === 'string' ? value.trim() : value;
 
-const normalizePrice = ({ value, obj }: { value: unknown; obj: Record<string, unknown> }) => {
-  const raw = value ?? obj?.priceEur ?? obj?.priceEuro ?? obj?.priceValue;
-
-  if (typeof raw === 'number') {
-    return raw;
+const toBoolean = ({ value }: { value: unknown }) => {
+  if (typeof value === 'string') {
+    return value === 'true';
   }
 
-  if (typeof raw === 'string') {
-    const normalized = raw.replace(',', '.').replace(/\s+/g, '').trim();
-    if (!normalized.length) {
-      return NaN;
-    }
-    return Number(normalized);
-  }
-
-  return NaN;
+  return value === true;
 };
 
-const toBoolean = ({ value }: { value: unknown }) => value === true || value === 'true';
-
 export class CreateProductDto {
+  @IsOptional()
+  @Transform(trimString)
+  @IsString()
+  @Matches(/^[a-z0-9-]+$/i, {
+    message: 'Slug gali turėti tik raides, skaičius ir brūkšnelius',
+  })
+  @MaxLength(140, { message: 'Slug per ilgas' })
+  slug?: string;
+
   @Transform(trimString)
   @IsString({ message: 'Pavadinimas privalomas' })
   @MinLength(1, { message: 'Pavadinimas privalomas' })
@@ -50,13 +49,20 @@ export class CreateProductDto {
   @MinLength(1, { message: 'Aprašymas privalomas' })
   description!: string;
 
-  @Transform(normalizePrice)
+  @IsOptional()
+  @Type(() => Number)
   @IsNumber(
-    { allowNaN: false, allowInfinity: false },
+    { allowNaN: false, allowInfinity: false, maxDecimalPlaces: 2 },
     { message: 'Kaina turi būti skaičius' },
   )
   @Min(0.01, { message: 'Kaina turi būti teigiama' })
-  price!: number;
+  price?: number;
+
+  @IsOptional()
+  @Type(() => Number)
+  @IsInt({ message: 'Kaina turi būti sveikas skaičius (centais)' })
+  @Min(1, { message: 'Kaina turi būti teigiama' })
+  priceCents?: number;
 
   @IsOptional()
   @Transform(toBoolean)

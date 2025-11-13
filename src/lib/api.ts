@@ -679,6 +679,19 @@ const request = async <T>(
     }
   }
 
+  if (_retry) {
+    finalHeaders.set('X-Auth-Retry', 'refresh');
+  }
+
+  if (!skipAuth && refreshPromise) {
+    const refreshReady = await refreshPromise;
+    if (!refreshReady) {
+      clearCredentials();
+      redirectToLogin();
+      throw new HttpError(401, undefined, ltMessages.errors.invalidCredentials);
+    }
+  }
+
   if (!skipAuth && accessToken && !finalHeaders.has('Authorization')) {
     finalHeaders.set('Authorization', `Bearer ${accessToken}`);
   }

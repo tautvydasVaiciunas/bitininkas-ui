@@ -79,8 +79,30 @@ export const buildErrorResponseBody = (exception: HttpException): ErrorResponseB
   return body;
 };
 
-@Catch(HttpException)
 export class HttpExceptionFilter implements ExceptionFilter<HttpException> {
+  private static readonly QUIET_401_ROUTES = new Set<string>(['GET /auth/me']);
+  private static readonly RETRY_HEADER = 'x-auth-retry';
+
+  private static normalizeRouteKey(method?: string, url?: string) {
+    const normalizedMethod = (method ?? 'UNKNOWN').toUpperCase();
+    if (!url) {
+      return normalizedMethod;
+    }
+    const path = url.split('?')[0];
+    return `${normalizedMethod} ${path}`;
+  }
+
+  private static isRefreshRetry(request: Request | undefined) {
+    if (!request) {
+      return false;
+    }
+    const header = request.headers?.[HttpExceptionFilter.RETRY_HEADER];
+    if (Array.isArray(header)) {
+      return header.some((value) => typeof value === 'string' && value.toLowerCase() === 'refresh');
+    }
+    return typeof header === 'string' && header.toLowerCase() === 'refresh';
+  }
+
   private readonly logger = new Logger(HttpExceptionFilter.name);
 
   catch(exception: HttpException, host: ArgumentsHost) {
@@ -94,10 +116,36 @@ export class HttpExceptionFilter implements ExceptionFilter<HttpException> {
     const url = request?.originalUrl ?? request?.url ?? 'unknown';
     const userId = (request?.user as { id?: string } | undefined)?.id ?? null;
     const ip = request?.ip ?? request?.headers?.['x-forwarded-for'] ?? 'unknown';
+    const routeKey = HttpExceptionFilter.normalizeRouteKey(method, url);
     const logMessage = `${method} ${url} -> ${status} ${body.message}`;
     const stack = exception instanceof Error ? exception.stack : undefined;
 
-    if (status === HttpStatus.TOO_MANY_REQUESTS) {
+    const logWithLevel = (level: 'debug' | 'log' | 'warn' | 'error') => {
+      const message = `${logMessage} (ip: ${ip}, user: ${userId ?? 'n/a'})`;
+      switch (level) {
+        case 'debug':
+          this.logger.debug(message);
+          break;
+        case 'warn':
+          this.logger.warn(message);
+          break;
+        case 'error':
+          this.logger.error(message, stack);
+          break;
+        default:
+          this.logger.log(message);
+      }
+    };
+
+    if (status === HttpStatus.UNAUTHORIZED) {
+      if (HttpExceptionFilter.isRefreshRetry(request)) {
+        logWithLevel('warn');
+      } else if (HttpExceptionFilter.QUIET_401_ROUTES.has(routeKey)) {
+        logWithLevel('debug');
+      } else {
+        logWithLevel('log');
+      }
+    } else if (status === HttpStatus.TOO_MANY_REQUESTS) {
       this.logger.warn(`${logMessage} (ip: ${ip}, user: ${userId ?? 'n/a'})`);
     } else if (status >= HttpStatus.INTERNAL_SERVER_ERROR) {
       this.logger.error(`${logMessage} (ip: ${ip}, user: ${userId ?? 'n/a'})`, stack);

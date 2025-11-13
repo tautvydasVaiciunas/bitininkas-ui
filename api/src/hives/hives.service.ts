@@ -162,6 +162,13 @@ export class HivesService {
         ? dto.ownerUserId ?? normalizedUserIds[0] ?? userId
         : userId;
 
+    if (normalizedUserIds.includes(ownerUserId)) {
+      throw new BadRequestException({
+        message: 'Neteisingi duomenys',
+        details: 'Avilio savininkas jau turi prieigą ir negali būti priskirtas dar kartą.',
+      });
+    }
+
     const memberIds = await this.validateMemberIds(
       normalizedUserIds.filter((id) => id !== ownerUserId),
     );
@@ -271,12 +278,18 @@ export class HivesService {
 
           let memberIds: string[] | null = null;
 
-          if (dto.members !== undefined || dto.userIds !== undefined) {
-            const normalized = this.normalizeUserIds(dto.userIds ?? dto.members ?? []);
-            memberIds = await this.validateMemberIds(
-              normalized.filter((memberId) => memberId !== hive.ownerUserId),
-            );
-          }
+    if (dto.members !== undefined || dto.userIds !== undefined) {
+      const normalized = this.normalizeUserIds(dto.userIds ?? dto.members ?? []);
+      if (normalized.includes(hive.ownerUserId)) {
+        throw new BadRequestException({
+          message: 'Neteisingi duomenys',
+          details: 'Avilio savininkas jau turi prieigą ir negali būti priskirtas dar kartą.',
+        });
+      }
+      memberIds = await this.validateMemberIds(
+        normalized.filter((memberId) => memberId !== hive.ownerUserId),
+      );
+    }
 
           const saved = await hiveRepo.save(hive);
 

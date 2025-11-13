@@ -1,4 +1,5 @@
 import { NavLink } from "react-router-dom";
+import type { LucideIcon } from "lucide-react";
 import {
   BarChart3,
   Bell,
@@ -16,34 +17,47 @@ import {
 import { useAuth } from "@/contexts/AuthContext";
 import { cn } from "@/lib/utils";
 
+type NavItem = {
+  to: string;
+  label: string;
+  icon: LucideIcon;
+};
+
+const profileNav: NavItem = { to: "/profile", label: "Profilis", icon: User };
+const publicStoreNav: NavItem = { to: "/parduotuve", label: "Parduotuvė", icon: Package };
+
+const userNavItems: NavItem[] = [
+  { to: "/news", label: "Naujienos", icon: Newspaper },
+  { to: "/hives", label: "Aviliai", icon: Box },
+  { to: "/tasks", label: "Užduotys", icon: ListTodo },
+  { to: "/notifications", label: "Pranešimai", icon: Bell },
+  profileNav,
+  publicStoreNav,
+];
+
+const adminNavItems: NavItem[] = [
+  { to: "/admin/news", label: "Naujienos", icon: Newspaper },
+  { to: "/hives", label: "Aviliai", icon: Box },
+  { to: "/notifications", label: "Pranešimai", icon: Bell },
+  { to: "/admin/users", label: "Vartotojai", icon: Users },
+  { to: "/admin/groups", label: "Grupės", icon: UsersRound },
+  { to: "/admin/steps", label: "Žingsniai", icon: ListChecks },
+  { to: "/admin/tasks", label: "Užduotys", icon: ClipboardList },
+  { to: "/admin/templates", label: "Šablonai", icon: FileStack },
+  { to: "/admin/store/products", label: "Parduotuvė", icon: Package },
+  { to: "/reports", label: "Ataskaitos", icon: BarChart3 },
+];
+
 export const Sidebar = () => {
   const { user } = useAuth();
-
   const isAdmin = user?.role === "admin";
-  const isManager = isAdmin || user?.role === "manager";
+  const isManager = user?.role === "manager";
+  const isPrivileged = isAdmin || isManager;
 
-  const navItems = [
-    { to: "/news", label: "Naujienos", icon: Newspaper, show: true },
-    { to: "/hives", label: "Aviliai", icon: Box, show: true },
-    { to: "/tasks", label: "Užduotys", icon: ListTodo, show: true },
-    { to: "/notifications", label: "Pranešimai", icon: Bell, show: true },
-    { to: "/profile", label: "Profilis", icon: User, show: true },
-  ];
-
-  const adminItems = [
-    { to: "/admin/users", label: "Vartotojai", icon: Users, show: isAdmin },
-    { to: "/admin/groups", label: "Grupės", icon: UsersRound, show: isManager },
-    { to: "/admin/steps", label: "Žingsniai", icon: ListChecks, show: isManager },
-    { to: "/admin/tasks", label: "Užduotys", icon: ClipboardList, show: isManager },
-    { to: "/admin/templates", label: "Šablonai", icon: FileStack, show: isManager },
-    { to: "/admin/news", label: "Naujienos", icon: Newspaper, show: isManager },
-    { to: "/admin/store/products", label: "Parduotuvė", icon: Package, show: isManager },
-    { to: "/reports", label: "Ataskaitos", icon: BarChart3, show: isManager },
-  ];
-
-  const visibleNavItems = navItems.filter((item) => item.show);
-  const visibleAdminItems = adminItems.filter((item) => item.show);
-  const mobileNavItems = [...visibleNavItems, ...visibleAdminItems];
+  const desktopNavItems = isPrivileged ? adminNavItems : userNavItems;
+  const mobileNavItems = isPrivileged
+    ? [...adminNavItems, profileNav]
+    : userNavItems;
 
   return (
     <aside className="fixed inset-x-0 bottom-0 z-40 h-16 border-t border-sidebar-border bg-sidebar shadow-lg shadow-black/5 lg:left-0 lg:top-0 lg:h-screen lg:w-64 lg:border-t-0 lg:border-r lg:shadow-none">
@@ -88,37 +102,15 @@ export const Sidebar = () => {
         </div>
 
         <div className="hidden lg:block">
-          <div className="space-y-1">
-            {visibleNavItems.map((item) => (
-              <NavLink
-                key={item.to}
-                to={item.to}
-                end={item.to === "/"}
-                className={({ isActive }) =>
-                  cn(
-                    "flex items-center gap-3 rounded-lg px-3 py-2.5 text-sm font-medium transition-colors",
-                    isActive
-                      ? "bg-sidebar-accent text-sidebar-primary"
-                      : "text-sidebar-foreground hover:bg-sidebar-accent/50",
-                  )
-                }
-              >
-                <item.icon className="h-5 w-5" />
-                {item.label}
-              </NavLink>
-            ))}
-          </div>
-
-          {isManager && visibleAdminItems.length > 0 && (
+          {isPrivileged ? (
             <>
-              <div className="my-4 border-t border-sidebar-border" />
               <div className="mb-2 px-3">
                 <p className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">
                   Administravimas
                 </p>
               </div>
               <div className="space-y-1">
-                {visibleAdminItems.map((item) => (
+                {desktopNavItems.map((item) => (
                   <NavLink
                     key={item.to}
                     to={item.to}
@@ -137,12 +129,49 @@ export const Sidebar = () => {
                 ))}
               </div>
             </>
+          ) : (
+            <div className="space-y-1">
+              {desktopNavItems.map((item) => (
+                <NavLink
+                  key={item.to}
+                  to={item.to}
+                  className={({ isActive }) =>
+                    cn(
+                      "flex items-center gap-3 rounded-lg px-3 py-2.5 text-sm font-medium transition-colors",
+                      isActive
+                        ? "bg-sidebar-accent text-sidebar-primary"
+                        : "text-sidebar-foreground hover:bg-sidebar-accent/50",
+                    )
+                  }
+                >
+                  <item.icon className="h-5 w-5" />
+                  {item.label}
+                </NavLink>
+              ))}
+            </div>
           )}
         </div>
       </nav>
 
       <div className="hidden border-t border-sidebar-border p-4 lg:block">
-        <p className="text-center text-xs text-muted-foreground">Sukurta su meile Lietuvoje</p>
+        {isPrivileged ? (
+          <NavLink
+            to={profileNav.to}
+            className={({ isActive }) =>
+              cn(
+                "flex items-center gap-3 rounded-lg px-3 py-2 text-sm font-medium transition-colors",
+                isActive
+                  ? "bg-sidebar-accent text-sidebar-primary"
+                  : "text-sidebar-foreground hover:bg-sidebar-accent/60",
+              )
+            }
+          >
+            <profileNav.icon className="h-5 w-5" />
+            {profileNav.label}
+          </NavLink>
+        ) : (
+          <p className="text-center text-xs text-muted-foreground">Sukurta su meile Lietuvoje</p>
+        )}
       </div>
     </aside>
   );

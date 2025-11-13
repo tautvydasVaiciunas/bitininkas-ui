@@ -27,6 +27,7 @@ import { TemplatesModule } from './templates/templates.module';
 import { MediaModule } from './media/media.module';
 import { NewsModule } from './news/news.module';
 import { PaginationModule } from './common/pagination/pagination.module';
+import { StoreModule } from './store/store.module';
 
 import ormConfig from './typeorm.config';
 
@@ -77,6 +78,7 @@ import ormConfig from './typeorm.config';
     TemplatesModule,
     MediaModule,
     NewsModule,
+    StoreModule,
   ],
   providers: [
     { provide: APP_GUARD, useClass: RateLimitGuard },

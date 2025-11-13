@@ -1,16 +1,17 @@
 import { NavLink } from "react-router-dom";
 import {
-  Box,
-  ListTodo,
+  BarChart3,
   Bell,
+  Box,
+  ClipboardList,
+  FileStack,
+  ListChecks,
+  ListTodo,
+  Newspaper,
+  Package,
   User,
   Users,
   UsersRound,
-  ListChecks,
-  ClipboardList,
-  FileStack,
-  BarChart3,
-  Newspaper,
 } from "lucide-react";
 import { useAuth } from "@/contexts/AuthContext";
 import { cn } from "@/lib/utils";
@@ -19,7 +20,7 @@ export const Sidebar = () => {
   const { user } = useAuth();
 
   const isAdmin = user?.role === "admin";
-  const isManager = user?.role === "manager" || isAdmin;
+  const isManager = isAdmin || user?.role === "manager";
 
   const navItems = [
     { to: "/news", label: "Naujienos", icon: Newspaper, show: true },
@@ -33,30 +34,11 @@ export const Sidebar = () => {
     { to: "/admin/users", label: "Vartotojai", icon: Users, show: isAdmin },
     { to: "/admin/groups", label: "Grupės", icon: UsersRound, show: isManager },
     { to: "/admin/steps", label: "Žingsniai", icon: ListChecks, show: isManager },
-    {
-      to: "/admin/tasks",
-      label: "Užduotys",
-      icon: ClipboardList,
-      show: isManager,
-    },
-    {
-      to: "/admin/templates",
-      label: "Šablonai",
-      icon: FileStack,
-      show: isManager,
-    },
-    {
-      to: "/admin/news",
-      label: "Naujienos",
-      icon: Newspaper,
-      show: isManager,
-    },
-    {
-      to: "/reports",
-      label: "Ataskaitos",
-      icon: BarChart3,
-      show: isManager,
-    },
+    { to: "/admin/tasks", label: "Užduotys", icon: ClipboardList, show: isManager },
+    { to: "/admin/templates", label: "Šablonai", icon: FileStack, show: isManager },
+    { to: "/admin/news", label: "Naujienos", icon: Newspaper, show: isManager },
+    { to: "/admin/store/products", label: "Parduotuvė", icon: Package, show: isManager },
+    { to: "/reports", label: "Ataskaitos", icon: BarChart3, show: isManager },
   ];
 
   const visibleNavItems = navItems.filter((item) => item.show);
@@ -65,7 +47,7 @@ export const Sidebar = () => {
 
   return (
     <aside className="fixed inset-x-0 bottom-0 z-40 h-16 border-t border-sidebar-border bg-sidebar shadow-lg shadow-black/5 lg:left-0 lg:top-0 lg:h-screen lg:w-64 lg:border-t-0 lg:border-r lg:shadow-none">
-      <div className="hidden lg:block border-b border-sidebar-border p-6">
+      <div className="hidden border-b border-sidebar-border p-6 lg:block">
         <div className="flex items-center gap-3">
           <div className="flex h-10 w-10 shrink-0 items-center justify-center">
             <img
@@ -75,17 +57,16 @@ export const Sidebar = () => {
             />
           </div>
           <div>
-            <h1 className="text-lg font-semibold text-sidebar-foreground">
-              Bus medaus
-            </h1>
-            <p className="text-xs text-muted-foreground">
-              Bitininkystės sistema
-            </p>
+            <h1 className="text-lg font-semibold text-sidebar-foreground">Bus medaus</h1>
+            <p className="text-xs text-muted-foreground">Bitininkystės sistema</p>
           </div>
         </div>
       </div>
 
-      <nav aria-label="Pagrindinė navigacija" className="h-full lg:flex lg:flex-1 lg:flex-col lg:overflow-y-auto lg:p-4">
+      <nav
+        aria-label="Pagrindinė navigacija"
+        className="h-full lg:flex lg:flex-1 lg:flex-col lg:overflow-y-auto lg:p-4"
+      >
         <div className="flex h-full items-center gap-1 overflow-x-auto px-4 lg:hidden">
           {mobileNavItems.map((item) => (
             <NavLink
@@ -161,9 +142,7 @@ export const Sidebar = () => {
       </nav>
 
       <div className="hidden border-t border-sidebar-border p-4 lg:block">
-        <p className="text-center text-xs text-muted-foreground">
-          Sukurta su ❤️ Lietuvoje
-        </p>
+        <p className="text-center text-xs text-muted-foreground">Sukurta su meile Lietuvoje</p>
       </div>
     </aside>
   );

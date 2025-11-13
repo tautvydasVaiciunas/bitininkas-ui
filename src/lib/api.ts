@@ -200,6 +200,73 @@ export interface PaginatedNewsResponse extends PaginatedResponse<NewsPostRespons
   hasMore: boolean;
 }
 
+export interface StoreProduct {
+  id: string;
+  slug: string;
+  title: string;
+  shortDescription: string | null;
+  description: string;
+  priceCents: number;
+  isActive: boolean;
+  createdAt: string;
+  updatedAt: string;
+}
+
+export interface StoreOrderItemResponse {
+  productId: string | null;
+  productTitle: string;
+  quantity: number;
+  unitPriceCents: number;
+  lineTotalCents: number;
+}
+
+export type StoreOrderStatus = 'new' | 'cancelled';
+
+export interface StoreOrderResponse {
+  id: string;
+  status: StoreOrderStatus;
+  customerName: string;
+  customerEmail: string;
+  totalAmountCents: number;
+  createdAt: string;
+  items: StoreOrderItemResponse[];
+}
+
+export interface StoreOrderListItem {
+  id: string;
+  status: StoreOrderStatus;
+  customerName: string;
+  customerEmail: string;
+  totalAmountCents: number;
+  createdAt: string;
+}
+
+export interface AdminStoreProductPayload {
+  slug: string;
+  title: string;
+  shortDescription?: string | null;
+  description: string;
+  priceCents: number;
+  isActive?: boolean;
+}
+
+export interface CreateStoreOrderPayload {
+  items: Array<{
+    productId: string;
+    quantity: number;
+  }>;
+  customer: {
+    name: string;
+    email: string;
+    phone: string;
+    companyName?: string;
+    companyCode?: string;
+    vatCode?: string;
+    address?: string;
+    comment?: string;
+  };
+}
+
 export interface CreateNewsPayload {
   title: string;
   body: string;
@@ -966,6 +1033,32 @@ export const api = {
     updateRole: (id: string, payload: UpdateUserRolePayload) =>
       patch<AdminUserResponse>(`/users/${id}/role`, { json: payload }),
     remove: (id: string) => del<void>(`/users/${id}`),
+  },
+  store: {
+    listProducts: () =>
+      get<StoreProduct[]>('/store/products', { skipAuth: true }),
+    getProduct: (slug: string) =>
+      get<StoreProduct>(`/store/products/${slug}`, { skipAuth: true }),
+    createOrder: (payload: CreateStoreOrderPayload) =>
+      post<StoreOrderResponse>('/store/orders', { json: payload, skipAuth: true }),
+  },
+  admin: {
+    store: {
+      products: {
+        list: (params?: { page?: number; limit?: number; q?: string; isActive?: boolean }) =>
+          get<PaginatedResponse<StoreProduct>>('/admin/store/products', { query: params }),
+        create: (payload: AdminStoreProductPayload) =>
+          post<StoreProduct>('/admin/store/products', { json: payload }),
+        update: (id: string, payload: Partial<AdminStoreProductPayload>) =>
+          patch<StoreProduct>(`/admin/store/products/${id}`, { json: payload }),
+        disable: (id: string) => del<{ success: boolean }>(`/admin/store/products/${id}`),
+      },
+      orders: {
+        list: (params?: { page?: number; limit?: number }) =>
+          get<PaginatedResponse<StoreOrderListItem>>('/admin/store/orders', { query: params }),
+        get: (id: string) => get<StoreOrderResponse>(`/admin/store/orders/${id}`),
+      },
+    },
   },
 };
 

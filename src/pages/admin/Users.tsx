@@ -53,7 +53,6 @@ import api, {
 
 const ROLE_OPTIONS: { value: UserRole; label: string }[] = [
   { value: 'admin', label: 'Administratorius' },
-  { value: 'moderator', label: 'Moderatorius' },
   { value: 'manager', label: 'Manageris' },
   { value: 'user', label: 'Vartotojas' },
 ];

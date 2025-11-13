@@ -232,6 +232,15 @@ export interface StoreOrderResponse {
   items: StoreOrderItemResponse[];
 }
 
+export interface StoreOrderListItem {
+  id: string;
+  status: StoreOrderStatus;
+  customerName: string;
+  customerEmail: string;
+  totalAmountCents: number;
+  createdAt: string;
+}
+
 export interface AdminStoreProductPayload {
   slug: string;
   title: string;
@@ -1043,6 +1052,11 @@ export const api = {
         update: (id: string, payload: Partial<AdminStoreProductPayload>) =>
           patch<StoreProduct>(`/admin/store/products/${id}`, { json: payload }),
         disable: (id: string) => del<{ success: boolean }>(`/admin/store/products/${id}`),
+      },
+      orders: {
+        list: (params?: { page?: number; limit?: number }) =>
+          get<PaginatedResponse<StoreOrderListItem>>('/admin/store/orders', { query: params }),
+        get: (id: string) => get<StoreOrderResponse>(`/admin/store/orders/${id}`),
       },
     },
   },

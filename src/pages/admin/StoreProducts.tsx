@@ -1,3 +1,4 @@
+import type { FormEvent } from "react";
 import { useState } from "react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { format } from "date-fns";
@@ -5,7 +6,6 @@ import lt from "date-fns/locale/lt";
 import { Edit2, Loader2, Plus, ToggleLeft, ToggleRight } from "lucide-react";
 import { toast } from "sonner";
 
-import { MainLayout } from "@/components/Layout/MainLayout";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import {
@@ -148,7 +148,9 @@ const AdminStoreProducts = () => {
       api.admin.store.products.update(product.id, { isActive: !product.isActive }),
     onSuccess: (_, product) => {
       toast.success(
-        product.isActive ? "Produktas paslėptas nuo parduotuvės" : "Produktas suaktyvintas",
+        product.isActive
+          ? "Produktas paslėptas iš parduotuvės"
+          : "Produktas pažymėtas kaip aktyvus",
       );
       queryClient.invalidateQueries({ queryKey: ["admin-store-products"] });
     },
@@ -157,11 +159,11 @@ const AdminStoreProducts = () => {
     },
   });
 
-  const handleSubmit = (event: React.FormEvent<HTMLFormElement>) => {
+  const handleSubmit = (event: FormEvent<HTMLFormElement>) => {
     event.preventDefault();
     const normalizedPrice = Number(formState.price.replace(",", "."));
     if (!Number.isFinite(normalizedPrice) || normalizedPrice < 0) {
-      toast.error("Įveskite tinkamą kainą");
+      toast.error("Įveskite tinkamą kainą.");
       return;
     }
 
@@ -184,14 +186,12 @@ const AdminStoreProducts = () => {
   const isSaving = createMutation.isLoading || updateMutation.isLoading;
 
   return (
-    <MainLayout>
+    <div className="space-y-6">
       <div className="mb-6 flex flex-col gap-2">
         <div className="flex flex-wrap items-center justify-between gap-4">
           <div>
             <h1 className="text-3xl font-bold">Parduotuvė</h1>
-            <p className="text-muted-foreground">
-              Valdykite produktus, rodomus viešoje parduotuvėje.
-            </p>
+            <p className="text-muted-foreground">Valdykite produktus, rodomus viešoje parduotuvėje.</p>
           </div>
           <Button onClick={openCreateDialog}>
             <Plus className="mr-2 h-4 w-4" />
@@ -263,9 +263,9 @@ const AdminStoreProducts = () => {
                         )}
                       </td>
                       <td className="px-3 py-2">
-                        {format(new Date(product.createdAt), "yyyy-MM-dd HH:mm", {
-                          locale: lt,
-                        })}
+                        {product.createdAt
+                          ? format(new Date(product.createdAt), "yyyy-MM-dd HH:mm", { locale: lt })
+                          : "—"}
                       </td>
                       <td className="px-3 py-2 text-right">
                         <div className="flex flex-wrap justify-end gap-2">
@@ -328,25 +328,28 @@ const AdminStoreProducts = () => {
           </DialogHeader>
           <form className="space-y-4" onSubmit={handleSubmit}>
             <div className="space-y-2">
-              <Label>Slug</Label>
+              <Label htmlFor="slug">Slug</Label>
               <Input
+                id="slug"
                 value={formState.slug}
                 onChange={(event) => setFormState((prev) => ({ ...prev, slug: event.target.value }))}
-                placeholder="Pvz., pradedanciojo-rinkinys"
+                placeholder="Pvz., pradedančiojo-rinkinys"
                 required
               />
             </div>
             <div className="space-y-2">
-              <Label>Pavadinimas</Label>
+              <Label htmlFor="title">Pavadinimas</Label>
               <Input
+                id="title"
                 value={formState.title}
                 onChange={(event) => setFormState((prev) => ({ ...prev, title: event.target.value }))}
                 required
               />
             </div>
             <div className="space-y-2">
-              <Label>Trumpas aprašymas</Label>
+              <Label htmlFor="shortDescription">Trumpas aprašymas</Label>
               <Input
+                id="shortDescription"
                 value={formState.shortDescription}
                 onChange={(event) =>
                   setFormState((prev) => ({ ...prev, shortDescription: event.target.value }))
@@ -354,8 +357,9 @@ const AdminStoreProducts = () => {
               />
             </div>
             <div className="space-y-2">
-              <Label>Aprašymas</Label>
+              <Label htmlFor="description">Aprašymas</Label>
               <Textarea
+                id="description"
                 value={formState.description}
                 onChange={(event) =>
                   setFormState((prev) => ({ ...prev, description: event.target.value }))
@@ -365,8 +369,9 @@ const AdminStoreProducts = () => {
               />
             </div>
             <div className="space-y-2">
-              <Label>Kaina (EUR)</Label>
+              <Label htmlFor="price">Kaina (EUR)</Label>
               <Input
+                id="price"
                 type="number"
                 step="0.01"
                 min="0"
@@ -398,7 +403,7 @@ const AdminStoreProducts = () => {
           </form>
         </DialogContent>
       </Dialog>
-    </MainLayout>
+    </div>
   );
 };
 

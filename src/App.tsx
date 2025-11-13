@@ -26,6 +26,9 @@ import AdminTasks from "./pages/admin/Tasks";
 import AdminTemplates from "./pages/admin/Templates";
 import AdminNews from "./pages/admin/News";
 import AdminStoreProducts from "./pages/admin/StoreProducts";
+import StoreOrders from "./pages/admin/StoreOrders";
+import StoreOrderDetails from "./pages/admin/StoreOrderDetails";
+import { AdminStoreLayout } from "./pages/admin/AdminStoreLayout";
 import StoreHome from "./pages/store/StoreHome";
 import StoreProductDetail from "./pages/store/StoreProductDetail";
 import StoreCart from "./pages/store/StoreCart";
@@ -73,9 +76,13 @@ const App = () => (
                   <Route path="/admin/groups" element={<AdminGroups />} />
                   <Route path="/admin/steps" element={<AdminSteps />} />
                   <Route path="/admin/tasks" element={<AdminTasks />} />
-                <Route path="/admin/templates" element={<AdminTemplates />} />
-                <Route path="/admin/news" element={<AdminNews />} />
-                <Route path="/admin/store/products" element={<AdminStoreProducts />} />
+                  <Route path="/admin/templates" element={<AdminTemplates />} />
+                  <Route path="/admin/news" element={<AdminNews />} />
+                  <Route path="/admin/store" element={<AdminStoreLayout />}>
+                    <Route path="products" element={<AdminStoreProducts />} />
+                    <Route path="orders" element={<StoreOrders />} />
+                    <Route path="orders/:id" element={<StoreOrderDetails />} />
+                  </Route>
                 </Route>
                 <Route path="*" element={<NotFound />} />
               </Route>

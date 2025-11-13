@@ -4,7 +4,7 @@ import {
   NotFoundException,
 } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
-import { ILike, In, Repository } from 'typeorm';
+import { In, Repository } from 'typeorm';
 
 import { StoreProduct } from './entities/product.entity';
 import { CreateProductDto } from './dto/create-product.dto';
@@ -98,20 +98,72 @@ export class StoreProductsService {
     return this.pagination.buildResponse(data, page, limit, total);
   }
 
-  async create(dto: CreateProductDto): Promise<StoreProductResponse> {
-    const slug = dto.slug.trim().toLowerCase();
-    const existing = await this.productsRepository.findOne({ where: { slug } });
+  private readonly MAX_SLUG_LENGTH = 140;
 
-    if (existing) {
-      throw new BadRequestException('Toks produkto slug jau naudojamas');
+  private slugify(input: string): string {
+    const normalized = input
+      .normalize('NFKD')
+      .replace(/[\u0300-\u036f]/g, '')
+      .toLowerCase()
+      .replace(/[^a-z0-9]+/g, '-')
+      .replace(/^-+|-+$/g, '')
+      .replace(/-{2,}/g, '-')
+      .slice(0, this.MAX_SLUG_LENGTH);
+
+    return normalized.length ? normalized : 'produktas';
+  }
+
+  private async generateUniqueSlug(title: string): Promise<string> {
+    const baseSlug = this.slugify(title);
+    let candidate = baseSlug;
+    let attempt = 1;
+
+    while (
+      await this.productsRepository.exist({
+        where: { slug: candidate },
+      })
+    ) {
+      const suffix = `-${attempt++}`;
+      if (attempt > 100) {
+        throw new BadRequestException('Nepavyko sugeneruoti produkto identifikatoriaus');
+      }
+
+      const trimmedBase = baseSlug.slice(
+        0,
+        Math.max(1, this.MAX_SLUG_LENGTH - suffix.length),
+      );
+      candidate = `${trimmedBase}${suffix}`;
     }
+
+    return candidate;
+  }
+
+  private priceToCents(price: number): number {
+    const cents = Math.round(price * 100);
+    if (!Number.isFinite(cents) || cents <= 0) {
+      throw new BadRequestException('Kaina turi būti teigiama');
+    }
+    return cents;
+  }
+
+  async create(dto: CreateProductDto): Promise<StoreProductResponse> {
+    const title = dto.title.trim();
+    const description = dto.description.trim();
+    const shortDescription = dto.shortDescription?.trim();
+
+    if (!title.length || !description.length) {
+      throw new BadRequestException('Pateikti duomenys neteisingi');
+    }
+
+    const priceCents = this.priceToCents(dto.price);
+    const slug = await this.generateUniqueSlug(title);
 
     const product = this.productsRepository.create({
       slug,
-      title: dto.title.trim(),
-      shortDescription: dto.shortDescription?.trim() || null,
-      description: dto.description.trim(),
-      priceCents: dto.priceCents,
+      title,
+      shortDescription: shortDescription?.length ? shortDescription : null,
+      description,
+      priceCents,
       isActive: dto.isActive ?? true,
     });
 
@@ -154,7 +206,12 @@ export class StoreProductsService {
       product.description = dto.description.trim();
     }
 
-    if (dto.priceCents !== undefined) {
+    if (dto.price !== undefined) {
+      product.priceCents = this.priceToCents(dto.price);
+    } else if (dto.priceCents !== undefined) {
+      if (dto.priceCents <= 0) {
+        throw new BadRequestException('Kaina turi būti teigiama');
+      }
       product.priceCents = dto.priceCents;
     }
 

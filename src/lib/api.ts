@@ -232,6 +232,15 @@ export interface StoreOrderResponse {
   items: StoreOrderItemResponse[];
 }
 
+export interface AdminStoreProductPayload {
+  slug: string;
+  title: string;
+  shortDescription?: string | null;
+  description: string;
+  priceCents: number;
+  isActive?: boolean;
+}
+
 export interface CreateStoreOrderPayload {
   items: Array<{
     productId: string;
@@ -1023,6 +1032,19 @@ export const api = {
       get<StoreProduct>(`/store/products/${slug}`, { skipAuth: true }),
     createOrder: (payload: CreateStoreOrderPayload) =>
       post<StoreOrderResponse>('/store/orders', { json: payload, skipAuth: true }),
+  },
+  admin: {
+    store: {
+      products: {
+        list: (params?: { page?: number; limit?: number; q?: string; isActive?: boolean }) =>
+          get<PaginatedResponse<StoreProduct>>('/admin/store/products', { query: params }),
+        create: (payload: AdminStoreProductPayload) =>
+          post<StoreProduct>('/admin/store/products', { json: payload }),
+        update: (id: string, payload: Partial<AdminStoreProductPayload>) =>
+          patch<StoreProduct>(`/admin/store/products/${id}`, { json: payload }),
+        disable: (id: string) => del<{ success: boolean }>(`/admin/store/products/${id}`),
+      },
+    },
   },
 };
 

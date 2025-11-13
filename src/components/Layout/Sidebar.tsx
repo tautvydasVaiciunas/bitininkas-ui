@@ -11,6 +11,7 @@ import {
   FileStack,
   BarChart3,
   Newspaper,
+  Package,
 } from "lucide-react";
 import { useAuth } from "@/contexts/AuthContext";
 import { cn } from "@/lib/utils";
@@ -49,6 +50,12 @@ export const Sidebar = () => {
       to: "/admin/news",
       label: "Naujienos",
       icon: Newspaper,
+      show: isManager,
+    },
+    {
+      to: "/admin/store/products",
+      label: "Parduotuvė",
+      icon: Package,
       show: isManager,
     },
     {

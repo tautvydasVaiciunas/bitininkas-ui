@@ -7,6 +7,8 @@ import {
   Logger,
 } from '@nestjs/common';
 import { Request, Response } from 'express';
+import { QueryFailedError } from 'typeorm';
+import { v4 as uuid } from 'uuid';
 
 export interface ErrorResponseBody {
   message: string;
@@ -105,12 +107,54 @@ export class HttpExceptionFilter implements ExceptionFilter<HttpException> {
 
   private readonly logger = new Logger(HttpExceptionFilter.name);
 
-  catch(exception: HttpException, host: ArgumentsHost) {
+  private mapUnknownException(exception: unknown): { status: number; body: ErrorResponseBody; stack?: string } {
+    if (exception instanceof QueryFailedError) {
+      const driverCode = (exception.driverError as { code?: string } | undefined)?.code;
+      const message =
+        driverCode === '23502' ? 'Trūksta privalomų reikšmių' : 'Duomenų bazės klaida';
+      return {
+        status: HttpStatus.BAD_REQUEST,
+        body: {
+          message,
+          details: driverCode ? { code: driverCode } : undefined,
+        },
+        stack: exception.stack,
+      };
+    }
+
+    const errorId = uuid();
+    const serialized =
+      exception instanceof Error ? `${exception.message}\n${exception.stack ?? ''}` : String(exception);
+    this.logger.error(`Unhandled error (${errorId}): ${serialized}`);
+
+    return {
+      status: HttpStatus.INTERNAL_SERVER_ERROR,
+      body: {
+        message: 'Įvyko vidinė klaida. Pabandykite dar kartą.',
+        details: { errorId },
+      },
+      stack: exception instanceof Error ? exception.stack : undefined,
+    };
+  }
+
+  catch(exception: unknown, host: ArgumentsHost) {
     const ctx = host.switchToHttp();
     const response = ctx.getResponse<Response>();
     const request = ctx.getRequest<Request>();
-    const status = exception.getStatus();
-    const body = buildErrorResponseBody(exception);
+    let status: number;
+    let body: ErrorResponseBody;
+    let stack: string | undefined;
+
+    if (exception instanceof HttpException) {
+      status = exception.getStatus();
+      body = buildErrorResponseBody(exception);
+      stack = exception instanceof Error ? exception.stack : undefined;
+    } else {
+      const mapped = this.mapUnknownException(exception);
+      status = mapped.status;
+      body = mapped.body;
+      stack = mapped.stack;
+    }
 
     const method = request?.method ?? 'UNKNOWN';
     const url = request?.originalUrl ?? request?.url ?? 'unknown';
@@ -118,7 +162,6 @@ export class HttpExceptionFilter implements ExceptionFilter<HttpException> {
     const ip = request?.ip ?? request?.headers?.['x-forwarded-for'] ?? 'unknown';
     const routeKey = HttpExceptionFilter.normalizeRouteKey(method, url);
     const logMessage = `${method} ${url} -> ${status} ${body.message}`;
-    const stack = exception instanceof Error ? exception.stack : undefined;
 
     const logWithLevel = (level: 'debug' | 'log' | 'warn' | 'error') => {
       const message = `${logMessage} (ip: ${ip}, user: ${userId ?? 'n/a'})`;

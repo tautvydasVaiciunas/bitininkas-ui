@@ -91,23 +91,11 @@ export class HivesService {
 
   private async replaceMembers(manager: EntityManager, hiveId: string, memberIds: string[]) {
     await manager
+      .getRepository(Hive)
       .createQueryBuilder()
-      .delete()
-      .from('hive_members')
-      .where('hive_id = :hiveId', { hiveId })
-      .execute();
-
-    if (!memberIds.length) {
-      return;
-    }
-
-    await manager
-      .createQueryBuilder()
-      .insert()
-      .into('hive_members')
-      .values(memberIds.map((userId) => ({ hive_id: hiveId, user_id: userId })))
-      .orIgnore()
-      .execute();
+      .relation(Hive, 'members')
+      .of(hiveId)
+      .set(memberIds);
   }
 
   private async getHiveWithRelations(id: string): Promise<Hive | null> {

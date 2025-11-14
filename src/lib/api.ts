@@ -788,6 +788,7 @@ const request = async <T>(
 
   const response = await fetch(url, {
     ...rest,
+    credentials: rest.credentials ?? 'include',
     method,
     headers: finalHeaders,
     body: requestBody,

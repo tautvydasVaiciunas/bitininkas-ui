@@ -227,6 +227,10 @@ export class StoreOrdersService {
       return savedOrder;
     });
 
+    this.logger.debug(
+      `Sukurtas užsakymas ${saved.id} (userId: ${userId ?? 'anon'})`,
+    );
+
     this.sendOrderEmails(saved).catch((error) => {
       this.logger.warn(
         `Nepavyko išsiųsti užsakymo el. laiškų (${saved.id}): ${

@@ -1,5 +1,7 @@
 import { Transform, Type } from 'class-transformer';
 import {
+  ArrayMaxSize,
+  IsArray,
   IsBoolean,
   IsInt,
   IsNumber,
@@ -20,6 +22,19 @@ const toBoolean = ({ value }: { value: unknown }) => {
   }
 
   return value === true;
+};
+
+const transformImageUrls = ({ value }: { value: unknown }) => {
+  if (value === undefined || value === null) {
+    return undefined;
+  }
+
+  const list = Array.isArray(value) ? value : [value];
+
+  return list
+    .map((item) => (typeof item === 'string' ? item.trim() : ''))
+    .filter((item) => item.length > 0)
+    .slice(0, 5);
 };
 
 export class CreateProductDto {
@@ -48,6 +63,14 @@ export class CreateProductDto {
   @IsString({ message: 'Aprašymas privalomas' })
   @MinLength(1, { message: 'Aprašymas privalomas' })
   description!: string;
+
+  @IsOptional()
+  @Transform(transformImageUrls)
+  @IsArray({ message: 'Nuotraukos turi būti masyvas' })
+  @ArrayMaxSize(5, { message: 'Daugiausia 5 nuotraukos' })
+  @IsString({ each: true, message: 'Kiekviena nuotrauka turi būti tekstas' })
+  @MaxLength(1024, { each: true, message: 'Nuotraukos URL per ilgas' })
+  imageUrls?: string[];
 
   @IsOptional()
   @Type(() => Number)

@@ -1,31 +1,35 @@
 import {
   BadRequestException,
+  Inject,
   Injectable,
   Logger,
   NotFoundException,
 } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
 import { ConfigService } from '@nestjs/config';
-import { Repository, In } from 'typeorm';
+import { In, Repository } from 'typeorm';
 
 import { StoreOrder, StoreOrderStatus } from './entities/order.entity';
 import { StoreOrderItem } from './entities/order-item.entity';
 import { StoreProduct } from './entities/product.entity';
 import { CreateOrderDto } from './dto/create-order.dto';
 import {
-  PaginationService,
   PaginatedResult,
+  PaginationService,
 } from '../common/pagination/pagination.service';
 import { ListOrdersQueryDto } from './dto/list-orders-query.dto';
 import { MAILER_SERVICE, MailerService } from '../notifications/mailer.service';
-import { Inject } from '@nestjs/common';
+
+const VAT_RATE = 0.21;
 
 interface OrderItemSummary {
   productId: string | null;
   productTitle: string;
   quantity: number;
-  unitPriceCents: number;
-  lineTotalCents: number;
+  unitNetCents: number;
+  unitGrossCents: number;
+  lineNetCents: number;
+  lineGrossCents: number;
 }
 
 export interface OrderSummary {
@@ -33,6 +37,9 @@ export interface OrderSummary {
   status: StoreOrderStatus;
   customerName: string;
   customerEmail: string;
+  subtotalNetCents: number;
+  vatCents: number;
+  totalGrossCents: number;
   totalAmountCents: number;
   createdAt: Date;
 }
@@ -45,6 +52,10 @@ export interface OrderDetails extends OrderSummary {
   vatCode?: string | null;
   address?: string | null;
   comment?: string | null;
+}
+
+export interface CustomerOrderSummary extends OrderSummary {
+  items: Array<{ productTitle: string; quantity: number }>;
 }
 
 @Injectable()
@@ -63,15 +74,22 @@ export class StoreOrdersService {
     private readonly configService: ConfigService,
     @Inject(MAILER_SERVICE) private readonly mailer: MailerService,
   ) {
-    this.internalNotifyEmail = this.configService.get<string>('ORDERS_NOTIFY_EMAIL')?.trim() || undefined;
+    this.internalNotifyEmail =
+      this.configService.get<string>('ORDERS_NOTIFY_EMAIL')?.trim() || undefined;
   }
 
   private mapOrder(order: StoreOrder, includeItems = false): OrderDetails | OrderSummary {
-    const base = {
+    const subtotalNet = order.subtotalNetCents ?? 0;
+    const vat = order.vatCents ?? Math.max(order.totalAmountCents - subtotalNet, 0);
+
+    const base: OrderSummary = {
       id: order.id,
       status: order.status,
       customerName: order.customerName,
       customerEmail: order.customerEmail,
+      subtotalNetCents: subtotalNet,
+      vatCents: vat,
+      totalGrossCents: order.totalAmountCents,
       totalAmountCents: order.totalAmountCents,
       createdAt: order.createdAt,
     };
@@ -93,8 +111,10 @@ export class StoreOrdersService {
           productId: item.productId ?? null,
           productTitle: item.productTitle,
           quantity: item.quantity,
-          unitPriceCents: item.unitPriceCents,
-          lineTotalCents: item.lineTotalCents,
+          unitNetCents: item.unitNetCents,
+          unitGrossCents: item.unitGrossCents,
+          lineNetCents: item.lineNetCents,
+          lineGrossCents: item.lineGrossCents,
         })) ?? [],
     };
   }
@@ -113,7 +133,7 @@ export class StoreOrdersService {
 
     const productIds = Array.from(grouped.keys());
     if (!productIds.length) {
-      throw new BadRequestException('Pasirinkite bent vieną produktą');
+      throw new BadRequestException('Pasirinkite bent vieną produktą.');
     }
 
     const products = await this.productsRepository.find({
@@ -121,11 +141,12 @@ export class StoreOrdersService {
     });
 
     if (products.length !== productIds.length) {
-      throw new BadRequestException('Vienas ar keli produktai neegzistuoja arba neaktyvūs');
+      throw new BadRequestException('Vienas ar keli produktai neegzistuoja arba neaktyvūs.');
     }
 
     const itemsToPersist: StoreOrderItem[] = [];
-    let totalCents = 0;
+    let subtotalNetCents = 0;
+    let subtotalGrossCents = 0;
 
     for (const product of products) {
       const quantity = grouped.get(product.id) ?? 0;
@@ -133,52 +154,84 @@ export class StoreOrdersService {
         continue;
       }
 
-      const lineTotal = product.priceCents * quantity;
-      totalCents += lineTotal;
+      const unitNetCents = product.priceCents;
+      const unitGrossCents = Math.round(unitNetCents * (1 + VAT_RATE));
+      const lineNetCents = unitNetCents * quantity;
+      const lineGrossCents = unitGrossCents * quantity;
 
-      const item = this.orderItemsRepository.create({
-        productId: product.id,
-        productTitle: product.title,
-        quantity,
-        unitPriceCents: product.priceCents,
-        lineTotalCents: lineTotal,
-      });
-      itemsToPersist.push(item);
+      subtotalNetCents += lineNetCents;
+      subtotalGrossCents += lineGrossCents;
+
+      itemsToPersist.push(
+        this.orderItemsRepository.create({
+          productId: product.id,
+          productTitle: product.title,
+          quantity,
+          unitNetCents,
+          unitGrossCents,
+          lineNetCents,
+          lineGrossCents,
+        }),
+      );
     }
 
     if (!itemsToPersist.length) {
-      throw new BadRequestException('Netinkami produkto kiekiai');
+      throw new BadRequestException('Netinkami produkto kiekiai.');
     }
+
+    const customerName = dto.customer.name?.trim();
+    const customerEmail = dto.customer.email?.trim();
+    const customerPhone = dto.customer.phone?.trim();
+    const customerAddress = dto.customer.address?.trim();
+
+    if (!customerName?.length || !customerEmail?.length || !customerPhone?.length) {
+      throw new BadRequestException('Pateikti duomenys neteisingi.');
+    }
+
+    if (!customerAddress?.length) {
+      throw new BadRequestException('Adresas privalomas.');
+    }
+
+    const vatCents = subtotalGrossCents - subtotalNetCents;
 
     const order = this.ordersRepository.create({
       status: StoreOrderStatus.NEW,
-      customerName: dto.customer.name.trim(),
-      customerEmail: dto.customer.email.trim(),
-      customerPhone: dto.customer.phone.trim(),
+      customerName,
+      customerEmail,
+      customerPhone,
       companyName: dto.customer.companyName?.trim() || null,
       companyCode: dto.customer.companyCode?.trim() || null,
       vatCode: dto.customer.vatCode?.trim() || null,
-      address: dto.customer.address?.trim() || null,
+      address: customerAddress,
       comment: dto.customer.comment?.trim() || null,
-      totalAmountCents: totalCents,
+      subtotalNetCents,
+      vatCents,
+      totalAmountCents: subtotalGrossCents,
       userId: userId ?? null,
       items: itemsToPersist,
     });
 
     const saved = await this.ordersRepository.manager.transaction(async (manager) => {
-      const savedOrder = await manager.getRepository(StoreOrder).save(order);
-      const itemsWithOrder = itemsToPersist.map((item) => ({
-        ...item,
-        orderId: savedOrder.id,
-      }));
-      const savedItems = await manager.getRepository(StoreOrderItem).save(itemsWithOrder);
+      const orderRepo = manager.getRepository(StoreOrder);
+      const itemRepo = manager.getRepository(StoreOrderItem);
+
+      const savedOrder = await orderRepo.save(order);
+      const savedItems = await itemRepo.save(
+        itemsToPersist.map((item) => ({
+          ...item,
+          orderId: savedOrder.id,
+        })),
+      );
+
       savedOrder.items = savedItems;
       return savedOrder;
     });
 
     this.sendOrderEmails(saved).catch((error) => {
       this.logger.warn(
-        `Nepavyko išsiųsti užsakymo el. laiškų (${saved.id}): ${error instanceof Error ? error.message : error}`,
+        `Nepavyko išsiųsti užsakymo el. laiškų (${saved.id}): ${
+          error instanceof Error ? error.message : error
+        }`,
       );
     });
 
@@ -201,6 +254,26 @@ export class StoreOrdersService {
     const data = orders.map((order) => this.mapOrder(order));
 
     return this.pagination.buildResponse(data, page, limit, total);
+  }
+
+  async listOrdersForUser(userId: string): Promise<CustomerOrderSummary[]> {
+    const orders = await this.ordersRepository.find({
+      where: { userId },
+      order: { createdAt: 'DESC' },
+      relations: { items: true },
+    });
+
+    return orders.map((order) => {
+      const summary = this.mapOrder(order) as OrderSummary;
+      return {
+        ...summary,
+        items:
+          order.items?.map((item) => ({
+            productTitle: item.productTitle,
+            quantity: item.quantity,
+          })) ?? [],
+      };
+    });
   }
 
   async getOrderDetails(id: string): Promise<OrderDetails> {
@@ -249,8 +322,9 @@ export class StoreOrdersService {
           <tr>
             <td>${this.escape(item.productTitle)}</td>
             <td>${item.quantity}</td>
-            <td>${this.formatPrice(item.unitPriceCents)}</td>
-            <td>${this.formatPrice(item.lineTotalCents)}</td>
+            <td>${this.formatPrice(item.unitNetCents)} (be PVM)</td>
+            <td>${this.formatPrice(item.unitGrossCents)} (su PVM)</td>
+            <td>${this.formatPrice(item.lineGrossCents)}</td>
           </tr>
         `,
       )
@@ -264,15 +338,16 @@ export class StoreOrdersService {
       ${order.companyName ? `<p>Įmonė: ${this.escape(order.companyName)}</p>` : ''}
       ${order.companyCode ? `<p>Kodas: ${this.escape(order.companyCode)}</p>` : ''}
       ${order.vatCode ? `<p>PVM kodas: ${this.escape(order.vatCode)}</p>` : ''}
-      ${order.address ? `<p>Adresas: ${this.escape(order.address)}</p>` : ''}
+      <p>Adresas: ${this.escape(order.address ?? '')}</p>
       ${order.comment ? `<p>Komentaras: ${this.escape(order.comment)}</p>` : ''}
       <table cellpadding="6" cellspacing="0" border="1" style="border-collapse: collapse; margin-top: 16px;">
         <thead>
           <tr>
             <th>Produktas</th>
             <th>Kiekis</th>
-            <th>Kaina</th>
-            <th>Suma</th>
+            <th>Kaina (be PVM)</th>
+            <th>Kaina (su PVM)</th>
+            <th>Suma (su PVM)</th>
           </tr>
         </thead>
         <tbody>
@@ -280,7 +355,15 @@ export class StoreOrdersService {
         </tbody>
         <tfoot>
           <tr>
-            <td colspan="3" style="text-align: right;"><strong>Iš viso</strong></td>
+            <td colspan="4" style="text-align: right;"><strong>Tarpinė suma (be PVM)</strong></td>
+            <td><strong>${this.formatPrice(order.subtotalNetCents)}</strong></td>
+          </tr>
+          <tr>
+            <td colspan="4" style="text-align: right;"><strong>PVM (21%)</strong></td>
+            <td><strong>${this.formatPrice(order.vatCents)}</strong></td>
+          </tr>
+          <tr>
+            <td colspan="4" style="text-align: right;"><strong>Iš viso (su PVM)</strong></td>
             <td><strong>${this.formatPrice(order.totalAmountCents)}</strong></td>
           </tr>
         </tfoot>
@@ -291,7 +374,7 @@ export class StoreOrdersService {
   private buildEmailText(order: StoreOrder, items: StoreOrderItem[]): string {
     const lines = items.map(
       (item) =>
-        `${item.productTitle} x ${item.quantity} = ${this.formatPrice(item.lineTotalCents)}`,
+        `${item.productTitle} x ${item.quantity} = ${this.formatPrice(item.lineGrossCents)} (su PVM)`,
     );
 
     return [
@@ -302,12 +385,14 @@ export class StoreOrdersService {
       order.companyName ? `Įmonė: ${order.companyName}` : null,
       order.companyCode ? `Kodas: ${order.companyCode}` : null,
       order.vatCode ? `PVM kodas: ${order.vatCode}` : null,
-      order.address ? `Adresas: ${order.address}` : null,
+      `Adresas: ${order.address ?? ''}`,
       order.comment ? `Komentaras: ${order.comment}` : null,
       '',
       ...lines,
       '',
-      `Iš viso: ${this.formatPrice(order.totalAmountCents)}`,
+      `Tarpinė suma (be PVM): ${this.formatPrice(order.subtotalNetCents)}`,
+      `PVM (21%): ${this.formatPrice(order.vatCents)}`,
+      `Iš viso (su PVM): ${this.formatPrice(order.totalAmountCents)}`,
     ]
       .filter(Boolean)
       .join('\n');
@@ -322,9 +407,6 @@ export class StoreOrdersService {
       return '';
     }
 
-    return value
-      .replace(/&/g, '&amp;')
-      .replace(/</g, '&lt;')
-      .replace(/>/g, '&gt;');
+    return value.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
   }
 }

@@ -1,29 +1,26 @@
-import { FormEvent, useMemo, useState } from 'react';
-import { useNavigate, Link } from 'react-router-dom';
+import { FormEvent, useMemo, useState } from "react";
+import { useNavigate, Link } from "react-router-dom";
 
-import { StoreLayout } from './StoreLayout';
-import { useCart } from '@/contexts/CartContext';
-import { formatPrice } from './utils';
-import { Input } from '@/components/ui/input';
-import { Textarea } from '@/components/ui/textarea';
-import { Button } from '@/components/ui/button';
-import api from '@/lib/api';
-import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
+import { StoreLayout } from "./StoreLayout";
+import { useCart } from "@/contexts/CartContext";
+import { formatPrice, netToGrossCents, VAT_RATE } from "./utils";
+import { Input } from "@/components/ui/input";
+import { Textarea } from "@/components/ui/textarea";
+import { Button } from "@/components/ui/button";
+import api from "@/lib/api";
+import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
 
 const initialForm = {
-  name: '',
-  email: '',
-  phone: '',
-  companyName: '',
-  companyCode: '',
-  vatCode: '',
-  address: '',
-  comment: '',
+  fullName: "",
+  email: "",
+  phone: "",
+  address: "",
+  comment: "",
 };
 
 const StoreCheckout = () => {
   const navigate = useNavigate();
-  const { items, totalAmountCents, clearCart } = useCart();
+  const { items, subtotalNetCents, vatCents, totalGrossCents, clearCart } = useCart();
   const [form, setForm] = useState(initialForm);
   const [errors, setErrors] = useState<Record<string, string>>({});
   const [submitError, setSubmitError] = useState<string | null>(null);
@@ -35,19 +32,22 @@ const StoreCheckout = () => {
         id: item.productId,
         title: item.title,
         quantity: item.quantity,
-        total: item.priceCents * item.quantity,
+        lineNet: item.priceCents * item.quantity,
+        lineGross: netToGrossCents(item.priceCents) * item.quantity,
       })),
     [items],
   );
 
   const validate = () => {
     const nextErrors: Record<string, string> = {};
-    if (!form.name.trim()) nextErrors.name = 'Vardas privalomas';
-    if (!form.email.trim()) nextErrors.email = 'El. paštas privalomas';
-    if (form.email && !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(form.email)) {
-      nextErrors.email = 'Netinkamas el. pašto adresas';
+    if (!form.fullName.trim()) nextErrors.fullName = "Vardas ir pavardė yra privalomi.";
+    if (!form.email.trim()) {
+      nextErrors.email = "El. paštas yra privalomas.";
+    } else if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(form.email)) {
+      nextErrors.email = "Netinkamas el. pašto adresas.";
     }
-    if (!form.phone.trim()) nextErrors.phone = 'Telefonas privalomas';
+    if (!form.phone.trim()) nextErrors.phone = "Telefonas yra privalomas.";
+    if (!form.address.trim()) nextErrors.address = "Adresas yra privalomas.";
     setErrors(nextErrors);
     return Object.keys(nextErrors).length === 0;
   };
@@ -70,22 +70,19 @@ const StoreCheckout = () => {
           quantity: item.quantity,
         })),
         customer: {
-          name: form.name.trim(),
+          name: form.fullName.trim(),
           email: form.email.trim(),
           phone: form.phone.trim(),
-          companyName: form.companyName.trim() || undefined,
-          companyCode: form.companyCode.trim() || undefined,
-          vatCode: form.vatCode.trim() || undefined,
-          address: form.address.trim() || undefined,
+          address: form.address.trim(),
           comment: form.comment.trim() || undefined,
         },
       });
       clearCart();
-      navigate('/parduotuve/sekme');
+      navigate("/parduotuve/sekme");
     } catch (error) {
       const message =
-        error instanceof Error ? error.message : 'Nepavyko pateikti užsakymo.';
-      setSubmitError(message || 'Nepavyko pateikti užsakymo.');
+        error instanceof Error ? error.message : "Nepavyko pateikti užsakymo. Bandykite dar kartą.";
+      setSubmitError(message);
     } finally {
       setIsSubmitting(false);
     }
@@ -119,18 +116,18 @@ const StoreCheckout = () => {
             <div>
               <label className="text-sm font-medium">Vardas ir pavardė *</label>
               <Input
-                value={form.name}
-                onChange={(event) => handleChange('name', event.target.value)}
-                aria-invalid={Boolean(errors.name)}
+                value={form.fullName}
+                onChange={(event) => handleChange("fullName", event.target.value)}
+                aria-invalid={Boolean(errors.fullName)}
               />
-              {errors.name && <p className="text-sm text-destructive">{errors.name}</p>}
+              {errors.fullName && <p className="text-sm text-destructive">{errors.fullName}</p>}
             </div>
             <div>
               <label className="text-sm font-medium">El. paštas *</label>
               <Input
                 type="email"
                 value={form.email}
-                onChange={(event) => handleChange('email', event.target.value)}
+                onChange={(event) => handleChange("email", event.target.value)}
                 aria-invalid={Boolean(errors.email)}
               />
               {errors.email && <p className="text-sm text-destructive">{errors.email}</p>}
@@ -139,45 +136,26 @@ const StoreCheckout = () => {
               <label className="text-sm font-medium">Telefonas *</label>
               <Input
                 value={form.phone}
-                onChange={(event) => handleChange('phone', event.target.value)}
+                onChange={(event) => handleChange("phone", event.target.value)}
                 aria-invalid={Boolean(errors.phone)}
               />
               {errors.phone && <p className="text-sm text-destructive">{errors.phone}</p>}
             </div>
             <div>
-              <label className="text-sm font-medium">Įmonės pavadinimas</label>
+              <label className="text-sm font-medium">Adresas *</label>
               <Input
-                value={form.companyName}
-                onChange={(event) => handleChange('companyName', event.target.value)}
+                value={form.address}
+                onChange={(event) => handleChange("address", event.target.value)}
+                aria-invalid={Boolean(errors.address)}
               />
+              {errors.address && <p className="text-sm text-destructive">{errors.address}</p>}
             </div>
-            <div>
-              <label className="text-sm font-medium">Įmonės kodas</label>
-              <Input
-                value={form.companyCode}
-                onChange={(event) => handleChange('companyCode', event.target.value)}
-              />
-            </div>
-            <div>
-              <label className="text-sm font-medium">PVM kodas</label>
-              <Input
-                value={form.vatCode}
-                onChange={(event) => handleChange('vatCode', event.target.value)}
-              />
-            </div>
-          </div>
-          <div>
-            <label className="text-sm font-medium">Adresas</label>
-            <Input
-              value={form.address}
-              onChange={(event) => handleChange('address', event.target.value)}
-            />
           </div>
           <div>
             <label className="text-sm font-medium">Komentaras</label>
             <Textarea
               value={form.comment}
-              onChange={(event) => handleChange('comment', event.target.value)}
+              onChange={(event) => handleChange("comment", event.target.value)}
               rows={4}
             />
           </div>
@@ -191,7 +169,7 @@ const StoreCheckout = () => {
 
           <div className="flex justify-end">
             <Button type="submit" disabled={isSubmitting}>
-              {isSubmitting ? 'Siunčiama...' : 'Pateikti užsakymą'}
+              {isSubmitting ? "Siunčiama..." : "Pateikti užsakymą"}
             </Button>
           </div>
         </form>
@@ -204,13 +182,23 @@ const StoreCheckout = () => {
                 <span>
                   {item.title} x {item.quantity}
                 </span>
-                <span>{formatPrice(item.total)}</span>
+                <span>{formatPrice(item.lineGross)}</span>
               </div>
             ))}
           </div>
-          <div className="border-t pt-4">
-            <p className="text-sm text-muted-foreground">Iš viso</p>
-            <p className="text-2xl font-semibold">{formatPrice(totalAmountCents)}</p>
+          <div className="space-y-2 border-t pt-4 text-sm">
+            <div className="flex items-center justify-between">
+              <span className="text-muted-foreground">Tarpinė suma (be PVM)</span>
+              <span className="font-medium">{formatPrice(subtotalNetCents)}</span>
+            </div>
+            <div className="flex items-center justify-between">
+              <span className="text-muted-foreground">PVM ({Math.round(VAT_RATE * 100)}%)</span>
+              <span className="font-medium">{formatPrice(vatCents)}</span>
+            </div>
+            <div className="flex items-center justify-between text-base font-semibold">
+              <span>Iš viso (su PVM)</span>
+              <span>{formatPrice(totalGrossCents)}</span>
+            </div>
           </div>
         </div>
       </div>

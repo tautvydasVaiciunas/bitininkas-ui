@@ -31,12 +31,18 @@ export class StoreOrderItem {
   @Column({ name: 'product_title', type: 'varchar', length: 200 })
   productTitle!: string;
 
-  @Column({ name: 'unit_price_cents', type: 'integer' })
-  unitPriceCents!: number;
+  @Column({ name: 'unit_net_cents', type: 'integer' })
+  unitNetCents!: number;
+
+  @Column({ name: 'unit_gross_cents', type: 'integer' })
+  unitGrossCents!: number;
 
   @Column({ type: 'integer' })
   quantity!: number;
 
-  @Column({ name: 'line_total_cents', type: 'integer' })
-  lineTotalCents!: number;
+  @Column({ name: 'line_net_cents', type: 'integer' })
+  lineNetCents!: number;
+
+  @Column({ name: 'line_gross_cents', type: 'integer' })
+  lineGrossCents!: number;
 }

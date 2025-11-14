@@ -55,6 +55,12 @@ export class StoreOrder {
   @Column({ type: 'text', nullable: true })
   comment?: string | null;
 
+  @Column({ name: 'subtotal_net_cents', type: 'integer', default: 0 })
+  subtotalNetCents!: number;
+
+  @Column({ name: 'vat_cents', type: 'integer', default: 0 })
+  vatCents!: number;
+
   @Column({ name: 'total_amount_cents', type: 'integer' })
   totalAmountCents!: number;
 

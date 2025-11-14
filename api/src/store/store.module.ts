@@ -10,6 +10,7 @@ import { PublicStoreProductsController } from './public-products.controller';
 import { AdminStoreProductsController } from './admin-products.controller';
 import { PublicStoreOrdersController } from './public-orders.controller';
 import { AdminStoreOrdersController } from './admin-orders.controller';
+import { StoreCustomerOrdersController } from './customer-orders.controller';
 import { NotificationsModule } from '../notifications/notifications.module';
 
 @Module({
@@ -22,6 +23,7 @@ import { NotificationsModule } from '../notifications/notifications.module';
     AdminStoreProductsController,
     PublicStoreOrdersController,
     AdminStoreOrdersController,
+    StoreCustomerOrdersController,
   ],
   providers: [StoreProductsService, StoreOrdersService],
   exports: [StoreProductsService, StoreOrdersService],

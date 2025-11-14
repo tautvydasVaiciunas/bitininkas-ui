@@ -34,6 +34,7 @@ import StoreProductDetail from "./pages/store/StoreProductDetail";
 import StoreCart from "./pages/store/StoreCart";
 import StoreCheckout from "./pages/store/StoreCheckout";
 import StoreSuccess from "./pages/store/StoreSuccess";
+import StoreMyOrders from "./pages/store/StoreMyOrders";
 import NotFound from "./pages/NotFound";
 
 const queryClient = new QueryClient();
@@ -47,11 +48,6 @@ const App = () => (
         <BrowserRouter>
           <CartProvider>
             <Routes>
-              <Route path="/parduotuve" element={<StoreHome />} />
-              <Route path="/parduotuve/produktas/:slug" element={<StoreProductDetail />} />
-              <Route path="/parduotuve/krepselis" element={<StoreCart />} />
-              <Route path="/parduotuve/uzsakymas" element={<StoreCheckout />} />
-              <Route path="/parduotuve/sekme" element={<StoreSuccess />} />
               <Route path="/auth/login" element={<Login />} />
               <Route path="/auth/forgot" element={<ForgotPassword />} />
               <Route path="/auth/reset" element={<ResetPassword />} />
@@ -59,6 +55,12 @@ const App = () => (
                 <Route path="/" element={<Navigate to="/news" replace />} />
                 <Route path="/news" element={<News />} />
                 <Route path="/news/:id" element={<NewsDetail />} />
+                <Route path="/parduotuve" element={<StoreHome />} />
+                <Route path="/parduotuve/produktas/:slug" element={<StoreProductDetail />} />
+                <Route path="/parduotuve/krepselis" element={<StoreCart />} />
+                <Route path="/parduotuve/uzsakymas" element={<StoreCheckout />} />
+                <Route path="/parduotuve/sekme" element={<StoreSuccess />} />
+                <Route path="/parduotuve/uzsakymai" element={<StoreMyOrders />} />
                 <Route path="/hives" element={<Hives />} />
                 <Route path="/hives/:id" element={<HiveDetail />} />
                 <Route path="/tasks" element={<Tasks />} />

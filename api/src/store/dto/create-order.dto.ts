@@ -50,10 +50,9 @@ class CreateOrderCustomerDto {
   @MaxLength(60)
   vatCode?: string;
 
-  @IsOptional()
-  @IsString()
-  @MaxLength(255)
-  address?: string;
+  @IsString({ message: 'Adresas privalomas' })
+  @MaxLength(255, { message: 'Adresas per ilgas' })
+  address!: string;
 
   @IsOptional()
   @IsString()

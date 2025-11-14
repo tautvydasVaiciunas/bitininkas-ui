@@ -109,7 +109,7 @@ const OrderRow = ({ order }: { order: StoreOrderListItem }) => {
           <span className="text-xs text-muted-foreground">{order.customerEmail}</span>
         </div>
       </td>
-      <td className="px-3 py-2">{formatPrice(order.totalAmountCents)}</td>
+      <td className="px-3 py-2">{formatPrice(order.totalGrossCents ?? order.totalAmountCents)}</td>
       <td className="px-3 py-2">{statusLabels[order.status] ?? order.status}</td>
       <td className="px-3 py-2 text-right">
         <Button variant="outline" size="sm" asChild>

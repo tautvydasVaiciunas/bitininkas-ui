@@ -1,18 +1,15 @@
-import { Controller, Get, Request, UnauthorizedException } from '@nestjs/common';
+import { Controller, Get, Request, UseGuards } from '@nestjs/common';
 
 import { StoreOrdersService } from './store-orders.service';
+import { JwtAuthGuard } from '../common/guards/jwt-auth.guard';
 
 @Controller('store/my-orders')
+@UseGuards(JwtAuthGuard)
 export class StoreCustomerOrdersController {
   constructor(private readonly ordersService: StoreOrdersService) {}
 
   @Get()
   list(@Request() req: any) {
-    const userId = req?.user?.id;
-    if (!userId) {
-      throw new UnauthorizedException('Prisijunkite, kad matytumėte užsakymus');
-    }
-
-    return this.ordersService.listOrdersForUser(userId);
+    return this.ordersService.listOrdersForUser(req.user.id);
   }
 }

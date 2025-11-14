@@ -273,6 +273,7 @@ export interface AdminStoreProductPayload {
   description: string;
   priceCents: number;
   isActive?: boolean;
+  imageUrls?: string[];
 }
 
 export interface CreateStoreOrderPayload {

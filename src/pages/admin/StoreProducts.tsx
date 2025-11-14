@@ -33,6 +33,7 @@ type ProductFormState = {
   description: string;
   price: string;
   isActive: boolean;
+  imageUrls: string[];
 };
 
 const defaultForm: ProductFormState = {
@@ -42,6 +43,7 @@ const defaultForm: ProductFormState = {
   description: "",
   price: "0.00",
   isActive: true,
+  imageUrls: [""],
 };
 
 const AdminStoreProducts = () => {
@@ -98,6 +100,7 @@ const AdminStoreProducts = () => {
       description: product.description,
       price: (product.priceCents / 100).toFixed(2),
       isActive: product.isActive,
+      imageUrls: product.imageUrls?.length ? product.imageUrls.slice(0, 5) : [""],
     });
     setIsDialogOpen(true);
   };
@@ -110,6 +113,7 @@ const AdminStoreProducts = () => {
       description: string;
       priceCents: number;
       isActive: boolean;
+      imageUrls?: string[];
     }) => api.admin.store.products.create(payload),
     onSuccess: () => {
       toast.success("Produktas sukurtas");
@@ -131,6 +135,7 @@ const AdminStoreProducts = () => {
         description?: string;
         priceCents?: number;
         isActive?: boolean;
+        imageUrls?: string[];
       };
     }) => api.admin.store.products.update(payload.id, payload.data),
     onSuccess: () => {
@@ -167,6 +172,11 @@ const AdminStoreProducts = () => {
       return;
     }
 
+    const imageUrls = (formState.imageUrls ?? [])
+      .map((url) => url.trim())
+      .filter((url, index, arr) => url.length > 0 && arr.indexOf(url) === index)
+      .slice(0, 5);
+
     const payload = {
       slug: formState.slug.trim(),
       title: formState.title.trim(),
@@ -174,6 +184,7 @@ const AdminStoreProducts = () => {
       description: formState.description.trim(),
       priceCents: Math.round(normalizedPrice * 100),
       isActive: formState.isActive,
+      imageUrls,
     };
 
     if (editingProduct) {
@@ -336,6 +347,60 @@ const AdminStoreProducts = () => {
                 placeholder="Pvz., pradedančiojo-rinkinys"
                 required
               />
+            </div>
+            <div className="space-y-2">
+              <Label>Nuotraukos (iki 5 URL)</Label>
+              <p className="text-xs text-muted-foreground">
+                Įklijuokite viešas nuotraukų nuorodas. Jos bus rodomos parduotuvėje.
+              </p>
+              <div className="space-y-2">
+                {formState.imageUrls.map((url, index) => (
+                  <div key={index} className="flex gap-2">
+                    <Input
+                      value={url}
+                      onChange={(event) => {
+                        const value = event.target.value;
+                        setFormState((prev) => {
+                          const next = [...prev.imageUrls];
+                          next[index] = value;
+                          return { ...prev, imageUrls: next };
+                        });
+                      }}
+                      placeholder="https://..."
+                    />
+                    <Button
+                      type="button"
+                      variant="ghost"
+                      onClick={() =>
+                        setFormState((prev) => ({
+                          ...prev,
+                          imageUrls:
+                            prev.imageUrls.length === 1
+                              ? [""]
+                              : prev.imageUrls.filter((_, i) => i !== index),
+                        }))
+                      }
+                    >
+                      Pašalinti
+                    </Button>
+                  </div>
+                ))}
+              </div>
+              {formState.imageUrls.length < 5 && (
+                <Button
+                  type="button"
+                  variant="outline"
+                  size="sm"
+                  onClick={() =>
+                    setFormState((prev) => ({
+                      ...prev,
+                      imageUrls: [...prev.imageUrls, ""],
+                    }))
+                  }
+                >
+                  Pridėti nuotraukos nuorodą
+                </Button>
+              )}
             </div>
             <div className="space-y-2">
               <Label htmlFor="title">Pavadinimas</Label>

@@ -42,9 +42,9 @@ const StoreHome = () => {
       {data && data.length > 0 ? (
         <div className="grid gap-6 sm:grid-cols-2">
           {data.map((product) => (
-            <Card key={product.id} className="overflow-hidden">
+            <Card key={product.id} className="flex h-full flex-col overflow-hidden">
               {product.imageUrls?.length ? (
-                <div className="aspect-video w-full bg-muted">
+                <div className="h-48 w-full bg-muted">
                   <img
                     src={product.imageUrls[0]}
                     alt={product.title}
@@ -53,11 +53,11 @@ const StoreHome = () => {
                   />
                 </div>
               ) : (
-                <div className="aspect-video flex w-full items-center justify-center bg-muted text-sm text-muted-foreground">
+                <div className="h-48 flex w-full items-center justify-center bg-muted text-sm text-muted-foreground">
                   Nėra nuotraukos
                 </div>
               )}
-              <CardHeader>
+              <CardHeader className="flex flex-col gap-3">
                 <CardTitle className="flex items-center justify-between gap-4 text-base">
                   <span>{product.title}</span>
                   <div className="text-right">
@@ -75,8 +75,8 @@ const StoreHome = () => {
                   {product.shortDescription || "Aprašymas bus pateiktas vėliau."}
                 </p>
               </CardContent>
-              <CardFooter className="flex flex-wrap gap-2">
-                <Button asChild variant="outline">
+              <CardFooter className="mt-auto flex w-full flex-wrap items-end justify-between gap-2">
+                <Button asChild variant="outline" size="sm">
                   <Link to={`/parduotuve/produktas/${product.slug}`}>Daugiau informacijos</Link>
                 </Button>
                 <Button onClick={() => handleAdd(product)}>Į krepšelį</Button>

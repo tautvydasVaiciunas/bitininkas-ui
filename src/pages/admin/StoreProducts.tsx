@@ -330,14 +330,14 @@ const AdminStoreProducts = () => {
       </div>
 
       <Dialog open={isDialogOpen} onOpenChange={(open) => !open && closeDialog()}>
-        <DialogContent>
+        <DialogContent className="max-h-[90vh] overflow-y-auto sm:max-w-2xl">
           <DialogHeader>
             <DialogTitle>{editingProduct ? "Redaguoti produktą" : "Naujas produktas"}</DialogTitle>
             <DialogDescription>
               Užpildykite produkto informaciją. Šie duomenys bus rodomi viešoje parduotuvėje.
             </DialogDescription>
           </DialogHeader>
-          <form className="space-y-4" onSubmit={handleSubmit}>
+          <form className="space-y-4 pb-2" onSubmit={handleSubmit}>
             <div className="space-y-2">
               <Label htmlFor="slug">Slug</Label>
               <Input

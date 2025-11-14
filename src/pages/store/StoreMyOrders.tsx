@@ -2,7 +2,7 @@ import { useQuery } from "@tanstack/react-query";
 import { format } from "date-fns";
 import lt from "date-fns/locale/lt";
 
-import api, { type StoreMyOrder } from "@/lib/api";
+import api from "@/lib/api";
 import { StoreLayout } from "./StoreLayout";
 import { formatPrice } from "./utils";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
@@ -23,9 +23,7 @@ const StoreMyOrders = () => {
     <StoreLayout>
       <div className="mb-6 flex flex-col gap-2">
         <h1 className="text-3xl font-bold">Mano užsakymai</h1>
-        <p className="text-muted-foreground">
-          Matykite savo pateiktų užsakymų istoriją ir būsenas.
-        </p>
+        <p className="text-muted-foreground">Matykite savo pateiktų užsakymų istoriją ir būsenas.</p>
       </div>
 
       {isLoading && (
@@ -73,15 +71,11 @@ const StoreMyOrders = () => {
                     <td className="px-3 py-2">
                       {format(new Date(order.createdAt), "yyyy-MM-dd HH:mm", { locale: lt })}
                     </td>
-                    <td className="px-3 py-2">
-                      {STATUS_LABELS[order.status] ?? order.status}
-                    </td>
+                    <td className="px-3 py-2">{STATUS_LABELS[order.status] ?? order.status}</td>
                     <td className="px-3 py-2">
                       {formatPrice(order.totalGrossCents ?? order.totalAmountCents)}
                     </td>
-                    <td className="px-3 py-2">
-                      {renderItemsSummary(order)}
-                    </td>
+                    <td className="px-3 py-2">{renderItemsSummary(order)}</td>
                   </tr>
                 ))}
               </tbody>
@@ -93,18 +87,21 @@ const StoreMyOrders = () => {
   );
 };
 
-const renderItemsSummary = (order: StoreMyOrder) => {
+const renderItemsSummary = (
+  order: Awaited<ReturnType<typeof api.store.myOrders>>[number],
+) => {
   if (!order.items.length) {
     return "Prekių nėra";
   }
 
-  const [first, ...rest] = order.items;
-  if (!rest.length) {
+  const totalCount = order.items.reduce((sum, item) => sum + item.quantity, 0);
+  const first = order.items[0];
+
+  if (order.items.length === 1) {
     return `${first.productTitle} × ${first.quantity}`;
   }
 
-  const remaining = rest.reduce((sum, item) => sum + item.quantity, 0);
-  return `${first.productTitle} × ${first.quantity} (+${remaining} vnt.)`;
+  return `${first.productTitle} × ${first.quantity} (+${totalCount - first.quantity} vnt.)`;
 };
 
 export default StoreMyOrders;

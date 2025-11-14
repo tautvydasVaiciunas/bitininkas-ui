@@ -40,7 +40,7 @@ const StoreHome = () => {
       {isError && <p>Nepavyko įkelti produktų. Bandykite dar kartą.</p>}
 
       {data && data.length > 0 ? (
-        <div className="grid gap-6 sm:grid-cols-2">
+        <div className="grid grid-cols-1 gap-6 sm:grid-cols-2 lg:grid-cols-3">
           {data.map((product) => (
             <Card key={product.id} className="flex h-full flex-col overflow-hidden">
               {product.imageUrls?.length ? (

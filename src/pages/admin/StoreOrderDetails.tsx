@@ -1,4 +1,3 @@
-import { useMemo } from "react";
 import { useQuery } from "@tanstack/react-query";
 import { Link, useParams } from "react-router-dom";
 import { format } from "date-fns";
@@ -21,34 +20,18 @@ const StoreOrderDetails = () => {
     queryKey: ["admin-store-order", id],
     queryFn: () => api.admin.store.orders.get(id ?? ""),
     enabled: Boolean(id),
+    retry: false,
   });
 
   if (isLoading) {
     return (
       <Card>
-        <CardContent className="py-10 text-center text-muted-foreground">Kraunama...</CardContent>
+        <CardContent className="py-10 text-center text-muted-foreground">
+          Kraunama...
+        </CardContent>
       </Card>
     );
   }
-
-  const uniqueItems = useMemo(() => {
-    if (!data?.items) return [];
-    const map = new Map<string, StoreOrderResponse["items"][number]>();
-
-    data.items.forEach((item) => {
-      const key = `${item.productId ?? item.productTitle}-${item.unitNetCents}-${item.unitGrossCents}`;
-      const existing = map.get(key);
-      if (existing) {
-        existing.quantity += item.quantity;
-        existing.lineNetCents += item.lineNetCents;
-        existing.lineGrossCents += item.lineGrossCents;
-      } else {
-        map.set(key, { ...item });
-      }
-    });
-
-    return Array.from(map.values());
-  }, [data]);
 
   if (isError || !data) {
     return (
@@ -59,6 +42,8 @@ const StoreOrderDetails = () => {
       </Card>
     );
   }
+
+  const lineItems = mergeOrderItems(data.items);
 
   return (
     <div className="space-y-6">
@@ -112,15 +97,23 @@ const StoreOrderDetails = () => {
               </tr>
             </thead>
             <tbody>
-              {uniqueItems.map((item, index) => (
-                <tr key={`${item.productTitle}-${index}`} className="border-t">
-                  <td className="px-3 py-2">{item.productTitle}</td>
-                  <td className="px-3 py-2">{item.quantity}</td>
-                  <td className="px-3 py-2">{formatPrice(item.unitNetCents)}</td>
-                  <td className="px-3 py-2">{formatPrice(item.unitGrossCents)}</td>
-                  <td className="px-3 py-2">{formatPrice(item.lineGrossCents)}</td>
+              {lineItems.length === 0 ? (
+                <tr>
+                  <td colSpan={5} className="px-3 py-4 text-center text-muted-foreground">
+                    Prekių nerasta
+                  </td>
                 </tr>
-              ))}
+              ) : (
+                lineItems.map((item, index) => (
+                  <tr key={`${item.productTitle}-${index}`} className="border-t">
+                    <td className="px-3 py-2">{item.productTitle}</td>
+                    <td className="px-3 py-2">{item.quantity}</td>
+                    <td className="px-3 py-2">{formatPrice(item.unitNetCents)}</td>
+                    <td className="px-3 py-2">{formatPrice(item.unitGrossCents)}</td>
+                    <td className="px-3 py-2">{formatPrice(item.lineGrossCents)}</td>
+                  </tr>
+                ))
+              )}
             </tbody>
             <tfoot>
               <tr className="border-t">
@@ -176,3 +169,38 @@ const InfoRow = ({
 };
 
 export default StoreOrderDetails;
+
+function mergeOrderItems(items: StoreOrderResponse["items"] | undefined) {
+  if (!Array.isArray(items) || !items.length) {
+    return [];
+  }
+
+  const merged = new Map<string, StoreOrderResponse["items"][number]>();
+
+  for (const item of items) {
+    const key =
+      (item.productId ?? item.productTitle ?? "item") +
+      "-" +
+      (item.unitNetCents ?? 0) +
+      "-" +
+      (item.unitGrossCents ?? 0);
+
+    const existing = merged.get(key);
+    if (existing) {
+      existing.quantity += item.quantity ?? 0;
+      existing.lineNetCents += item.lineNetCents ?? 0;
+      existing.lineGrossCents += item.lineGrossCents ?? 0;
+    } else {
+      merged.set(key, {
+        ...item,
+        quantity: item.quantity ?? 0,
+        unitNetCents: item.unitNetCents ?? 0,
+        unitGrossCents: item.unitGrossCents ?? 0,
+        lineNetCents: item.lineNetCents ?? 0,
+        lineGrossCents: item.lineGrossCents ?? 0,
+      });
+    }
+  }
+
+  return Array.from(merged.values());
+}

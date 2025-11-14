@@ -1,9 +1,10 @@
-import { Controller, Get, Param, Query } from '@nestjs/common';
+import { Body, Controller, Get, Param, Patch, Query } from '@nestjs/common';
 
 import { StoreOrdersService } from './store-orders.service';
 import { Roles } from '../common/decorators/roles.decorator';
 import { UserRole } from '../users/user.entity';
 import { ListOrdersQueryDto } from './dto/list-orders-query.dto';
+import { UpdateOrderStatusDto } from './dto/update-order-status.dto';
 
 @Controller('admin/store/orders')
 @Roles(UserRole.MANAGER, UserRole.ADMIN)
@@ -18,5 +19,10 @@ export class AdminStoreOrdersController {
   @Get(':id')
   get(@Param('id') id: string) {
     return this.ordersService.getOrderDetails(id);
+  }
+
+  @Patch(':id/status')
+  updateStatus(@Param('id') id: string, @Body() dto: UpdateOrderStatusDto) {
+    return this.ordersService.updateOrderStatus(id, dto.status);
   }
 }

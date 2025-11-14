@@ -43,15 +43,7 @@ const StoreOrderDetails = () => {
     );
   }
 
-  const items = Array.isArray(data.items)
-    ? data.items.map((item) => ({
-        productTitle: item.productTitle ?? "Prekė",
-        quantity: item.quantity ?? 0,
-        unitNetCents: item.unitNetCents ?? 0,
-        unitGrossCents: item.unitGrossCents ?? 0,
-        lineGrossCents: item.lineGrossCents ?? 0,
-      }))
-    : [];
+  const items = getDisplayItems(data.items);
 
   return (
     <div className="space-y-6">
@@ -177,6 +169,39 @@ const InfoRow = ({
 };
 
 export default StoreOrderDetails;
+
+function getDisplayItems(items: StoreOrderResponse["items"] | undefined) {
+  if (!Array.isArray(items)) {
+    return [];
+  }
+
+  const merged = new Map<string, { productTitle: string; quantity: number; unitNetCents: number; unitGrossCents: number; lineGrossCents: number }>();
+
+  items.forEach((item, index) => {
+    const title = item.productTitle ?? `Prekė #${index + 1}`;
+    const key = `${item.productId ?? title}-${item.unitGrossCents ?? 0}-${item.unitNetCents ?? 0}`;
+    const quantity = item.quantity ?? 0;
+    const unitNet = item.unitNetCents ?? 0;
+    const unitGross = item.unitGrossCents ?? 0;
+    const lineGross = item.lineGrossCents ?? unitGross * quantity;
+
+    const existing = merged.get(key);
+    if (existing) {
+      existing.quantity += quantity;
+      existing.lineGrossCents += lineGross;
+    } else {
+      merged.set(key, {
+        productTitle: title,
+        quantity,
+        unitNetCents: unitNet,
+        unitGrossCents: unitGross,
+        lineGrossCents: lineGross,
+      });
+    }
+  });
+
+  return Array.from(merged.values());
+}
 
 function mergeOrderItems(items: StoreOrderResponse["items"] | undefined) {
   if (!Array.isArray(items) || !items.length) {

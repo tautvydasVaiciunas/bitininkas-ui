@@ -43,7 +43,7 @@ const StoreOrderDetails = () => {
     );
   }
 
-  const items = getDisplayItems(data.items);
+  const items = normalizeOrderItems(data.items);
 
   return (
     <div className="space-y-6">
@@ -170,70 +170,27 @@ const InfoRow = ({
 
 export default StoreOrderDetails;
 
-function getDisplayItems(items: StoreOrderResponse["items"] | undefined) {
+function normalizeOrderItems(items: StoreOrderResponse["items"] | undefined) {
   if (!Array.isArray(items)) {
     return [];
   }
 
-  const merged = new Map<string, { productTitle: string; quantity: number; unitNetCents: number; unitGrossCents: number; lineGrossCents: number }>();
+  return items.map((item, index) => {
+    const title = item.productTitle ?? `Preke #${index + 1}`;
+    const unitNet = Number.isFinite(item.unitNetCents) ? item.unitNetCents : 0;
+    const unitGross = Number.isFinite(item.unitGrossCents) ? item.unitGrossCents : 0;
+    const quantity = Number.isFinite(item.quantity) ? item.quantity : 0;
+    const lineGross =
+      Number.isFinite(item.lineGrossCents) && item.lineGrossCents !== undefined
+        ? item.lineGrossCents
+        : unitGross * quantity;
 
-  items.forEach((item, index) => {
-    const title = item.productTitle ?? `Prekė #${index + 1}`;
-    const key = `${item.productId ?? title}-${item.unitGrossCents ?? 0}-${item.unitNetCents ?? 0}`;
-    const quantity = item.quantity ?? 0;
-    const unitNet = item.unitNetCents ?? 0;
-    const unitGross = item.unitGrossCents ?? 0;
-    const lineGross = item.lineGrossCents ?? unitGross * quantity;
-
-    const existing = merged.get(key);
-    if (existing) {
-      existing.quantity += quantity;
-      existing.lineGrossCents += lineGross;
-    } else {
-      merged.set(key, {
-        productTitle: title,
-        quantity,
-        unitNetCents: unitNet,
-        unitGrossCents: unitGross,
-        lineGrossCents: lineGross,
-      });
-    }
+    return {
+      productTitle: title,
+      quantity,
+      unitNetCents: unitNet,
+      unitGrossCents: unitGross,
+      lineGrossCents: lineGross,
+    };
   });
-
-  return Array.from(merged.values());
-}
-
-function mergeOrderItems(items: StoreOrderResponse["items"] | undefined) {
-  if (!Array.isArray(items) || !items.length) {
-    return [];
-  }
-
-  const merged = new Map<string, StoreOrderResponse["items"][number]>();
-
-  for (const item of items) {
-    const key =
-      (item.productId ?? item.productTitle ?? "item") +
-      "-" +
-      (item.unitNetCents ?? 0) +
-      "-" +
-      (item.unitGrossCents ?? 0);
-
-    const existing = merged.get(key);
-    if (existing) {
-      existing.quantity += item.quantity ?? 0;
-      existing.lineNetCents += item.lineNetCents ?? 0;
-      existing.lineGrossCents += item.lineGrossCents ?? 0;
-    } else {
-      merged.set(key, {
-        ...item,
-        quantity: item.quantity ?? 0,
-        unitNetCents: item.unitNetCents ?? 0,
-        unitGrossCents: item.unitGrossCents ?? 0,
-        lineNetCents: item.lineNetCents ?? 0,
-        lineGrossCents: item.lineGrossCents ?? 0,
-      });
-    }
-  }
-
-  return Array.from(merged.values());
 }

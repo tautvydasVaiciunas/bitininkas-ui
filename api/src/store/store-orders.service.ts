@@ -208,7 +208,6 @@ export class StoreOrdersService {
       vatCents,
       totalAmountCents: subtotalGrossCents,
       userId: userId ?? null,
-      items: itemsToPersist,
     });
 
     const saved = await this.ordersRepository.manager.transaction(async (manager) => {

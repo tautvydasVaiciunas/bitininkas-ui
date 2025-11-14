@@ -1,21 +1,27 @@
-import { useQuery } from "@tanstack/react-query";
+﻿import { useQuery } from "@tanstack/react-query";
 import { Link, useParams } from "react-router-dom";
 import { format } from "date-fns";
 import lt from "date-fns/locale/lt";
 import { ArrowLeft } from "lucide-react";
 
-import api, { type StoreOrderResponse } from "@/lib/api";
+import api, { type StoreOrderResponse, type StoreOrderStatus } from "@/lib/api";
 import { formatPrice } from "../store/utils";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
-
-const STATUS_LABELS: Record<string, string> = {
-  new: "Naujas",
-  cancelled: "Atšauktas",
-};
+import { Badge } from "@/components/ui/badge";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
+import { ORDER_STATUS_OPTIONS, getOrderStatusMeta } from "@/lib/storeOrderStatus";
+import { useUpdateStoreOrderStatus } from "@/hooks/useUpdateStoreOrderStatus";
 
 const StoreOrderDetails = () => {
   const { id } = useParams<{ id: string }>();
+  const statusMutation = useUpdateStoreOrderStatus();
   const { data, isLoading, isError } = useQuery<StoreOrderResponse>({
     queryKey: ["admin-store-order", id],
     queryFn: () => api.admin.store.orders.get(id ?? ""),
@@ -44,6 +50,17 @@ const StoreOrderDetails = () => {
   }
 
   const items = normalizeOrderItems(data.items);
+  const statusMeta = getOrderStatusMeta(data.status);
+  const canEditStatus = ORDER_STATUS_OPTIONS.some((option) => option.value === data.status);
+  const isUpdatingStatus =
+    statusMutation.isPending && statusMutation.variables?.orderId === data.id;
+
+  const handleStatusChange = (value: StoreOrderStatus) => {
+    if (value === data.status) {
+      return;
+    }
+    statusMutation.mutate({ orderId: data.id, status: value });
+  };
 
   return (
     <div className="space-y-6">
@@ -52,10 +69,30 @@ const StoreOrderDetails = () => {
           <p className="text-sm text-muted-foreground">
             {format(new Date(data.createdAt), "yyyy-MM-dd HH:mm", { locale: lt })}
           </p>
-          <h1 className="text-3xl font-bold">Užsakymas #{data.id.slice(0, 8).toUpperCase()}</h1>
-          <p className="text-sm text-muted-foreground">
-            Būsena: {STATUS_LABELS[data.status] ?? data.status}
-          </p>
+          <h1 className="text-3xl font-bold">
+            Užsakymas #{data.id.slice(0, 8).toUpperCase()}
+          </h1>
+          <div className="mt-2 flex flex-wrap items-center gap-3">
+            <Badge className={statusMeta.badgeClass}>{statusMeta.label}</Badge>
+            {canEditStatus && (
+              <Select
+                value={data.status}
+                onValueChange={(value) => handleStatusChange(value as StoreOrderStatus)}
+                disabled={isUpdatingStatus}
+              >
+                <SelectTrigger className="w-[200px]">
+                  <SelectValue placeholder="Pasirinkti būseną" />
+                </SelectTrigger>
+                <SelectContent>
+                  {ORDER_STATUS_OPTIONS.map((option) => (
+                    <SelectItem key={option.value} value={option.value}>
+                      {option.label}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            )}
+          </div>
         </div>
         <Button asChild variant="outline">
           <Link to="/admin/store/orders">
@@ -176,7 +213,7 @@ function normalizeOrderItems(items: StoreOrderResponse["items"] | undefined) {
   }
 
   return items.map((item, index) => {
-    const title = item.productTitle ?? `Preke #${index + 1}`;
+    const title = item.productTitle ?? `Prekė #${index + 1}`;
     const unitNet = Number.isFinite(item.unitNetCents) ? item.unitNetCents : 0;
     const unitGross = Number.isFinite(item.unitGrossCents) ? item.unitGrossCents : 0;
     const quantity = Number.isFinite(item.quantity) ? item.quantity : 0;

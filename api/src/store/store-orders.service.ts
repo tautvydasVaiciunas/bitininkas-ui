@@ -279,6 +279,16 @@ export class StoreOrdersService {
     });
   }
 
+  async updateOrderStatus(id: string, status: StoreOrderStatus): Promise<OrderSummary> {
+    const order = await this.getOrderEntity(id);
+    if (order.status !== status) {
+      order.status = status;
+      await this.ordersRepository.save(order);
+    }
+
+    return this.mapOrder(order);
+  }
+
   async getOrderDetails(id: string): Promise<OrderDetails> {
     const order = await this.getOrderEntity(id, true);
     return this.mapOrder(order, true) as OrderDetails;

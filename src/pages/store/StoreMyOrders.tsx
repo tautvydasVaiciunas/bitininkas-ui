@@ -1,4 +1,4 @@
-import { useQuery } from "@tanstack/react-query";
+﻿import { useQuery } from "@tanstack/react-query";
 import { format } from "date-fns";
 import lt from "date-fns/locale/lt";
 
@@ -7,11 +7,8 @@ import { StoreLayout } from "./StoreLayout";
 import { formatPrice } from "./utils";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Skeleton } from "@/components/ui/skeleton";
-
-const STATUS_LABELS: Record<string, string> = {
-  new: "Naujas",
-  cancelled: "Atšauktas",
-};
+import { Badge } from "@/components/ui/badge";
+import { getOrderStatusMeta } from "@/lib/storeOrderStatus";
 
 const StoreMyOrders = () => {
   const { data, isLoading, isError } = useQuery({
@@ -23,7 +20,7 @@ const StoreMyOrders = () => {
     <StoreLayout>
       <div className="mb-6 flex flex-col gap-2">
         <h1 className="text-3xl font-bold">Mano užsakymai</h1>
-        <p className="text-muted-foreground">Matykite savo pateiktų užsakymų istoriją ir būsenas.</p>
+        <p className="text-muted-foreground">Matykite pateiktų užsakymų istoriją ir būsenas.</p>
       </div>
 
       {isLoading && (
@@ -60,7 +57,7 @@ const StoreMyOrders = () => {
               <thead>
                 <tr className="text-left text-muted-foreground">
                   <th className="px-3 py-2 font-medium">Data</th>
-                  <th className="px-3 py-2 font-medium">Statusas</th>
+                  <th className="px-3 py-2 font-medium">Būsena</th>
                   <th className="px-3 py-2 font-medium">Suma (su PVM)</th>
                   <th className="px-3 py-2 font-medium">Prekės</th>
                 </tr>
@@ -71,7 +68,9 @@ const StoreMyOrders = () => {
                     <td className="px-3 py-2">
                       {format(new Date(order.createdAt), "yyyy-MM-dd HH:mm", { locale: lt })}
                     </td>
-                    <td className="px-3 py-2">{STATUS_LABELS[order.status] ?? order.status}</td>
+                    <td className="px-3 py-2">
+                      <OrderStatusBadge status={order.status} />
+                    </td>
                     <td className="px-3 py-2">
                       {formatPrice(order.totalGrossCents ?? order.totalAmountCents)}
                     </td>
@@ -85,6 +84,11 @@ const StoreMyOrders = () => {
       )}
     </StoreLayout>
   );
+};
+
+const OrderStatusBadge = ({ status }: { status: string }) => {
+  const meta = getOrderStatusMeta(status);
+  return <Badge className={meta.badgeClass}>{meta.label}</Badge>;
 };
 
 const renderItemsSummary = (order: StoreMyOrder) => {

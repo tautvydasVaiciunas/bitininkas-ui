@@ -223,7 +223,7 @@ export interface StoreOrderItemResponse {
   lineGrossCents: number;
 }
 
-export type StoreOrderStatus = 'new' | 'cancelled';
+export type StoreOrderStatus = 'new' | 'in_progress' | 'completed' | 'cancelled';
 
 export interface StoreOrderResponse {
   id: string;
@@ -1082,6 +1082,8 @@ export const api = {
         list: (params?: { page?: number; limit?: number }) =>
           get<PaginatedResponse<StoreOrderListItem>>('/admin/store/orders', { query: params }),
         get: (id: string) => get<StoreOrderResponse>(`/admin/store/orders/${id}`),
+        updateStatus: (id: string, payload: { status: StoreOrderStatus }) =>
+          patch<StoreOrderListItem>(`/admin/store/orders/${id}/status`, { json: payload }),
       },
     },
   },

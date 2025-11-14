@@ -788,6 +788,7 @@ const request = async <T>(
 
   const response = await fetch(url, {
     ...rest,
+    credentials: rest.credentials ?? 'include',
     method,
     headers: finalHeaders,
     body: requestBody,
@@ -1063,7 +1064,7 @@ export const api = {
     getProduct: (slug: string) =>
       get<StoreProduct>(`/store/products/${slug}`, { skipAuth: true }),
     createOrder: (payload: CreateStoreOrderPayload) =>
-      post<StoreOrderResponse>('/store/orders', { json: payload, skipAuth: true }),
+      post<StoreOrderResponse>('/store/orders', { json: payload }),
     myOrders: () => get<StoreMyOrder[]>('/store/my-orders'),
   },
   admin: {

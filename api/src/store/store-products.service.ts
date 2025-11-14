@@ -22,6 +22,7 @@ export interface StoreProductResponse {
   title: string;
   shortDescription: string | null;
   description: string;
+  imageUrls: string[];
   priceCents: number;
   isActive: boolean;
   createdAt: Date;
@@ -43,6 +44,7 @@ export class StoreProductsService {
       title: product.title,
       shortDescription: product.shortDescription ?? null,
       description: product.description,
+      imageUrls: Array.isArray(product.imageUrls) ? product.imageUrls : [],
       priceCents: product.priceCents,
       isActive: product.isActive,
       createdAt: product.createdAt,
@@ -138,6 +140,30 @@ export class StoreProductsService {
     return candidate;
   }
 
+  private sanitizeImageUrls(urls?: string[]): string[] {
+    if (!Array.isArray(urls)) {
+      return [];
+    }
+
+    const unique: string[] = [];
+    for (const url of urls) {
+      const trimmed = typeof url === 'string' ? url.trim() : '';
+      if (!trimmed.length) {
+        continue;
+      }
+
+      if (!unique.includes(trimmed)) {
+        unique.push(trimmed);
+      }
+
+      if (unique.length === 5) {
+        break;
+      }
+    }
+
+    return unique;
+  }
+
   private priceToCents(price: number): number {
     const cents = Math.round(price * 100);
     if (!Number.isFinite(cents) || cents <= 0) {
@@ -172,6 +198,7 @@ export class StoreProductsService {
     }
 
     const priceCents = this.resolvePriceCents(dto);
+    const imageUrls = this.sanitizeImageUrls(dto.imageUrls);
     const slug = await this.generateUniqueSlug(title);
 
     const product = this.productsRepository.create({
@@ -180,6 +207,7 @@ export class StoreProductsService {
       shortDescription: shortDescription?.length ? shortDescription : null,
       description,
       priceCents,
+      imageUrls,
       isActive: dto.isActive ?? true,
     });
 
@@ -220,6 +248,10 @@ export class StoreProductsService {
 
     if (dto.description !== undefined) {
       product.description = dto.description.trim();
+    }
+
+    if (dto.imageUrls !== undefined) {
+      product.imageUrls = this.sanitizeImageUrls(dto.imageUrls);
     }
 
     if (dto.price !== undefined || dto.priceCents !== undefined) {

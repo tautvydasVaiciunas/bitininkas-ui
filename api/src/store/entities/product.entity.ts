@@ -28,6 +28,13 @@ export class StoreProduct {
   @Column({ name: 'price_cents', type: 'integer' })
   priceCents!: number;
 
+  @Column({
+    name: 'image_urls',
+    type: 'jsonb',
+    default: () => "'[]'::jsonb",
+  })
+  imageUrls!: string[];
+
   @Column({ name: 'is_active', type: 'boolean', default: true })
   isActive!: boolean;
 

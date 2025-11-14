@@ -2,7 +2,7 @@ import { useQuery } from "@tanstack/react-query";
 import { format } from "date-fns";
 import lt from "date-fns/locale/lt";
 
-import api from "@/lib/api";
+import api, { type StoreMyOrder } from "@/lib/api";
 import { StoreLayout } from "./StoreLayout";
 import { formatPrice } from "./utils";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
@@ -87,21 +87,13 @@ const StoreMyOrders = () => {
   );
 };
 
-const renderItemsSummary = (
-  order: Awaited<ReturnType<typeof api.store.myOrders>>[number],
-) => {
+const renderItemsSummary = (order: StoreMyOrder) => {
   if (!order.items.length) {
     return "Prekių nėra";
   }
 
-  const totalCount = order.items.reduce((sum, item) => sum + item.quantity, 0);
-  const first = order.items[0];
-
-  if (order.items.length === 1) {
-    return `${first.productTitle} × ${first.quantity}`;
-  }
-
-  return `${first.productTitle} × ${first.quantity} (+${totalCount - first.quantity} vnt.)`;
+  const total = order.items.reduce((sum, item) => sum + item.quantity, 0);
+  return `${total} prekės`;
 };
 
 export default StoreMyOrders;

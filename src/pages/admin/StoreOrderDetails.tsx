@@ -43,7 +43,15 @@ const StoreOrderDetails = () => {
     );
   }
 
-  const lineItems = mergeOrderItems(data.items);
+  const items = Array.isArray(data.items)
+    ? data.items.map((item) => ({
+        productTitle: item.productTitle ?? "Prekė",
+        quantity: item.quantity ?? 0,
+        unitNetCents: item.unitNetCents ?? 0,
+        unitGrossCents: item.unitGrossCents ?? 0,
+        lineGrossCents: item.lineGrossCents ?? 0,
+      }))
+    : [];
 
   return (
     <div className="space-y-6">
@@ -97,14 +105,14 @@ const StoreOrderDetails = () => {
               </tr>
             </thead>
             <tbody>
-              {lineItems.length === 0 ? (
+              {items.length === 0 ? (
                 <tr>
                   <td colSpan={5} className="px-3 py-4 text-center text-muted-foreground">
                     Prekių nerasta
                   </td>
                 </tr>
               ) : (
-                lineItems.map((item, index) => (
+                items.map((item, index) => (
                   <tr key={`${item.productTitle}-${index}`} className="border-t">
                     <td className="px-3 py-2">{item.productTitle}</td>
                     <td className="px-3 py-2">{item.quantity}</td>

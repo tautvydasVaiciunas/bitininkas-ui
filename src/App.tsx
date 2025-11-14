@@ -61,6 +61,7 @@ const App = () => (
                 <Route path="/parduotuve/uzsakymas" element={<StoreCheckout />} />
                 <Route path="/parduotuve/sekme" element={<StoreSuccess />} />
                 <Route path="/parduotuve/uzsakymai" element={<StoreMyOrders />} />
+                <Route path="/parduotuve/uzsakymai" element={<StoreMyOrders />} />
                 <Route path="/hives" element={<Hives />} />
                 <Route path="/hives/:id" element={<HiveDetail />} />
                 <Route path="/tasks" element={<Tasks />} />

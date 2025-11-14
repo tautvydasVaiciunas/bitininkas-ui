@@ -1,3 +1,4 @@
+import { useMemo } from "react";
 import { useQuery } from "@tanstack/react-query";
 import { Link, useParams } from "react-router-dom";
 import { format } from "date-fns";
@@ -29,6 +30,25 @@ const StoreOrderDetails = () => {
       </Card>
     );
   }
+
+  const uniqueItems = useMemo(() => {
+    if (!data?.items) return [];
+    const map = new Map<string, StoreOrderResponse["items"][number]>();
+
+    data.items.forEach((item) => {
+      const key = `${item.productId ?? item.productTitle}-${item.unitNetCents}-${item.unitGrossCents}`;
+      const existing = map.get(key);
+      if (existing) {
+        existing.quantity += item.quantity;
+        existing.lineNetCents += item.lineNetCents;
+        existing.lineGrossCents += item.lineGrossCents;
+      } else {
+        map.set(key, { ...item });
+      }
+    });
+
+    return Array.from(map.values());
+  }, [data]);
 
   if (isError || !data) {
     return (
@@ -92,7 +112,7 @@ const StoreOrderDetails = () => {
               </tr>
             </thead>
             <tbody>
-              {data.items.map((item, index) => (
+              {uniqueItems.map((item, index) => (
                 <tr key={`${item.productTitle}-${index}`} className="border-t">
                   <td className="px-3 py-2">{item.productTitle}</td>
                   <td className="px-3 py-2">{item.quantity}</td>

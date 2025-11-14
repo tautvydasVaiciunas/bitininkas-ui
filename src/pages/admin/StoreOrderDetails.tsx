@@ -25,7 +25,7 @@ const StoreOrderDetails = () => {
   if (isLoading) {
     return (
       <Card>
-        <CardContent className="py-10 text-center text-muted-foreground">Kraunama…</CardContent>
+        <CardContent className="py-10 text-center text-muted-foreground">Kraunama...</CardContent>
       </Card>
     );
   }
@@ -86,8 +86,9 @@ const StoreOrderDetails = () => {
               <tr className="text-left text-muted-foreground">
                 <th className="px-3 py-2 font-medium">Produktas</th>
                 <th className="px-3 py-2 font-medium">Kiekis</th>
-                <th className="px-3 py-2 font-medium">Kaina</th>
-                <th className="px-3 py-2 font-medium">Suma</th>
+                <th className="px-3 py-2 font-medium">Kaina (be PVM)</th>
+                <th className="px-3 py-2 font-medium">Kaina (su PVM)</th>
+                <th className="px-3 py-2 font-medium">Suma (su PVM)</th>
               </tr>
             </thead>
             <tbody>
@@ -95,17 +96,34 @@ const StoreOrderDetails = () => {
                 <tr key={`${item.productTitle}-${index}`} className="border-t">
                   <td className="px-3 py-2">{item.productTitle}</td>
                   <td className="px-3 py-2">{item.quantity}</td>
-                  <td className="px-3 py-2">{formatPrice(item.unitPriceCents)}</td>
-                  <td className="px-3 py-2">{formatPrice(item.lineTotalCents)}</td>
+                  <td className="px-3 py-2">{formatPrice(item.unitNetCents)}</td>
+                  <td className="px-3 py-2">{formatPrice(item.unitGrossCents)}</td>
+                  <td className="px-3 py-2">{formatPrice(item.lineGrossCents)}</td>
                 </tr>
               ))}
             </tbody>
             <tfoot>
               <tr className="border-t">
-                <td colSpan={3} className="px-3 py-2 text-right font-semibold">
-                  Iš viso
+                <td colSpan={4} className="px-3 py-2 text-right font-semibold">
+                  Tarpinė suma (be PVM)
                 </td>
-                <td className="px-3 py-2 font-semibold">{formatPrice(data.totalAmountCents)}</td>
+                <td className="px-3 py-2 font-semibold">
+                  {formatPrice(data.subtotalNetCents)}
+                </td>
+              </tr>
+              <tr>
+                <td colSpan={4} className="px-3 py-2 text-right font-semibold">
+                  PVM (21%)
+                </td>
+                <td className="px-3 py-2 font-semibold">{formatPrice(data.vatCents)}</td>
+              </tr>
+              <tr>
+                <td colSpan={4} className="px-3 py-2 text-right font-semibold">
+                  Iš viso (su PVM)
+                </td>
+                <td className="px-3 py-2 font-semibold">
+                  {formatPrice(data.totalGrossCents ?? data.totalAmountCents)}
+                </td>
               </tr>
             </tfoot>
           </table>

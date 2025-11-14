@@ -206,6 +206,7 @@ export interface StoreProduct {
   title: string;
   shortDescription: string | null;
   description: string;
+  imageUrls: string[];
   priceCents: number;
   isActive: boolean;
   createdAt: string;
@@ -216,8 +217,10 @@ export interface StoreOrderItemResponse {
   productId: string | null;
   productTitle: string;
   quantity: number;
-  unitPriceCents: number;
-  lineTotalCents: number;
+  unitNetCents: number;
+  unitGrossCents: number;
+  lineNetCents: number;
+  lineGrossCents: number;
 }
 
 export type StoreOrderStatus = 'new' | 'cancelled';
@@ -227,6 +230,9 @@ export interface StoreOrderResponse {
   status: StoreOrderStatus;
   customerName: string;
   customerEmail: string;
+  subtotalNetCents: number;
+  vatCents: number;
+  totalGrossCents: number;
   totalAmountCents: number;
   createdAt: string;
   items: StoreOrderItemResponse[];
@@ -237,8 +243,27 @@ export interface StoreOrderListItem {
   status: StoreOrderStatus;
   customerName: string;
   customerEmail: string;
+  subtotalNetCents: number;
+  vatCents: number;
+  totalGrossCents: number;
   totalAmountCents: number;
   createdAt: string;
+}
+
+export interface StoreMyOrderItem {
+  productTitle: string;
+  quantity: number;
+}
+
+export interface StoreMyOrder {
+  id: string;
+  status: StoreOrderStatus;
+  createdAt: string;
+  subtotalNetCents: number;
+  vatCents: number;
+  totalGrossCents: number;
+  totalAmountCents: number;
+  items: StoreMyOrderItem[];
 }
 
 export interface AdminStoreProductPayload {
@@ -259,10 +284,7 @@ export interface CreateStoreOrderPayload {
     name: string;
     email: string;
     phone: string;
-    companyName?: string;
-    companyCode?: string;
-    vatCode?: string;
-    address?: string;
+    address: string;
     comment?: string;
   };
 }
@@ -1041,6 +1063,7 @@ export const api = {
       get<StoreProduct>(`/store/products/${slug}`, { skipAuth: true }),
     createOrder: (payload: CreateStoreOrderPayload) =>
       post<StoreOrderResponse>('/store/orders', { json: payload, skipAuth: true }),
+    myOrders: () => get<StoreMyOrder[]>('/store/my-orders'),
   },
   admin: {
     store: {

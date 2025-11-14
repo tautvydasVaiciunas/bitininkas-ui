@@ -1,8 +1,8 @@
-import { Link } from 'react-router-dom';
-import { CheckCircle2 } from 'lucide-react';
+import { Link } from "react-router-dom";
+import { CheckCircle2 } from "lucide-react";
 
-import { StoreLayout } from './StoreLayout';
-import { Button } from '@/components/ui/button';
+import { StoreLayout } from "./StoreLayout";
+import { Button } from "@/components/ui/button";
 
 const StoreSuccess = () => {
   return (
@@ -11,8 +11,8 @@ const StoreSuccess = () => {
         <CheckCircle2 className="h-16 w-16 text-green-500" />
         <h1 className="mt-4 text-3xl font-bold">Užsakymas priimtas</h1>
         <p className="mt-2 max-w-md text-muted-foreground">
-          Į jūsų el. paštą išsiuntėme užsakymo patvirtinimą ir išankstinę sąskaitą. Jei el. laiško
-          nematote, patikrinkite brukalų aplanką.
+          Į jūsų el. paštą išsiuntėme užsakymo patvirtinimą ir išankstinę sąskaitą. Jei laiško
+          nematote, patikrinkite brukalo aplanką.
         </p>
         <div className="mt-6 flex flex-wrap justify-center gap-4">
           <Button asChild>

@@ -1,27 +1,27 @@
-import { useQuery } from '@tanstack/react-query';
-import { Link } from 'react-router-dom';
+import { useQuery } from "@tanstack/react-query";
+import { Link } from "react-router-dom";
 
-import api, { type StoreProduct } from '@/lib/api';
-import { useCart } from '@/contexts/CartContext';
-import { useToast } from '@/components/ui/use-toast';
-import { Button } from '@/components/ui/button';
-import { Card, CardContent, CardFooter, CardHeader, CardTitle } from '@/components/ui/card';
-import { StoreLayout } from './StoreLayout';
-import { formatPrice } from './utils';
+import api, { type StoreProduct } from "@/lib/api";
+import { useCart } from "@/contexts/CartContext";
+import { useToast } from "@/components/ui/use-toast";
+import { Button } from "@/components/ui/button";
+import { Card, CardContent, CardFooter, CardHeader, CardTitle } from "@/components/ui/card";
+import { StoreLayout } from "./StoreLayout";
+import { formatPrice, netToGrossCents } from "./utils";
 
 const StoreHome = () => {
   const { addItem } = useCart();
   const { toast } = useToast();
 
   const { data, isLoading, isError } = useQuery({
-    queryKey: ['store-products'],
+    queryKey: ["store-products"],
     queryFn: () => api.store.listProducts(),
   });
 
   const handleAdd = (product: StoreProduct) => {
     addItem(product, 1);
     toast({
-      title: 'Pridėta į krepšelį',
+      title: "Pridėta į krepšelį",
       description: `${product.title} pridėtas į krepšelį.`,
     });
   };
@@ -42,18 +42,37 @@ const StoreHome = () => {
       {data && data.length > 0 ? (
         <div className="grid gap-6 sm:grid-cols-2">
           {data.map((product) => (
-            <Card key={product.id}>
+            <Card key={product.id} className="overflow-hidden">
+              {product.imageUrls?.length ? (
+                <div className="aspect-video w-full bg-muted">
+                  <img
+                    src={product.imageUrls[0]}
+                    alt={product.title}
+                    className="h-full w-full object-cover"
+                    loading="lazy"
+                  />
+                </div>
+              ) : (
+                <div className="aspect-video flex w-full items-center justify-center bg-muted text-sm text-muted-foreground">
+                  Nėra nuotraukos
+                </div>
+              )}
               <CardHeader>
-                <CardTitle className="flex items-center justify-between">
+                <CardTitle className="flex items-center justify-between gap-4 text-base">
                   <span>{product.title}</span>
-                  <span className="text-base font-semibold text-primary">
-                    {formatPrice(product.priceCents)}
-                  </span>
+                  <div className="text-right">
+                    <p className="text-xs uppercase tracking-wide text-muted-foreground">
+                      Kaina su PVM
+                    </p>
+                    <p className="text-base font-semibold text-primary">
+                      {formatPrice(netToGrossCents(product.priceCents))}
+                    </p>
+                  </div>
                 </CardTitle>
               </CardHeader>
               <CardContent>
                 <p className="text-sm text-muted-foreground">
-                  {product.shortDescription || 'Aprašymas bus pateiktas vėliau.'}
+                  {product.shortDescription || "Aprašymas bus pateiktas vėliau."}
                 </p>
               </CardContent>
               <CardFooter className="flex flex-wrap gap-2">

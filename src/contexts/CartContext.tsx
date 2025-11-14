@@ -1,7 +1,8 @@
 import { createContext, useContext, useEffect, useMemo, useState } from 'react';
 import type { StoreProduct } from '@/lib/api';
+import { calculateCartTotals } from '@/lib/storePricing';
 
-type CartItem = {
+export type CartItem = {
   productId: string;
   slug: string;
   title: string;
@@ -13,6 +14,9 @@ type CartContextValue = {
   items: CartItem[];
   totalQuantity: number;
   totalAmountCents: number;
+  subtotalNetCents: number;
+  totalGrossCents: number;
+  vatCents: number;
   addItem: (product: StoreProduct, quantity?: number) => void;
   updateQuantity: (productId: string, quantity: number) => void;
   removeItem: (productId: string) => void;
@@ -96,17 +100,22 @@ export const CartProvider = ({ children }: { children: React.ReactNode }) => {
 
   const totals = useMemo(() => {
     const totalQuantity = items.reduce((sum, item) => sum + item.quantity, 0);
-    const totalAmountCents = items.reduce(
-      (sum, item) => sum + item.priceCents * item.quantity,
-      0,
-    );
-    return { totalQuantity, totalAmountCents };
+    const monetary = calculateCartTotals(items);
+    return {
+      totalQuantity,
+      subtotalNetCents: monetary.subtotalNetCents,
+      totalGrossCents: monetary.totalGrossCents,
+      vatCents: monetary.vatCents,
+    };
   }, [items]);
 
   const value: CartContextValue = {
     items,
     totalQuantity: totals.totalQuantity,
-    totalAmountCents: totals.totalAmountCents,
+    totalAmountCents: totals.subtotalNetCents,
+    subtotalNetCents: totals.subtotalNetCents,
+    totalGrossCents: totals.totalGrossCents,
+    vatCents: totals.vatCents,
     addItem,
     updateQuantity,
     removeItem,

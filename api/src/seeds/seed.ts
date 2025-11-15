@@ -1,16 +1,17 @@
 import 'reflect-metadata';
 
 import * as bcrypt from 'bcryptjs';
+import * as path from 'path';
 
 import { AppDataSource } from '../ormdatasource';
 import {
-  NEWS_PLACEHOLDER_URI,
   ensureNewsPlaceholderFile,
+  ensureUploadsFile,
 } from '../common/config/storage.config';
 import { User, UserRole } from '../users/user.entity';
 import { Hive, HiveStatus } from '../hives/hive.entity';
 import { Task, TaskFrequency } from '../tasks/task.entity';
-import { TaskStep } from '../tasks/steps/task-step.entity';
+import { TaskStep, TaskStepMediaType } from '../tasks/steps/task-step.entity';
 import { Tag } from '../tasks/tags/tag.entity';
 import { Template } from '../templates/template.entity';
 import { TemplateStep } from '../templates/template-step.entity';
@@ -23,6 +24,75 @@ import { Notification } from '../notifications/notification.entity';
 import { Group } from '../groups/group.entity';
 import { GroupMember } from '../groups/group-member.entity';
 import { NewsPost } from '../news/news-post.entity';
+
+const PUBLIC_DIR = path.resolve(__dirname, '..', '..', '..', 'public');
+
+const SEED_MEDIA_ASSETS = {
+  springField: {
+    target: 'news-spring-field.jpg',
+    source: 'bianca-ackermann-9CuGKLZQ0AU-unsplash.jpg',
+  },
+  hiveMeeting: {
+    target: 'news-hive-meeting.jpg',
+    source: 'bianca-ackermann-ys-sZZkdT1s-unsplash.jpg',
+  },
+  communityTrading: {
+    target: 'news-community-trade.jpg',
+    source: 'bianca-ackermann-_EYzx1bRObY-unsplash.jpg',
+  },
+  meadowSunset: {
+    target: 'news-meadow-sunset.jpg',
+    source: 'R copy.jpg',
+  },
+  harvestStock: {
+    target: 'news-harvest-stock.jpg',
+    source: 'Reee.jpg',
+  },
+  inventoryEvening: {
+    target: 'news-inventory-evening.jpg',
+    source: 'Sequence 05.00_00_06_19.Still015.jpg',
+  },
+  stepTools: {
+    target: 'step-tools.jpg',
+    source: 'Screenshot 2025-01-08 at 13.16.26 - Copy.png',
+  },
+  stepFrames: {
+    target: 'step-frames.jpg',
+    source: 'Screenshot 2025-01-08 at 13.17.15 - Copy.png',
+  },
+  stepObservation: {
+    target: 'step-observation.jpg',
+    source: 'Sequence 05.00_00_19_06.Still018.jpg',
+  },
+  stepSupers: {
+    target: 'step-supers.jpg',
+    source: 'Screenshot 2025-01-08 at 13.19.05.png',
+  },
+  stepHarvestView: {
+    target: 'step-harvest-view.jpg',
+    source: 'Sequence 05.00_00_20_14.Still019.jpg',
+  },
+  stepExtract: {
+    target: 'step-extract.jpg',
+    source: 'Screenshot 2025-01-08 at 13.19.32 - Copy.png',
+  },
+  stepPackaging: {
+    target: 'step-packaging.jpg',
+    source: 'Screenshot 2025-01-08 at 13.22.34.png',
+  },
+} as const;
+
+type SeedMediaAsset = typeof SEED_MEDIA_ASSETS[keyof typeof SEED_MEDIA_ASSETS];
+
+const ensureSeedMediaAssets = () => {
+  for (const asset of Object.values(SEED_MEDIA_ASSETS)) {
+    ensureUploadsFile(path.join('seed', asset.target), path.join(PUBLIC_DIR, asset.source));
+  }
+};
+
+const seedMediaUrl = (asset: SeedMediaAsset) => `/uploads/seed/${asset.target}`;
+
+const IMAGE_MEDIA_TYPE: TaskStepMediaType = 'image';
 
 async function runSeed(): Promise<void> {
   const dataSource = AppDataSource;
@@ -170,16 +240,72 @@ async function runSeed(): Promise<void> {
     await tagRepository.save([generalTag, springTag]);
 
     const stepsTask1 = [
-      { title: 'Paruošti įrankius', orderIndex: 1, taskId: task1.id },
-      { title: 'Apžiūrėti perų rėmus', orderIndex: 2, taskId: task1.id },
-      { title: 'Įvertinti maisto atsargas', orderIndex: 3, taskId: task1.id },
+      {
+        title: 'Paruošti įrankius',
+        orderIndex: 1,
+        taskId: task1.id,
+        contentText:
+          'Nusivalykite įrankius, patikrinkite pjūklus ir paruoškite sausus padėklus patikrai.',
+        mediaUrl: seedMediaUrl(SEED_MEDIA_ASSETS.stepTools),
+        mediaType: IMAGE_MEDIA_TYPE,
+      },
+      {
+        title: 'Apžiūrėti perų rėmus',
+        orderIndex: 2,
+        taskId: task1.id,
+        contentText:
+          'Ištraukite rėmus, atkreipkite dėmesį į perus ir pažymėkite, kuriuos reikia papildomai apžiūrėti.',
+        mediaUrl: seedMediaUrl(SEED_MEDIA_ASSETS.stepFrames),
+        mediaType: IMAGE_MEDIA_TYPE,
+      },
+      {
+        title: 'Įvertinti maisto atsargas',
+        orderIndex: 3,
+        taskId: task1.id,
+        contentText:
+          'Patikrinkite medaus ir polenų likučius, pažymėkite kiekius žurnale ir nuspręskite, ar reikia papildomų pašarų.',
+        mediaUrl: seedMediaUrl(SEED_MEDIA_ASSETS.stepObservation),
+        mediaType: IMAGE_MEDIA_TYPE,
+      },
     ];
 
     const stepsTask2 = [
-      { title: 'Pridėti tuščias meduves', orderIndex: 1, taskId: task2.id },
-      { title: 'Surinkti pilnas meduves', orderIndex: 2, taskId: task2.id },
-      { title: 'Išsukti medų', orderIndex: 3, taskId: task2.id },
-      { title: 'Supilstyti medų į indus', orderIndex: 4, taskId: task2.id },
+      {
+        title: 'Pridėti tuščias meduves',
+        orderIndex: 1,
+        taskId: task2.id,
+        contentText:
+          'Padėkite tuščias meduves su fiksatoriais, kad jos stovėtų tiesiai ir būtų lengvos pasiekti.',
+        mediaUrl: seedMediaUrl(SEED_MEDIA_ASSETS.stepSupers),
+        mediaType: IMAGE_MEDIA_TYPE,
+      },
+      {
+        title: 'Surinkti pilnas meduves',
+        orderIndex: 2,
+        taskId: task2.id,
+        contentText:
+          'Iškelkite pilnas meduves, pažymėkite kiekvieną rėmą ir saugiai perkelkite jas į medaus transportą.',
+        mediaUrl: seedMediaUrl(SEED_MEDIA_ASSETS.stepHarvestView),
+        mediaType: IMAGE_MEDIA_TYPE,
+      },
+      {
+        title: 'Išsukti medų',
+        orderIndex: 3,
+        taskId: task2.id,
+        contentText:
+          'Įdėkite rėmus į centrifugą ramiai ir neskubėdami, kad nepažeistumėte korių ir išlaikytumėte kokybę.',
+        mediaUrl: seedMediaUrl(SEED_MEDIA_ASSETS.stepExtract),
+        mediaType: IMAGE_MEDIA_TYPE,
+      },
+      {
+        title: 'Supilstyti medų į indus',
+        orderIndex: 4,
+        taskId: task2.id,
+        contentText:
+          'Pilstykite medų į švarius stiklainius, užklijuokite etiketes ir sudėkite į lentynas toliau nuo tiesioginės saulės.',
+        mediaUrl: seedMediaUrl(SEED_MEDIA_ASSETS.stepPackaging),
+        mediaType: IMAGE_MEDIA_TYPE,
+      },
     ];
 
     const savedSteps = await stepRepository.save([
@@ -406,34 +532,59 @@ async function runSeed(): Promise<void> {
       console.warn('Nepavyko įterpti pranešimų – tęsiame be jų.', notificationError);
     }
 
+    ensureSeedMediaAssets();
     ensureNewsPlaceholderFile();
 
-    const seasonNews = newsRepository.create({
-      title: 'Pavasario sezonas prasideda',
-      body: 'Patikrinkite avilius, papildykite pašarus ir suplanuokite pirmuosius darbus.',
-      targetAll: true,
-      imageUrl:
-        NEWS_PLACEHOLDER_URI,
-    });
+    const newsSeeds = [
+      newsRepository.create({
+        title: 'Pavasario sezonas prasideda',
+        body: 'Patikrinkite avilius po žiemos, papildykite pašarus ir suplanuokite pirmuosius pavasario darbus.',
+        targetAll: true,
+        imageUrl: seedMediaUrl(SEED_MEDIA_ASSETS.springField),
+      }),
+      newsRepository.create({
+        title: 'Miško bitininkų susitikimas',
+        body: 'Kviečiame miško bitininkų grupę susitikti, kad aptartume pavasario maršrutą ir pasidalintume patirtimi.',
+        targetAll: false,
+        imageUrl: null,
+        groups: [forestGroup],
+      }),
+      newsRepository.create({
+        title: 'Bendrystės klubo dirbtuvės',
+        body: 'Bendrystės klubo nariai kviečiami dalintis medaus receptais ir aptarti pasiruošimą vasaros šventėms.',
+        targetAll: false,
+        imageUrl: seedMediaUrl(SEED_MEDIA_ASSETS.communityTrading),
+        groups: [communityGroup],
+      }),
+      newsRepository.create({
+        title: 'Lauko seminaras apie avilių priežiūrą',
+        body: 'Seminaro metu rodysime, kaip stebėti ligos požymius ir palaikyti ventiliaciją net per vėsesnį orą.',
+        targetAll: true,
+        imageUrl: seedMediaUrl(SEED_MEDIA_ASSETS.hiveMeeting),
+      }),
+      newsRepository.create({
+        title: 'Medaus degustacijos savaitgalis',
+        body: 'Degustacijos metu ragaujame naują derlių ir diskutuojame apie aromatus bei tinkamus laikymo sprendimus.',
+        targetAll: true,
+        imageUrl: seedMediaUrl(SEED_MEDIA_ASSETS.harvestStock),
+      }),
+      newsRepository.create({
+        title: 'Inventoriaus patikra ir žymėjimas',
+        body: 'Inventoriaus patikros metu tikrinkite dėžes, etiketes ir papildykite trūkstamus įrankius.',
+        targetAll: false,
+        imageUrl: seedMediaUrl(SEED_MEDIA_ASSETS.inventoryEvening),
+        groups: [forestGroup],
+      }),
+      newsRepository.create({
+        title: 'Pievoje rengiami bendruomenės mainai',
+        body: 'Atsineškite panaudotus korpusus, žymes ar sėklas ir pasidalinkite idėjomis su kitais klubo nariais.',
+        targetAll: false,
+        imageUrl: seedMediaUrl(SEED_MEDIA_ASSETS.meadowSunset),
+        groups: [communityGroup],
+      }),
+    ];
 
-    const forestNews = newsRepository.create({
-      title: 'Miško bitininkų susitikimas',
-      body: 'Miško bitininkų grupės nariai kviečiami į susitikimą aptarti pavasario darbus.',
-      targetAll: false,
-      imageUrl: null,
-      groups: [forestGroup],
-    });
-
-    const communityNews = newsRepository.create({
-      title: 'Bendrystės klubo dirbtuvės',
-      body: 'Bendrystės klubo nariai kviečiami į šeštadienio dirbtuves – dalinsimės medaus produktų receptais ir pasiruošimo vasarai patarimais.',
-      targetAll: false,
-      imageUrl:
-        NEWS_PLACEHOLDER_URI,
-      groups: [communityGroup],
-    });
-
-    await newsRepository.save([seasonNews, forestNews, communityNews]);
+    await newsRepository.save(newsSeeds);
 
     console.log('Sėklos sėkmingai įkeltos');
   } catch (error) {

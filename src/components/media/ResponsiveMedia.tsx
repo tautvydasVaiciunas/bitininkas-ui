@@ -21,31 +21,29 @@ export const ResponsiveMedia = ({
   className,
 }: ResponsiveMediaProps) => {
   const [videoError, setVideoError] = useState(false);
-  const resolvedUrl = useMemo(() => (url ? withApiBase(url) : null), [url]);
+  const normalizedUrl = url?.trim() ?? '';
+  const hasMediaUrl = Boolean(normalizedUrl);
+  const resolvedUrl = useMemo(
+    () => (hasMediaUrl ? withApiBase(normalizedUrl) : FALLBACK_MEDIA_SRC),
+    [hasMediaUrl, normalizedUrl],
+  );
   const mediaType = useMemo(() => {
-    if (type) {
-      return type;
+    if (type === 'video' && hasMediaUrl) {
+      return 'video';
     }
-    if (!url) {
-      return null;
+    if (type === 'image') {
+      return 'image';
     }
-    return isVideo(url) ? 'video' : 'image';
-  }, [type, url]);
+    if (!hasMediaUrl) {
+      return 'image';
+    }
+    return isVideo(normalizedUrl) ? 'video' : 'image';
+  }, [type, hasMediaUrl, normalizedUrl]);
 
   const wrapperClass = cn(
     'relative w-full overflow-hidden rounded-lg bg-muted aspect-square md:aspect-[16/9]',
     className,
   );
-
-  if (!resolvedUrl) {
-    return (
-      <div className={wrapperClass}>
-        <div className="absolute inset-0 flex items-center justify-center px-4 text-center text-xs font-medium uppercase tracking-wide text-muted-foreground">
-          Medija nepateikta
-        </div>
-      </div>
-    );
-  }
 
   if (mediaType === 'video') {
     if (videoError) {

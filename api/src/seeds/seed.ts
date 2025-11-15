@@ -1,6 +1,7 @@
 import 'reflect-metadata';
 
 import * as bcrypt from 'bcryptjs';
+import * as fs from 'fs';
 import * as path from 'path';
 
 import { AppDataSource } from '../ormdatasource';
@@ -25,7 +26,15 @@ import { Group } from '../groups/group.entity';
 import { GroupMember } from '../groups/group-member.entity';
 import { NewsPost } from '../news/news-post.entity';
 
-const PUBLIC_DIR = path.resolve(__dirname, '..', '..', '..', 'public');
+const PUBLIC_DIR_CANDIDATES = [
+  path.resolve(__dirname, '..', '..', '..', 'public'),
+  path.resolve(process.cwd(), '..', 'public'),
+  path.resolve(process.cwd(), 'public'),
+];
+
+const PUBLIC_DIR =
+  PUBLIC_DIR_CANDIDATES.find((candidate) => fs.existsSync(candidate)) ??
+  PUBLIC_DIR_CANDIDATES[0];
 
 // Seed media assets mirror the files sitting in `public/` (listed in AGENTS instructions).
 const SEED_MEDIA_ASSETS = {

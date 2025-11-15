@@ -1,4 +1,4 @@
-import { useMemo, useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import { useInfiniteQuery, useMutation, useQuery } from '@tanstack/react-query';
 import { MainLayout } from '@/components/Layout/MainLayout';
 import api, { SupportAttachmentPayload, SupportMessageResponse, SupportThreadAdminResponse } from '@/lib/api';
@@ -19,6 +19,12 @@ const AdminSupport = () => {
     () => api.support.admin.threads(),
   );
 
+  useEffect(() => {
+    if (!selectedThread && threads && threads.length) {
+      setSelectedThread(threads[0].id);
+    }
+  }, [threads, selectedThread]);
+
   const activeThread = useMemo(() => {
     if (!selectedThread) {
       return threads?.[0] ?? null;
@@ -28,16 +34,16 @@ const AdminSupport = () => {
 
   const messagesQuery = useInfiniteQuery({
     queryKey: ['support', 'admin', 'messages', activeThread?.id],
+    enabled: Boolean(activeThread?.id),
     queryFn: async ({ pageParam }) => {
       if (!activeThread) return [];
       const params = { limit: MESSAGE_PAGE_LIMIT, cursor: pageParam };
       return api.support.admin.threadMessages(activeThread.id, params);
     },
     getNextPageParam: (lastPage) => lastPage.at(-1)?.createdAt,
-    enabled: Boolean(activeThread),
   });
 
-  const flattenMessages = messagesQuery.data?.pages.flat().reverse() ?? [];
+  const flattenMessages = messagesQuery.data?.pages?.flat()?.reverse() ?? [];
 
   const mutation = useMutation({
     mutationFn: () => {

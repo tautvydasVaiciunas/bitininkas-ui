@@ -1,41 +1,46 @@
-import { useEffect, useRef, useState } from 'react';
-import { useInfiniteQuery, useMutation, useQueryClient, useQuery } from '@tanstack/react-query';
-import { cn } from '@/lib/utils';
-import api, { SupportAttachmentPayload, SupportMessageResponse } from '@/lib/api';
+﻿import { useEffect, useMemo, useRef, useState } from 'react';
+import { useInfiniteQuery, useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
-import { MainLayout } from '@/components/Layout/MainLayout';
 import { Loader2, Paperclip, Send } from 'lucide-react';
+import { MainLayout } from '@/components/Layout/MainLayout';
+import api, { SupportAttachmentPayload, SupportMessageResponse } from '@/lib/api';
+import { cn } from '@/lib/utils';
 
 const MESSAGE_PAGE_LIMIT = 20;
 
 const SupportChat = () => {
   const [text, setText] = useState('');
   const [attachments, setAttachments] = useState<SupportAttachmentPayload[]>([]);
-  const [isUploading, setIsUploading] = useState(false);
   const scrollRef = useRef<HTMLDivElement | null>(null);
   const queryClient = useQueryClient();
 
-  const { data: thread } = useQuery(['support', 'thread'], () => api.support.myThread());
+  const {
+    data: thread,
+    isLoading: threadLoading,
+    isError: threadError,
+  } = useQuery(['support', 'thread'], () => api.support.myThread());
 
   const messagesQuery = useInfiniteQuery({
-    queryKey: ['support', 'messages'],
+    queryKey: ['support', 'messages', thread?.id],
+    enabled: Boolean(thread?.id),
     queryFn: async ({ pageParam }) => {
+      if (!thread) {
+        return [];
+      }
       return api.support.myThreadMessages({
         limit: MESSAGE_PAGE_LIMIT,
         cursor: pageParam,
       });
     },
-    getNextPageParam: (lastPage) => {
-      const last = lastPage.at(-1);
-      return last?.createdAt;
-    },
+    getNextPageParam: (lastPage) => lastPage.at(-1)?.createdAt,
   });
 
-  const flattenMessages = messagesQuery.data?.pages.flat() ?? [];
+  const flattenMessages = messagesQuery.data?.pages?.flat()?.reverse() ?? [];
 
   useEffect(() => {
-    scrollRef.current?.scrollTo({ top: scrollRef.current.scrollHeight, behavior: 'auto' });
+    if (!scrollRef.current) return;
+    scrollRef.current.scrollTo({ top: scrollRef.current.scrollHeight, behavior: 'auto' });
   }, [flattenMessages.length]);
 
   const mutation = useMutation({
@@ -49,41 +54,34 @@ const SupportChat = () => {
     },
   });
 
-  const isSending = mutation.isLoading;
-
   const handleFileChange = async (event: React.ChangeEvent<HTMLInputElement>) => {
     const files = event.currentTarget.files;
-    if (!files?.length) return;
+    if (!files) return;
 
-    setIsUploading(true);
-    try {
-      const uploaded: SupportAttachmentPayload[] = [];
-      for (const file of Array.from(files)) {
-        const form = new FormData();
-        form.append('file', file);
-        const { url } = await api.support.uploadAttachment(form);
-        uploaded.push({
-          url,
-          mimeType: file.type,
-          sizeBytes: file.size,
-          kind: file.type.startsWith('image')
-            ? 'image'
-            : file.type.startsWith('video')
-            ? 'video'
-            : 'other',
-        });
-      }
-      setAttachments((prev) => [...prev, ...uploaded]);
-    } finally {
-      setIsUploading(false);
-      event.currentTarget.value = '';
+    const uploaded: SupportAttachmentPayload[] = [];
+    for (const file of Array.from(files)) {
+      const form = new FormData();
+      form.append('file', file);
+      const response = await api.support.uploadAttachment(form);
+      uploaded.push({
+        url: response.url,
+        mimeType: file.type,
+        sizeBytes: file.size,
+        kind: file.type.startsWith('image')
+          ? 'image'
+          : file.type.startsWith('video')
+          ? 'video'
+          : 'other',
+      });
     }
+
+    setAttachments((prev) => [...prev, ...uploaded]);
+    event.currentTarget.value = '';
   };
 
   const handleSend = () => {
-    if (!text.trim() && attachments.length === 0) {
-      return;
-    }
+    if (!thread) return;
+    if (!text.trim() && attachments.length === 0) return;
 
     mutation.mutate({
       text: text.trim() || undefined,
@@ -99,64 +97,71 @@ const SupportChat = () => {
         <h1 className="text-2xl font-semibold">Susirašymas su Bus medaus bitininku</h1>
         <div className="border border-border rounded-2xl bg-background/80 p-4 shadow-sm shadow-black/5">
           <div className="max-h-[60vh] overflow-y-auto space-y-4 px-2" ref={scrollRef}>
-            {showLoadMore && (
-              <div className="flex justify-center">
-                <Button
-                  variant="ghost"
-                  size="sm"
-                  onClick={() => messagesQuery.fetchNextPage()}
-                  disabled={messagesQuery.isFetchingNextPage}
-                >
-                  {messagesQuery.isFetchingNextPage ? (
-                    <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-                  ) : (
-                    'Rodyti senesnes žinutes'
-                  )}
-                </Button>
-              </div>
-            )}
-            {messagesQuery.isLoading ? (
+            {threadLoading ? (
               <div className="py-10 text-center text-sm text-muted-foreground">Kraunama...</div>
-            ) : flattenMessages.length === 0 ? (
-              <div className="py-10 text-center text-sm text-muted-foreground">
-                Pokalbis tuščias. Parašykite pirmą žinutę!
-              </div>
+            ) : threadError ? (
+              <div className="py-10 text-center text-sm text-destructive">Klaida įkeliant pokalbį.</div>
             ) : (
-              flattenMessages
-                .slice()
-                .reverse()
-                .map((message) => {
-                  const isUser = message.senderRole === 'user';
-                  return (
-                    <div
-                      key={message.id}
-                      className={cn(
-                        'flex flex-col space-y-2 px-2',
-                        isUser ? 'items-end text-right' : 'items-start text-left',
-                      )}
+              <>
+                {showLoadMore && (
+                  <div className="flex justify-center">
+                    <Button
+                      variant="ghost"
+                      size="sm"
+                      onClick={() => messagesQuery.fetchNextPage()}
+                      disabled={messagesQuery.isFetchingNextPage}
                     >
-                      <p className="text-xs text-muted-foreground">
-                        {isUser ? 'Jūs' : 'Bus medaus Bitininkas'} ·{' '}
-                        {new Date(message.createdAt).toLocaleString('lt-LT')}
-                      </p>
+                      {messagesQuery.isFetchingNextPage ? (
+                        <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                      ) : (
+                        'Rodyti senesnes žinutes'
+                      )}
+                    </Button>
+                  </div>
+                )}
+                {messagesQuery.isLoading ? (
+                  <div className="py-10 text-center text-sm text-muted-foreground">Kraunama...</div>
+                ) : flattenMessages.length === 0 ? (
+                  <div className="py-10 text-center text-sm text-muted-foreground">
+                    Pokalbis tuščias. Parašykite pirmą žinutę!
+                  </div>
+                ) : (
+                  flattenMessages.map((message) => {
+                    const isUser = message.senderRole === 'user';
+                    return (
                       <div
+                        key={message.id}
                         className={cn(
-                          'max-w-[85%] rounded-2xl px-4 py-2 text-sm shadow-sm',
-                          isUser ? 'bg-primary text-primary-foreground' : 'bg-muted text-muted-foreground',
+                          'flex flex-col space-y-2 px-2',
+                          isUser ? 'items-end text-right' : 'items-start text-left',
                         )}
                       >
-                        {message.text && <p className="whitespace-pre-wrap">{message.text}</p>}
-                        {message.attachments?.length ? (
-                          <div className="mt-3 grid gap-2">
-                            {message.attachments.map((attachment) => (
-                              <AttachmentPreview key={attachment.url} attachment={attachment} />
-                            ))}
-                          </div>
-                        ) : null}
+                        <p className="text-xs text-muted-foreground">
+                          {isUser ? 'Jūs' : 'Bus medaus Bitininkas'} ·{' '}
+                          {new Date(message.createdAt).toLocaleString('lt-LT')}
+                        </p>
+                        <div
+                          className={cn(
+                            'max-w-[85%] rounded-2xl px-4 py-2 text-sm shadow-sm',
+                            isUser
+                              ? 'bg-primary text-primary-foreground'
+                              : 'bg-muted text-muted-foreground',
+                          )}
+                        >
+                          {message.text && <p className="whitespace-pre-wrap">{message.text}</p>}
+                          {message.attachments?.length ? (
+                            <div className="mt-3 grid gap-2">
+                              {message.attachments.map((attachment) => (
+                                <AttachmentPreview key={attachment.url} attachment={attachment} />
+                              ))}
+                            </div>
+                          ) : null}
+                        </div>
                       </div>
-                    </div>
-                  );
-                })
+                    );
+                  })
+                )}
+              </>
             )}
           </div>
 
@@ -190,14 +195,11 @@ const SupportChat = () => {
                 placeholder="Parašykite žinutę..."
                 value={text}
                 onChange={(event) => setText(event.target.value)}
-                disabled={isSending || messagesQuery.isLoading}
+                disabled={mutation.isLoading}
                 className="flex-1"
               />
-              <Button
-                onClick={handleSend}
-                disabled={isSending || (!text.trim() && attachments.length === 0)}
-              >
-                {isSending ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <Send className="h-4 w-4" />}
+              <Button onClick={handleSend} disabled={!text.trim() && attachments.length === 0}>
+                {mutation.isLoading ? <Loader2 className="h-4 w-4 animate-spin" /> : <Send className="h-4 w-4" />}
               </Button>
             </div>
           </div>
@@ -213,8 +215,8 @@ const AttachmentPreview = ({ attachment }: { attachment: SupportAttachmentPayloa
       <img
         src={attachment.url}
         alt="attachment"
-        className="h-32 w-full max-w-[240px] rounded-lg object-cover"
         loading="lazy"
+        className="h-32 w-full max-w-[240px] rounded-lg object-cover"
       />
     );
   }
@@ -230,12 +232,7 @@ const AttachmentPreview = ({ attachment }: { attachment: SupportAttachmentPayloa
   }
 
   return (
-    <a
-      href={attachment.url}
-      target="_blank"
-      rel="noreferrer"
-      className="text-xs text-primary underline"
-    >
+    <a href={attachment.url} target="_blank" rel="noreferrer" className="text-xs underline">
       Atidaryti failą
     </a>
   );

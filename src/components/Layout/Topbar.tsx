@@ -9,6 +9,7 @@ import {
   Megaphone,
   MessageCircle,
   CheckCheck,
+  HelpCircle,
 } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
 import { useAuth } from '@/contexts/AuthContext';
@@ -336,16 +337,20 @@ export const Topbar = () => {
                 </div>
               </Button>
             </DropdownMenuTrigger>
-            <DropdownMenuContent align="end" className="w-56">
-              <DropdownMenuItem onClick={() => navigate('/profile')}>
-                <UserIcon className="mr-2 w-4 h-4" />
-                Profilis
-              </DropdownMenuItem>
-              <DropdownMenuSeparator />
-              <DropdownMenuItem onClick={handleLogout}>
-                <LogOut className="mr-2 w-4 h-4" />
-                Atsijungti
-              </DropdownMenuItem>
+              <DropdownMenuContent align="end" className="w-56">
+                <DropdownMenuItem onClick={() => navigate('/profile')}>
+                  <UserIcon className="mr-2 w-4 h-4" />
+                  Profilis
+                </DropdownMenuItem>
+                <DropdownMenuItem onClick={() => navigate('/duk')}>
+                <HelpCircle className="mr-2 w-4 h-4" />
+                  DUK
+                </DropdownMenuItem>
+                <DropdownMenuSeparator />
+                <DropdownMenuItem onClick={handleLogout}>
+                  <LogOut className="mr-2 w-4 h-4" />
+                  Atsijungti
+                </DropdownMenuItem>
             </DropdownMenuContent>
           </DropdownMenu>
         </div>

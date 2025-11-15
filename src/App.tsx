@@ -40,11 +40,14 @@ import NotFound from "./pages/NotFound";
 import SupportChat from "./pages/SupportChat";
 import HelpFaq from "./pages/HelpFaq";
 
-const queryClient = new QueryClient();
-
-if (typeof (queryClient as any).defaultQueryOptions !== 'function') {
-  (queryClient as any).defaultQueryOptions = (options?: unknown) => options ?? {};
-}
+const queryClient = new QueryClient({
+  defaultOptions: {
+    queries: {
+      retry: 0,
+      refetchOnWindowFocus: false,
+    },
+  },
+});
 
 const App = () => (
   <QueryClientProvider client={queryClient}>

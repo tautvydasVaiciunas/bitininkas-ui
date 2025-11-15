@@ -42,7 +42,6 @@ const adminNavSections: NavItem[][] = [
   [
     { to: "/admin/users", label: "Vartotojai", icon: Users },
     { to: "/admin/groups", label: "Grupės", icon: UsersRound },
-    { to: "/notifications", label: "Pranešimai", icon: Bell },
     messagesNav,
     { to: "/hives", label: "Aviliai", icon: Box },
   ],
@@ -84,7 +83,7 @@ export const Sidebar = () => {
   return (
     <aside className="fixed inset-x-0 bottom-0 z-40 h-16 border-t border-sidebar-border bg-sidebar shadow-lg shadow-black/5 lg:left-0 lg:top-0 lg:h-screen lg:w-64 lg:border-t-0 lg:border-r lg:shadow-none">
       <div className="hidden border-b border-sidebar-border p-6 lg:block">
-        <div className="flex items-center gap-3">
+        <NavLink to="/news" className="flex items-center gap-3">
           <div className="flex h-10 w-10 shrink-0 items-center justify-center">
             <img
               src="/assets/og.jpg"
@@ -101,7 +100,7 @@ export const Sidebar = () => {
             <h1 className="text-lg font-semibold text-sidebar-foreground">Bus medaus</h1>
             <p className="text-xs text-muted-foreground">Bitininkystės sistema</p>
           </div>
-        </div>
+        </NavLink>
       </div>
 
       <nav

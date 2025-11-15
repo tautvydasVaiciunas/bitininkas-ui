@@ -109,6 +109,9 @@ async function bootstrap() {
         fs.statSync(requestedAbsolute).isFile();
 
       if (fileExists) {
+        const queryIndex = req.url.indexOf('?');
+        const query = queryIndex !== -1 ? req.url.slice(queryIndex) : '';
+        req.url = `/${sanitized}${query}`;
         next();
         return;
       }

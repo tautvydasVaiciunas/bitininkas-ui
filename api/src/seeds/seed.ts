@@ -27,57 +27,62 @@ import { NewsPost } from '../news/news-post.entity';
 
 const PUBLIC_DIR = path.resolve(__dirname, '..', '..', '..', 'public');
 
+// Seed media assets mirror the files sitting in `public/` (listed in AGENTS instructions).
 const SEED_MEDIA_ASSETS = {
   springField: {
-    target: 'news-spring-field.jpg',
+    target: 'bianca-ackermann-9CuGKLZQ0AU-unsplash.jpg',
     source: 'bianca-ackermann-9CuGKLZQ0AU-unsplash.jpg',
   },
   hiveMeeting: {
-    target: 'news-hive-meeting.jpg',
+    target: 'bianca-ackermann-ys-sZZkdT1s-unsplash.jpg',
     source: 'bianca-ackermann-ys-sZZkdT1s-unsplash.jpg',
   },
   communityTrading: {
-    target: 'news-community-trade.jpg',
+    target: 'bianca-ackermann-_EYzx1bRObY-unsplash.jpg',
     source: 'bianca-ackermann-_EYzx1bRObY-unsplash.jpg',
   },
   meadowSunset: {
-    target: 'news-meadow-sunset.jpg',
+    target: 'R copy.jpg',
     source: 'R copy.jpg',
   },
   harvestStock: {
-    target: 'news-harvest-stock.jpg',
+    target: 'Reee.jpg',
     source: 'Reee.jpg',
   },
   inventoryEvening: {
-    target: 'news-inventory-evening.jpg',
+    target: 'Sequence 05.00_00_06_19.Still015.jpg',
     source: 'Sequence 05.00_00_06_19.Still015.jpg',
   },
-  stepTools: {
-    target: 'step-tools.jpg',
-    source: 'Screenshot 2025-01-08 at 13.16.26 - Copy.png',
+  sequenceA: {
+    target: 'Sequence 05.00_00_13_15.Still017.jpg',
+    source: 'Sequence 05.00_00_13_15.Still017.jpg',
   },
-  stepFrames: {
-    target: 'step-frames.jpg',
-    source: 'Screenshot 2025-01-08 at 13.17.15 - Copy.png',
-  },
-  stepObservation: {
-    target: 'step-observation.jpg',
-    source: 'Sequence 05.00_00_19_06.Still018.jpg',
-  },
-  stepSupers: {
-    target: 'step-supers.jpg',
-    source: 'Screenshot 2025-01-08 at 13.19.05.png',
-  },
-  stepHarvestView: {
-    target: 'step-harvest-view.jpg',
+  sequenceB: {
+    target: 'Sequence 05.00_00_20_14.Still019.jpg',
     source: 'Sequence 05.00_00_20_14.Still019.jpg',
   },
-  stepExtract: {
-    target: 'step-extract.jpg',
+  sequenceC: {
+    target: 'Sequence 05.00_00_19_06.Still018.jpg',
+    source: 'Sequence 05.00_00_19_06.Still018.jpg',
+  },
+  screenshotTools: {
+    target: 'Screenshot 2025-01-08 at 13.16.26 - Copy.png',
+    source: 'Screenshot 2025-01-08 at 13.16.26 - Copy.png',
+  },
+  screenshotFrames: {
+    target: 'Screenshot 2025-01-08 at 13.17.15 - Copy.png',
+    source: 'Screenshot 2025-01-08 at 13.17.15 - Copy.png',
+  },
+  screenshotHarvest: {
+    target: 'Screenshot 2025-01-08 at 13.19.05.png',
+    source: 'Screenshot 2025-01-08 at 13.19.05.png',
+  },
+  screenshotExtract: {
+    target: 'Screenshot 2025-01-08 at 13.19.32 - Copy.png',
     source: 'Screenshot 2025-01-08 at 13.19.32 - Copy.png',
   },
-  stepPackaging: {
-    target: 'step-packaging.jpg',
+  screenshotPackaging: {
+    target: 'Screenshot 2025-01-08 at 13.22.34.png',
     source: 'Screenshot 2025-01-08 at 13.22.34.png',
   },
 } as const;
@@ -246,7 +251,7 @@ async function runSeed(): Promise<void> {
         taskId: task1.id,
         contentText:
           'Nusivalykite įrankius, patikrinkite pjūklus ir paruoškite sausus padėklus patikrai.',
-        mediaUrl: seedMediaUrl(SEED_MEDIA_ASSETS.stepTools),
+        mediaUrl: seedMediaUrl(SEED_MEDIA_ASSETS.screenshotTools),
         mediaType: IMAGE_MEDIA_TYPE,
       },
       {
@@ -255,7 +260,7 @@ async function runSeed(): Promise<void> {
         taskId: task1.id,
         contentText:
           'Ištraukite rėmus, atkreipkite dėmesį į perus ir pažymėkite, kuriuos reikia papildomai apžiūrėti.',
-        mediaUrl: seedMediaUrl(SEED_MEDIA_ASSETS.stepFrames),
+        mediaUrl: seedMediaUrl(SEED_MEDIA_ASSETS.screenshotFrames),
         mediaType: IMAGE_MEDIA_TYPE,
       },
       {
@@ -264,7 +269,7 @@ async function runSeed(): Promise<void> {
         taskId: task1.id,
         contentText:
           'Patikrinkite medaus ir polenų likučius, pažymėkite kiekius žurnale ir nuspręskite, ar reikia papildomų pašarų.',
-        mediaUrl: seedMediaUrl(SEED_MEDIA_ASSETS.stepObservation),
+        mediaUrl: seedMediaUrl(SEED_MEDIA_ASSETS.sequenceC),
         mediaType: IMAGE_MEDIA_TYPE,
       },
     ];
@@ -276,7 +281,7 @@ async function runSeed(): Promise<void> {
         taskId: task2.id,
         contentText:
           'Padėkite tuščias meduves su fiksatoriais, kad jos stovėtų tiesiai ir būtų lengvos pasiekti.',
-        mediaUrl: seedMediaUrl(SEED_MEDIA_ASSETS.stepSupers),
+        mediaUrl: seedMediaUrl(SEED_MEDIA_ASSETS.sequenceA),
         mediaType: IMAGE_MEDIA_TYPE,
       },
       {
@@ -285,7 +290,7 @@ async function runSeed(): Promise<void> {
         taskId: task2.id,
         contentText:
           'Iškelkite pilnas meduves, pažymėkite kiekvieną rėmą ir saugiai perkelkite jas į medaus transportą.',
-        mediaUrl: seedMediaUrl(SEED_MEDIA_ASSETS.stepHarvestView),
+        mediaUrl: seedMediaUrl(SEED_MEDIA_ASSETS.sequenceB),
         mediaType: IMAGE_MEDIA_TYPE,
       },
       {
@@ -294,7 +299,7 @@ async function runSeed(): Promise<void> {
         taskId: task2.id,
         contentText:
           'Įdėkite rėmus į centrifugą ramiai ir neskubėdami, kad nepažeistumėte korių ir išlaikytumėte kokybę.',
-        mediaUrl: seedMediaUrl(SEED_MEDIA_ASSETS.stepExtract),
+        mediaUrl: seedMediaUrl(SEED_MEDIA_ASSETS.screenshotExtract),
         mediaType: IMAGE_MEDIA_TYPE,
       },
       {
@@ -303,7 +308,7 @@ async function runSeed(): Promise<void> {
         taskId: task2.id,
         contentText:
           'Pilstykite medų į švarius stiklainius, užklijuokite etiketes ir sudėkite į lentynas toliau nuo tiesioginės saulės.',
-        mediaUrl: seedMediaUrl(SEED_MEDIA_ASSETS.stepPackaging),
+        mediaUrl: seedMediaUrl(SEED_MEDIA_ASSETS.screenshotPackaging),
         mediaType: IMAGE_MEDIA_TYPE,
       },
     ];

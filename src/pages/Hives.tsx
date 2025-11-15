@@ -120,7 +120,7 @@ const formatMonthYear = (value?: string | null) => {
   });
 };
 
-const HIVE_CARD_IMAGE_SRC = "/assets/hive-card.jpg";
+const HIVE_CARD_IMAGE_SRC = "/assets/bus_medaus_avilys_ikona.png";
 
 function HiveCard({
   hive,

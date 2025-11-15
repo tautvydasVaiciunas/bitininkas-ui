@@ -27,9 +27,10 @@ import { GroupMember } from '../groups/group-member.entity';
 import { NewsPost } from '../news/news-post.entity';
 
 const PUBLIC_DIR_CANDIDATES = [
-  path.resolve(__dirname, '..', '..', '..', 'public'),
-  path.resolve(process.cwd(), '..', 'public'),
+  path.resolve(__dirname, '..', '..', 'public'),
   path.resolve(process.cwd(), 'public'),
+  path.resolve(process.cwd(), '..', 'public'),
+  path.resolve(__dirname, '..', '..', '..', 'public'),
 ];
 
 const PUBLIC_DIR =
@@ -100,7 +101,15 @@ type SeedMediaAsset = typeof SEED_MEDIA_ASSETS[keyof typeof SEED_MEDIA_ASSETS];
 
 const ensureSeedMediaAssets = () => {
   for (const asset of Object.values(SEED_MEDIA_ASSETS)) {
-    ensureUploadsFile(path.join('seed', asset.target), path.join(PUBLIC_DIR, asset.source));
+    const source = path.join(PUBLIC_DIR, asset.source);
+    if (!fs.existsSync(source)) {
+      console.warn(
+        `SPĖJIMAS: seed media asset nerastas (${asset.source}).`
+      );
+      continue;
+    }
+
+    ensureUploadsFile(path.join('seed', asset.target), source);
   }
 };
 

@@ -26,16 +26,11 @@ import { Group } from '../groups/group.entity';
 import { GroupMember } from '../groups/group-member.entity';
 import { NewsPost } from '../news/news-post.entity';
 
-const PUBLIC_DIR_CANDIDATES = [
-  path.resolve(__dirname, '..', '..', 'public'),
-  path.resolve(process.cwd(), 'public'),
-  path.resolve(process.cwd(), '..', 'public'),
-  path.resolve(__dirname, '..', '..', '..', 'public'),
-];
+const PUBLIC_DIR = path.resolve(__dirname, '..', '..', '..', 'public');
 
-const PUBLIC_DIR =
-  PUBLIC_DIR_CANDIDATES.find((candidate) => fs.existsSync(candidate)) ??
-  PUBLIC_DIR_CANDIDATES[0];
+if (!fs.existsSync(PUBLIC_DIR)) {
+  console.warn(`Įspėjimas: PUBLIC_DIR ${PUBLIC_DIR} nerastas.`);
+}
 
 // Seed media assets mirror the files sitting in `public/` (listed in AGENTS instructions).
 const SEED_MEDIA_ASSETS = {

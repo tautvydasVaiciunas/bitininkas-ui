@@ -30,6 +30,7 @@ RUN npm ci --omit=dev --no-audit --no-fund
 
 # Build artefaktai
 COPY --from=builder /app/dist ./dist
+COPY --from=builder /app/public ./public
 COPY --from=builder /app/.env.example ./.env.example
 
 # Entrypoint (kopijuojam, sutvarkom CRLF ir suteikiam teisę vykdyti)

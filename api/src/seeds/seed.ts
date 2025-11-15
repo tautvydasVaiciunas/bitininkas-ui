@@ -25,6 +25,7 @@ import { Notification } from '../notifications/notification.entity';
 import { Group } from '../groups/group.entity';
 import { GroupMember } from '../groups/group-member.entity';
 import { NewsPost } from '../news/news-post.entity';
+import { StoreProduct } from '../store/entities/product.entity';
 
 const PUBLIC_DIR = path.resolve(__dirname, '..', '..', '..', 'public');
 
@@ -134,6 +135,7 @@ async function runSeed(): Promise<void> {
     const groupRepository = dataSource.getRepository(Group);
     const groupMemberRepository = dataSource.getRepository(GroupMember);
     const newsRepository = dataSource.getRepository(NewsPost);
+    const productRepository = dataSource.getRepository(StoreProduct);
 
     // --- FK-safe wipe: one TRUNCATE ... CASCADE over all involved tables ---
     const repos = [
@@ -145,6 +147,7 @@ async function runSeed(): Promise<void> {
       tagRepository,        // tags
       notificationRepository,
       newsRepository,
+      productRepository,
       groupMemberRepository,
       groupRepository,
       taskRepository,
@@ -254,7 +257,27 @@ async function runSeed(): Promise<void> {
       createdByUserId: manager.id,
     });
 
-    await taskRepository.save([task1, task2]);
+    const task3 = taskRepository.create({
+      title: 'Rudeninė apsauga',
+      description: 'Kuo rūpestingiau paruoškite avilį žiemai',
+      category: 'preparation',
+      seasonMonths: [9, 10, 11],
+      frequency: TaskFrequency.ONCE,
+      defaultDueDays: 14,
+      createdByUserId: manager.id,
+    });
+
+    const task4 = taskRepository.create({
+      title: 'Inventoriaus sąrašo atnaujinimas',
+      description: 'Patikrinkite įrankių ir korpusų būklę',
+      category: 'maintenance',
+      seasonMonths: [1, 2, 3, 4],
+      frequency: TaskFrequency.MONTHLY,
+      defaultDueDays: 30,
+      createdByUserId: manager.id,
+    });
+
+    await taskRepository.save([task1, task2, task3, task4]);
 
     const generalTag = tagRepository.create({ name: 'Bendri darbai' });
     const springTag = tagRepository.create({ name: 'Pavasaris' });
@@ -329,9 +352,62 @@ async function runSeed(): Promise<void> {
       },
     ];
 
+    const stepsTask3 = [
+      {
+        title: 'Uždaryti vėdinimo angas',
+        orderIndex: 1,
+        taskId: task3.id,
+        contentText:
+          'Uždenkite papildomais stikintu folijomis arba vėdinimo tinkleliais, kad išlaikytumėte šilumą, bet užtikrintumėte oro apykaitą.',
+        mediaUrl: seedMediaUrl(SEED_MEDIA_ASSETS.screenshotFrames),
+        mediaType: IMAGE_MEDIA_TYPE,
+      },
+      {
+        title: 'Patikrinti kraštines',
+        orderIndex: 2,
+        taskId: task3.id,
+        contentText:
+          'Peržvelkite korpusų sandarumą ir suraskite galimas spragas, kad bitės neturėtų tiesioginės prieigos prie vėjo.',
+        mediaUrl: seedMediaUrl(SEED_MEDIA_ASSETS.sequenceC),
+        mediaType: IMAGE_MEDIA_TYPE,
+      },
+      {
+        title: 'Papildyti pašarus',
+        orderIndex: 3,
+        taskId: task3.id,
+        contentText:
+          'Sužymėkite kiekį pašarų kiekvienam aviliui ir suskaičiuokite likusį atsargų kiekį prieš žiemą.',
+        mediaUrl: seedMediaUrl(SEED_MEDIA_ASSETS.inventoryEvening),
+        mediaType: IMAGE_MEDIA_TYPE,
+      },
+    ];
+
+    const stepsTask4 = [
+      {
+        title: 'Įrankių apžiūra',
+        orderIndex: 1,
+        taskId: task4.id,
+        contentText:
+          'Nusivalykite pjūklus, padėklus ir ataskaitų knygą, kad kiekvienas įrankis būtų paruoštas naujam sezonui.',
+        mediaUrl: seedMediaUrl(SEED_MEDIA_ASSETS.communityTrading),
+        mediaType: IMAGE_MEDIA_TYPE,
+      },
+      {
+        title: 'Korpusų atnaujinimas',
+        orderIndex: 2,
+        taskId: task4.id,
+        contentText:
+          'Patikrinkite, ar mediniai korpusai nėra pratrūkę, ir pažymėkite tuos, kuriuos derėtų perdažyti ar sutvirtinti.',
+        mediaUrl: seedMediaUrl(SEED_MEDIA_ASSETS.meadowSunset),
+        mediaType: IMAGE_MEDIA_TYPE,
+      },
+    ];
+
     const savedSteps = await stepRepository.save([
       ...stepsTask1.map((step) => stepRepository.create(step)),
       ...stepsTask2.map((step) => stepRepository.create(step)),
+      ...stepsTask3.map((step) => stepRepository.create(step)),
+      ...stepsTask4.map((step) => stepRepository.create(step)),
     ]);
 
     const prepareToolsStep = savedSteps.find((step) => step.title === 'Paruošti įrankius');
@@ -606,6 +682,57 @@ async function runSeed(): Promise<void> {
     ];
 
     await newsRepository.save(newsSeeds);
+
+    const storeProducts = [
+      productRepository.create({
+        slug: 'degustacinis-medaus-rinkinys',
+        title: 'Degustacinis medaus rinkinys 3x200 g',
+        shortDescription: 'Rinkinyje – nevienodos rūšies medus tiesiai iš bendruomenės avilių.',
+        description:
+          'Trijų skonių rinkinys su kvapiaisiais laukinių žolelių, pavasario ir liepų medumi. Puikiai tinka dovanai ar savaitgalio stalui.',
+        priceCents: 1380,
+        imageUrls: [
+          seedMediaUrl(SEED_MEDIA_ASSETS.springField),
+          seedMediaUrl(SEED_MEDIA_ASSETS.harvestStock),
+        ],
+        isActive: true,
+      }),
+      productRepository.create({
+        slug: 'šilumos-aviliai-apklotas',
+        title: 'Šilumos avilių apklotas',
+        shortDescription: 'Dvipusis apsauginis apklotas žiemai su termo sluoksniu.',
+        description:
+          'Tvirtas poliesterio audinys su atšvaitine išorine danga ir plonais termo sluoksniais viduje. Lengvai tvirtinamas prie korpusų.',
+        priceCents: 7490,
+        imageUrls: [seedMediaUrl(SEED_MEDIA_ASSETS.screenshotPackaging)],
+        isActive: true,
+      }),
+      productRepository.create({
+        slug: 'bičiuliai-aviliai-komplektas',
+        title: 'Avilių priežiūros komplektas',
+        shortDescription: 'Įrankių rinkinys su šluotelėmis ir tvarkingu saugojimo lagaminu.',
+        description:
+          'Komplekte yra švara palaikanti šepetys, antgaliai korpusų patikrai ir kompaktinis lagaminas, kad visi įrankiai būtų vienoje vietoje.',
+        priceCents: 4520,
+        imageUrls: [
+          seedMediaUrl(SEED_MEDIA_ASSETS.communityTrading),
+          seedMediaUrl(SEED_MEDIA_ASSETS.sequenceA),
+        ],
+        isActive: true,
+      }),
+      productRepository.create({
+        slug: 'dovana-bitininko-stiklainiai',
+        title: 'Bitininko dovanų stiklainiai',
+        shortDescription: 'Trijų dydžių stiklainiai su užsukamomis metalinėmis dangteliais.',
+        description:
+          'Švari ir patvari stiklo danga, puikiai tinka laikyti medui ar dovanojamoms dovanoms. Paviršius lengvai dekoruojamas etiketėmis.',
+        priceCents: 2430,
+        imageUrls: [seedMediaUrl(SEED_MEDIA_ASSETS.meadowSunset)],
+        isActive: true,
+      }),
+    ];
+
+    await productRepository.save(storeProducts);
 
     console.log('Sėklos sėkmingai įkeltos');
   } catch (error) {

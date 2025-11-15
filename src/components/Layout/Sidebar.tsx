@@ -75,9 +75,14 @@ export const Sidebar = () => {
         <div className="flex items-center gap-3">
           <div className="flex h-10 w-10 shrink-0 items-center justify-center">
             <img
-              src="https://static.wixstatic.com/media/453317_cb9f63ff26714a80828d532ffc091160~mv2.png"
+              src="/assets/og.jpg"
               alt="Bus medaus logotipas"
-              className="h-10 w-auto max-w-full object-contain"
+              className="h-10 w-auto max-w-full object-contain dark:hidden"
+            />
+            <img
+              src="/assets/dark_mode_logo.png"
+              alt="Bus medaus logotipas tamsiam režimui"
+              className="hidden h-10 w-auto max-w-full object-contain dark:block"
             />
           </div>
           <div>

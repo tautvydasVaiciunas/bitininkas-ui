@@ -8,9 +8,13 @@ import { SupportService } from './support.service';
 import { SupportAdminController } from './support-admin.controller';
 import { SupportUploadController } from './support-upload.controller';
 import { NotificationsModule } from '../notifications/notifications.module';
+import { User } from '../users/user.entity';
 
 @Module({
-  imports: [TypeOrmModule.forFeature([SupportThread, SupportMessage, SupportAttachment]), NotificationsModule],
+  imports: [
+    TypeOrmModule.forFeature([SupportThread, SupportMessage, SupportAttachment, User]),
+    NotificationsModule,
+  ],
   providers: [SupportService],
   controllers: [SupportController, SupportAdminController, SupportUploadController],
   exports: [SupportService],

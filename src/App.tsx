@@ -36,6 +36,7 @@ import StoreCheckout from "./pages/store/StoreCheckout";
 import StoreSuccess from "./pages/store/StoreSuccess";
 import StoreMyOrders from "./pages/store/StoreMyOrders";
 import NotFound from "./pages/NotFound";
+import HelpFaq from "./pages/HelpFaq";
 
 const queryClient = new QueryClient();
 
@@ -69,6 +70,7 @@ const App = () => (
                 <Route path="/tasks/:id/run" element={<TaskRun />} />
                 <Route path="/notifications" element={<Notifications />} />
                 <Route path="/profile" element={<Profile />} />
+                <Route path="/duk" element={<HelpFaq />} />
                 <Route path="/reports" element={<Reports />} />
                 <Route
                   element={

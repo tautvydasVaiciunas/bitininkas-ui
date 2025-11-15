@@ -1,6 +1,6 @@
 # Codex 5.1 – Bus medaus / bitininkas-ui
 
-## 1. AGENTS.md šablonas (įsikelk į repo šaknį)
+## 1. AGENTS.md šablonas 
 
 ```md
 # AGENTS
@@ -42,49 +42,7 @@
 - Nekeisk Node/Vite versijų, CI/CD skriptų ir deploy nustatymų.
 ```
 
-## 2. PR review komentaras GitHub’e
-
-Komentare ant PR rašyk maždaug taip:
-
-```text
-@codex review
-
-Kontekstas:
-- Projektas: Bus medaus SaaS (NestJS API + React/Vite SPA).
-- Pagrindas: LT kalba, VAT 21 %, kainos saugomos centais API, SPA rodo kainas su PVM.
-
-Prašymai šiai apžvalgai:
-- Patikrink, ar nauji API endpoint’ai yra saugūs (autentifikacija, validacija, klaidų tvarkymas).
-- Patikrink, ar SPA dalis nenaudoja deprecated API ir nepažeidžia esamos routing/auth struktūros.
-- Pažiūrėk, ar nėra akivaizdžių bugų, edge case’ų, performance problemų.
-
-Laikykis `AGENTS.md` taisyklių (ypač neliesti Node/Vite versijų ir deploy config).
-```
-
-## 3. Codex CLI „pakeisk kodą“ šablonas
-
-Šitą tekstą naudok kaip bazinį promptą CLI užduotims (prireikus pridėk failų pavyzdžius):
-
-```text
-Tu dirbi su projektu „Bus medaus“ (bitininkas-ui repo).
-
-Stack:
-- Backend: NestJS + TypeORM + PostgreSQL (api/ katalogas).
-- Frontend: React + Vite + TypeScript (spa/ katalogas), shadcn UI + Tailwind.
-
-Globalios taisyklės:
-- Nekeisk Node/Vite versijų, package.json `engines`, Cloudflare/Koyeb build nustatymų.
-- Nekeisk auth/roles/permissions logikos.
-- Keisdamas DB schemą, būtinai kurk TypeORM migraciją.
-- Laikyk visą tekstą LT kalba.
-- Jokio eval/dynamic Function; jokio jautrių duomenų loguose.
-
-Užduotis:
-- [TRUMPAI APIŠYK KONKREČIĄ UŽDUOTĮ, pvz.: „sutvarkyk, kad /store/my-orders grąžintų prisijungusio vartotojo užsakymus ir SPA puslapis juos rodytų“]
-
-Pateik:
-- Kokius failus keitei ir kodėl.
-- Trumpą paaiškinimą, kaip tai išsprendžia problemą.
-- Patvirtink, kad `npm run typecheck` ir `npm run build` atitinkamuose paketuose praeina (gali tik įrašyti komandą, mes ją paleisim CI).
-```
-
+„You can apply changes without asking me to confirm them as long as:
+– Typecheck and build pass
+– You are not touching deployment secrets / env / CI.
+Otherwise, ask.“

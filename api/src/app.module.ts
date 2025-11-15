@@ -28,6 +28,7 @@ import { MediaModule } from './media/media.module';
 import { NewsModule } from './news/news.module';
 import { PaginationModule } from './common/pagination/pagination.module';
 import { StoreModule } from './store/store.module';
+import { DebugModule } from './debug/debug.module';
 
 import ormConfig from './typeorm.config';
 
@@ -79,6 +80,7 @@ import ormConfig from './typeorm.config';
     MediaModule,
     NewsModule,
     StoreModule,
+    DebugModule,
   ],
   providers: [
     { provide: APP_GUARD, useClass: RateLimitGuard },

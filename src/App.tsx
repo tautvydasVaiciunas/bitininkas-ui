@@ -42,6 +42,10 @@ import HelpFaq from "./pages/HelpFaq";
 
 const queryClient = new QueryClient();
 
+if (typeof (queryClient as any).defaultQueryOptions !== 'function') {
+  (queryClient as any).defaultQueryOptions = (options?: unknown) => options ?? {};
+}
+
 const App = () => (
   <QueryClientProvider client={queryClient}>
     <AuthProvider>

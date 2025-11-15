@@ -120,6 +120,8 @@ const formatMonthYear = (value?: string | null) => {
   });
 };
 
+const HIVE_CARD_IMAGE_SRC = "/assets/hive-card.jpg";
+
 function HiveCard({
   hive,
   onUpdateStatus,
@@ -130,9 +132,7 @@ function HiveCard({
   isDeleting,
   canManage,
 }: HiveCardProps) {
-  const [confirmAction, setConfirmAction] = useState<
-    "archive" | "delete" | null
-  >(null);
+  const [confirmAction, setConfirmAction] = useState<"archive" | "delete" | null>(null);
   const statusMeta = statusMetadata[hive.status];
   const {
     data: summary,
@@ -146,79 +146,91 @@ function HiveCard({
   const completionPercent = summary ? Math.round(summary.completion * 100) : 0;
 
   return (
-    <Card className="shadow-custom hover:shadow-custom-md transition-all group">
-      <CardHeader>
-        <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
-          <div className="flex-1">
-            <CardTitle className="text-xl mb-1">{hive.label}</CardTitle>
-            {hive.location ? (
-              <div className="flex items-center gap-1 text-sm text-muted-foreground">
-                <MapPin className="w-3 h-3" />
-                <span>{hive.location}</span>
+    <div className="h-full flex flex-col">
+      <Card className="shadow-custom hover:shadow-custom-md transition-all group h-full min-h-[560px] flex flex-col overflow-hidden">
+        <div className="h-56 w-full overflow-hidden rounded-t-lg bg-muted-foreground/5">
+          <img
+            src={HIVE_CARD_IMAGE_SRC}
+            alt="Avilio iliustracija"
+            className="h-full w-full object-cover"
+          />
+        </div>
+        <div className="flex flex-col flex-1">
+          <CardHeader className="pt-6">
+            <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
+              <div className="flex-1">
+                <CardTitle className="text-xl mb-1">{hive.label}</CardTitle>
+                {hive.location ? (
+                  <div className="flex items-center gap-1 text-sm text-muted-foreground">
+                    <MapPin className="w-3 h-3" />
+                    <span>{hive.location}</span>
+                  </div>
+                ) : null}
               </div>
-            ) : null}
-          </div>
-          <div className="flex flex-wrap items-center justify-end gap-2 sm:flex-nowrap">
-            {hive.tag ? (
+              <div className="flex flex-col items-end gap-2 text-sm">
+                <Badge variant={statusMeta.badgeVariant}>{statusMeta.label}</Badge>
+                {hive.tag ? (
+                  <div className="flex items-center gap-1 text-muted-foreground">
+                    <TagIcon className="w-4 h-4" />
+                    <span>{hive.tag.name}</span>
+                  </div>
+                ) : null}
+              </div>
+            </div>
+          </CardHeader>
+          <CardContent className="flex flex-1 flex-col space-y-4">
+            <div className="space-y-2 text-sm">
               <div className="flex items-center gap-2">
-                <TagIcon className="w-4 h-4 text-muted-foreground" />
-                <span className="text-muted-foreground">Žyma:</span>
-                <span>{hive.tag.name}</span>
+                <Calendar className="w-4 h-4 text-muted-foreground" />
+                <span className="text-muted-foreground">
+                  Bičių šeimos suleidimas:
+                </span>
+                <span>{formatMonthYear(hive.createdAt)}</span>
               </div>
-            ) : null}
-          </div>
-        </div>
-      </CardHeader>
-      <CardContent className="space-y-4">
-        <div className="space-y-2 text-sm">
-          <div className="flex items-center gap-2">
-            <Calendar className="w-4 h-4 text-muted-foreground" />
-            <span className="text-muted-foreground">Bičių šeimos suleidimas:</span>
-            <span>{formatMonthYear(hive.createdAt)}</span>
-          </div>
-          {hive.tag ? (
-            <div className="flex items-center gap-2">
-              <TagIcon className="w-4 h-4 text-muted-foreground" />
-              <span className="text-muted-foreground">Žyma:</span>
-              <span>{hive.tag.name}</span>
             </div>
-          ) : null}
-        </div>
 
-        {summaryLoading ? (
-          <Skeleton className="h-16 w-full rounded-lg" />
-        ) : summary ? (
-          <div className="rounded-lg border border-border px-3 py-2 text-sm">
-            <div className="flex items-center justify-between">
-              <span className="text-muted-foreground">Priskirtos užduotys</span>
-              <span className="font-medium">{summary.assignmentsCount}</span>
+            <div className="flex-1">
+              {summaryLoading ? (
+                <Skeleton className="h-16 w-full rounded-lg" />
+              ) : summary ? (
+                <div className="rounded-lg border border-border px-3 py-2 text-sm">
+                  <div className="flex items-center justify-between">
+                    <span className="text-muted-foreground">
+                      Priskirtos užduotys
+                    </span>
+                    <span className="font-medium">
+                      {summary.assignmentsCount}
+                    </span>
+                  </div>
+                  <div className="mt-1 text-muted-foreground">
+                    Užbaigta:{" "}
+                    <span className="font-medium text-foreground">
+                      {completionPercent}%
+                    </span>
+                  </div>
+                </div>
+              ) : summaryError ? (
+                <div className="rounded-lg bg-destructive/10 border border-destructive/20 px-3 py-2 text-sm text-destructive-foreground">
+                  Nepavyko įkelti suvestinės
+                </div>
+              ) : (
+                <div className="rounded-lg border border-border px-3 py-2 text-sm text-muted-foreground">
+                  Nėra suvestinės duomenų
+                </div>
+              )}
             </div>
-            <div className="mt-1 text-muted-foreground">
-              Užbaigta:{" "}
-              <span className="font-medium text-foreground">
-                {completionPercent}%
-              </span>
-            </div>
-          </div>
-        ) : summaryError ? (
-          <div className="rounded-lg bg-destructive/10 border border-destructive/20 px-3 py-2 text-sm text-destructive-foreground">
-            Nepavyko įkelti suvestinės
-          </div>
-        ) : (
-          <div className="rounded-lg border border-border px-3 py-2 text-sm text-muted-foreground">
-            Nėra suvestinės duomenų
-          </div>
-        )}
 
-        <div className="flex flex-col gap-2 sm:flex-row">
-          <Button asChild variant="outline" className="flex-1">
-            <Link to={`/hives/${hive.id}`}>
-              Peržiūrėti
-              <ChevronRight className="ml-2 w-4 h-4 opacity-0 group-hover:opacity-100 transition-opacity" />
-            </Link>
-          </Button>
+            <div className="flex flex-col gap-2 sm:flex-row">
+              <Button asChild variant="outline" className="flex-1">
+                <Link to={`/hives/${hive.id}`}>
+                  Peržiūrėti
+                  <ChevronRight className="ml-2 w-4 h-4 opacity-0 group-hover:opacity-100 transition-opacity" />
+                </Link>
+              </Button>
+            </div>
+          </CardContent>
         </div>
-      </CardContent>
+      </Card>
 
       <AlertDialog
         open={confirmAction !== null}
@@ -267,10 +279,9 @@ function HiveCard({
           </AlertDialogFooter>
         </AlertDialogContent>
       </AlertDialog>
-    </Card>
+    </div>
   );
 }
-
 export default function Hives() {
   const { user } = useAuth();
   const { toast } = useToast();
@@ -693,6 +704,21 @@ export default function Hives() {
                 canManage={canManageHives}
               />
             ))}
+            <Link to="/parduotuve" className="group">
+              <Card className="shadow-custom hover:shadow-custom-md transition-all group h-full min-h-[560px] flex flex-col overflow-hidden border border-dashed border-muted-foreground/60 bg-muted/10 text-muted-foreground">
+                <div className="h-56 w-full flex items-center justify-center rounded-t-lg bg-muted-foreground/20 text-muted-foreground">
+                  <Plus className="h-16 w-16" />
+                </div>
+                <CardContent className="flex flex-1 flex-col items-center justify-center gap-3 px-6 text-center">
+                  <p className="text-xl font-semibold text-foreground">
+                    Papildyti avilių kiekį
+                  </p>
+                  <p className="text-sm text-muted-foreground/80">
+                    Aplankykite parduotuvę ir papildykite atsargas įrankiais bei korpusais.
+                  </p>
+                </CardContent>
+              </Card>
+            </Link>
           </div>
         )}
       </div>

@@ -29,6 +29,7 @@ import AdminStoreProducts from "./pages/admin/StoreProducts";
 import StoreOrders from "./pages/admin/StoreOrders";
 import StoreOrderDetails from "./pages/admin/StoreOrderDetails";
 import { AdminStoreLayout } from "./pages/admin/AdminStoreLayout";
+import AdminSupport from "./pages/admin/AdminSupport";
 import StoreHome from "./pages/store/StoreHome";
 import StoreProductDetail from "./pages/store/StoreProductDetail";
 import StoreCart from "./pages/store/StoreCart";
@@ -36,6 +37,7 @@ import StoreCheckout from "./pages/store/StoreCheckout";
 import StoreSuccess from "./pages/store/StoreSuccess";
 import StoreMyOrders from "./pages/store/StoreMyOrders";
 import NotFound from "./pages/NotFound";
+import SupportChat from "./pages/SupportChat";
 import HelpFaq from "./pages/HelpFaq";
 
 const queryClient = new QueryClient();
@@ -70,6 +72,7 @@ const App = () => (
                 <Route path="/tasks/:id/run" element={<TaskRun />} />
                 <Route path="/notifications" element={<Notifications />} />
                 <Route path="/profile" element={<Profile />} />
+                <Route path="/support" element={<SupportChat />} />
                 <Route path="/duk" element={<HelpFaq />} />
                 <Route path="/reports" element={<Reports />} />
                 <Route
@@ -83,6 +86,7 @@ const App = () => (
                   <Route path="/admin/tasks" element={<AdminTasks />} />
                   <Route path="/admin/templates" element={<AdminTemplates />} />
                   <Route path="/admin/news" element={<AdminNews />} />
+                  <Route path="/admin/support" element={<AdminSupport />} />
                   <Route path="/admin/store" element={<AdminStoreLayout />}>
                     <Route path="products" element={<AdminStoreProducts />} />
                     <Route path="orders" element={<StoreOrders />} />

@@ -14,7 +14,9 @@ import {
   Users,
   UsersRound,
 } from "lucide-react";
+import { useQuery } from "@tanstack/react-query";
 import { useAuth } from "@/contexts/AuthContext";
+import api from "@/lib/api";
 import { cn } from "@/lib/utils";
 
 type NavItem = {
@@ -25,12 +27,14 @@ type NavItem = {
 
 const profileNav: NavItem = { to: "/profile", label: "Profilis", icon: User };
 const publicStoreNav: NavItem = { to: "/parduotuve", label: "Parduotuvė", icon: Package };
+const supportNav: NavItem = { to: "/support", label: "Susisiek", icon: Bell };
+const messagesNav: NavItem = { to: "/admin/support", label: "Žinutės", icon: Bell };
 
 const userNavItems: NavItem[] = [
   { to: "/news", label: "Naujienos", icon: Newspaper },
   { to: "/hives", label: "Aviliai", icon: Box },
   { to: "/tasks", label: "Užduotys", icon: ListTodo },
-  { to: "/notifications", label: "Pranešimai", icon: Bell },
+  supportNav,
   publicStoreNav,
 ];
 
@@ -39,6 +43,7 @@ const adminNavSections: NavItem[][] = [
     { to: "/admin/users", label: "Vartotojai", icon: Users },
     { to: "/admin/groups", label: "Grupės", icon: UsersRound },
     { to: "/notifications", label: "Pranešimai", icon: Bell },
+    messagesNav,
     { to: "/hives", label: "Aviliai", icon: Box },
   ],
   [
@@ -68,6 +73,13 @@ export const Sidebar = () => {
 
   const desktopNavItems = isPrivileged ? adminDesktopNavItems : userNavItems;
   const mobileNavItems = isPrivileged ? adminMobileMainNav : userNavItems;
+
+  const { data: supportUnread } = useQuery({
+    queryKey: ['support', 'unread'],
+    queryFn: () => api.support.unread(),
+    enabled: !isPrivileged,
+    refetchInterval: 30_000,
+  });
 
   return (
     <aside className="fixed inset-x-0 bottom-0 z-40 h-16 border-t border-sidebar-border bg-sidebar shadow-lg shadow-black/5 lg:left-0 lg:top-0 lg:h-screen lg:w-64 lg:border-t-0 lg:border-r lg:shadow-none">
@@ -110,7 +122,12 @@ export const Sidebar = () => {
                 )
               }
             >
-              <item.icon className="h-4 w-4" />
+              <div className="relative flex items-center justify-center">
+                <item.icon className="h-4 w-4" />
+                {item.to === supportNav.to && supportUnread?.unread ? (
+                  <span className="absolute -top-1 -right-1 h-2 w-2 rounded-full bg-destructive" />
+                ) : null}
+              </div>
               <span className="truncate">{item.label}</span>
             </NavLink>
           ))}
@@ -165,6 +182,9 @@ export const Sidebar = () => {
                 }
               >
                 <item.icon className="h-5 w-5" />
+                {item.to === supportNav.to && supportUnread?.unread ? (
+                  <span className="ml-2 h-2 w-2 rounded-full bg-destructive" />
+                ) : null}
                 {item.label}
               </NavLink>
             ))}

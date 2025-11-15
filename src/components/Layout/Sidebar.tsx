@@ -53,9 +53,10 @@ const adminNavSections: NavItem[][] = [
 
 const adminDesktopNavItems = adminNavSections.flat();
 const adminMobileMainNav: NavItem[] = [
+  { to: "/admin/users", label: "Vartotojai", icon: Users },
+  { to: "/notifications", label: "Pranešimai", icon: Bell },
   { to: "/admin/news", label: "Naujienos", icon: Newspaper },
-  { to: "/hives", label: "Aviliai", icon: Box },
-  { to: "/admin/tasks", label: "Užduotys", icon: ClipboardList },
+  { to: "/reports", label: "Ataskaitos", icon: BarChart3 },
   publicStoreNav,
 ];
 
@@ -90,21 +91,21 @@ export const Sidebar = () => {
         aria-label="Pagrindinė navigacija"
         className="h-full lg:flex lg:flex-1 lg:flex-col lg:overflow-y-auto lg:p-4"
       >
-        <div className="flex h-full items-center gap-1 overflow-x-auto px-4 lg:hidden">
+        <div className="flex h-full items-center justify-between gap-2 px-2 lg:hidden">
           {mobileNavItems.map((item) => (
             <NavLink
               key={item.to}
               to={item.to}
               className={({ isActive }) =>
                 cn(
-                  "flex min-w-[4.5rem] flex-col items-center justify-center gap-1 rounded-lg px-3 py-2 text-[0.7rem] font-medium transition-colors",
+                  "flex flex-1 flex-col items-center justify-center gap-1 rounded-lg px-1 py-1 text-[0.55rem] font-medium transition-colors",
                   isActive
                     ? "bg-sidebar-accent text-sidebar-primary"
                     : "text-sidebar-foreground hover:bg-sidebar-accent/60",
                 )
               }
             >
-              <item.icon className="h-5 w-5" />
+              <item.icon className="h-4 w-4" />
               <span className="truncate">{item.label}</span>
             </NavLink>
           ))}

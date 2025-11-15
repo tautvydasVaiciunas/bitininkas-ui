@@ -33,6 +33,8 @@ if (!fs.existsSync(PUBLIC_DIR)) {
 }
 
 // Seed media assets mirror the files sitting in `public/` (listed in AGENTS instructions).
+const SPA_ASSET_BASE = 'https://app.busmedaus.lt/assets';
+
 const SEED_MEDIA_ASSETS = {
   springField: {
     target: 'bianca-ackermann-9CuGKLZQ0AU-unsplash.jpg',
@@ -108,7 +110,8 @@ const ensureSeedMediaAssets = () => {
   }
 };
 
-const seedMediaUrl = (asset: SeedMediaAsset) => `/uploads/seed/${asset.target}`;
+const seedMediaUrl = (asset: SeedMediaAsset) =>
+  `${SPA_ASSET_BASE}/${encodeURIComponent(asset.target)}`;
 
 const IMAGE_MEDIA_TYPE: TaskStepMediaType = 'image';
 

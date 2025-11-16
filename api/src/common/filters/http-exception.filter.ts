@@ -79,7 +79,7 @@ export const buildErrorResponseBody = (exception: HttpException): ErrorResponseB
   return body;
 };
 
-export class HttpExceptionFilter implements ExceptionFilter<HttpException> {
+export class HttpExceptionFilter implements ExceptionFilter {
   private static readonly QUIET_401_ROUTES = new Set<string>(['GET /auth/me']);
   private static readonly RETRY_HEADER = 'x-auth-retry';
 
@@ -105,12 +105,26 @@ export class HttpExceptionFilter implements ExceptionFilter<HttpException> {
 
   private readonly logger = new Logger(HttpExceptionFilter.name);
 
-  catch(exception: HttpException, host: ArgumentsHost) {
+  catch(exception: unknown, host: ArgumentsHost) {
     const ctx = host.switchToHttp();
     const response = ctx.getResponse<Response>();
     const request = ctx.getRequest<Request>();
-    const status = exception.getStatus();
-    const body = buildErrorResponseBody(exception);
+    let status: number;
+    let body: ErrorResponseBody;
+
+    // Ensure we only call HttpException APIs when we actually have an HttpException;
+    // otherwise fall back to a generic 500 response so the filter never throws itself.
+    if (exception instanceof HttpException) {
+      status = exception.getStatus();
+      body = buildErrorResponseBody(exception);
+    } else {
+      status = HttpStatus.INTERNAL_SERVER_ERROR;
+      const fallbackMessage =
+        exception instanceof Error
+          ? exception.message
+          : 'Įvyko vidinė serverio klaida';
+      body = { message: fallbackMessage ?? 'Įvyko klaida' };
+    }
 
     const method = request?.method ?? 'UNKNOWN';
     const url = request?.originalUrl ?? request?.url ?? 'unknown';

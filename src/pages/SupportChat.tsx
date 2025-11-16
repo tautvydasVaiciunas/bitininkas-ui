@@ -1,3 +1,4 @@
+
 import { useCallback, useEffect, useRef, useState } from 'react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -48,9 +49,9 @@ const SupportChat = () => {
       return data;
     } catch (error) {
       if (error instanceof Error) {
-        setThreadError('Nepavyko ikelti pokalbio. Bandykite veliau.');
+        setThreadError('Nepavyko įkelti pokalbio. Bandykite vėliau.');
       } else {
-        setThreadError('Nepavyko ikelti pokalbio.');
+        setThreadError('Nepavyko įkelti pokalbio.');
       }
       setThread(null);
       setMessages([]);
@@ -90,7 +91,7 @@ const SupportChat = () => {
         setOlderCursor(page.at(-1)?.createdAt ?? null);
       } catch (error) {
         if (!appendOlder) {
-          setMessagesError('Nepavyko ikelti zinuciu.');
+          setMessagesError('Nepavyko įkelti žinučių.');
         }
       } finally {
         if (appendOlder) {
@@ -135,10 +136,14 @@ const SupportChat = () => {
           url: response.url,
           mimeType: file.type,
           sizeBytes: file.size,
-          kind: file.type.startsWith('image') ? 'image' : file.type.startsWith('video') ? 'video' : 'other',
+          kind: file.type.startsWith('image')
+            ? 'image'
+            : file.type.startsWith('video')
+            ? 'video'
+            : 'other',
         });
       } catch {
-        setSendError('Nepavyko ikelti failo.');
+        setSendError('Nepavyko įkelti failo.');
       }
     }
 
@@ -168,7 +173,7 @@ const SupportChat = () => {
       setText('');
       setAttachments([]);
     } catch {
-      setSendError('Nepavyko isiusti zinutes.');
+      setSendError('Nepavyko išsiųsti žinutės.');
     } finally {
       setSending(false);
     }
@@ -179,13 +184,13 @@ const SupportChat = () => {
   return (
     <MainLayout>
       <div className="mx-auto w-full max-w-4xl space-y-6 py-10 px-4">
-        <h1 className="text-2xl font-semibold">Susirasymas su Bus medaus bitininku</h1>
+        <h1 className="text-2xl font-semibold">Susisiek</h1>
         <div className="border border-border rounded-2xl bg-background/80 p-4 shadow-sm shadow-black/5">
           <div className="max-h-[60vh] overflow-y-auto space-y-4 px-2" ref={scrollRef}>
             {threadLoading ? (
               <div className="py-10 text-center text-sm text-muted-foreground">Kraunama...</div>
             ) : threadError ? (
-              <div className="py-10 text-center text-sm text-destructive">Klaida ikeliant pokalbi.</div>
+              <div className="py-10 text-center text-sm text-destructive">Klaida įkeliant pokalbį.</div>
             ) : (
               <>
                 {showLoadMore && (
@@ -199,7 +204,7 @@ const SupportChat = () => {
                       {loadingMore ? (
                         <Loader2 className="mr-2 h-4 w-4 animate-spin" />
                       ) : (
-                        'Rodyti senesnes �inutes'
+                        'Rodyti senesnes žinutes'
                       )}
                     </Button>
                   </div>
@@ -210,7 +215,7 @@ const SupportChat = () => {
                   <div className="py-10 text-center text-sm text-destructive">{messagesError}</div>
                 ) : messages.length === 0 ? (
                   <div className="py-10 text-center text-sm text-muted-foreground">
-                    Pokalbis tu�cias. Para�ykite pirma �inute!
+                    Pokalbis tuščias. Parašykite pirmą žinutę!
                   </div>
                 ) : (
                   messages.map((message) => {
@@ -224,7 +229,7 @@ const SupportChat = () => {
                         )}
                       >
                         <p className="text-xs text-muted-foreground">
-                          {isUser ? 'Jus' : 'Bus medaus Bitininkas'} -{' '}
+                          {isUser ? 'Jūs' : 'Bus medaus Bitininkas'} •{' '}
                           {new Date(message.createdAt).toLocaleString('lt-LT')}
                         </p>
                         <div
@@ -278,11 +283,11 @@ const SupportChat = () => {
                 />
                 <div className="flex items-center gap-1">
                   <Paperclip className="h-4 w-4" />
-                  Ikelti faila
+                  Įkelti failą
                 </div>
               </label>
               <Input
-                placeholder="Para�ykite �inute..."
+                placeholder="Parašykite žinutę..."
                 value={text}
                 onChange={(event) => setText(event.target.value)}
                 disabled={sending}
@@ -323,7 +328,7 @@ const AttachmentPreview = ({ attachment }: { attachment: SupportAttachmentPayloa
 
   return (
     <a href={attachment.url} target="_blank" rel="noreferrer" className="text-xs underline">
-      Atidaryti faila
+      Atidaryti failą
     </a>
   );
 };

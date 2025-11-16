@@ -1,3 +1,4 @@
+
 import { useCallback, useEffect, useState } from 'react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -31,7 +32,7 @@ const AdminSupport = () => {
       const data = await api.support.admin.threads();
       setThreads(data);
     } catch {
-      setThreadsError('Nepavyko ikelti pokalbiu.');
+      setThreadsError('Nepavyko įkelti pokalbių.');
     } finally {
       setThreadsLoading(false);
     }
@@ -62,7 +63,7 @@ const AdminSupport = () => {
       setOlderCursor(page.at(-1)?.createdAt ?? null);
     } catch {
       if (!appendOlder) {
-        setMessagesError('Nepavyko ikelti �inuciu.');
+        setMessagesError('Nepavyko įkelti žinučių.');
       }
     } finally {
       if (appendOlder) {
@@ -117,10 +118,14 @@ const AdminSupport = () => {
           url: response.url,
           mimeType: file.type,
           sizeBytes: file.size,
-          kind: file.type.startsWith('image') ? 'image' : file.type.startsWith('video') ? 'video' : 'other',
+          kind: file.type.startsWith('image')
+            ? 'image'
+            : file.type.startsWith('video')
+            ? 'video'
+            : 'other',
         });
       } catch {
-        setSendError('Nepavyko ikelti failo.');
+        setSendError('Nepavyko įkelti failo.');
       }
     }
 
@@ -141,7 +146,7 @@ const AdminSupport = () => {
       setText('');
       setAttachments([]);
     } catch {
-      setSendError('Nepavyko isiusti zinutes.');
+      setSendError('Nepavyko išsiųsti žinutės.');
     } finally {
       setSending(false);
     }
@@ -172,7 +177,7 @@ const AdminSupport = () => {
               >
                 <p className="font-medium">{thread.userName ?? thread.userEmail}</p>
                 <p className="text-xs text-muted-foreground">
-                  {thread.lastMessageText ?? 'Nera �inuciu'} � {thread.unreadFromUser} neperskaitytu
+                  {thread.lastMessageText ?? 'Nėra žinučių'} • {thread.unreadFromUser} neperskaitytų
                 </p>
               </button>
             ))
@@ -181,8 +186,8 @@ const AdminSupport = () => {
 
         <div className="flex-1 space-y-4 rounded-2xl border border-border bg-background/80 p-4 shadow-sm shadow-black/5">
           <header>
-            <h1 className="text-xl font-semibold">�inutes</h1>
-            <p className="text-xs text-muted-foreground">Atsakykite i vartotoju klausimus</p>
+            <h1 className="text-xl font-semibold">Žinutės</h1>
+            <p className="text-xs text-muted-foreground">Atsakykite į vartotojų klausimus</p>
           </header>
           <div className="max-h-[60vh] space-y-4 overflow-y-auto rounded-xl border border-border/70 p-3">
             {showLoadMore && (
@@ -191,7 +196,7 @@ const AdminSupport = () => {
                   {loadingMore ? (
                     <Loader2 className="mr-2 h-4 w-4 animate-spin" />
                   ) : (
-                    'Rodyti senesnes �inutes'
+                    'Rodyti senesnes žinutes'
                   )}
                 </Button>
               </div>
@@ -201,7 +206,7 @@ const AdminSupport = () => {
             ) : messagesError ? (
               <p className="text-center text-sm text-destructive">{messagesError}</p>
             ) : messages.length === 0 ? (
-              <p className="text-center text-sm text-muted-foreground">Pasirinkite thread'a arba para�ykite pirma �inute.</p>
+              <p className="text-center text-sm text-muted-foreground">Pasirinkite pokalbį arba parašykite pirmą žinutę.</p>
             ) : (
               messages.map((message) => (
                 <div
@@ -214,7 +219,7 @@ const AdminSupport = () => {
                   )}
                 >
                   <p className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">
-                    {message.senderRole === 'user' ? 'Vartotojas' : 'Bus medaus komanda'} �{' '}
+                    {message.senderRole === 'user' ? 'Vartotojas' : 'Bus medaus komanda'} •{' '}
                     {new Date(message.createdAt).toLocaleString('lt-LT')}
                   </p>
                   {message.text ? <p className="mt-2 whitespace-pre-wrap">{message.text}</p> : null}
@@ -240,11 +245,11 @@ const AdminSupport = () => {
                 />
                 <div className="flex items-center gap-1">
                   <Paperclip className="h-4 w-4" />
-                  Ikelti faila
+                  Įkelti failą
                 </div>
               </label>
               <Input
-                placeholder="Para�ykite �inute..."
+                placeholder="Parašykite žinutę..."
                 value={text}
                 onChange={(event) => setText(event.target.value)}
                 disabled={sending}
@@ -294,7 +299,7 @@ const AttachmentPreview = ({ attachment }: { attachment: SupportAttachmentPayloa
 
   return (
     <a href={attachment.url} target="_blank" rel="noreferrer" className="text-xs underline">
-      Atidaryti faila
+      Atidaryti failą
     </a>
   );
 };

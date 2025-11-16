@@ -943,6 +943,8 @@ export const api = {
         get<SupportMessageResponse[]>(`/admin/support/threads/${id}/messages`, { query: params }),
       createMessage: (id: string, payload: { text?: string; attachments?: SupportAttachmentPayload[] }) =>
         post<SupportMessageResponse>(`/admin/support/threads/${id}/messages`, { json: payload }),
+      ensureThread: (userId: string) =>
+        post<SupportThreadAdminResponse>('/admin/support/threads', { json: { userId } }),
     },
   },
   news: {

@@ -4,7 +4,12 @@ import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Loader2, Paperclip, Send } from 'lucide-react';
 import { MainLayout } from '@/components/Layout/MainLayout';
-import api, { SupportAttachmentPayload, SupportMessageResponse, SupportThreadAdminResponse } from '@/lib/api';
+import api, {
+  AdminUserResponse,
+  SupportAttachmentPayload,
+  SupportMessageResponse,
+  SupportThreadAdminResponse,
+} from '@/lib/api';
 import { cn } from '@/lib/utils';
 
 const MESSAGE_PAGE_LIMIT = 30;
@@ -24,6 +29,10 @@ const AdminSupport = () => {
   const [attachments, setAttachments] = useState<SupportAttachmentPayload[]>([]);
   const [sending, setSending] = useState(false);
   const [sendError, setSendError] = useState<string | null>(null);
+  const [userQuery, setUserQuery] = useState('');
+  const [userSearchResults, setUserSearchResults] = useState<AdminUserResponse[]>([]);
+  const [searchLoading, setSearchLoading] = useState(false);
+  const [searchError, setSearchError] = useState<string | null>(null);
 
   const loadThreads = useCallback(async () => {
     setThreadsLoading(true);
@@ -75,6 +84,46 @@ const AdminSupport = () => {
   }, []);
 
   const activeThread = threads.find((thread) => thread.id === selectedThreadId) ?? null;
+
+  useEffect(() => {
+    const query = userQuery.trim();
+    if (!query) {
+      setUserSearchResults([]);
+      setSearchError(null);
+      setSearchLoading(false);
+      return;
+    }
+
+    let active = true;
+    setSearchLoading(true);
+    setSearchError(null);
+
+    api.users
+      .list({ q: query, limit: 5 })
+      .then((response) => {
+        if (!active) {
+          return;
+        }
+        setUserSearchResults(response.data);
+      })
+      .catch(() => {
+        if (!active) {
+          return;
+        }
+        setUserSearchResults([]);
+        setSearchError('Paieška nepavyko.');
+      })
+      .finally(() => {
+        if (!active) {
+          return;
+        }
+        setSearchLoading(false);
+      });
+
+    return () => {
+      active = false;
+    };
+  }, [userQuery]);
 
   useEffect(() => {
     void loadThreads();
@@ -133,15 +182,41 @@ const AdminSupport = () => {
     event.currentTarget.value = '';
   };
 
+  const handleSelectUser = async (user: AdminUserResponse) => {
+    setUserQuery('');
+    setUserSearchResults([]);
+    try {
+      const thread = await api.support.admin.ensureThread(user.id);
+      setThreads((prev) => {
+        const exists = prev.find((item) => item.id === thread.id);
+        if (exists) {
+          return prev;
+        }
+        return [thread, ...prev];
+      });
+      setSelectedThreadId(thread.id);
+    } catch {
+      setSearchError('Nepavyko atidaryti pokalbio.');
+    }
+  };
+
   const handleSend = async () => {
-    if (!activeThread || (!text.trim() && attachments.length === 0)) return;
+    if (!activeThread) return;
+    const trimmedText = text.trim();
+    if (!trimmedText && attachments.length === 0) return;
+
+    const payload: { text?: string; attachments?: SupportAttachmentPayload[] } = {};
+    if (trimmedText) {
+      payload.text = trimmedText;
+    }
+    if (attachments.length) {
+      payload.attachments = attachments;
+    }
+
     setSending(true);
     setSendError(null);
     try {
-      const response = await api.support.admin.createMessage(activeThread.id, {
-        text: text.trim() || undefined,
-        attachments,
-      });
+      const response = await api.support.admin.createMessage(activeThread.id, payload);
       setMessages((prev) => [...prev, response]);
       setText('');
       setAttachments([]);
@@ -158,6 +233,37 @@ const AdminSupport = () => {
     <MainLayout>
       <div className="mx-auto flex w-full max-w-6xl gap-6 py-10 px-4">
         <aside className="w-80 space-y-3 rounded-2xl border border-border bg-background p-4">
+          <div className="relative">
+            <Input
+              placeholder="Ieškoti vartotojo..."
+              value={userQuery}
+              onChange={(event) => setUserQuery(event.target.value)}
+              className="mb-2"
+            />
+            {userQuery.trim() &&
+            (searchLoading || searchError || userSearchResults.length > 0) ? (
+              <div className="absolute inset-x-0 top-full z-10 mt-1 max-h-52 overflow-y-auto rounded-xl border bg-background shadow-lg">
+                {searchLoading ? (
+                  <p className="px-3 py-2 text-sm text-muted-foreground">Kraunama...</p>
+                ) : searchError ? (
+                  <p className="px-3 py-2 text-sm text-destructive">{searchError}</p>
+                ) : (
+                  userSearchResults.map((user) => (
+                    <button
+                      key={user.id}
+                      type="button"
+                      onMouseDown={(event) => event.preventDefault()}
+                      onClick={() => handleSelectUser(user)}
+                      className="w-full px-3 py-2 text-left text-sm transition hover:bg-primary/10"
+                    >
+                      <p className="font-medium">{user.name ?? user.email}</p>
+                      <p className="text-xs text-muted-foreground">{user.email}</p>
+                    </button>
+                  ))
+                )}
+              </div>
+            ) : null}
+          </div>
           <h2 className="text-sm font-semibold uppercase tracking-wide text-muted-foreground">Thread'ai</h2>
           {threadsLoading ? (
             <p className="text-sm text-muted-foreground">Kraunama...</p>

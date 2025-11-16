@@ -4,6 +4,7 @@ import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Loader2, Paperclip, Send } from 'lucide-react';
 import { MainLayout } from '@/components/Layout/MainLayout';
+import { SupportAttachmentPreview } from '@/components/support/AttachmentPreview';
 import api, {
   AdminUserResponse,
   SupportAttachmentPayload,
@@ -329,10 +330,10 @@ const AdminSupport = () => {
                     {new Date(message.createdAt).toLocaleString('lt-LT')}
                   </p>
                   {message.text ? <p className="mt-2 whitespace-pre-wrap">{message.text}</p> : null}
-                  {message.attachments?.length ? (
+                  {message.attachments && message.attachments.length ? (
                     <div className="mt-3 grid gap-2 sm:grid-cols-2">
-                      {message.attachments.map((attachment) => (
-                        <AttachmentPreview key={attachment.url} attachment={attachment} />
+                      {(message.attachments ?? []).map((attachment) => (
+                        <SupportAttachmentPreview key={attachment.url} attachment={attachment} />
                       ))}
                     </div>
                   ) : null}

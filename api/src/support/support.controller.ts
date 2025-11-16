@@ -101,7 +101,7 @@ export class SupportController {
           type: 'message',
           title: 'Nauja support žinutė',
           body: notifBody,
-          link: `/admin/support/threads/${thread.id}`,
+          link: `/admin/support?threadId=${thread.id}`,
         }),
       ),
     );

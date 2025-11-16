@@ -73,12 +73,22 @@ export const Sidebar = () => {
   const desktopNavItems = isPrivileged ? adminDesktopNavItems : userNavItems;
   const mobileNavItems = isPrivileged ? adminMobileMainNav : userNavItems;
 
-  const { data: supportUnread } = useQuery({
+  const supportUnreadQuery = useQuery<SupportUnreadResponse>({
     queryKey: ['support', 'unread'],
     queryFn: () => api.support.unread(),
     enabled: !isPrivileged,
     refetchInterval: 30_000,
   });
+
+  const adminSupportUnreadQuery = useQuery<AdminSupportUnreadResponse>({
+    queryKey: ['admin', 'support', 'unread-count'],
+    queryFn: () => api.support.admin.unreadCount(),
+    enabled: isPrivileged,
+    refetchInterval: 30_000,
+  });
+
+  const supportHasUnread = supportUnreadQuery.data?.unread;
+  const adminUnreadCount = adminSupportUnreadQuery.data?.count ?? 0;
 
   return (
     <aside className="fixed inset-x-0 bottom-0 z-40 h-16 border-t border-sidebar-border bg-sidebar shadow-lg shadow-black/5 lg:left-0 lg:top-0 lg:h-screen lg:w-64 lg:border-t-0 lg:border-r lg:shadow-none">
@@ -123,7 +133,7 @@ export const Sidebar = () => {
             >
               <div className="relative flex items-center justify-center">
                 <item.icon className="h-4 w-4" />
-                {item.to === supportNav.to && supportUnread?.unread ? (
+                {item.to === supportNav.to && supportHasUnread ? (
                   <span className="absolute -top-1 -right-1 h-2 w-2 rounded-full bg-destructive" />
                 ) : null}
               </div>
@@ -156,6 +166,11 @@ export const Sidebar = () => {
                     }
                   >
                     <item.icon className="h-5 w-5" />
+                    {item.to === messagesNav.to && adminUnreadCount > 0 ? (
+                      <span className="ml-2 inline-flex items-center justify-center rounded-full bg-destructive px-2 py-0.5 text-[0.6rem] font-semibold text-white">
+                        {adminUnreadCount}
+                      </span>
+                    ) : null}
                     {item.label}
                   </NavLink>
                 ))}
@@ -181,7 +196,7 @@ export const Sidebar = () => {
                 }
               >
                 <item.icon className="h-5 w-5" />
-                {item.to === supportNav.to && supportUnread?.unread ? (
+                {item.to === supportNav.to && supportHasUnread ? (
                   <span className="ml-2 h-2 w-2 rounded-full bg-destructive" />
                 ) : null}
                 {item.label}

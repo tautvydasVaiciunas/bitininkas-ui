@@ -27,6 +27,17 @@ export interface ThreadListOptions {
   limit?: number;
   page?: number;
 }
+
+export interface SupportThreadAdminView {
+  id: string;
+  userId: string;
+  userName: string | null;
+  userEmail: string | null;
+  status: string;
+  lastMessageText: string | null;
+  lastMessageAt: Date | null;
+  unreadFromUser: number;
+}
 @Injectable()
 export class SupportService {
   constructor(
@@ -162,35 +173,38 @@ export class SupportService {
       take: limit,
     });
 
-    const result = await Promise.all(
-      threads.map(async (thread) => {
-        const [lastMessage, unreadFromUser] = await Promise.all([
-          this.messageRepository.findOne({
-            where: { threadId: thread.id },
-            order: { createdAt: 'DESC' },
-          }),
-          this.messageRepository.count({
-            where: {
-              threadId: thread.id,
-              senderRole: 'user',
-              readByStaff: false,
-            },
-          }),
-        ]);
+    return Promise.all(threads.map((thread) => this.buildAdminThreadView(thread)));
+  }
 
-        return {
-          id: thread.id,
-          userId: thread.userId,
-          userName: thread.user?.name ?? null,
-          userEmail: thread.user?.email ?? null,
-          status: thread.status,
-          lastMessageText: lastMessage?.text ?? null,
-          lastMessageAt: lastMessage?.createdAt ?? thread.lastMessageAt,
-          unreadFromUser,
-        };
+  async ensureThreadForAdmin(userId: string) {
+    const thread = await this.findOrCreateThreadForUser(userId);
+    return this.buildAdminThreadView(thread);
+  }
+
+  private async buildAdminThreadView(thread: SupportThread): Promise<SupportThreadAdminView> {
+    const [lastMessage, unreadFromUser] = await Promise.all([
+      this.messageRepository.findOne({
+        where: { threadId: thread.id },
+        order: { createdAt: 'DESC' },
       }),
-    );
+      this.messageRepository.count({
+        where: {
+          threadId: thread.id,
+          senderRole: 'user',
+          readByStaff: false,
+        },
+      }),
+    ]);
 
-    return result;
+    return {
+      id: thread.id,
+      userId: thread.userId,
+      userName: thread.user?.name ?? null,
+      userEmail: thread.user?.email ?? null,
+      status: thread.status,
+      lastMessageText: lastMessage?.text ?? null,
+      lastMessageAt: lastMessage?.createdAt ?? thread.lastMessageAt,
+      unreadFromUser,
+    };
   }
 }

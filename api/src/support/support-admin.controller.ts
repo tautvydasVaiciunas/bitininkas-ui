@@ -1,4 +1,16 @@
-import { Body, Controller, Get, NotFoundException, Param, ParseIntPipe, Post, Query, Req, UseGuards } from '@nestjs/common';
+import {
+  Body,
+  Controller,
+  Get,
+  Inject,
+  NotFoundException,
+  Param,
+  ParseIntPipe,
+  Post,
+  Query,
+  Req,
+  UseGuards,
+} from '@nestjs/common';
 import { JwtAuthGuard } from '../common/guards/jwt-auth.guard';
 import { Roles } from '../common/decorators/roles.decorator';
 import { NotificationsService } from '../notifications/notifications.service';
@@ -6,8 +18,11 @@ import { RolesGuard } from '../common/guards/roles.guard';
 import { SupportService } from './support.service';
 import { AdminThreadListDto } from './dto/admin-thread-list.dto';
 import { CreateAttachmentDto, CreateMessageDto } from './dto/create-message.dto';
+import { CreateSupportThreadDto } from './dto/create-thread.dto';
 import { Request } from 'express';
 import { User, UserRole } from '../users/user.entity';
+import { InjectRepository } from '@nestjs/typeorm';
+import { Repository } from 'typeorm';
 
 @UseGuards(JwtAuthGuard, RolesGuard)
 @Roles(UserRole.ADMIN, UserRole.MANAGER)
@@ -16,6 +31,8 @@ export class SupportAdminController {
   constructor(
     private readonly supportService: SupportService,
     private readonly notificationsService: NotificationsService,
+    @InjectRepository(User)
+    private readonly userRepository: Repository<User>,
   ) {}
 
   @Get('threads')
@@ -100,5 +117,16 @@ export class SupportAdminController {
         kind: attachment.kind,
       })),
     };
+  }
+
+  @Post('threads')
+  async ensureThread(@Body() body: CreateSupportThreadDto) {
+    const user = await this.userRepository.findOne({
+      where: { id: body.userId },
+    });
+    if (!user) {
+      throw new NotFoundException('User not found');
+    }
+    return this.supportService.ensureThreadForAdmin(user.id);
   }
 }

@@ -140,14 +140,22 @@ const SupportChat = () => {
   };
 
   const handleSend = async () => {
-    if (!thread || (!text.trim() && attachments.length === 0)) return;
+    if (!thread) return;
+    const trimmedText = text.trim();
+    if (!trimmedText && attachments.length === 0) return;
+
+    const payload: { text?: string; attachments?: SupportAttachmentPayload[] } = {};
+    if (trimmedText) {
+      payload.text = trimmedText;
+    }
+    if (attachments.length) {
+      payload.attachments = attachments;
+    }
+
     setSending(true);
     setSendError(null);
     try {
-      const response = await api.support.createMessage({
-        text: text.trim() || undefined,
-        attachments,
-      });
+      const response = await api.support.createMessage(payload);
       setMessages((prev) => [...prev, response]);
       setText('');
       setAttachments([]);

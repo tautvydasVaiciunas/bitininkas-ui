@@ -1,5 +1,4 @@
-
-import { useCallback, useEffect, useRef, useState } from 'react';
+﻿import { useCallback, useEffect, useRef, useState } from 'react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Loader2, Paperclip, Send } from 'lucide-react';
@@ -47,17 +46,10 @@ const SupportChat = () => {
       const data = await api.support.myThread();
       setThread(data);
       return data;
-    } catch (error) {
-      if (error instanceof Error) {
-        setThreadError('Nepavyko įkelti pokalbio. Bandykite vėliau.');
-      } else {
-        setThreadError('Nepavyko įkelti pokalbio.');
-      }
+    } catch {
       setThread(null);
       setMessages([]);
-      setMessagesError(null);
-      setHasMore(false);
-      setOlderCursor(null);
+      setThreadError('Nepavyko įkelti pokalbio.');
       return null;
     } finally {
       setThreadLoading(false);
@@ -73,6 +65,7 @@ const SupportChat = () => {
         setMessagesLoading(true);
         setMessagesError(null);
       }
+
       try {
         const params: Parameters<typeof api.support.myThreadMessages>[0] = {
           limit: MESSAGE_PAGE_LIMIT,
@@ -89,7 +82,7 @@ const SupportChat = () => {
           setMessages(normalized);
         }
         setOlderCursor(page.at(-1)?.createdAt ?? null);
-      } catch (error) {
+      } catch {
         if (!appendOlder) {
           setMessagesError('Nepavyko įkelti žinučių.');
         }
@@ -111,11 +104,11 @@ const SupportChat = () => {
   useEffect(() => {
     if (thread?.id) {
       setMessages([]);
-      setOlderCursor(null);
       setHasMore(false);
+      setOlderCursor(null);
       void loadMessages();
     }
-  }, [loadMessages, thread?.id]);
+  }, [thread?.id, loadMessages]);
 
   const handleLoadMore = () => {
     if (!hasMore || loadingMore || !olderCursor) return;
@@ -136,17 +129,12 @@ const SupportChat = () => {
           url: response.url,
           mimeType: file.type,
           sizeBytes: file.size,
-          kind: file.type.startsWith('image')
-            ? 'image'
-            : file.type.startsWith('video')
-            ? 'video'
-            : 'other',
+          kind: file.type.startsWith('image') ? 'image' : file.type.startsWith('video') ? 'video' : 'other',
         });
       } catch {
-        setSendError('Nepavyko įkelti failo.');
+        setSendError('Nepavyko įkelti failą.');
       }
     }
-
     setAttachments((prev) => [...prev, ...uploaded]);
     event.currentTarget.value = '';
   };
@@ -155,21 +143,12 @@ const SupportChat = () => {
     if (!thread || (!text.trim() && attachments.length === 0)) return;
     setSending(true);
     setSendError(null);
-
     try {
       const response = await api.support.createMessage({
         text: text.trim() || undefined,
         attachments,
       });
       setMessages((prev) => [...prev, response]);
-      setThread((prev) =>
-        prev
-          ? {
-              ...prev,
-              lastMessageAt: response.createdAt,
-            }
-          : prev,
-      );
       setText('');
       setAttachments([]);
     } catch {
@@ -190,7 +169,7 @@ const SupportChat = () => {
             {threadLoading ? (
               <div className="py-10 text-center text-sm text-muted-foreground">Kraunama...</div>
             ) : threadError ? (
-              <div className="py-10 text-center text-sm text-destructive">Klaida įkeliant pokalbį.</div>
+              <div className="py-10 text-center text-sm text-destructive">{threadError}</div>
             ) : (
               <>
                 {showLoadMore && (
@@ -235,9 +214,7 @@ const SupportChat = () => {
                         <div
                           className={cn(
                             'max-w-[85%] rounded-2xl px-4 py-2 text-sm shadow-sm',
-                            isUser
-                              ? 'bg-primary text-primary-foreground'
-                              : 'bg-muted text-muted-foreground',
+                            isUser ? 'bg-primary text-primary-foreground' : 'bg-muted text-muted-foreground',
                           )}
                         >
                           {message.text && <p className="whitespace-pre-wrap">{message.text}</p>}

@@ -119,6 +119,12 @@ export class SupportAdminController {
     };
   }
 
+  @Get('unread-count')
+  async getUnreadCount() {
+    const count = await this.supportService.countThreadsWithUnreadFromUser();
+    return { count };
+  }
+
   @Post('threads')
   async ensureThread(@Body() body: CreateSupportThreadDto) {
     const user = await this.userRepository.findOne({

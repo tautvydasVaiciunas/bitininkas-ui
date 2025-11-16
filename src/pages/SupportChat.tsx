@@ -3,6 +3,7 @@ import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Loader2, Paperclip, Send } from 'lucide-react';
 import { MainLayout } from '@/components/Layout/MainLayout';
+import { SupportAttachmentPreview } from '@/components/support/AttachmentPreview';
 import api, { SupportAttachmentPayload, SupportMessageResponse } from '@/lib/api';
 import { cn } from '@/lib/utils';
 
@@ -226,10 +227,10 @@ const SupportChat = () => {
                           )}
                         >
                           {message.text && <p className="whitespace-pre-wrap">{message.text}</p>}
-                          {message.attachments?.length ? (
+                          {message.attachments && message.attachments.length ? (
                             <div className="mt-3 grid gap-2">
-                              {message.attachments.map((attachment) => (
-                                <AttachmentPreview key={attachment.url} attachment={attachment} />
+                              {(message.attachments ?? []).map((attachment) => (
+                                <SupportAttachmentPreview key={attachment.url} attachment={attachment} />
                               ))}
                             </div>
                           ) : null}

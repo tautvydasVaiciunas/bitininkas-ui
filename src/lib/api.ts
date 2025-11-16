@@ -90,6 +90,14 @@ export interface SupportThreadAdminResponse {
   unreadFromUser: number;
 }
 
+export interface SupportUnreadResponse {
+  unread: boolean;
+}
+
+export interface AdminSupportUnreadResponse {
+  count: number;
+}
+
 export type HiveStatus = 'active' | 'paused' | 'archived';
 
 export interface HiveMemberResponse {
@@ -933,19 +941,21 @@ export const api = {
       get<SupportMessageResponse[]>('/support/my-thread/messages', { query: params }),
     createMessage: (payload: { text?: string; attachments?: SupportAttachmentPayload[] }) =>
       post<SupportMessageResponse>('/support/my-thread/messages', { json: payload }),
-    unread: () => get<{ unread: boolean }>('/support/my-thread/unread'),
+    unread: () => get<SupportUnreadResponse>('/support/my-thread/unread'),
     uploadAttachment: (form: FormData) =>
       post<{ url: string }>('/support/upload', { body: form }),
-    admin: {
-      threads: (params?: { query?: string; status?: string; limit?: number; page?: number }) =>
-        get<SupportThreadAdminResponse[]>('/admin/support/threads', { query: params }),
-      threadMessages: (id: string, params?: { limit?: number; cursor?: string }) =>
-        get<SupportMessageResponse[]>(`/admin/support/threads/${id}/messages`, { query: params }),
-      createMessage: (id: string, payload: { text?: string; attachments?: SupportAttachmentPayload[] }) =>
-        post<SupportMessageResponse>(`/admin/support/threads/${id}/messages`, { json: payload }),
-      ensureThread: (userId: string) =>
-        post<SupportThreadAdminResponse>('/admin/support/threads', { json: { userId } }),
-    },
+      admin: {
+        threads: (params?: { query?: string; status?: string; limit?: number; page?: number }) =>
+          get<SupportThreadAdminResponse[]>('/admin/support/threads', { query: params }),
+        threadMessages: (id: string, params?: { limit?: number; cursor?: string }) =>
+          get<SupportMessageResponse[]>(`/admin/support/threads/${id}/messages`, { query: params }),
+        createMessage: (id: string, payload: { text?: string; attachments?: SupportAttachmentPayload[] }) =>
+          post<SupportMessageResponse>(`/admin/support/threads/${id}/messages`, { json: payload }),
+        ensureThread: (userId: string) =>
+          post<SupportThreadAdminResponse>('/admin/support/threads', { json: { userId } }),
+        unreadCount: () =>
+          get<AdminSupportUnreadResponse>('/admin/support/unread-count'),
+      },
   },
   news: {
     list: (params?: { page?: number; limit?: number }) =>

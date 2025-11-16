@@ -207,4 +207,16 @@ export class SupportService {
       unreadFromUser,
     };
   }
+
+  async countThreadsWithUnreadFromUser(): Promise<number> {
+    const rows = await this.messageRepository
+      .createQueryBuilder('message')
+      .select('message.threadId', 'threadId')
+      .where('message.senderRole = :role', { role: 'user' })
+      .andWhere('message.readByStaff = false')
+      .groupBy('message.threadId')
+      .getRawMany<{ threadId: string }>();
+
+    return rows.length;
+  }
 }

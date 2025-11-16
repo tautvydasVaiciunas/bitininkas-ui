@@ -1,5 +1,4 @@
-﻿import { useEffect, useMemo, useRef, useState } from 'react';
-import { useInfiniteQuery, useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
+import { useCallback, useEffect, useRef, useState } from 'react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Loader2, Paperclip, Send } from 'lucide-react';
@@ -9,50 +8,118 @@ import { cn } from '@/lib/utils';
 
 const MESSAGE_PAGE_LIMIT = 20;
 
+type ThreadInfo = {
+  id: string;
+  status: string;
+  lastMessageAt: string | null;
+};
+
 const SupportChat = () => {
   const [text, setText] = useState('');
   const [attachments, setAttachments] = useState<SupportAttachmentPayload[]>([]);
   const scrollRef = useRef<HTMLDivElement | null>(null);
-  const queryClient = useQueryClient();
+  const [thread, setThread] = useState<ThreadInfo | null>(null);
+  const [threadLoading, setThreadLoading] = useState(true);
+  const [threadError, setThreadError] = useState<string | null>(null);
+  const [messages, setMessages] = useState<SupportMessageResponse[]>([]);
+  const [messagesLoading, setMessagesLoading] = useState(false);
+  const [messagesError, setMessagesError] = useState<string | null>(null);
+  const [olderCursor, setOlderCursor] = useState<string | null>(null);
+  const [hasMore, setHasMore] = useState(false);
+  const [loadingMore, setLoadingMore] = useState(false);
+  const [sending, setSending] = useState(false);
+  const [sendError, setSendError] = useState<string | null>(null);
 
-  const {
-    data: thread,
-    isLoading: threadLoading,
-    isError: threadError,
-  } = useQuery(['support', 'thread'], () => api.support.myThread());
-
-  const messagesQuery = useInfiniteQuery({
-    queryKey: ['support', 'messages', thread?.id],
-    enabled: Boolean(thread?.id),
-    queryFn: async ({ pageParam }) => {
-      if (!thread) {
-        return [];
-      }
-      return api.support.myThreadMessages({
-        limit: MESSAGE_PAGE_LIMIT,
-        cursor: pageParam,
-      });
-    },
-    getNextPageParam: (lastPage) => lastPage.at(-1)?.createdAt,
-  });
-
-  const flattenMessages = messagesQuery.data?.pages?.flat()?.reverse() ?? [];
-
-  useEffect(() => {
+  const scrollToBottom = useCallback(() => {
     if (!scrollRef.current) return;
     scrollRef.current.scrollTo({ top: scrollRef.current.scrollHeight, behavior: 'auto' });
-  }, [flattenMessages.length]);
+  }, []);
 
-  const mutation = useMutation({
-    mutationFn: (payload: { text?: string; attachments?: SupportAttachmentPayload[] }) =>
-      api.support.createMessage(payload),
-    onSuccess: () => {
-      setText('');
-      setAttachments([]);
-      queryClient.invalidateQueries({ queryKey: ['support', 'messages'] });
-      queryClient.invalidateQueries({ queryKey: ['support', 'thread'] });
+  useEffect(() => {
+    scrollToBottom();
+  }, [messages.length, scrollToBottom]);
+
+  const loadThread = useCallback(async () => {
+    setThreadLoading(true);
+    setThreadError(null);
+    try {
+      const data = await api.support.myThread();
+      setThread(data);
+      return data;
+    } catch (error) {
+      if (error instanceof Error) {
+        setThreadError('Nepavyko ikelti pokalbio. Bandykite veliau.');
+      } else {
+        setThreadError('Nepavyko ikelti pokalbio.');
+      }
+      setThread(null);
+      setMessages([]);
+      setMessagesError(null);
+      setHasMore(false);
+      setOlderCursor(null);
+      return null;
+    } finally {
+      setThreadLoading(false);
+    }
+  }, []);
+
+  const loadMessages = useCallback(
+    async (cursor?: string, appendOlder = false) => {
+      if (!thread) return;
+      if (appendOlder) {
+        setLoadingMore(true);
+      } else {
+        setMessagesLoading(true);
+        setMessagesError(null);
+      }
+      try {
+        const params: Parameters<typeof api.support.myThreadMessages>[0] = {
+          limit: MESSAGE_PAGE_LIMIT,
+        };
+        if (cursor) {
+          params.cursor = cursor;
+        }
+        const page = await api.support.myThreadMessages(params);
+        const normalized = [...page].reverse();
+        setHasMore(page.length === MESSAGE_PAGE_LIMIT);
+        if (appendOlder) {
+          setMessages((prev) => [...normalized, ...prev]);
+        } else {
+          setMessages(normalized);
+        }
+        setOlderCursor(page.at(-1)?.createdAt ?? null);
+      } catch (error) {
+        if (!appendOlder) {
+          setMessagesError('Nepavyko ikelti zinuciu.');
+        }
+      } finally {
+        if (appendOlder) {
+          setLoadingMore(false);
+        } else {
+          setMessagesLoading(false);
+        }
+      }
     },
-  });
+    [thread],
+  );
+
+  useEffect(() => {
+    void loadThread();
+  }, [loadThread]);
+
+  useEffect(() => {
+    if (thread?.id) {
+      setMessages([]);
+      setOlderCursor(null);
+      setHasMore(false);
+      void loadMessages();
+    }
+  }, [loadMessages, thread?.id]);
+
+  const handleLoadMore = () => {
+    if (!hasMore || loadingMore || !olderCursor) return;
+    void loadMessages(olderCursor, true);
+  };
 
   const handleFileChange = async (event: React.ChangeEvent<HTMLInputElement>) => {
     const files = event.currentTarget.files;
@@ -62,45 +129,63 @@ const SupportChat = () => {
     for (const file of Array.from(files)) {
       const form = new FormData();
       form.append('file', file);
-      const response = await api.support.uploadAttachment(form);
-      uploaded.push({
-        url: response.url,
-        mimeType: file.type,
-        sizeBytes: file.size,
-        kind: file.type.startsWith('image')
-          ? 'image'
-          : file.type.startsWith('video')
-          ? 'video'
-          : 'other',
-      });
+      try {
+        const response = await api.support.uploadAttachment(form);
+        uploaded.push({
+          url: response.url,
+          mimeType: file.type,
+          sizeBytes: file.size,
+          kind: file.type.startsWith('image') ? 'image' : file.type.startsWith('video') ? 'video' : 'other',
+        });
+      } catch {
+        setSendError('Nepavyko ikelti failo.');
+      }
     }
 
     setAttachments((prev) => [...prev, ...uploaded]);
     event.currentTarget.value = '';
   };
 
-  const handleSend = () => {
-    if (!thread) return;
-    if (!text.trim() && attachments.length === 0) return;
+  const handleSend = async () => {
+    if (!thread || (!text.trim() && attachments.length === 0)) return;
+    setSending(true);
+    setSendError(null);
 
-    mutation.mutate({
-      text: text.trim() || undefined,
-      attachments,
-    });
+    try {
+      const response = await api.support.createMessage({
+        text: text.trim() || undefined,
+        attachments,
+      });
+      setMessages((prev) => [...prev, response]);
+      setThread((prev) =>
+        prev
+          ? {
+              ...prev,
+              lastMessageAt: response.createdAt,
+            }
+          : prev,
+      );
+      setText('');
+      setAttachments([]);
+    } catch {
+      setSendError('Nepavyko isiusti zinutes.');
+    } finally {
+      setSending(false);
+    }
   };
 
-  const showLoadMore = messagesQuery.hasNextPage;
+  const showLoadMore = hasMore && !!olderCursor;
 
   return (
     <MainLayout>
       <div className="mx-auto w-full max-w-4xl space-y-6 py-10 px-4">
-        <h1 className="text-2xl font-semibold">Susirašymas su Bus medaus bitininku</h1>
+        <h1 className="text-2xl font-semibold">Susirasymas su Bus medaus bitininku</h1>
         <div className="border border-border rounded-2xl bg-background/80 p-4 shadow-sm shadow-black/5">
           <div className="max-h-[60vh] overflow-y-auto space-y-4 px-2" ref={scrollRef}>
             {threadLoading ? (
               <div className="py-10 text-center text-sm text-muted-foreground">Kraunama...</div>
             ) : threadError ? (
-              <div className="py-10 text-center text-sm text-destructive">Klaida įkeliant pokalbį.</div>
+              <div className="py-10 text-center text-sm text-destructive">Klaida ikeliant pokalbi.</div>
             ) : (
               <>
                 {showLoadMore && (
@@ -108,25 +193,27 @@ const SupportChat = () => {
                     <Button
                       variant="ghost"
                       size="sm"
-                      onClick={() => messagesQuery.fetchNextPage()}
-                      disabled={messagesQuery.isFetchingNextPage}
+                      onClick={handleLoadMore}
+                      disabled={loadingMore}
                     >
-                      {messagesQuery.isFetchingNextPage ? (
+                      {loadingMore ? (
                         <Loader2 className="mr-2 h-4 w-4 animate-spin" />
                       ) : (
-                        'Rodyti senesnes žinutes'
+                        'Rodyti senesnes �inutes'
                       )}
                     </Button>
                   </div>
                 )}
-                {messagesQuery.isLoading ? (
+                {messagesLoading ? (
                   <div className="py-10 text-center text-sm text-muted-foreground">Kraunama...</div>
-                ) : flattenMessages.length === 0 ? (
+                ) : messagesError ? (
+                  <div className="py-10 text-center text-sm text-destructive">{messagesError}</div>
+                ) : messages.length === 0 ? (
                   <div className="py-10 text-center text-sm text-muted-foreground">
-                    Pokalbis tuščias. Parašykite pirmą žinutę!
+                    Pokalbis tu�cias. Para�ykite pirma �inute!
                   </div>
                 ) : (
-                  flattenMessages.map((message) => {
+                  messages.map((message) => {
                     const isUser = message.senderRole === 'user';
                     return (
                       <div
@@ -137,7 +224,7 @@ const SupportChat = () => {
                         )}
                       >
                         <p className="text-xs text-muted-foreground">
-                          {isUser ? 'Jūs' : 'Bus medaus Bitininkas'} ·{' '}
+                          {isUser ? 'Jus' : 'Bus medaus Bitininkas'} -{' '}
                           {new Date(message.createdAt).toLocaleString('lt-LT')}
                         </p>
                         <div
@@ -178,6 +265,9 @@ const SupportChat = () => {
                 ))}
               </div>
             ) : null}
+            {sendError ? (
+              <div className="text-xs text-destructive">{sendError}</div>
+            ) : null}
             <div className="flex items-center gap-2">
               <label className="cursor-pointer rounded-lg border border-dashed border-border px-3 py-2 text-xs font-medium text-muted-foreground">
                 <input
@@ -188,18 +278,18 @@ const SupportChat = () => {
                 />
                 <div className="flex items-center gap-1">
                   <Paperclip className="h-4 w-4" />
-                  Įkelti failą
+                  Ikelti faila
                 </div>
               </label>
               <Input
-                placeholder="Parašykite žinutę..."
+                placeholder="Para�ykite �inute..."
                 value={text}
                 onChange={(event) => setText(event.target.value)}
-                disabled={mutation.isLoading}
+                disabled={sending}
                 className="flex-1"
               />
-              <Button onClick={handleSend} disabled={!text.trim() && attachments.length === 0}>
-                {mutation.isLoading ? <Loader2 className="h-4 w-4 animate-spin" /> : <Send className="h-4 w-4" />}
+              <Button onClick={handleSend} disabled={sending || (!text.trim() && attachments.length === 0)}>
+                {sending ? <Loader2 className="h-4 w-4 animate-spin" /> : <Send className="h-4 w-4" />}
               </Button>
             </div>
           </div>
@@ -233,7 +323,7 @@ const AttachmentPreview = ({ attachment }: { attachment: SupportAttachmentPayloa
 
   return (
     <a href={attachment.url} target="_blank" rel="noreferrer" className="text-xs underline">
-      Atidaryti failą
+      Atidaryti faila
     </a>
   );
 };

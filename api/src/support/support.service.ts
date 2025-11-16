@@ -1,6 +1,6 @@
 import { Injectable } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
-import { Repository } from 'typeorm';
+import { LessThan, Repository } from 'typeorm';
 import { SupportAttachment } from './entities/support-attachment.entity';
 import { SupportMessage } from './entities/support-message.entity';
 import { SupportThread } from './entities/support-thread.entity';
@@ -59,17 +59,30 @@ export class SupportService {
     limit = 20,
     cursor?: Date,
   ): Promise<SupportMessage[]> {
-    const query = this.messageRepository
-      .createQueryBuilder('message')
-      .where('message.thread_id = :threadId', { threadId })
-      .orderBy('message.created_at', 'DESC')
-      .take(limit);
+    const thread = await this.threadRepository.findOne({
+      where: { id: threadId },
+    });
 
-    if (cursor) {
-      query.andWhere('message.created_at < :cursor', { cursor });
+    if (!thread) {
+      return [];
     }
 
-    return query.leftJoinAndSelect('message.attachments', 'attachment').getMany();
+    const where: Record<string, unknown> = {
+      threadId: thread.id,
+    };
+
+    if (cursor) {
+      where.createdAt = LessThan(cursor);
+    }
+
+    return this.messageRepository.find({
+      where,
+      order: { createdAt: 'DESC' },
+      take: limit,
+      relations: {
+        attachments: true,
+      },
+    });
   }
 
   async createMessage(threadId: string, input: CreateMessageInput): Promise<SupportMessage> {
@@ -137,61 +150,47 @@ export class SupportService {
     const limit = options.limit ?? 20;
     const page = options.page && options.page > 0 ? options.page : 1;
 
-    const qb = this.threadRepository
-      .createQueryBuilder('thread')
-      .leftJoinAndSelect('thread.user', 'user')
-      .orderBy('thread.last_message_at', 'DESC')
-      .skip((page - 1) * limit)
-      .take(limit);
-
-    if (options.status) {
-      qb.andWhere('thread.status = :status', { status: options.status });
-    }
-
-    if (options.query) {
-      qb.andWhere('(user.name ILIKE :query OR user.email ILIKE :query)', {
-        query: `%${options.query}%`,
-      });
-    }
-
-    const threads = await qb.getMany();
-    const threadIds = threads.map((thread) => thread.id);
-
-    const lastMessages = await this.messageRepository
-      .createQueryBuilder('message')
-      .where('message.thread_id IN (:...threadIds)', { threadIds })
-      .orderBy('message.created_at', 'DESC')
-      .getMany();
-
-    const unreadCounts = await this.messageRepository
-      .createQueryBuilder('message')
-      .select('message.thread_id', 'threadId')
-      .addSelect('COUNT(*)', 'count')
-      .where('message.thread_id IN (:...threadIds)', { threadIds })
-      .andWhere('message.sender_role = :role', { role: 'user' })
-      .andWhere('message.read_by_staff = false')
-      .groupBy('message.thread_id')
-      .getRawMany();
-
-    const unreadMap = new Map<string, number>();
-    unreadCounts.forEach((entry) => {
-      if (entry.threadid && Number(entry.count)) {
-        unreadMap.set(entry.threadid, Number(entry.count));
-      }
+    const threads = await this.threadRepository.find({
+      relations: {
+        user: true,
+      },
+      where: options.status ? { status: options.status } : undefined,
+      order: {
+        lastMessageAt: 'DESC',
+      },
+      skip: (page - 1) * limit,
+      take: limit,
     });
 
-    return threads.map((thread) => {
-      const lastMessage = lastMessages.find((message) => message.threadId === thread.id);
-      return {
-        id: thread.id,
-        userId: thread.userId,
-        userName: thread.user?.name ?? null,
-        userEmail: thread.user?.email ?? null,
-        status: thread.status,
-        lastMessageText: lastMessage?.text ?? null,
-        lastMessageAt: thread.lastMessageAt,
-        unreadFromUser: unreadMap.get(thread.id) ?? 0,
-      };
-    });
+    const result = await Promise.all(
+      threads.map(async (thread) => {
+        const [lastMessage, unreadFromUser] = await Promise.all([
+          this.messageRepository.findOne({
+            where: { threadId: thread.id },
+            order: { createdAt: 'DESC' },
+          }),
+          this.messageRepository.count({
+            where: {
+              threadId: thread.id,
+              senderRole: 'user',
+              readByStaff: false,
+            },
+          }),
+        ]);
+
+        return {
+          id: thread.id,
+          userId: thread.userId,
+          userName: thread.user?.name ?? null,
+          userEmail: thread.user?.email ?? null,
+          status: thread.status,
+          lastMessageText: lastMessage?.text ?? null,
+          lastMessageAt: lastMessage?.createdAt ?? thread.lastMessageAt,
+          unreadFromUser,
+        };
+      }),
+    );
+
+    return result;
   }
 }

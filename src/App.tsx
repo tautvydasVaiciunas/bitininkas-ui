@@ -40,6 +40,16 @@ import NotFound from "./pages/NotFound";
 import SupportChat from "./pages/SupportChat";
 import HelpFaq from "./pages/HelpFaq";
 
+if (typeof (QueryClient as any).prototype.defaultQueryOptions !== "function") {
+  (QueryClient as any).prototype.defaultQueryOptions = function (options?: object) {
+    const defaults = (this as any).options?.defaultOptions ?? {};
+    return {
+      ...defaults,
+      ...options,
+    };
+  };
+}
+
 const queryClient = new QueryClient({
   defaultOptions: {
     queries: {

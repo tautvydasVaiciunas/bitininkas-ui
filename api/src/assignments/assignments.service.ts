@@ -763,6 +763,10 @@ export class AssignmentsService {
   async findOne(id: string, user) {
     const assignment = await this.assignmentsRepository.findOne({
       where: { id },
+      relations: {
+        hive: { members: true },
+        task: { steps: true },
+      },
     });
     if (!assignment) {
       throw new NotFoundException("Assignment not found");
@@ -862,6 +866,20 @@ export class AssignmentsService {
 
     return saved;
   }
+  private userHasHiveAccess(assignment: Assignment, userId: string) {
+    const hive = assignment.hive;
+    if (!hive) {
+      return false;
+    }
+    if (hive.ownerUserId === userId) {
+      return true;
+    }
+    if (Array.isArray(hive.members)) {
+      return hive.members.some((member) => member.id === userId);
+    }
+    return false;
+  }
+
   async getDetails(id: string, user, requestedUserId?: string) {
     const assignment = await this.findOne(id, user);
     const task = await this.taskRepository.findOne({
@@ -928,6 +946,29 @@ export class AssignmentsService {
   }
 
   async getForRun(id: string, user) {
+    const assignment = await this.assignmentsRepository.findOne({
+      where: { id },
+      relations: {
+        hive: { members: true },
+        task: { steps: true },
+      },
+    });
+
+    if (!assignment) {
+      throw new NotFoundException('Assignment not found');
+    }
+
+    if (![UserRole.ADMIN, UserRole.MANAGER].includes(user.role)) {
+      const allowed = this.userHasHiveAccess(assignment, user.id);
+      if (!allowed) {
+        const members = assignment.hive?.members?.length ?? 0;
+        this.logger.warn(
+          `Forbidden run: assignment=${assignment.id} hive=${assignment.hive?.id ?? 'unknown'} user=${user.id} members=${members}`,
+        );
+        throw new ForbiddenException('Neleidžiama');
+      }
+    }
+
     return this.getDetails(id, user);
   }
   async calculateHiveSummary(hiveId: string, user) {

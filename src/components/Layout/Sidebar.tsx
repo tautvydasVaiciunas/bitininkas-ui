@@ -90,8 +90,7 @@ export const Sidebar = () => {
         if (!active) return;
         setSupportHasUnread(Boolean(data?.unread));
       } catch {
-        if (!active) return;
-        setSupportHasUnread(false);
+        // Swallow errors to keep last known state.
       }
     };
 

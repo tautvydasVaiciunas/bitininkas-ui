@@ -58,4 +58,9 @@ export class AssignmentsController {
   details(@Param('id') id: string, @Request() req, @Query('userId') userId?: string) {
     return this.assignmentsService.getDetails(id, req.user, userId);
   }
+
+  @Get(':id/run')
+  run(@Param('id') id: string, @Request() req) {
+    return this.assignmentsService.getForRun(id, req.user);
+  }
 }

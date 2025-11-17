@@ -911,6 +911,10 @@ export class AssignmentsService {
 
     return { assignment, task: { ...task, steps }, progress, completion };
   }
+
+  async getForRun(id: string, user) {
+    return this.getDetails(id, user);
+  }
   async calculateHiveSummary(hiveId: string, user) {
     const hive = await this.hiveRepository.findOne({ where: { id: hiveId } });
     if (!hive) {

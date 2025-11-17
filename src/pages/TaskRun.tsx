@@ -64,8 +64,8 @@ export default function TaskRun() {
     isError,
     error,
   } = useQuery<AssignmentDetails, HttpError | Error>({
-    queryKey: ['assignments', id, 'details'],
-    queryFn: () => api.assignments.details(id ?? '').then(mapAssignmentDetailsFromApi),
+    queryKey: ['assignments', id, 'run'],
+    queryFn: () => api.assignments.run(id ?? '').then(mapAssignmentDetailsFromApi),
     enabled: Boolean(id),
   });
 

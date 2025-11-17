@@ -1056,6 +1056,8 @@ export const api = {
     details: (id: string, params?: { userId?: string }) =>
       get<AssignmentDetails>(`/assignments/${id}/details`, { query: params }),
     run: (id: string) => get<AssignmentDetails>(`/assignments/${id}/run`),
+    preview: (id: string) =>
+      get<AssignmentDetails & { isActive: boolean }>(`/assignments/${id}/preview`),
     bulkFromTemplate: (payload: BulkAssignmentsFromTemplatePayload) =>
       post<BulkAssignmentsFromTemplateResponse>('/assignments/bulk-from-template', { json: payload }),
   },

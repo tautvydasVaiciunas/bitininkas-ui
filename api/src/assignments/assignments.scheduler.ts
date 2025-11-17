@@ -350,10 +350,10 @@ export class AssignmentsScheduler {
 
   private buildAssignmentLink(assignmentId: string) {
     if (this.appBaseUrl) {
-      return `${this.appBaseUrl}/tasks/${assignmentId}/run`;
+      return `${this.appBaseUrl}/tasks/${assignmentId}/preview`;
     }
 
-    return `/tasks/${assignmentId}/run`;
+    return `/tasks/${assignmentId}/preview`;
   }
 
   private buildAssignmentEmailLink(assignmentId: string) {

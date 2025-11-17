@@ -59,6 +59,11 @@ export class AssignmentsController {
     return this.assignmentsService.getDetails(id, req.user, userId);
   }
 
+  @Get(':id/preview')
+  preview(@Param('id') id: string, @Request() req) {
+    return this.assignmentsService.getPreview(id, req.user);
+  }
+
   @Get(':id/run')
   run(@Param('id') id: string, @Request() req) {
     return this.assignmentsService.getForRun(id, req.user);

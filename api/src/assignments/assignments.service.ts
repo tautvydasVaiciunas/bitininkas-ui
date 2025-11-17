@@ -782,6 +782,7 @@ export class AssignmentsService {
         throw new ForbiddenException('Neleidžiama');
       }
       if (
+        !options.skipAvailabilityCheck &&
         assignment.startDate &&
         assignment.startDate > this.getTodayDateString()
       ) {
@@ -973,7 +974,59 @@ export class AssignmentsService {
       }
     }
 
-    return this.getDetails(id, user);
+    const result = await this.getDetails(id, user);
+    if (!this.isAssignmentActive(result.assignment)) {
+      throw new ForbiddenException('Neleidžiama');
+    }
+    return result;
+  }
+ 
+  async getPreview(id: string, user) {
+    const assignment = await this.assignmentsRepository.findOne({
+      where: { id },
+      relations: {
+        hive: { members: true },
+        task: { steps: true },
+      },
+    });
+
+    if (!assignment) {
+      throw new NotFoundException('Assignment not found');
+    }
+
+    if (![UserRole.ADMIN, UserRole.MANAGER].includes(user.role)) {
+      const allowed = await this.userHasHiveAccess(assignment, user.id);
+      if (!allowed) {
+        const hiveId = assignment.hive?.id;
+        const memberIds = assignment.hive?.members?.map((member) => member.id) ?? [];
+        this.logger.warn('ASSIGNMENT_PREVIEW_FORBIDDEN', {
+          assignmentId: assignment.id,
+          hiveId,
+          hiveOwnerId: assignment.hive?.ownerUserId,
+          userId: user.id,
+          userRole: user.role,
+          memberIds,
+        });
+        throw new ForbiddenException('Neleidžiama');
+      }
+    }
+
+    const result = await this.getDetails(id, user, undefined, { skipAvailabilityCheck: true });
+    return {
+      ...result,
+      isActive: this.isAssignmentActive(result.assignment),
+    };
+  }
+
+  private isAssignmentActive(assignment: Assignment) {
+    const today = this.getTodayDateString();
+    if (assignment.startDate && assignment.startDate > today) {
+      return false;
+    }
+    if (assignment.dueDate && assignment.dueDate < today) {
+      return false;
+    }
+    return true;
   }
   async calculateHiveSummary(hiveId: string, user) {
     const hive = await this.hiveRepository.findOne({ where: { id: hiveId } });

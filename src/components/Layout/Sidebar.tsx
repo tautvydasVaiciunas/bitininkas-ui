@@ -74,11 +74,26 @@ export const Sidebar = () => {
   const desktopNavItems = isPrivileged ? adminDesktopNavItems : userNavItems;
   const mobileNavItems = isPrivileged ? adminMobileMainNav : userNavItems;
 
-  const [supportHasUnread, setSupportHasUnread] = useState(false);
+  const readStoredSupportUnread = () => {
+    if (typeof window === 'undefined') {
+      return false;
+    }
+
+    try {
+      return window.localStorage.getItem('supportHasUnread') === '1';
+    } catch {
+      return false;
+    }
+  };
+
+  const [supportHasUnread, setSupportHasUnread] = useState(readStoredSupportUnread);
 
   useEffect(() => {
     if (!user || isPrivileged) {
       setSupportHasUnread(false);
+      if (typeof window !== 'undefined') {
+        window.localStorage.setItem('supportHasUnread', '0');
+      }
       return;
     }
 
@@ -88,7 +103,11 @@ export const Sidebar = () => {
       try {
         const data = await api.support.unread();
         if (!active) return;
-        setSupportHasUnread(Boolean(data?.unread));
+        const next = Boolean(data?.unread);
+        setSupportHasUnread(next);
+        if (typeof window !== 'undefined') {
+          window.localStorage.setItem('supportHasUnread', next ? '1' : '0');
+        }
       } catch {
         // Swallow errors to keep last known state.
       }

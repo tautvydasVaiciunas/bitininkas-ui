@@ -204,39 +204,19 @@ export const Topbar = () => {
 
   return (
     <header className="sticky top-0 z-40 h-16 border-b border-border bg-card/95 backdrop-blur supports-[backdrop-filter]:bg-card/80 lg:fixed lg:left-64 lg:right-0">
-      <div className="flex h-full w-full flex-wrap items-center gap-3 px-4 sm:flex-nowrap sm:px-6">
-        <div className="flex flex-1 items-center gap-3">
-          <div className="flex h-10 w-10 items-center justify-center">
-            <img
-              src="/assets/og.jpg"
-              alt="Bus medaus logotipas"
-              className="h-10 w-auto max-w-full object-contain dark:hidden"
-            />
-            <img
-              src="/assets/dark_mode_logo.png"
-              alt="Bus medaus logotipas tamsiam režimui"
-              className="hidden h-10 w-auto max-w-full object-contain dark:block"
-            />
-          </div>
-          <div>
-            <p className="text-lg font-semibold text-foreground">Bus medaus</p>
-            <p className="text-xs text-muted-foreground">Bitininkystės sistema</p>
-          </div>
-        </div>
-
-        <div className="flex w-full flex-wrap items-center justify-end gap-2 sm:w-auto sm:flex-nowrap sm:ml-auto">
-          <Button
-            variant="ghost"
-            size="icon"
-            onClick={toggleTheme}
-            className="rounded-full"
-          >
-            {theme === 'light' ? (
-              <Moon className="w-5 h-5" />
-            ) : (
-              <Sun className="w-5 h-5" />
-            )}
-          </Button>
+      <div className="flex h-full w-full items-center justify-end gap-2 px-4 sm:px-6">
+        <Button
+          variant="ghost"
+          size="icon"
+          onClick={toggleTheme}
+          className="rounded-full"
+        >
+          {theme === 'light' ? (
+            <Moon className="w-5 h-5" />
+          ) : (
+            <Sun className="w-5 h-5" />
+          )}
+        </Button>
 
           <DropdownMenu>
             <DropdownMenuTrigger asChild>
@@ -360,7 +340,6 @@ export const Topbar = () => {
             </DropdownMenuContent>
           </DropdownMenu>
         </div>
-      </div>
-    </header>
+      </header>
   );
 };

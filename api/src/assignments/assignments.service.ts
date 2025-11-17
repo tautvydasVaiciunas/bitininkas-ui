@@ -760,7 +760,7 @@ export class AssignmentsService {
 
     return this.pagination.buildResponse(items, page, limit, total);
   }
-  async findOne(id: string, user) {
+  async findOne(id: string, user, options: { skipAvailabilityCheck?: boolean } = {}) {
     const assignment = await this.assignmentsRepository.findOne({
       where: { id },
       relations: {
@@ -880,7 +880,12 @@ export class AssignmentsService {
     return false;
   }
 
-  async getDetails(id: string, user, requestedUserId?: string) {
+  async getDetails(
+    id: string,
+    user,
+    requestedUserId?: string,
+    options: { skipAvailabilityCheck?: boolean } = {},
+  ) {
     const assignment = await this.findOne(id, user);
     const task = await this.taskRepository.findOne({
       where: { id: assignment.taskId },

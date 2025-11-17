@@ -102,7 +102,7 @@ export class SupportAdminController {
       type: 'message',
       title: 'Atsakymas iš Bus medaus komandos',
       body: 'Gavote atsakymą į support pokalbį.',
-      link: `/support/my-thread`,
+      link: '/support',
     });
 
     return {

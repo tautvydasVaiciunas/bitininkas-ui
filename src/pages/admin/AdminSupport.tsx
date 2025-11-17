@@ -1,5 +1,5 @@
 
-import { useCallback, useEffect, useState } from 'react';
+import { useCallback, useEffect, useRef, useState } from 'react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Loader2, Paperclip, Send } from 'lucide-react';
@@ -30,6 +30,7 @@ const AdminSupport = () => {
   const [attachments, setAttachments] = useState<SupportAttachmentPayload[]>([]);
   const [sending, setSending] = useState(false);
   const [sendError, setSendError] = useState<string | null>(null);
+  const fileInputRef = useRef<HTMLInputElement | null>(null);
   const [userQuery, setUserQuery] = useState('');
   const [userSearchResults, setUserSearchResults] = useState<AdminUserResponse[]>([]);
   const [searchLoading, setSearchLoading] = useState(false);
@@ -105,7 +106,12 @@ const AdminSupport = () => {
         if (!active) {
           return;
         }
-        setUserSearchResults(response.data);
+        const results = Array.isArray(response)
+          ? response
+          : Array.isArray(response?.data)
+          ? response.data
+          : [];
+        setUserSearchResults(results);
       })
       .catch(() => {
         if (!active) {
@@ -155,32 +161,43 @@ const AdminSupport = () => {
   };
 
   const handleFileChange = async (event: React.ChangeEvent<HTMLInputElement>) => {
-    const files = event.currentTarget.files;
-    if (!files) return;
+    const input = event.currentTarget;
+    const files = Array.from(input.files ?? []);
+    if (files.length === 0) {
+      return;
+    }
 
     const uploaded: SupportAttachmentPayload[] = [];
-    for (const file of Array.from(files)) {
+    let uploadError = false;
+
+    for (const file of files) {
       const form = new FormData();
       form.append('file', file);
       try {
         const response = await api.support.uploadAttachment(form);
         uploaded.push({
           url: response.url,
-          mimeType: file.type,
-          sizeBytes: file.size,
-          kind: file.type.startsWith('image')
-            ? 'image'
-            : file.type.startsWith('video')
-            ? 'video'
-            : 'other',
+          mimeType: response.mimeType,
+          sizeBytes: response.sizeBytes,
+          kind: response.kind,
         });
       } catch {
-        setSendError('Nepavyko įkelti failo.');
+        uploadError = true;
       }
     }
 
-    setAttachments((prev) => [...prev, ...uploaded]);
-    event.currentTarget.value = '';
+    if (uploadError) {
+      setSendError('Nepavyko įkelti failo.');
+    }
+
+    if (uploaded.length) {
+      setAttachments((prev) => [...prev, ...uploaded]);
+    }
+
+    const target = fileInputRef.current ?? input;
+    if (target) {
+      target.value = '';
+    }
   };
 
   const handleSelectUser = async (user: AdminUserResponse) => {
@@ -265,28 +282,31 @@ const AdminSupport = () => {
               </div>
             ) : null}
           </div>
-          <h2 className="text-sm font-semibold uppercase tracking-wide text-muted-foreground">Thread'ai</h2>
+          <h2 className="text-sm font-semibold uppercase tracking-wide text-muted-foreground">Pokalbiai</h2>
           {threadsLoading ? (
             <p className="text-sm text-muted-foreground">Kraunama...</p>
           ) : threadsError ? (
             <p className="text-sm text-destructive">{threadsError}</p>
           ) : (
             threads.map((thread) => (
-              <button
-                key={thread.id}
-                onClick={() => setSelectedThreadId(thread.id)}
-                className={cn(
-                  'w-full rounded-xl border px-3 py-2 text-left text-sm transition-colors',
-                  thread.id === activeThread?.id
+                <button
+                  key={thread.id}
+                  onClick={() => setSelectedThreadId(thread.id)}
+                  className={cn(
+                    'w-full rounded-xl border px-3 py-2 text-left text-sm transition-colors',
+                    thread.id === activeThread?.id
                     ? 'border-primary bg-primary/10'
                     : 'border-border bg-muted hover:border-primary hover:text-primary',
                 )}
               >
-                <p className="font-medium">{thread.userName ?? thread.userEmail}</p>
-                <p className="text-xs text-muted-foreground">
-                  {thread.lastMessageText ?? 'Nėra žinučių'} • {thread.unreadFromUser} neperskaitytų
-                </p>
-              </button>
+                  <p className="font-medium">{thread.userName ?? 'Vartotojas'}</p>
+                  {thread.userEmail ? (
+                    <p className="text-xs text-muted-foreground">{thread.userEmail}</p>
+                  ) : null}
+                  <p className="text-xs text-muted-foreground">
+                    {thread.lastMessageText ?? 'Nėra žinučių'} • {thread.unreadFromUser} neperskaitytų
+                  </p>
+                </button>
             ))
           )}
         </aside>
@@ -345,6 +365,7 @@ const AdminSupport = () => {
             <div className="flex items-center gap-2">
               <label className="cursor-pointer rounded-lg border border-dashed border-border px-3 py-2 text-xs font-medium text-muted-foreground">
                 <input
+                  ref={fileInputRef}
                   type="file"
                   className="hidden"
                   onChange={handleFileChange}
@@ -379,35 +400,6 @@ const AdminSupport = () => {
         </div>
       </div>
     </MainLayout>
-  );
-};
-
-const AttachmentPreview = ({ attachment }: { attachment: SupportAttachmentPayload }) => {
-  if (attachment.kind === 'image') {
-    return (
-      <img
-        src={attachment.url}
-        alt="attachment"
-        loading="lazy"
-        className="h-32 w-full rounded-lg object-cover"
-      />
-    );
-  }
-
-  if (attachment.kind === 'video') {
-    return (
-      <video
-        src={attachment.url}
-        controls
-        className="h-32 w-full rounded-lg bg-black object-cover"
-      />
-    );
-  }
-
-  return (
-    <a href={attachment.url} target="_blank" rel="noreferrer" className="text-xs underline">
-      Atidaryti failą
-    </a>
   );
 };
 

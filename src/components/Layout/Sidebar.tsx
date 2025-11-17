@@ -76,18 +76,18 @@ export const Sidebar = () => {
   const supportUnreadQuery = useQuery<SupportUnreadResponse>({
     queryKey: ['support', 'unread'],
     queryFn: () => api.support.unread(),
-    enabled: !isPrivileged,
+    enabled: !!user && !isPrivileged,
     refetchInterval: 30_000,
   });
 
   const adminSupportUnreadQuery = useQuery<AdminSupportUnreadResponse>({
     queryKey: ['admin', 'support', 'unread-count'],
     queryFn: () => api.support.admin.unreadCount(),
-    enabled: isPrivileged,
+    enabled: !!user && isPrivileged,
     refetchInterval: 30_000,
   });
 
-  const supportHasUnread = supportUnreadQuery.data?.unread;
+  const supportHasUnread = supportUnreadQuery.data?.unread ?? false;
   const adminUnreadCount = adminSupportUnreadQuery.data?.count ?? 0;
 
   return (

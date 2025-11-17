@@ -71,6 +71,13 @@ export interface SupportAttachmentPayload {
   kind: 'image' | 'video' | 'other';
 }
 
+export interface SupportUploadResponse {
+  url: string;
+  mimeType: string;
+  sizeBytes: number;
+  kind: 'image' | 'video' | 'other';
+}
+
 export interface SupportMessageResponse {
   id: string;
   senderRole: 'user' | 'admin' | 'manager' | 'system';
@@ -943,7 +950,7 @@ export const api = {
       post<SupportMessageResponse>('/support/my-thread/messages', { json: payload }),
     unread: () => get<SupportUnreadResponse>('/support/my-thread/unread'),
     uploadAttachment: (form: FormData) =>
-      post<{ url: string }>('/support/upload', { body: form }),
+      post<SupportUploadResponse>('/support/upload', { body: form }),
       admin: {
         threads: (params?: { query?: string; status?: string; limit?: number; page?: number }) =>
           get<SupportThreadAdminResponse[]>('/admin/support/threads', { query: params }),

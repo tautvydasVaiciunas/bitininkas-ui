@@ -19,6 +19,7 @@ const SupportChat = () => {
   const [text, setText] = useState('');
   const [attachments, setAttachments] = useState<SupportAttachmentPayload[]>([]);
   const scrollRef = useRef<HTMLDivElement | null>(null);
+  const fileInputRef = useRef<HTMLInputElement | null>(null);
   const [thread, setThread] = useState<ThreadInfo | null>(null);
   const [threadLoading, setThreadLoading] = useState(true);
   const [threadError, setThreadError] = useState<string | null>(null);
@@ -117,27 +118,43 @@ const SupportChat = () => {
   };
 
   const handleFileChange = async (event: React.ChangeEvent<HTMLInputElement>) => {
-    const files = event.currentTarget.files;
-    if (!files) return;
+    const input = event.currentTarget;
+    const files = Array.from(input.files ?? []);
+    if (files.length === 0) {
+      return;
+    }
 
     const uploaded: SupportAttachmentPayload[] = [];
-    for (const file of Array.from(files)) {
+    let uploadError = false;
+
+    for (const file of files) {
       const form = new FormData();
       form.append('file', file);
       try {
         const response = await api.support.uploadAttachment(form);
         uploaded.push({
           url: response.url,
-          mimeType: file.type,
-          sizeBytes: file.size,
-          kind: file.type.startsWith('image') ? 'image' : file.type.startsWith('video') ? 'video' : 'other',
+          mimeType: response.mimeType,
+          sizeBytes: response.sizeBytes,
+          kind: response.kind,
         });
       } catch {
-        setSendError('Nepavyko įkelti failą.');
+        uploadError = true;
       }
     }
-    setAttachments((prev) => [...prev, ...uploaded]);
-    event.currentTarget.value = '';
+
+    if (uploadError) {
+      setSendError('Nepavyko įkelti failo.');
+    }
+
+    if (uploaded.length) {
+      setAttachments((prev) => [...prev, ...uploaded]);
+    }
+
+    const target = fileInputRef.current ?? input;
+    if (target) {
+      target.value = '';
+    }
   };
 
   const handleSend = async () => {
@@ -262,6 +279,7 @@ const SupportChat = () => {
             <div className="flex items-center gap-2">
               <label className="cursor-pointer rounded-lg border border-dashed border-border px-3 py-2 text-xs font-medium text-muted-foreground">
                 <input
+                  ref={fileInputRef}
                   type="file"
                   className="hidden"
                   onChange={handleFileChange}
@@ -287,35 +305,6 @@ const SupportChat = () => {
         </div>
       </div>
     </MainLayout>
-  );
-};
-
-const AttachmentPreview = ({ attachment }: { attachment: SupportAttachmentPayload }) => {
-  if (attachment.kind === 'image') {
-    return (
-      <img
-        src={attachment.url}
-        alt="attachment"
-        loading="lazy"
-        className="h-32 w-full max-w-[240px] rounded-lg object-cover"
-      />
-    );
-  }
-
-  if (attachment.kind === 'video') {
-    return (
-      <video
-        src={attachment.url}
-        controls
-        className="h-32 w-full max-w-[240px] rounded-lg bg-black object-cover"
-      />
-    );
-  }
-
-  return (
-    <a href={attachment.url} target="_blank" rel="noreferrer" className="text-xs underline">
-      Atidaryti failą
-    </a>
   );
 };
 

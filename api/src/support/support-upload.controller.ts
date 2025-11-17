@@ -91,6 +91,15 @@ export class SupportUploadController {
       throw new BadRequestException('Failas per didelis');
     }
 
-    return { url: `${uploadsPrefix()}/${file.filename}` };
+    const mimeType = file.mimetype ?? 'application/octet-stream';
+    const kind =
+      mimeType.startsWith('image/') ? 'image' : mimeType.startsWith('video/') ? 'video' : 'other';
+
+    return {
+      url: `${uploadsPrefix()}/${file.filename}`,
+      mimeType,
+      sizeBytes: file.size,
+      kind,
+    };
   }
 }

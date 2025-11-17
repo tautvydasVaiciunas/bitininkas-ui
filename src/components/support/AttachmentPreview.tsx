@@ -1,7 +1,19 @@
 import { SupportAttachmentPayload } from '@/lib/api';
 
+const IMAGE_EXTENSIONS = new Set(['png', 'jpg', 'jpeg', 'webp', 'gif']);
+const VIDEO_EXTENSIONS = new Set(['mp4', 'mov', 'webm', 'm4v']);
+
 type AttachmentPreviewProps = {
   attachment: SupportAttachmentPayload;
+};
+
+const resolveByExtension = (url: string | undefined, extensions: Set<string>) => {
+  if (!url) {
+    return false;
+  }
+  const parts = url.split('.');
+  const extension = parts.at(-1)?.split('?')[0]?.toLowerCase();
+  return typeof extension === 'string' && extensions.has(extension);
 };
 
 export const SupportAttachmentPreview = ({ attachment }: AttachmentPreviewProps) => {
@@ -9,9 +21,15 @@ export const SupportAttachmentPreview = ({ attachment }: AttachmentPreviewProps)
     return null;
   }
 
-  const mimeType = attachment.mimeType ?? '';
-  const isImage = mimeType.startsWith('image/');
-  const isVideo = mimeType.startsWith('video/');
+  const mimeType = (attachment.mimeType ?? '').toLowerCase();
+  const isImage =
+    attachment.kind === 'image' ||
+    mimeType.startsWith('image/') ||
+    resolveByExtension(attachment.url, IMAGE_EXTENSIONS);
+  const isVideo =
+    attachment.kind === 'video' ||
+    mimeType.startsWith('video/') ||
+    resolveByExtension(attachment.url, VIDEO_EXTENSIONS);
 
   const openAttachment = () => {
     window.open(attachment.url, '_blank', 'noopener,noreferrer');
@@ -19,15 +37,19 @@ export const SupportAttachmentPreview = ({ attachment }: AttachmentPreviewProps)
 
   if (isImage) {
     return (
-      <img
-        src={attachment.url}
-        alt="Priedas"
-        loading="lazy"
-        className="h-32 w-full max-w-[240px] rounded-lg object-cover"
+      <button
+        type="button"
+        className="overflow-hidden rounded-lg border border-border p-0"
         onClick={openAttachment}
-        role="button"
-        aria-label="Atidaryti paveikslėlį"
-      />
+        aria-label="Atidaryti paveikslėlio priedą"
+      >
+        <img
+          src={attachment.url}
+          alt="Priedas"
+          loading="lazy"
+          className="h-32 w-full max-w-[280px] rounded-lg object-cover"
+        />
+      </button>
     );
   }
 
@@ -37,14 +59,14 @@ export const SupportAttachmentPreview = ({ attachment }: AttachmentPreviewProps)
         <video
           src={attachment.url}
           controls
-          className="h-32 w-full rounded-lg object-cover"
+          className="h-32 w-full rounded-t-lg object-cover"
         />
         <button
           type="button"
           onClick={openAttachment}
           className="w-full border-t border-border px-3 py-1 text-xs text-muted-foreground"
         >
-          Peržiūrėti video atskirame lange
+          Peržiūrėti vaizdo įrašą atskirame lange
         </button>
       </div>
     );
@@ -57,7 +79,7 @@ export const SupportAttachmentPreview = ({ attachment }: AttachmentPreviewProps)
       rel="noreferrer"
       className="block w-full max-w-[240px] rounded-lg border border-border px-3 py-2 text-xs font-medium text-primary"
     >
-      Atsisiųsti failą
+      Atsisiųsti failą.
     </a>
   );
 };

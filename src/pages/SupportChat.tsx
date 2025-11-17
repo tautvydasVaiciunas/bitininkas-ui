@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
 import { Button } from '@/components/ui/button';
-import { Input } from '@/components/ui/input';
+import { Textarea } from '@/components/ui/textarea';
 import { Loader2, Paperclip, Send } from 'lucide-react';
 import { MainLayout } from '@/components/Layout/MainLayout';
 import { SupportAttachmentPreview } from '@/components/support/AttachmentPreview';
@@ -300,14 +300,15 @@ const SupportChat = () => {
                   Įkelti failą
                 </div>
               </label>
-              <Input
+              <Textarea
                 placeholder="Parašykite žinutę..."
                 value={text}
                 onChange={(event) => setText(event.target.value)}
                 disabled={sending}
-                className="flex-1"
+                className="flex-1 resize-none"
+                rows={3}
               />
-              <Button onClick={handleSend} disabled={sending || (!text.trim() && attachments.length === 0)}>
+              <Button type="button" onClick={handleSend} disabled={sending || (!text.trim() && attachments.length === 0)}>
                 {sending ? <Loader2 className="h-4 w-4 animate-spin" /> : <Send className="h-4 w-4" />}
               </Button>
             </div>

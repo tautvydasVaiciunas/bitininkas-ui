@@ -14,6 +14,7 @@ import {
   Users,
   UsersRound,
 } from "lucide-react";
+import { useEffect, useState } from "react";
 import { useQuery } from "@tanstack/react-query";
 import { useAuth } from "@/contexts/AuthContext";
 import api from "@/lib/api";
@@ -73,12 +74,35 @@ export const Sidebar = () => {
   const desktopNavItems = isPrivileged ? adminDesktopNavItems : userNavItems;
   const mobileNavItems = isPrivileged ? adminMobileMainNav : userNavItems;
 
-  const supportUnreadQuery = useQuery<SupportUnreadResponse>({
-    queryKey: ['support', 'unread'],
-    queryFn: () => api.support.unread(),
-    enabled: !!user && !isPrivileged,
-    refetchInterval: 30_000,
-  });
+  const [supportHasUnread, setSupportHasUnread] = useState(false);
+
+  useEffect(() => {
+    if (!user || isPrivileged) {
+      setSupportHasUnread(false);
+      return;
+    }
+
+    let active = true;
+
+    const fetchUnread = async () => {
+      try {
+        const data = await api.support.unread();
+        if (!active) return;
+        setSupportHasUnread(!!data.unread);
+      } catch {
+        if (!active) return;
+        setSupportHasUnread(false);
+      }
+    };
+
+    fetchUnread();
+
+    const intervalId = setInterval(fetchUnread, 30_000);
+    return () => {
+      active = false;
+      clearInterval(intervalId);
+    };
+  }, [user, isPrivileged]);
 
   const adminSupportUnreadQuery = useQuery<AdminSupportUnreadResponse>({
     queryKey: ['admin', 'support', 'unread-count'],
@@ -87,7 +111,6 @@ export const Sidebar = () => {
     refetchInterval: 30_000,
   });
 
-  const supportHasUnread = supportUnreadQuery.data?.unread ?? false;
   const adminUnreadCount = adminSupportUnreadQuery.data?.count ?? 0;
 
   return (

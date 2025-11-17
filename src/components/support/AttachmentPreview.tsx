@@ -1,85 +1,107 @@
-import { SupportAttachmentPayload } from '@/lib/api';
+import { useMemo, useState } from 'react';
 
-const IMAGE_EXTENSIONS = new Set(['png', 'jpg', 'jpeg', 'webp', 'gif']);
-const VIDEO_EXTENSIONS = new Set(['mp4', 'mov', 'webm', 'm4v']);
+import { SupportAttachmentPayload } from '@/lib/api';
+import { isImage, isVideo, withApiBase } from '@/lib/media';
+
+import { SupportLightbox } from './SupportLightbox';
 
 type AttachmentPreviewProps = {
   attachment: SupportAttachmentPayload;
+  showDownloadAction?: boolean;
 };
 
-const resolveByExtension = (url: string | undefined, extensions: Set<string>) => {
-  if (!url) {
-    return false;
+const resolveAttachmentUrl = (attachment: SupportAttachmentPayload) => {
+  const normalizedUrl = attachment.url?.trim() ?? '';
+  if (!normalizedUrl) {
+    return null;
   }
-  const parts = url.split('.');
-  const extension = parts.at(-1)?.split('?')[0]?.toLowerCase();
-  return typeof extension === 'string' && extensions.has(extension);
+
+  return withApiBase(normalizedUrl);
 };
 
-export const SupportAttachmentPreview = ({ attachment }: AttachmentPreviewProps) => {
-  if (!attachment?.url) {
+export const SupportAttachmentPreview = ({
+  attachment,
+  showDownloadAction = false,
+}: AttachmentPreviewProps) => {
+  const [lightboxOpen, setLightboxOpen] = useState(false);
+
+  const resolvedUrl = useMemo(() => resolveAttachmentUrl(attachment), [attachment]);
+  if (!resolvedUrl) {
     return null;
   }
 
   const mimeType = (attachment.mimeType ?? '').toLowerCase();
-  const isImage =
-    attachment.kind === 'image' ||
-    mimeType.startsWith('image/') ||
-    resolveByExtension(attachment.url, IMAGE_EXTENSIONS);
-  const isVideo =
-    attachment.kind === 'video' ||
-    mimeType.startsWith('video/') ||
-    resolveByExtension(attachment.url, VIDEO_EXTENSIONS);
+  const isImageAttachment =
+    mimeType.startsWith('image/') || isImage(attachment.url) || attachment.kind === 'image';
+  const isVideoAttachment =
+    mimeType.startsWith('video/') || isVideo(attachment.url) || attachment.kind === 'video';
 
-  const openAttachment = () => {
-    window.open(attachment.url, '_blank', 'noopener,noreferrer');
+  const openLightbox = () => {
+    setLightboxOpen(true);
   };
 
-  if (isImage) {
+  const closeLightbox = () => {
+    setLightboxOpen(false);
+  };
+
+  if (isImageAttachment) {
     return (
-      <button
-        type="button"
-        className="overflow-hidden rounded-lg border border-border p-0"
-        onClick={openAttachment}
-        aria-label="Atidaryti paveikslėlio priedą"
-      >
-        <img
-          src={attachment.url}
-          alt="Priedas"
-          loading="lazy"
-          className="h-32 w-full max-w-[280px] rounded-lg object-cover"
+      <>
+        <button
+          type="button"
+          className="overflow-hidden rounded-xl border border-border p-0"
+          onClick={openLightbox}
+          aria-label="Atidaryti paveikslėlio peržiūrą"
+        >
+          <img
+            src={resolvedUrl}
+            alt="Priedas"
+            loading="lazy"
+            className="max-h-32 w-full max-w-[240px] rounded-xl object-cover"
+          />
+        </button>
+        <SupportLightbox
+          open={lightboxOpen}
+          onClose={closeLightbox}
+          imageUrl={resolvedUrl}
+          showDownload={showDownloadAction}
         />
-      </button>
+      </>
     );
   }
 
-  if (isVideo) {
+  if (isVideoAttachment) {
     return (
-      <div className="w-full max-w-[320px] rounded-lg border border-border bg-black/60">
+      <div className="space-y-2">
         <video
-          src={attachment.url}
+          src={resolvedUrl}
           controls
-          className="h-32 w-full rounded-t-lg object-cover"
+          className="max-h-48 max-w-full rounded-xl border border-border bg-black/70 object-cover"
         />
-        <button
-          type="button"
-          onClick={openAttachment}
-          className="w-full border-t border-border px-3 py-1 text-xs text-muted-foreground"
+        <a
+          href={resolvedUrl}
+          target="_blank"
+          rel="noreferrer"
+          className="text-xs font-semibold text-primary underline"
         >
-          Peržiūrėti vaizdo įrašą atskirame lange
-        </button>
+          Atidaryti naujame lange
+        </a>
       </div>
     );
   }
 
+  const fileName = resolvedUrl.split('/').pop() ?? 'Failas';
+
   return (
     <a
-      href={attachment.url}
+      href={resolvedUrl}
+      download
       target="_blank"
       rel="noreferrer"
-      className="block w-full max-w-[240px] rounded-lg border border-border px-3 py-2 text-xs font-medium text-primary"
+      className="flex items-center gap-2 rounded-xl border border-border px-3 py-2 text-xs font-semibold text-primary hover:bg-muted/70"
     >
-      Atsisiųsti failą.
+      <span className="text-base">⬇</span>
+      {fileName}
     </a>
   );
 };

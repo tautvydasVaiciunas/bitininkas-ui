@@ -1,4 +1,4 @@
-﻿import { useCallback, useEffect, useRef, useState } from 'react';
+import { useCallback, useEffect, useRef, useState } from 'react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Loader2, Paperclip, Send } from 'lucide-react';
@@ -243,14 +243,24 @@ const SupportChat = () => {
                             isUser ? 'bg-primary text-primary-foreground' : 'bg-muted text-muted-foreground',
                           )}
                         >
-                          {message.text && <p className="whitespace-pre-wrap">{message.text}</p>}
-                          {message.attachments && message.attachments.length ? (
-                            <div className="mt-3 grid gap-2">
-                              {(message.attachments ?? []).map((attachment) => (
-                                <SupportAttachmentPreview key={attachment.url} attachment={attachment} />
-                              ))}
-                            </div>
-                          ) : null}
+                  {message.text && <p className="whitespace-pre-wrap">{message.text}</p>}
+                  {(() => {
+                    const attachments = message.attachments ?? [];
+                    if (!attachments.length) {
+                      return null;
+                    }
+                    return (
+                      <div className="mt-3 grid gap-2">
+                        {attachments.map((attachment) => (
+                          <SupportAttachmentPreview
+                            key={attachment.url}
+                            attachment={attachment}
+                            showDownloadAction={false}
+                          />
+                        ))}
+                      </div>
+                    );
+                  })()}
                         </div>
                       </div>
                     );

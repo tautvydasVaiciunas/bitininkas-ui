@@ -99,6 +99,16 @@ export class AssignmentsService {
 
     return Boolean(accessible);
   }
+  private async countHiveMembers(hiveId: string) {
+    const result = await this.dataSource
+      .createQueryBuilder()
+      .select('COUNT(*)', 'count')
+      .from('hive_members', 'hm')
+      .where('hm.hive_id = :hiveId', { hiveId })
+      .getRawOne<{ count: string }>();
+
+    return Number(result?.count ?? 0);
+  }
   private assertValidDateRange(startDate: string | null | undefined, dueDate: string | null) {
     if (startDate && dueDate && startDate > dueDate) {
       throw new BadRequestException('Pabaigos data negali būti ankstesnė už pradžios datą');
@@ -760,6 +770,11 @@ export class AssignmentsService {
     if (user.role === UserRole.USER) {
       const allowed = await this.ensureUserCanAccessHive(assignment.hiveId, user.id);
       if (!allowed) {
+        const memberCount = await this.countHiveMembers(assignment.hiveId);
+        this.logger.warn(
+          `User denied assignment ${id}`,
+          `user=${user.id} hive=${assignment.hiveId} members=${memberCount}`,
+        );
         throw new ForbiddenException('Neleidžiama');
       }
       if (

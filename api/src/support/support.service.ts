@@ -1,6 +1,6 @@
 import { Injectable } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
-import { LessThan, Repository } from 'typeorm';
+import { In, LessThan, Repository } from 'typeorm';
 import { SupportAttachment } from './entities/support-attachment.entity';
 import { SupportMessage } from './entities/support-message.entity';
 import { SupportThread } from './entities/support-thread.entity';
@@ -38,6 +38,8 @@ export interface SupportThreadAdminView {
   lastMessageAt: Date | null;
   unreadFromUser: number;
 }
+const STAFF_ROLES: SupportSenderRole[] = ['admin', 'manager'];
+
 @Injectable()
 export class SupportService {
   constructor(
@@ -97,14 +99,15 @@ export class SupportService {
   }
 
   async createMessage(threadId: string, input: CreateMessageInput): Promise<SupportMessage> {
+    const isUserSender = input.senderRole === 'user';
     const message = this.messageRepository.create({
       threadId,
       senderUserId: input.senderUserId,
       senderRole: input.senderRole,
       text: input.text ?? null,
       hasAttachments: Array.isArray(input.attachments) && input.attachments.length > 0,
-      readByUser: input.senderRole !== 'user',
-      readByStaff: input.senderRole === 'user' ? false : true,
+      readByUser: isUserSender,
+      readByStaff: !isUserSender,
     });
 
     const savedMessage = await this.messageRepository.save(message);
@@ -137,7 +140,7 @@ export class SupportService {
 
   async markReadByUser(threadId: string): Promise<void> {
     await this.messageRepository.update(
-      { threadId, readByUser: false, senderRole: 'admin' },
+      { threadId, readByUser: false, senderRole: In(STAFF_ROLES) },
       { readByUser: true },
     );
   }
@@ -151,7 +154,7 @@ export class SupportService {
 
   async threadHasUnreadFromStaff(threadId: string): Promise<boolean> {
     const count = await this.messageRepository.count({
-      where: { threadId, senderRole: 'admin', readByUser: false },
+      where: { threadId, senderRole: In(STAFF_ROLES), readByUser: false },
       take: 1,
     });
     return count > 0;

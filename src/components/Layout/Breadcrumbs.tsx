@@ -10,6 +10,7 @@ const routeLabels: Record<string, string> = {
   news: 'Naujienos',
   hives: 'Aviliai',
   tasks: 'Užduotys',
+  support: 'Susisiek',
   notifications: 'Pranešimai',
   profile: 'Profilis',
   admin: 'Administravimas',
@@ -19,6 +20,8 @@ const routeLabels: Record<string, string> = {
   templates: 'Šablonai',
   run: 'Vykdymas',
 };
+
+const ROOT_SEGMENTS_TO_HIDE = new Set(['support', 'hives', 'tasks']);
 
 const formatIdentifier = (value: string) => `HIVE-${value.slice(0, 8).toUpperCase()}`;
 
@@ -103,6 +106,10 @@ export const Breadcrumbs = () => {
     },
     [queryClient]
   );
+
+  if (pathSegments.length === 1 && ROOT_SEGMENTS_TO_HIDE.has(pathSegments[0])) {
+    return null;
+  }
 
   const breadcrumbs = useMemo(
     () =>

@@ -866,18 +866,11 @@ export class AssignmentsService {
 
     return saved;
   }
-  private userHasHiveAccess(assignment: Assignment, userId: string) {
-    const hive = assignment.hive;
-    if (!hive) {
+  private async userHasHiveAccess(assignment: Assignment, userId: string) {
+    if (!assignment.hiveId) {
       return false;
     }
-    if (hive.ownerUserId === userId) {
-      return true;
-    }
-    if (Array.isArray(hive.members)) {
-      return hive.members.some((member) => member.id === userId);
-    }
-    return false;
+    return this.ensureUserCanAccessHive(assignment.hiveId, userId);
   }
 
   async getDetails(
@@ -964,7 +957,7 @@ export class AssignmentsService {
     }
 
     if (![UserRole.ADMIN, UserRole.MANAGER].includes(user.role)) {
-      const allowed = this.userHasHiveAccess(assignment, user.id);
+      const allowed = await this.userHasHiveAccess(assignment, user.id);
       if (!allowed) {
         const hiveId = assignment.hive?.id;
         const memberIds = assignment.hive?.members?.map((member) => member.id) ?? [];

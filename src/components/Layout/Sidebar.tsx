@@ -88,21 +88,23 @@ export const Sidebar = () => {
       try {
         const data = await api.support.unread();
         if (!active) return;
-        setSupportHasUnread(!!data.unread);
+        setSupportHasUnread(Boolean(data?.unread));
       } catch {
         if (!active) return;
         setSupportHasUnread(false);
       }
     };
 
-    fetchUnread();
+    void fetchUnread();
+    const intervalId = window.setInterval(() => {
+      void fetchUnread();
+    }, 30_000);
 
-    const intervalId = setInterval(fetchUnread, 30_000);
     return () => {
       active = false;
-      clearInterval(intervalId);
+      window.clearInterval(intervalId);
     };
-  }, [user, isPrivileged]);
+  }, [user?.id, isPrivileged]);
 
   const adminSupportUnreadQuery = useQuery<AdminSupportUnreadResponse>({
     queryKey: ['admin', 'support', 'unread-count'],

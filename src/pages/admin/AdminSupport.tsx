@@ -350,13 +350,23 @@ const AdminSupport = () => {
                     {new Date(message.createdAt).toLocaleString('lt-LT')}
                   </p>
                   {message.text ? <p className="mt-2 whitespace-pre-wrap">{message.text}</p> : null}
-                  {message.attachments && message.attachments.length ? (
-                    <div className="mt-3 grid gap-2 sm:grid-cols-2">
-                      {(message.attachments ?? []).map((attachment) => (
-                        <SupportAttachmentPreview key={attachment.url} attachment={attachment} />
-                      ))}
-                    </div>
-                  ) : null}
+                  {(() => {
+                    const attachments = message.attachments ?? [];
+                    if (!attachments.length) {
+                      return null;
+                    }
+                    return (
+                      <div className="mt-3 grid gap-2 sm:grid-cols-2">
+                        {attachments.map((attachment) => (
+                          <SupportAttachmentPreview
+                            key={attachment.url}
+                            attachment={attachment}
+                            showDownloadAction
+                          />
+                        ))}
+                      </div>
+                    );
+                  })()}
                 </div>
               ))
             )}

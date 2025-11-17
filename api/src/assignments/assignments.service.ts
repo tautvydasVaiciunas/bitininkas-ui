@@ -961,10 +961,16 @@ export class AssignmentsService {
     if (![UserRole.ADMIN, UserRole.MANAGER].includes(user.role)) {
       const allowed = this.userHasHiveAccess(assignment, user.id);
       if (!allowed) {
-        const members = assignment.hive?.members?.length ?? 0;
-        this.logger.warn(
-          `Forbidden run: assignment=${assignment.id} hive=${assignment.hive?.id ?? 'unknown'} user=${user.id} members=${members}`,
-        );
+        const hiveId = assignment.hive?.id;
+        const memberIds = assignment.hive?.members?.map((member) => member.id) ?? [];
+        this.logger.warn('ASSIGNMENT_RUN_FORBIDDEN', {
+          assignmentId: assignment.id,
+          hiveId,
+          hiveOwnerId: assignment.hive?.ownerUserId,
+          userId: user.id,
+          userRole: user.role,
+          memberIds,
+        });
         throw new ForbiddenException('Neleidžiama');
       }
     }

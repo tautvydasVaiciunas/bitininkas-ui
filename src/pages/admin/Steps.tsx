@@ -1007,14 +1007,6 @@ function StepCard({ step, onEdit, onDelete, disableActions }: StepCardProps) {
         ) : null}
         {shouldShowMediaMeta ? (
           <div className="flex flex-wrap items-center gap-2 text-xs text-muted-foreground">
-            {resolvedMediaUrl ? (
-          <ResponsiveMedia
-            url={resolvedMediaUrl}
-            type={mediaKind ?? undefined}
-            title={step.title}
-            className="w-full max-w-3xl"
-          />
-        ) : null}
             {mediaLabel ? <Badge variant="outline">{mediaLabel}</Badge> : null}
             {step.requireUserMedia ? (
               <Badge variant="secondary">Reikia vartotojo nuotraukos ar vaizdo įrašo</Badge>

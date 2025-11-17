@@ -1055,6 +1055,7 @@ export const api = {
       patch<AssignmentResponse>(`/assignments/${id}`, { json: payload }),
     details: (id: string, params?: { userId?: string }) =>
       get<AssignmentDetails>(`/assignments/${id}/details`, { query: params }),
+    run: (id: string) => get<AssignmentDetails>(`/assignments/${id}/run`),
     bulkFromTemplate: (payload: BulkAssignmentsFromTemplatePayload) =>
       post<BulkAssignmentsFromTemplateResponse>('/assignments/bulk-from-template', { json: payload }),
   },

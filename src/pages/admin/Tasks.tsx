@@ -151,15 +151,122 @@ export default function AdminTasks() {
     [templates],
   );
 
-  const groupOptions = useMemo(
-    () =>
-      groups.map((group) => ({
-        value: group.id,
-        label: group.name,
-        description: group.description ?? undefined,
-      })),
-    [groups],
+const groupOptions = useMemo(
+  () =>
+    groups.map((group) => ({
+      value: group.id,
+      label: group.name,
+      description: group.description ?? undefined,
+    })),
+  [groups],
+);
+
+type AssignmentControlsProps = {
+  templateId: string;
+  onTemplateChange?: (value: string) => void;
+  templateOptions: { value: string; label: string }[];
+  groupIds: string[];
+  onGroupChange?: (value: string[]) => void;
+  groupOptions: { value: string; label: string; description?: string }[];
+  startDate: string;
+  onStartDateChange?: (value: string) => void;
+  dueDate: string;
+  onDueDateChange?: (value: string) => void;
+  notify: boolean;
+  onNotifyChange?: (value: boolean) => void;
+  disabled?: boolean;
+  helperText?: string;
+};
+
+function AssignmentControls({
+  templateId,
+  onTemplateChange,
+  templateOptions,
+  groupIds,
+  onGroupChange,
+  groupOptions,
+  startDate,
+  onStartDateChange,
+  dueDate,
+  onDueDateChange,
+  notify,
+  onNotifyChange,
+  disabled,
+  helperText,
+}: AssignmentControlsProps) {
+  return (
+    <div className="space-y-4">
+      <div className="space-y-2">
+        <Label htmlFor="assignment-template">Šablonas</Label>
+        <Select
+          id="assignment-template"
+          value={templateId}
+          onValueChange={(value) => onTemplateChange?.(value)}
+          disabled={disabled}
+        >
+          <SelectTrigger>
+            <SelectValue placeholder={disabled ? 'Nepakeičiama redaguojant' : 'Pasirinkite šabloną'} />
+          </SelectTrigger>
+          <SelectContent>
+            {templateOptions.map((option) => (
+              <SelectItem key={option.value} value={option.value}>
+                {option.label}
+              </SelectItem>
+            ))}
+          </SelectContent>
+        </Select>
+      </div>
+
+      <div className="space-y-2">
+        <Label>Grupės</Label>
+        <UserMultiSelect
+          options={groupOptions}
+          value={groupIds}
+          onChange={(next) => onGroupChange?.(next)}
+          placeholder={disabled ? 'Nepakeičiama redaguojant' : 'Pasirinkite grupes, kurioms skirta užduotis'}
+          disabled={disabled}
+        />
+      </div>
+
+      <div className="grid gap-4 sm:grid-cols-2">
+        <div className="space-y-2">
+          <Label htmlFor="assignment-start-date">Pradžios data</Label>
+          <Input
+            id="assignment-start-date"
+            type="date"
+            value={startDate}
+            onChange={(event) => onStartDateChange?.(event.target.value)}
+            disabled={disabled}
+          />
+        </div>
+        <div className="space-y-2">
+          <Label htmlFor="assignment-due-date">Pabaigos data</Label>
+          <Input
+            id="assignment-due-date"
+            type="date"
+            value={dueDate}
+            onChange={(event) => onDueDateChange?.(event.target.value)}
+            disabled={disabled}
+          />
+        </div>
+      </div>
+
+      <div className="flex items-center space-x-2">
+        <Checkbox
+          id="assignment-notify"
+          checked={notify}
+          onCheckedChange={(checked) => onNotifyChange?.(Boolean(checked))}
+          disabled={disabled}
+        />
+        <Label htmlFor="assignment-notify" className="text-sm text-muted-foreground">
+          Išsiųsti pranešimus ir el. laiškus gavėjams
+        </Label>
+      </div>
+
+      {helperText ? <p className="text-xs text-muted-foreground">{helperText}</p> : null}
+    </div>
   );
+}
 
   const resetEditForm = () => {
     setEditForm(buildDefaultTaskFormValues());
@@ -418,9 +525,22 @@ export default function AdminTasks() {
               <DialogDescription>Atnaujinkite užduoties informaciją.</DialogDescription>
             </DialogHeader>
             <form onSubmit={handleEditSubmit} className="space-y-6">
+              <AssignmentControls
+                templateId=""
+                templateOptions={templateOptions}
+                groupIds={[]}
+                groupOptions={groupOptions}
+                startDate=""
+                dueDate=""
+                notify={true}
+                disabled
+                helperText="Šablonas, grupės ir datos redaguojamos tik „Sukurti užduotį“ dialoge."
+              />
+
               {isLoadingEditData && (
                 <p className="text-sm text-muted-foreground">Įkeliami užduoties žingsniai...</p>
               )}
+
               <TaskDetailsForm
                 values={editForm}
                 onChange={(updater) => setEditForm((prev) => updater(prev))}

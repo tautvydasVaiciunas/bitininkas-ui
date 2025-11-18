@@ -233,6 +233,10 @@ export interface NewsPostResponse {
   imageUrl: string | null;
   targetAll: boolean;
   groups: NewsGroupResponse[];
+  attachedTaskId: string | null;
+  assignmentStartDate: string | null;
+  assignmentDueDate: string | null;
+  sendNotifications: boolean;
   createdAt: string;
   updatedAt: string;
 }
@@ -337,6 +341,10 @@ export interface CreateNewsPayload {
   imageUrl?: string | null;
   targetAll: boolean;
   groupIds?: string[];
+  attachedTaskId?: string | null;
+  assignmentStartDate?: string | null;
+  assignmentDueDate?: string | null;
+  sendNotifications?: boolean;
 }
 
 export type UpdateNewsPayload = Partial<CreateNewsPayload>;

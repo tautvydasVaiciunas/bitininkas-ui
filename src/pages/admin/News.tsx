@@ -25,6 +25,7 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 import { Checkbox } from "@/components/ui/checkbox";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Badge } from "@/components/ui/badge";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import { useToast } from "@/components/ui/use-toast";
@@ -35,9 +36,11 @@ import {
   mapGroupFromApi,
   mapNewsPostFromApi,
   mapPaginatedNewsFromApi,
+  mapTaskFromApi,
   type Group,
   type NewsPost,
   type PaginatedNews,
+  type Task,
 } from "@/lib/types";
 
 interface NewsFormState {
@@ -46,6 +49,11 @@ interface NewsFormState {
   imageUrl: string;
   targetAll: boolean;
   groupIds: string[];
+  attachTask: boolean;
+  attachedTaskId: string;
+  assignmentStartDate: string;
+  assignmentDueDate: string;
+  sendNotifications: boolean;
 }
 
 const defaultFormState: NewsFormState = {
@@ -54,6 +62,11 @@ const defaultFormState: NewsFormState = {
   imageUrl: "",
   targetAll: true,
   groupIds: [],
+  attachTask: false,
+  attachedTaskId: "",
+  assignmentStartDate: "",
+  assignmentDueDate: "",
+  sendNotifications: true,
 };
 
 const PAGE_SIZE = 10;
@@ -88,6 +101,14 @@ const AdminNews = () => {
     },
   });
 
+  const { data: taskList = [], isLoading: isTasksLoading } = useQuery<Task[]>({
+    queryKey: ["tasks", "admin", "news"],
+    queryFn: async () => {
+      const response = await api.tasks.list();
+      return response.map(mapTaskFromApi);
+    },
+  });
+
   const {
     data,
     isLoading,
@@ -109,6 +130,11 @@ const AdminNews = () => {
   const groupOptions = useMemo(
     () => groupList.map((group) => ({ id: group.id, name: group.name })),
     [groupList]
+  );
+
+  const taskOptions = useMemo(
+    () => taskList.map((task) => ({ id: task.id, label: task.title })),
+    [taskList]
   );
 
   const closeDialog = useCallback(() => {
@@ -133,6 +159,11 @@ const AdminNews = () => {
       imageUrl: post.imageUrl ?? "",
       targetAll: post.targetAll,
       groupIds: post.groups.map((group) => group.id),
+      attachTask: Boolean(post.attachedTaskId),
+      attachedTaskId: post.attachedTaskId ?? "",
+      assignmentStartDate: post.assignmentStartDate ?? "",
+      assignmentDueDate: post.assignmentDueDate ?? "",
+      sendNotifications: post.sendNotifications ?? true,
     });
     setGroupError(null);
     setIsDialogOpen(true);
@@ -199,6 +230,15 @@ const AdminNews = () => {
 
     if (!formState.targetAll && formState.groupIds.length === 0) {
       setGroupError("Pasirinkite bent vieną grupę");
+      return;
+    }
+
+    if (formState.attachTask && !formState.attachedTaskId) {
+      toast({
+        title: "Nepavyko išsaugoti",
+        description: "Pasirinkite užduoties šabloną, kad sukurtumėte priskirtą užduotį.",
+        variant: "destructive",
+      });
       return;
     }
 
@@ -479,10 +519,10 @@ const AdminNews = () => {
                 </div>
               </div>
 
-              {!formState.targetAll ? (
-                <div className="space-y-2">
-                  <Label>Pasirinkite grupes</Label>
-                  <GroupMultiSelect
+            {!formState.targetAll ? (
+              <div className="space-y-2">
+                <Label>Pasirinkite grupes</Label>
+                <GroupMultiSelect
                     options={groupOptions}
                     value={formState.groupIds}
                     onChange={(next) => {
@@ -496,6 +536,102 @@ const AdminNews = () => {
                   {groupError ? (
                     <p className="text-sm text-destructive">{groupError}</p>
                   ) : null}
+                </div>
+              ) : null}
+            </div>
+
+            <div className="space-y-3 rounded-md border border-muted p-3">
+              <div className="flex items-start gap-3">
+                <Checkbox
+                  id="news-attach-task"
+                  checked={formState.attachTask}
+                  onCheckedChange={(checked) =>
+                    setFormState((prev) => ({
+                      ...prev,
+                      attachTask: checked === true,
+                      attachedTaskId: checked === true ? prev.attachedTaskId : "",
+                    }))
+                  }
+                />
+                <div className="space-y-1">
+                  <Label htmlFor="news-attach-task" className="cursor-pointer">
+                    Pridėti užduotį šiai naujienai
+                  </Label>
+                  <p className="text-sm text-muted-foreground">
+                    Pažymėkite, jei norite išsiųsti užduotį konkrečioms grupėms.
+                  </p>
+                </div>
+              </div>
+
+              {formState.attachTask ? (
+                <div className="space-y-4">
+                  <div className="space-y-2">
+                    <Label htmlFor="news-task-select">Užduoties šablonas</Label>
+                    <Select
+                      id="news-task-select"
+                      value={formState.attachedTaskId}
+                      onValueChange={(value) =>
+                        setFormState((prev) => ({ ...prev, attachedTaskId: value }))
+                      }
+                      disabled={isTasksLoading || isSaving}
+                    >
+                      <SelectTrigger>
+                        <SelectValue placeholder={isTasksLoading ? "Kraunama..." : "Pasirinkite užduotį"} />
+                      </SelectTrigger>
+                      <SelectContent>
+                        {taskOptions.map((option) => (
+                          <SelectItem key={option.id} value={option.id}>
+                            {option.label}
+                          </SelectItem>
+                        ))}
+                      </SelectContent>
+                    </Select>
+                  </div>
+
+                  <div className="grid gap-4 sm:grid-cols-2">
+                    <div className="space-y-2">
+                      <Label htmlFor="news-assignment-start">Pradžios data</Label>
+                      <Input
+                        id="news-assignment-start"
+                        type="date"
+                        value={formState.assignmentStartDate}
+                        onChange={(event) =>
+                          setFormState((prev) => ({ ...prev, assignmentStartDate: event.target.value }))
+                        }
+                        disabled={isSaving}
+                      />
+                    </div>
+                    <div className="space-y-2">
+                      <Label htmlFor="news-assignment-due">Pabaigos data</Label>
+                      <Input
+                        id="news-assignment-due"
+                        type="date"
+                        value={formState.assignmentDueDate}
+                        onChange={(event) =>
+                          setFormState((prev) => ({ ...prev, assignmentDueDate: event.target.value }))
+                        }
+                        disabled={isSaving}
+                      />
+                    </div>
+                  </div>
+
+                  <div className="flex items-center gap-2">
+                    <Checkbox
+                      id="news-send-notifications"
+                      checked={formState.sendNotifications}
+                      onCheckedChange={(checked) =>
+                        setFormState((prev) => ({ ...prev, sendNotifications: Boolean(checked) }))
+                      }
+                      disabled={isSaving}
+                    />
+                    <Label htmlFor="news-send-notifications" className="text-sm text-muted-foreground">
+                      Siųsti pranešimus ir el. laiškus gavėjams
+                    </Label>
+                  </div>
+
+                  <p className="text-xs text-muted-foreground">
+                    Palikite datas tuščias, jei norite naudoti numatytus terminus iš šablono.
+                  </p>
                 </div>
               ) : null}
             </div>
@@ -557,6 +693,15 @@ function buildPayload(state: NewsFormState) {
     targetAll: state.targetAll,
     imageUrl: imageUrl.length ? imageUrl : null,
     groupIds: state.targetAll ? undefined : state.groupIds,
+
+    ...(state.attachTask
+      ? {
+          attachedTaskId: state.attachedTaskId || undefined,
+          assignmentStartDate: state.assignmentStartDate || undefined,
+          assignmentDueDate: state.assignmentDueDate || undefined,
+          sendNotifications: state.sendNotifications,
+        }
+      : {}),
   };
 }
 

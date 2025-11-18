@@ -25,23 +25,15 @@ import ltMessages from '@/i18n/messages.lt.json';
 import api, { HttpError } from '@/lib/api';
 import {
   mapTaskFromApi,
-  mapTemplateFromApi,
-  mapGroupFromApi,
   type CreateTaskPayload,
   type Task,
   type UpdateTaskPayload,
-  type Template,
-  type Group,
-  type BulkAssignmentsFromTemplatePayload,
-  type BulkAssignmentsFromTemplateResponse,
 } from '@/lib/types';
 import { TaskDetailsForm, type TaskDetailsFormValues, type TaskDetailsFormStep } from '@/components/tasks/TaskDetailsForm';
-import { UserMultiSelect } from '@/components/UserMultiSelect';
 
 const messages = ltMessages.tasks;
 
 const adminTasksQueryKey = ['tasks', 'admin', 'overview'] as const;
-const GROUPS_PAGE_LIMIT = 100;
 const buildDefaultTaskFormValues = (): TaskDetailsFormValues => ({
   title: '',
   description: '',
@@ -56,16 +48,6 @@ type TaskFormState = TaskDetailsFormValues;
 
 type EditFormStep = TaskDetailsFormStep;
 
-type AssignmentFormState = {
-  templateId: string;
-  groupIds: string[];
-  title: string;
-  description: string;
-  startDate: string;
-  dueDate: string;
-  notify: boolean;
-};
-
 const mapTaskToFormValues = (task: Task): TaskDetailsFormValues => ({
   title: task.title,
   description: task.description ?? '',
@@ -78,16 +60,6 @@ const mapTaskToFormValues = (task: Task): TaskDetailsFormValues => ({
   steps: [{ title: '', contentText: '' }],
 });
 
-const buildDefaultAssignmentForm = (): AssignmentFormState => ({
-  templateId: '',
-  groupIds: [],
-  title: '',
-  description: '',
-  startDate: '',
-  dueDate: '',
-  notify: true,
-});
-
 export default function AdminTasks() {
   const queryClient = useQueryClient();
   const [searchQuery, setSearchQuery] = useState('');
@@ -96,40 +68,15 @@ export default function AdminTasks() {
   const [editingTaskId, setEditingTaskId] = useState<string | null>(null);
   const editingTaskIdRef = useRef<string | null>(null);
   const [editForm, setEditForm] = useState<TaskFormState>(buildDefaultTaskFormValues);
+  const [createForm, setCreateForm] = useState<TaskFormState>(buildDefaultTaskFormValues);
   const [isLoadingEditData, setIsLoadingEditData] = useState(false);
-  const [isAssignmentDialogOpen, setIsAssignmentDialogOpen] = useState(false);
-  const [assignmentForm, setAssignmentForm] = useState<AssignmentFormState>(buildDefaultAssignmentForm);
+  const [isTaskDialogOpen, setIsTaskDialogOpen] = useState(false);
 
   const { data: tasks = [], isLoading, isError } = useQuery<Task[]>({
     queryKey: adminTasksQueryKey,
     queryFn: async () => {
       const response = await api.tasks.list();
       return response.map(mapTaskFromApi);
-    },
-  });
-
-  const { data: templates = [], isLoading: templatesLoading } = useQuery<Template[]>({
-    queryKey: ['templates', 'all'],
-    queryFn: async () => {
-      const response = await api.templates.list();
-      return response.map(mapTemplateFromApi);
-    },
-  });
-
-  const { data: groups = [], isLoading: groupsLoading } = useQuery<Group[]>({
-    queryKey: ['groups', 'all'],
-    queryFn: async () => {
-      const firstPage = await api.groups.list({ page: 1, limit: GROUPS_PAGE_LIMIT });
-      const responses = [...firstPage];
-      const total = typeof firstPage.total === 'number' ? firstPage.total : responses.length;
-      const totalPages = total > 0 ? Math.ceil(total / GROUPS_PAGE_LIMIT) : 1;
-
-      for (let page = 2; page <= totalPages; page += 1) {
-        const pageResponse = await api.groups.list({ page, limit: GROUPS_PAGE_LIMIT });
-        responses.push(...pageResponse);
-      }
-
-      return responses.map(mapGroupFromApi);
     },
   });
 
@@ -146,137 +93,11 @@ export default function AdminTasks() {
     });
   }, [tasks, searchQuery, categoryFilter]);
 
-  const templateOptions = useMemo(
-    () => templates.map((template) => ({ value: template.id, label: template.name })),
-    [templates],
-  );
-
-const groupOptions = useMemo(
-  () =>
-    groups.map((group) => ({
-      value: group.id,
-      label: group.name,
-      description: group.description ?? undefined,
-    })),
-  [groups],
-);
-
-type AssignmentControlsProps = {
-  templateId: string;
-  onTemplateChange?: (value: string) => void;
-  templateOptions: { value: string; label: string }[];
-  groupIds: string[];
-  onGroupChange?: (value: string[]) => void;
-  groupOptions: { value: string; label: string; description?: string }[];
-  startDate: string;
-  onStartDateChange?: (value: string) => void;
-  dueDate: string;
-  onDueDateChange?: (value: string) => void;
-  notify: boolean;
-  onNotifyChange?: (value: boolean) => void;
-  disabled?: boolean;
-  helperText?: string;
-};
-
-function AssignmentControls({
-  templateId,
-  onTemplateChange,
-  templateOptions,
-  groupIds,
-  onGroupChange,
-  groupOptions,
-  startDate,
-  onStartDateChange,
-  dueDate,
-  onDueDateChange,
-  notify,
-  onNotifyChange,
-  disabled,
-  helperText,
-}: AssignmentControlsProps) {
-  return (
-    <div className="space-y-4">
-      <div className="space-y-2">
-        <Label htmlFor="assignment-template">Šablonas</Label>
-        <Select
-          id="assignment-template"
-          value={templateId}
-          onValueChange={(value) => onTemplateChange?.(value)}
-          disabled={disabled}
-        >
-          <SelectTrigger>
-            <SelectValue placeholder={disabled ? 'Nepakeičiama redaguojant' : 'Pasirinkite šabloną'} />
-          </SelectTrigger>
-          <SelectContent>
-            {templateOptions.map((option) => (
-              <SelectItem key={option.value} value={option.value}>
-                {option.label}
-              </SelectItem>
-            ))}
-          </SelectContent>
-        </Select>
-      </div>
-
-      <div className="space-y-2">
-        <Label>Grupės</Label>
-        <UserMultiSelect
-          options={groupOptions}
-          value={groupIds}
-          onChange={(next) => onGroupChange?.(next)}
-          placeholder={disabled ? 'Nepakeičiama redaguojant' : 'Pasirinkite grupes, kurioms skirta užduotis'}
-          disabled={disabled}
-        />
-      </div>
-
-      <div className="grid gap-4 sm:grid-cols-2">
-        <div className="space-y-2">
-          <Label htmlFor="assignment-start-date">Pradžios data</Label>
-          <Input
-            id="assignment-start-date"
-            type="date"
-            value={startDate}
-            onChange={(event) => onStartDateChange?.(event.target.value)}
-            disabled={disabled}
-          />
-        </div>
-        <div className="space-y-2">
-          <Label htmlFor="assignment-due-date">Pabaigos data</Label>
-          <Input
-            id="assignment-due-date"
-            type="date"
-            value={dueDate}
-            onChange={(event) => onDueDateChange?.(event.target.value)}
-            disabled={disabled}
-          />
-        </div>
-      </div>
-
-      <div className="flex items-center space-x-2">
-        <Checkbox
-          id="assignment-notify"
-          checked={notify}
-          onCheckedChange={(checked) => onNotifyChange?.(Boolean(checked))}
-          disabled={disabled}
-        />
-        <Label htmlFor="assignment-notify" className="text-sm text-muted-foreground">
-          Išsiųsti pranešimus ir el. laiškus gavėjams
-        </Label>
-      </div>
-
-      {helperText ? <p className="text-xs text-muted-foreground">{helperText}</p> : null}
-    </div>
-  );
-}
-
   const resetEditForm = () => {
     setEditForm(buildDefaultTaskFormValues());
     setEditingTaskId(null);
     editingTaskIdRef.current = null;
     setIsLoadingEditData(false);
-  };
-
-  const resetAssignmentForm = () => {
-    setAssignmentForm(buildDefaultAssignmentForm());
   };
 
   const invalidateQueries = () => {
@@ -393,96 +214,37 @@ function AssignmentControls({
     },
   });
 
-  const bulkAssignmentMutation = useMutation<
-    BulkAssignmentsFromTemplateResponse,
-    HttpError | Error,
-    BulkAssignmentsFromTemplatePayload
-  >({
-    mutationFn: (payload) => api.assignments.bulkFromTemplate(payload),
-    onSuccess: (result) => {
-      toast.success(
-        `Priskirta ${result.created} užduočių ${result.groups ?? 0} grupėms.`,
-      );
-      resetAssignmentForm();
-      setIsAssignmentDialogOpen(false);
-      invalidateQueries();
-      void queryClient.invalidateQueries({ queryKey: ['assignments'] });
+  const createMutation = useMutation({
+    mutationFn: async (payload: CreateTaskPayload) => {
+      const response = await api.tasks.create(payload);
+      return mapTaskFromApi(response);
     },
-    onError: (error) => {
+    onSuccess: (task) => {
+      toast.success(`Užduotis "${task.title}" sukurta`);
+      setIsTaskDialogOpen(false);
+      setCreateForm(buildDefaultTaskFormValues());
+      invalidateQueries();
+    },
+    onError: (error: unknown) => {
       if (error instanceof HttpError) {
         toast.error(error.message);
         return;
       }
-      toast.error('Nepavyko priskirti šablono');
+      toast.error('Nepavyko sukurti užduoties');
     },
   });
 
-  const handleEditSubmit = async (event: FormEvent<HTMLFormElement>) => {
+  const handleCreateSubmit = async (event: FormEvent<HTMLFormElement>) => {
     event.preventDefault();
-
-    if (!editingTaskId || updateMutation.isPending) {
-      return;
-    }
-
-    const payload = buildTaskPayload(editForm) as UpdateTaskPayload | null;
+    const payload = buildTaskPayload(createForm);
     if (!payload) {
       return;
     }
-
-    await updateMutation.mutateAsync({ id: editingTaskId, payload });
-  };
-
-  const editFormDisabled = updateMutation.isPending || isLoadingEditData;
-
-  const handleAssignmentSubmit = (event: FormEvent<HTMLFormElement>) => {
-    event.preventDefault();
-
-    if (bulkAssignmentMutation.isPending) {
-      return;
+    try {
+      await createMutation.mutateAsync(payload);
+    } catch {
+      // handled in mutation onError
     }
-
-    if (!assignmentForm.templateId) {
-      toast.error('Pasirinkite šabloną');
-      return;
-    }
-
-    if (!assignmentForm.groupIds.length) {
-      toast.error('Pasirinkite bent vieną grupę');
-      return;
-    }
-
-    const trimmedTitle = assignmentForm.title.trim();
-    if (!trimmedTitle) {
-      toast.error('Pavadinimas privalomas');
-      return;
-    }
-
-    if (!assignmentForm.startDate) {
-      toast.error('Nurodykite pradžios datą');
-      return;
-    }
-
-    if (!assignmentForm.dueDate) {
-      toast.error('Nurodykite pabaigos datą');
-      return;
-    }
-
-    if (assignmentForm.startDate > assignmentForm.dueDate) {
-      toast.error('Pabaigos data negali būti ankstesnė už pradžią');
-      return;
-    }
-
-    const payload: BulkAssignmentsFromTemplatePayload = {
-      templateId: assignmentForm.templateId,
-      groupIds: assignmentForm.groupIds,
-      title: trimmedTitle,
-      description: assignmentForm.description.trim() || undefined,
-      startDate: assignmentForm.startDate,
-      dueDate: assignmentForm.dueDate,
-      notify: assignmentForm.notify,
-    };
-
-    bulkAssignmentMutation.mutate(payload);
   };
 
   const getFrequencyLabel = (frequency: Task['frequency']) => {
@@ -521,22 +283,10 @@ function AssignmentControls({
         >
           <DialogContent className="max-h-[90vh] overflow-y-auto sm:max-w-2xl">
             <DialogHeader>
-              <DialogTitle>Redaguoti užduotį</DialogTitle>
-              <DialogDescription>Atnaujinkite užduoties informaciją.</DialogDescription>
+              <DialogTitle>Nauja užduotis</DialogTitle>
+              <DialogDescription>Aprašykite užduoties šabloną ir žingsnius.</DialogDescription>
             </DialogHeader>
             <form onSubmit={handleEditSubmit} className="space-y-6">
-              <AssignmentControls
-                templateId=""
-                templateOptions={templateOptions}
-                groupIds={[]}
-                groupOptions={groupOptions}
-                startDate=""
-                dueDate=""
-                notify={true}
-                disabled
-                helperText="Šablonas, grupės ir datos redaguojamos tik „Sukurti užduotį“ dialoge."
-              />
-
               {isLoadingEditData && (
                 <p className="text-sm text-muted-foreground">Įkeliami užduoties žingsniai...</p>
               )}
@@ -587,164 +337,58 @@ function AssignmentControls({
             </p>
           </div>
           <Dialog
-            open={isAssignmentDialogOpen}
+            open={isTaskDialogOpen}
             onOpenChange={(open) => {
-              setIsAssignmentDialogOpen(open);
+              setIsTaskDialogOpen(open);
               if (!open) {
-                resetAssignmentForm();
+                setCreateForm(buildDefaultTaskFormValues());
               }
             }}
           >
             <DialogTrigger asChild>
-              <Button disabled={bulkAssignmentMutation.isPending}>
-                {bulkAssignmentMutation.isPending ? (
-                  <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+              <Button disabled={createMutation.isPending}>
+                {createMutation.isPending ? (
+                  <>
+                    <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                    Saugoma...
+                  </>
                 ) : (
                   <Plus className="mr-2 w-4 h-4" />
                 )}
-                {bulkAssignmentMutation.isPending ? 'Saugoma...' : 'Sukurti užduotį'}
+                {createMutation.isPending ? 'Saugoma...' : 'Sukurti užduotį'}
               </Button>
             </DialogTrigger>
-            <DialogContent className="max-h-[90vh] overflow-y-auto sm:max-w-xl">
+            <DialogContent className="max-h-[90vh] overflow-y-auto sm:max-w-2xl">
               <DialogHeader>
                 <DialogTitle>Nauja užduotis</DialogTitle>
-                <DialogDescription>
-                  Pasirinkite šabloną, grupes ir datas. Visiems priskirtiems nariams bus išsiųsti
-                  pranešimai.
-                </DialogDescription>
+                <DialogDescription>Aprašykite užduoties šabloną ir žingsnius.</DialogDescription>
               </DialogHeader>
-              <form onSubmit={handleAssignmentSubmit} className="space-y-4">
-                <div className="space-y-2">
-                  <Label htmlFor="assignment-title">Pavadinimas</Label>
-                  <Input
-                    id="assignment-title"
-                    value={assignmentForm.title}
-                    onChange={(event) =>
-                      setAssignmentForm((prev) => ({ ...prev, title: event.target.value }))
-                    }
-                    placeholder="Pvz., Pavasarinė apžiūra"
-                    disabled={bulkAssignmentMutation.isPending}
-                    required
-                  />
-                </div>
-
-                <div className="space-y-2">
-                  <Label htmlFor="assignment-description">Aprašymas</Label>
-                  <Textarea
-                    id="assignment-description"
-                    value={assignmentForm.description}
-                    onChange={(event) =>
-                      setAssignmentForm((prev) => ({ ...prev, description: event.target.value }))
-                    }
-                    placeholder="Papildoma informacija gavėjams"
-                    rows={3}
-                    disabled={bulkAssignmentMutation.isPending}
-                  />
-                </div>
-
-                <div className="space-y-2">
-                  <Label htmlFor="assignment-template">Šablonas</Label>
-                  <Select
-                    value={assignmentForm.templateId}
-                    onValueChange={(value) =>
-                      setAssignmentForm((prev) => ({ ...prev, templateId: value }))
-                    }
-                    disabled={templatesLoading || bulkAssignmentMutation.isPending}
-                  >
-                    <SelectTrigger id="assignment-template">
-                      <SelectValue
-                        placeholder={templatesLoading ? 'Kraunama...' : 'Pasirinkite šabloną'}
-                      />
-                    </SelectTrigger>
-                    <SelectContent>
-                      {templateOptions.map((option) => (
-                        <SelectItem key={option.value} value={option.value}>
-                          {option.label}
-                        </SelectItem>
-                      ))}
-                    </SelectContent>
-                  </Select>
-                </div>
-
-                <div className="space-y-2">
-                  <Label>Grupės</Label>
-                  <UserMultiSelect
-                    options={groupOptions}
-                    value={assignmentForm.groupIds}
-                    onChange={(next) => setAssignmentForm((prev) => ({ ...prev, groupIds: next }))}
-                    placeholder={
-                      groupsLoading ? 'Kraunama...' : 'Pasirinkite grupes, kurioms skirta užduotis'
-                    }
-                    disabled={groupsLoading || bulkAssignmentMutation.isPending}
-                  />
-                </div>
-
-                <div className="grid gap-4 sm:grid-cols-2">
-                  <div className="space-y-2">
-                    <Label htmlFor="assignment-start-date">Pradžios data</Label>
-                    <Input
-                      id="assignment-start-date"
-                      type="date"
-                      value={assignmentForm.startDate}
-                      onChange={(event) =>
-                        setAssignmentForm((prev) => ({ ...prev, startDate: event.target.value }))
-                      }
-                      disabled={bulkAssignmentMutation.isPending}
-                      required
-                    />
-                  </div>
-                  <div className="space-y-2">
-                    <Label htmlFor="assignment-due-date">Pabaigos data</Label>
-                    <Input
-                      id="assignment-due-date"
-                      type="date"
-                      value={assignmentForm.dueDate}
-                      onChange={(event) =>
-                        setAssignmentForm((prev) => ({ ...prev, dueDate: event.target.value }))
-                      }
-                      disabled={bulkAssignmentMutation.isPending}
-                      required
-                    />
-                  </div>
-                </div>
-
-                <div className="flex items-center space-x-2">
-                  <Checkbox
-                    id="assignment-notify"
-                    checked={assignmentForm.notify}
-                    onCheckedChange={(checked) =>
-                      setAssignmentForm((prev) => ({
-                        ...prev,
-                        notify: Boolean(checked),
-                      }))
-                    }
-                    disabled={bulkAssignmentMutation.isPending}
-                  />
-                  <Label htmlFor="assignment-notify" className="text-sm text-muted-foreground">
-                    Išsiųsti pranešimus ir el. laiškus gavėjams
-                  </Label>
-                </div>
-
+              <form onSubmit={handleCreateSubmit} className="space-y-4">
+                <TaskDetailsForm
+                  values={createForm}
+                  onChange={(updater) => setCreateForm((prev) => updater(prev))}
+                  disabled={createMutation.isPending}
+                />
                 <DialogFooter className="flex flex-col gap-2 sm:flex-row sm:justify-end">
                   <Button
                     type="button"
                     variant="outline"
                     onClick={() => {
-                      resetAssignmentForm();
-                      setIsAssignmentDialogOpen(false);
+                      setIsTaskDialogOpen(false);
+                      setCreateForm(buildDefaultTaskFormValues());
                     }}
-                    disabled={bulkAssignmentMutation.isPending}
+                    disabled={createMutation.isPending}
                   >
                     Atšaukti
                   </Button>
-                  <Button type="submit" disabled={bulkAssignmentMutation.isPending}>
-                    {bulkAssignmentMutation.isPending ? (
+                  <Button type="submit" disabled={createMutation.isPending}>
+                    {createMutation.isPending ? (
                       <>
                         <Loader2 className="mr-2 h-4 w-4 animate-spin" />
                         Saugoma...
                       </>
                     ) : (
-                      'Sukurti'
+                      'Sukurti užduotį'
                     )}
                   </Button>
                 </DialogFooter>
@@ -752,7 +396,6 @@ function AssignmentControls({
             </DialogContent>
           </Dialog>
         </div>
-
         <Card className="shadow-custom">
           <CardContent className="p-6">
             <div className="flex flex-col sm:flex-row gap-4">

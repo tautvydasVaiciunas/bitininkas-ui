@@ -24,8 +24,11 @@ import {
   PaginatedResult,
 } from '../common/pagination/pagination.service';
 import { AssignmentsService } from '../assignments/assignments.service';
+import { TasksService } from '../tasks/tasks.service';
+import { CreateTaskDto } from '../tasks/dto/create-task.dto';
 import { Task } from '../tasks/task.entity';
 import { Hive } from '../hives/hive.entity';
+import { Template } from '../templates/template.entity';
 
 interface NewsGroupSummary {
   id: string;
@@ -69,10 +72,13 @@ export class NewsService {
     private readonly taskRepository: Repository<Task>,
     @InjectRepository(Hive)
     private readonly hiveRepository: Repository<Hive>,
+    @InjectRepository(Template)
+    private readonly templateRepository: Repository<Template>,
     private readonly notifications: NotificationsService,
     private readonly configService: ConfigService,
     private readonly pagination: PaginationService,
     private readonly assignmentsService: AssignmentsService,
+    private readonly tasksService: TasksService,
   ) {
     this.appBaseUrl = this.normalizeBaseUrl(
       this.configService.get<string>('APP_URL') ??
@@ -187,6 +193,35 @@ export class NewsService {
       .getRawMany<{ userId: string }>();
 
     return rows.map((row) => row.userId);
+  }
+
+  private normalizeNullable(value?: string | null) {
+    if (!value) {
+      return null;
+    }
+
+    const trimmed = value.trim();
+    return trimmed.length ? trimmed : null;
+  }
+
+  private buildStepsFromTemplate(template: Template): CreateTaskDto['steps'] {
+    const steps = Array.isArray(template.steps) ? [...template.steps] : [];
+    return steps
+      .sort((a, b) => a.orderIndex - b.orderIndex)
+      .map((templateStep) => {
+        const taskStep = templateStep.taskStep;
+        const contentText = this.normalizeNullable(taskStep?.contentText ?? null);
+        const mediaUrl = this.normalizeNullable(taskStep?.mediaUrl ?? null);
+        const mediaType = taskStep?.mediaType;
+        return {
+          title: taskStep?.title ?? 'Žingsnis',
+          contentText: contentText ?? undefined,
+          mediaUrl: mediaUrl ?? undefined,
+          mediaType: mediaType ?? undefined,
+          requireUserMedia: taskStep?.requireUserMedia ?? false,
+          orderIndex: templateStep.orderIndex,
+        };
+      });
   }
 
   private normalizeDate(value?: string | null): string | null {
@@ -514,10 +549,7 @@ export class NewsService {
     }
   }
 
-  async create(
-    dto: CreateNewsDto,
-    actor: { id: string; role: UserRole },
-  ): Promise<NewsPostResponse> {
+  async create(dto: CreateNewsDto, actor: { id: string; role: UserRole }): Promise<NewsPostResponse> {
     const title = this.sanitizeTitle(dto.title);
     const body = this.sanitizeBody(dto.body);
     const targetAll = dto.targetAll !== undefined ? dto.targetAll : true;
@@ -534,44 +566,10 @@ export class NewsService {
       groups = await this.resolveGroups(providedIds);
     }
 
-    const attachedTaskId = dto.attachedTaskId?.trim() ?? null;
-    const assignmentStartDate = this.normalizeDate(dto.assignmentStartDate);
-    const assignmentDueDate = this.normalizeDate(dto.assignmentDueDate);
+    const attachTask = dto.attachTask === true;
+    const normalizedStartDate = this.normalizeDate(dto.assignmentStartDate);
+    const normalizedDueDate = this.normalizeDate(dto.assignmentDueDate);
     const sendNotifications = dto.sendNotifications !== false;
-
-    let assignmentConfiguration:
-      | {
-          hiveIds: string[];
-          startDate: string;
-          dueDate: string;
-        }
-      | null = null;
-
-    if (attachedTaskId) {
-      if (!groups.length) {
-        throw new BadRequestException('Pridėkite bent vieną grupę, kad sukurtumėte užduotį');
-      }
-
-      const task = await this.taskRepository.findOne({ where: { id: attachedTaskId } });
-      if (!task) {
-        throw new NotFoundException('Užduoties šablonas nerastas');
-      }
-
-      const hiveIds = await this.collectAssignmentHives(groups.map((group) => group.id));
-      if (!hiveIds.length) {
-        throw new BadRequestException('Nepavyko rasti avilių pasirinktomis grupėmis');
-      }
-
-      const startDateValue = assignmentStartDate ?? this.getTodayDateString();
-      const dueDateValue =
-        assignmentDueDate ?? this.addDays(startDateValue, task.defaultDueDays);
-
-      assignmentConfiguration = {
-        hiveIds,
-        startDate: startDateValue,
-        dueDate: dueDateValue,
-      };
-    }
 
     const post = this.newsRepository.create({
       title,
@@ -579,9 +577,8 @@ export class NewsService {
       imageUrl: imageUrl === undefined ? null : imageUrl,
       targetAll,
       groups,
-      attachedTaskId,
-      assignmentStartDate,
-      assignmentDueDate,
+      assignmentStartDate: normalizedStartDate,
+      assignmentDueDate: normalizedDueDate,
       sendNotifications,
     });
 
@@ -598,17 +595,62 @@ export class NewsService {
       throw new NotFoundException('Naujiena nerasta');
     }
 
-    if (assignmentConfiguration) {
+    if (attachTask) {
+      if (!dto.templateId) {
+        await this.newsRepository.delete(saved.id);
+        throw new BadRequestException('Pridėkite užduoties šabloną');
+      }
+
+      if (!dto.taskTitle?.trim()) {
+        await this.newsRepository.delete(saved.id);
+        throw new BadRequestException('Užduoties pavadinimas privalomas');
+      }
+
+      if (!groups.length) {
+        await this.newsRepository.delete(saved.id);
+        throw new BadRequestException('Pridėkite bent vieną grupę, kad sukurtumėte užduotį');
+      }
+
+      const template = await this.templateRepository.findOne({
+        where: { id: dto.templateId },
+        relations: { steps: { taskStep: true } },
+      });
+
+      if (!template) {
+        await this.newsRepository.delete(saved.id);
+        throw new NotFoundException('Šablonas nerastas');
+      }
+
+      const taskPayload: CreateTaskDto = {
+        title: dto.taskTitle.trim(),
+        description: this.normalizeNullable(dto.taskDescription) ?? undefined,
+        steps: this.buildStepsFromTemplate(template),
+      };
+
+      const createdTask = await this.tasksService.create(taskPayload, actor);
+
+      const startDate = normalizedStartDate ?? this.getTodayDateString();
+      const dueDate =
+        normalizedDueDate ??
+        this.addDays(startDate, createdTask.defaultDueDays ?? 7);
+
+      const hiveIds = await this.collectAssignmentHives(groups.map((group) => group.id));
+
+      if (!hiveIds.length) {
+        await this.newsRepository.delete(saved.id);
+        throw new BadRequestException('Nepavyko rasti avilių pasirinktomis grupėmis');
+      }
+
       try {
         await Promise.all(
-          assignmentConfiguration.hiveIds.map((hiveId) =>
-              this.assignmentsService.create(
-                {
-                  hiveId,
-                  taskId: attachedTaskId!,
-                  startDate: assignmentConfiguration.startDate,
-                  dueDate: assignmentConfiguration.dueDate,
-                },
+          hiveIds.map((hiveId) =>
+            this.assignmentsService.create(
+              {
+                hiveId,
+                taskId: createdTask.id,
+                startDate,
+                dueDate,
+              },
               actor,
               { notify: sendNotifications },
             ),
@@ -618,6 +660,15 @@ export class NewsService {
         await this.newsRepository.delete(saved.id);
         throw error;
       }
+
+      full.attachedTaskId = createdTask.id;
+      full.assignmentStartDate = normalizedStartDate ?? null;
+      full.assignmentDueDate = normalizedDueDate ?? null;
+      full.sendNotifications = sendNotifications;
+      await runWithDatabaseErrorHandling(
+        () => this.newsRepository.save(full),
+        { message: 'Nepavyko atnaujinti naujienos su užduotimi' },
+      );
     }
 
     const recipientGroupIds = groups.map((group) => group.id);
@@ -674,10 +725,6 @@ ${body}`,
 
     if (dto.targetAll !== undefined) {
       post.targetAll = dto.targetAll;
-    }
-
-    if (dto.attachedTaskId !== undefined) {
-      post.attachedTaskId = dto.attachedTaskId?.trim() ?? null;
     }
 
     if (dto.assignmentStartDate !== undefined) {

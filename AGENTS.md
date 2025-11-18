@@ -29,10 +29,56 @@
 - Keisdami entites, BŪTINAI kurkite TypeORM migracijas.
 - Eshop logika: VAT 21 %, kainos saugomos centais, viskas perskaičiuojama serveryje.
 
+
 ## Frontend (spa/)
 - React + Vite + TypeScript.
 - Naudoti esamą dizaino sistemą (shadcn UI, Tailwind).
 - Neperrašyti routing / ProtectedRoute struktūros be aiškaus tikslo.
+
+## Domain logic – Užduotys, žingsniai, šablonai, naujienos
+
+- ŽINGSNIAI (Steps)
+  - Mažiausias darbo vienetas (pvz., „Užkurti dūminę“, „Apžiūrėti perų rėmus“).
+  - CRUD per /admin/steps.
+  - Žingsnis gali būti naudojamas keliuose šablonuose.
+
+- ŠABLONAI (Task templates)
+  - Tai žingsnių seka, aprašanti pilną procesą (pvz., „Pavasarinė apžiūra (10 žingsnių)“).
+  - Kuriami/redaguojami per /admin/templates (Šablonai).
+  - Šablonai nesiunčiami vartotojams tiesiogiai – jie naudojami kuriant užduotis.
+
+- UŽDUOTYS (Tasks)
+  - Užduotis = „konkretus iškvietimas“ šablonui: turi
+    - pavadinimą,
+    - aprašymą (nebūtina),
+    - žingsnių seką (kuri paimama iš šablono užduoties sukūrimo metu),
+    - pradžios ir pabaigos datas,
+    - būseną (aktyvi, baigta ir pan.).
+  - Užduotys AUTOMATIŠKAI kuriamos, kai admin/manager per /admin/news prideda užduotį prie naujienos.
+  - Admin/tasks puslapis:
+    - rodo visų užduočių sąrašą,
+    - leidžia redaguoti ar archyvuoti užduotis,
+    - NENAUDOJAMAS naujų užduočių kūrimui (create mygtukas paslėptas).
+
+- NAUJIENOS (News) + užduotys
+  - Kiekviena naujiena gali:
+    - būti vien tekstinė (be užduoties),
+    - arba turėti PRIDĖTĄ UŽDUOTĮ.
+  - Jei „Pridėti užduotį šiai naujienai“ yra pažymėta:
+    - admin pasirenka:
+      - užduoties ŠABLONĄ,
+      - užduoties pavadinimą,
+      - (nebūtinai) užduoties aprašymą,
+      - pradžios ir pabaigos datas,
+      - ar siųsti pranešimus ir el. laiškus.
+    - sistema:
+      - sukuria Task įrašą pagal pasirinktą šabloną ir nurodytus laukus,
+      - visiems naujienos priskirtų grupių aviliams sukuria Assignment įrašus (po vieną kiekvienam aviliui),
+      - kiekvieno Assignment progresas sekamas atskirai.
+  - Vėliau redaguojant Task per /admin/tasks:
+    - keičiasi šios užduoties tekstinė dalis (pavadinimas, aprašymas, žingsniai, datos) visiems jai priklausančioms Assignments,
+    - bet neliečiama būsenų reikšmės, jei ji jau buvo vykdyta.
+
 
 ## Review guidelines
 - Tikrink:

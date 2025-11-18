@@ -402,7 +402,7 @@ const AdminNews = () => {
       </div>
 
       <Dialog open={isDialogOpen} onOpenChange={(open) => (open ? setIsDialogOpen(true) : closeDialog())}>
-      <DialogContent className="max-h-[90vh] w-full sm:max-w-2xl flex flex-col">
+            <DialogContent className="max-h-[90vh] w-full sm:max-w-2xl flex flex-col overflow-y-auto">
           <form onSubmit={handleSubmit} className="flex flex-col flex-1 gap-4">
             <DialogHeader>
               <DialogTitle>{editingPost ? "Redaguoti naujieną" : "Nauja naujiena"}</DialogTitle>
@@ -643,6 +643,7 @@ const AdminNews = () => {
             </DialogFooter>
           </form>
         </DialogContent>
+
       </Dialog>
 
       <AlertDialog open={postToDelete !== null} onOpenChange={(open) => !open && setPostToDelete(null)}>

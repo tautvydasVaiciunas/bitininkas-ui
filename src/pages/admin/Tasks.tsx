@@ -214,31 +214,6 @@ export default function AdminTasks() {
     },
   });
 
-  const handleEditSubmit = (event: FormEvent<HTMLFormElement>) => {
-    event.preventDefault();
-
-    if (!editingTaskId) {
-      toast.error(messages.updateError);
-      return;
-    }
-
-    const payload = buildTaskPayload(editForm);
-    if (!payload) {
-      return;
-    }
-
-    updateMutation.mutate(
-      { id: editingTaskId, payload },
-      {
-        onSuccess: () => {
-          setIsEditDialogOpen(false);
-          resetEditForm();
-          invalidateQueries();
-        },
-      },
-    );
-  };
-
   const createMutation = useMutation({
     mutationFn: async (payload: CreateTaskPayload) => {
       const response = await api.tasks.create(payload);
@@ -311,7 +286,25 @@ export default function AdminTasks() {
               <DialogTitle>Nauja užduotis</DialogTitle>
               <DialogDescription>Aprašykite užduoties šabloną ir žingsnius.</DialogDescription>
             </DialogHeader>
-            <form onSubmit={handleEditSubmit} className="space-y-6">
+            <form
+              onSubmit={(event) => {
+                event.preventDefault();
+                if (!editingTaskId || updateMutation.isPending) return;
+                const payload = buildTaskPayload(editForm);
+                if (!payload) return;
+                updateMutation.mutate(
+                  { id: editingTaskId, payload },
+                  {
+                    onSuccess: () => {
+                      setIsEditDialogOpen(false);
+                      resetEditForm();
+                      invalidateQueries();
+                    },
+                  },
+                );
+              }}
+              className="space-y-6"
+            >
               {isLoadingEditData && (
                 <p className="text-sm text-muted-foreground">Įkeliami užduoties žingsniai...</p>
               )}

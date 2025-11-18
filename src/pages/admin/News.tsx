@@ -562,7 +562,15 @@ const AdminNews = () => {
                       setFormState((prev) => ({
                         ...prev,
                         attachTask: checked === true,
-                        attachedTaskId: checked === true ? prev.attachedTaskId : "",
+                        ...(checked === true
+                          ? {}
+                          : {
+                              templateId: "",
+                              taskTitle: "",
+                              taskDescription: "",
+                              assignmentStartDate: "",
+                              assignmentDueDate: "",
+                            }),
                       }))
                     }
                   />
@@ -603,7 +611,7 @@ const AdminNews = () => {
                       />
                     </div>
                     <div className="space-y-2">
-                      <Label htmlFor="news-template-select">Užduoties šablonas</Label>
+                      <Label htmlFor="news-template-select">Šablonas</Label>
                       <Select
                         id="news-template-select"
                         value={formState.templateId}

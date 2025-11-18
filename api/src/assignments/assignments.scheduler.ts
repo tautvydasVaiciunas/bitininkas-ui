@@ -46,8 +46,38 @@ export class AssignmentsScheduler {
   async handleDailyReminders() {
     const today = this.getTodayUtc();
 
+    await this.sendStartDateReminders(today);
     await this.sendDueSoonReminders(today);
     await this.sendOverdueReminders(today);
+  }
+
+  private async sendStartDateReminders(today: Date) {
+    const todayLabel = this.formatDate(today);
+
+    try {
+      const assignments = await this.assignmentsRepository.find({
+        where: {
+          startDate: todayLabel,
+          status: Not(AssignmentStatus.DONE),
+        },
+        relations: { hive: { owner: true }, task: true },
+      });
+
+      for (const assignment of assignments) {
+        const taskTitle = assignment.task?.title ?? 'Užduotis';
+        await this.notifyAssignment(
+          assignment,
+          `Užduotis jau aktyvi: ${taskTitle}`,
+          'Užduotis jau aktyvi',
+        );
+      }
+    } catch (error) {
+      const details = error instanceof Error ? error.message : String(error);
+      this.logger.error(
+        `Nepavyko apdoroti aktyvacijos priminimų: ${details}`,
+        error instanceof Error ? error.stack : undefined,
+      );
+    }
   }
 
   @Cron(WEEKLY_REMINDER_CRON)
@@ -100,8 +130,8 @@ export class AssignmentsScheduler {
         const taskTitle = assignment.task?.title ?? 'Užduotis';
         await this.notifyAssignment(
           assignment,
-          `Priminimas: liko 7 dienos iki „${taskTitle}“`,
-          'Primename: iki užduoties liko 7 dienos',
+          `Liko savaitė iki ${taskTitle}`,
+          'Primename: liko savaitė',
         );
       }
     } catch (error) {
@@ -249,8 +279,8 @@ export class AssignmentsScheduler {
         const taskTitle = assignment.task?.title ?? 'Užduotis';
         await this.notifyAssignment(
           assignment,
-          `Praleista užduotis: ${taskTitle}`,
-          'Praleista užduotis',
+          `Užduotis vėluoja: ${taskTitle}`,
+          'Užduotis vėluoja',
         );
       }
     } catch (error) {

@@ -452,7 +452,11 @@ export class AssignmentsService {
 
     return trimmed.endsWith('/') ? trimmed.slice(0, -1) : trimmed;
   }
-  async create(dto: CreateAssignmentDto, user) {
+  async create(
+    dto: CreateAssignmentDto,
+    user,
+    options: { notify?: boolean } = {},
+  ) {
     this.assertManager(user.role);
     const hive = await this.hiveRepository.findOne({
       where: { id: dto.hiveId },
@@ -474,7 +478,8 @@ export class AssignmentsService {
     });
     const saved = await this.assignmentsRepository.save(assignment);
     await this.initializeProgressForAssignments([saved]);
-    await this.notifyAssignmentCreated([saved], task.title, user.id, true);
+    const shouldNotify = options.notify ?? true;
+    await this.notifyAssignmentCreated([saved], task.title, user.id, shouldNotify);
     await this.activityLog.log(
       "assignment_created",
       user.id,

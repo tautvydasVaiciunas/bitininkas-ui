@@ -6,6 +6,7 @@ import {
   IsUUID,
   MaxLength,
 } from 'class-validator';
+import { IsDateOnlyString } from '../../common/validators/is-date-only-string.decorator';
 
 export class CreateNewsDto {
   @IsString({ message: 'Pavadinimas privalomas' })
@@ -27,4 +28,20 @@ export class CreateNewsDto {
   @IsArray({ message: 'Grupės turi būti sąrašas' })
   @IsUUID('4', { each: true, message: 'Neteisingas grupės identifikatorius' })
   groupIds?: string[];
+
+  @IsOptional()
+  @IsUUID('4', { message: 'Neteisingas užduoties šablono identifikatorius' })
+  attachedTaskId?: string;
+
+  @IsOptional()
+  @IsDateOnlyString({ message: 'Pradžios data turi būti YYYY-MM-DD formato' })
+  assignmentStartDate?: string;
+
+  @IsOptional()
+  @IsDateOnlyString({ message: 'Pabaigos data turi būti YYYY-MM-DD formato' })
+  assignmentDueDate?: string;
+
+  @IsOptional()
+  @IsBoolean({ message: 'Netinkamas pranešimų pasirinkimas' })
+  sendNotifications?: boolean;
 }

@@ -8,12 +8,12 @@ import {
 } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
 import { InjectRepository } from '@nestjs/typeorm';
-import { Brackets, In, Repository } from 'typeorm';
+import { Brackets, FindOptionsWhere, In, Repository } from 'typeorm';
 
 import { NewsPost } from './news-post.entity';
 import { Group } from '../groups/group.entity';
 import { GroupMember } from '../groups/group-member.entity';
-import { User } from '../users/user.entity';
+import { User, UserRole } from '../users/user.entity';
 import { NotificationsService } from '../notifications/notifications.service';
 import { CreateNewsDto } from './dto/create-news.dto';
 import { UpdateNewsDto } from './dto/update-news.dto';
@@ -23,6 +23,9 @@ import {
   PaginationService,
   PaginatedResult,
 } from '../common/pagination/pagination.service';
+import { AssignmentsService } from '../assignments/assignments.service';
+import { Task } from '../tasks/task.entity';
+import { Hive } from '../hives/hive.entity';
 
 interface NewsGroupSummary {
   id: string;
@@ -36,6 +39,10 @@ export interface NewsPostResponse {
   imageUrl: string | null;
   targetAll: boolean;
   groups: NewsGroupSummary[];
+  attachedTaskId: string | null;
+  assignmentStartDate: string | null;
+  assignmentDueDate: string | null;
+  sendNotifications: boolean;
   createdAt: string;
   updatedAt: string;
 }
@@ -58,9 +65,14 @@ export class NewsService {
     private readonly groupMembersRepository: Repository<GroupMember>,
     @InjectRepository(User)
     private readonly usersRepository: Repository<User>,
+    @InjectRepository(Task)
+    private readonly taskRepository: Repository<Task>,
+    @InjectRepository(Hive)
+    private readonly hiveRepository: Repository<Hive>,
     private readonly notifications: NotificationsService,
     private readonly configService: ConfigService,
     private readonly pagination: PaginationService,
+    private readonly assignmentsService: AssignmentsService,
   ) {
     this.appBaseUrl = this.normalizeBaseUrl(
       this.configService.get<string>('APP_URL') ??
@@ -143,6 +155,10 @@ export class NewsService {
             name: group.name,
           }))
         : [],
+      attachedTaskId: post.attachedTaskId ?? null,
+      assignmentStartDate: post.assignmentStartDate ?? null,
+      assignmentDueDate: post.assignmentDueDate ?? null,
+      sendNotifications: post.sendNotifications ?? true,
       createdAt: post.createdAt.toISOString(),
       updatedAt: post.updatedAt.toISOString(),
     };
@@ -171,6 +187,66 @@ export class NewsService {
       .getRawMany<{ userId: string }>();
 
     return rows.map((row) => row.userId);
+  }
+
+  private normalizeDate(value?: string | null): string | null {
+    if (!value) {
+      return null;
+    }
+    const trimmed = value.trim();
+    return trimmed.length ? trimmed : null;
+  }
+
+  private getTodayDateString() {
+    const now = new Date();
+    const year = now.getUTCFullYear();
+    const month = String(now.getUTCMonth() + 1).padStart(2, '0');
+    const day = String(now.getUTCDate()).padStart(2, '0');
+    return `${year}-${month}-${day}`;
+  }
+
+  private addDays(value: string, days: number) {
+    const date = new Date(`${value}T00:00:00Z`);
+    date.setUTCDate(date.getUTCDate() + days);
+    return date.toISOString().slice(0, 10);
+  }
+
+  private async collectAssignmentHives(groupIds: string[]): Promise<string[]> {
+    if (!groupIds.length) {
+      return [];
+    }
+
+    const memberships = await this.groupMembersRepository.find({
+      where: { groupId: In(groupIds) },
+    });
+
+    if (!memberships.length) {
+      return [];
+    }
+
+    const ownerIds = Array.from(new Set(memberships.map((membership) => membership.userId)));
+    const explicitHiveIds = Array.from(
+      new Set(
+        memberships
+          .map((membership) => membership.hiveId)
+          .filter((value): value is string => Boolean(value)),
+      ),
+    );
+
+    const where: FindOptionsWhere<Hive>[] = [];
+    if (explicitHiveIds.length) {
+      where.push({ id: In(explicitHiveIds) });
+    }
+    if (ownerIds.length) {
+      where.push({ ownerUserId: In(ownerIds) });
+    }
+
+    if (!where.length) {
+      return [];
+    }
+
+    const hives = await this.hiveRepository.find({ where });
+    return Array.from(new Set(hives.map((hive) => hive.id)));
   }
 
   private buildPaginationResult(
@@ -440,7 +516,7 @@ export class NewsService {
 
   async create(
     dto: CreateNewsDto,
-    actor: { id: string },
+    actor: { id: string; role: UserRole },
   ): Promise<NewsPostResponse> {
     const title = this.sanitizeTitle(dto.title);
     const body = this.sanitizeBody(dto.body);
@@ -458,12 +534,55 @@ export class NewsService {
       groups = await this.resolveGroups(providedIds);
     }
 
+    const attachedTaskId = dto.attachedTaskId?.trim() ?? null;
+    const assignmentStartDate = this.normalizeDate(dto.assignmentStartDate);
+    const assignmentDueDate = this.normalizeDate(dto.assignmentDueDate);
+    const sendNotifications = dto.sendNotifications !== false;
+
+    let assignmentConfiguration:
+      | {
+          hiveIds: string[];
+          startDate: string;
+          dueDate: string;
+        }
+      | null = null;
+
+    if (attachedTaskId) {
+      if (!groups.length) {
+        throw new BadRequestException('Pridėkite bent vieną grupę, kad sukurtumėte užduotį');
+      }
+
+      const task = await this.taskRepository.findOne({ where: { id: attachedTaskId } });
+      if (!task) {
+        throw new NotFoundException('Užduoties šablonas nerastas');
+      }
+
+      const hiveIds = await this.collectAssignmentHives(groups.map((group) => group.id));
+      if (!hiveIds.length) {
+        throw new BadRequestException('Nepavyko rasti avilių pasirinktomis grupėmis');
+      }
+
+      const startDateValue = assignmentStartDate ?? this.getTodayDateString();
+      const dueDateValue =
+        assignmentDueDate ?? this.addDays(startDateValue, task.defaultDueDays);
+
+      assignmentConfiguration = {
+        hiveIds,
+        startDate: startDateValue,
+        dueDate: dueDateValue,
+      };
+    }
+
     const post = this.newsRepository.create({
       title,
       body,
       imageUrl: imageUrl === undefined ? null : imageUrl,
       targetAll,
       groups,
+      attachedTaskId,
+      assignmentStartDate,
+      assignmentDueDate,
+      sendNotifications,
     });
 
     const saved = await runWithDatabaseErrorHandling(
@@ -477,6 +596,28 @@ export class NewsService {
 
     if (!full) {
       throw new NotFoundException('Naujiena nerasta');
+    }
+
+    if (assignmentConfiguration) {
+      try {
+        await Promise.all(
+          assignmentConfiguration.hiveIds.map((hiveId) =>
+              this.assignmentsService.create(
+                {
+                  hiveId,
+                  taskId: attachedTaskId!,
+                  startDate: assignmentConfiguration.startDate,
+                  dueDate: assignmentConfiguration.dueDate,
+                },
+              actor,
+              { notify: sendNotifications },
+            ),
+          ),
+        );
+      } catch (error) {
+        await this.newsRepository.delete(saved.id);
+        throw error;
+      }
     }
 
     const recipientGroupIds = groups.map((group) => group.id);
@@ -498,7 +639,9 @@ export class NewsService {
           link,
           sendEmail: true,
           emailSubject: 'Nauja naujiena',
-          emailBody: [`Paskelbta nauja naujiena „${title}“.`, body].join('\n\n'),
+          emailBody: `Paskelbta nauja naujiena "${title}"
+
+${body}`,
           emailCtaUrl,
         });
       } catch (error) {
@@ -511,7 +654,6 @@ export class NewsService {
 
     return this.mapPost(full);
   }
-
   async update(id: string, dto: UpdateNewsDto): Promise<NewsPostResponse> {
     const post = await this.newsRepository.findOne({
       where: { id },
@@ -532,6 +674,22 @@ export class NewsService {
 
     if (dto.targetAll !== undefined) {
       post.targetAll = dto.targetAll;
+    }
+
+    if (dto.attachedTaskId !== undefined) {
+      post.attachedTaskId = dto.attachedTaskId?.trim() ?? null;
+    }
+
+    if (dto.assignmentStartDate !== undefined) {
+      post.assignmentStartDate = this.normalizeDate(dto.assignmentStartDate);
+    }
+
+    if (dto.assignmentDueDate !== undefined) {
+      post.assignmentDueDate = this.normalizeDate(dto.assignmentDueDate);
+    }
+
+    if (dto.sendNotifications !== undefined) {
+      post.sendNotifications = dto.sendNotifications;
     }
 
     const normalizedImageUrl = this.sanitizeImageUrl(dto.imageUrl);

@@ -2,12 +2,15 @@ import {
   Column,
   CreateDateColumn,
   Entity,
+  JoinColumn,
   JoinTable,
   ManyToMany,
+  ManyToOne,
   PrimaryGeneratedColumn,
   UpdateDateColumn,
 } from 'typeorm';
 import { Group } from '../groups/group.entity';
+import { Task } from '../tasks/task.entity';
 
 @Entity({ name: 'news_posts' })
 export class NewsPost {
@@ -25,6 +28,22 @@ export class NewsPost {
 
   @Column({ name: 'target_all', type: 'boolean', default: true })
   targetAll!: boolean;
+
+  @Column({ name: 'attached_task_id', type: 'uuid', nullable: true })
+  attachedTaskId!: string | null;
+
+  @ManyToOne(() => Task, { eager: false })
+  @JoinColumn({ name: 'attached_task_id' })
+  attachedTask?: Task | null;
+
+  @Column({ name: 'assignment_start_date', type: 'date', nullable: true })
+  assignmentStartDate!: string | null;
+
+  @Column({ name: 'assignment_due_date', type: 'date', nullable: true })
+  assignmentDueDate!: string | null;
+
+  @Column({ name: 'send_notifications', type: 'boolean', default: true })
+  sendNotifications!: boolean;
 
   @CreateDateColumn({ name: 'created_at' })
   createdAt!: Date;

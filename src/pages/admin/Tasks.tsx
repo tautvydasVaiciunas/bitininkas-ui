@@ -1,4 +1,4 @@
-import { FormEvent, useMemo, useRef, useState } from 'react';
+import { useMemo, useRef, useState } from 'react';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { Archive, Edit, Loader2, Plus, Search } from 'lucide-react';
 import { toast } from 'sonner';
@@ -68,9 +68,7 @@ export default function AdminTasks() {
   const [editingTaskId, setEditingTaskId] = useState<string | null>(null);
   const editingTaskIdRef = useRef<string | null>(null);
   const [editForm, setEditForm] = useState<TaskFormState>(buildDefaultTaskFormValues);
-  const [createForm, setCreateForm] = useState<TaskFormState>(buildDefaultTaskFormValues);
   const [isLoadingEditData, setIsLoadingEditData] = useState(false);
-  const [isTaskDialogOpen, setIsTaskDialogOpen] = useState(false);
 
   const { data: tasks = [], isLoading, isError } = useQuery<Task[]>({
     queryKey: adminTasksQueryKey,
@@ -217,39 +215,6 @@ export default function AdminTasks() {
   const editFormDisabled =
     !editingTaskId || updateMutation.isPending || isLoadingEditData;
 
-  const createMutation = useMutation({
-    mutationFn: async (payload: CreateTaskPayload) => {
-      const response = await api.tasks.create(payload);
-      return mapTaskFromApi(response);
-    },
-    onSuccess: (task) => {
-      toast.success(`Užduotis "${task.title}" sukurta`);
-      setIsTaskDialogOpen(false);
-      setCreateForm(buildDefaultTaskFormValues());
-      invalidateQueries();
-    },
-    onError: (error: unknown) => {
-      if (error instanceof HttpError) {
-        toast.error(error.message);
-        return;
-      }
-      toast.error('Nepavyko sukurti užduoties');
-    },
-  });
-
-  const handleCreateSubmit = async (event: FormEvent<HTMLFormElement>) => {
-    event.preventDefault();
-    const payload = buildTaskPayload(createForm);
-    if (!payload) {
-      return;
-    }
-    try {
-      await createMutation.mutateAsync(payload);
-    } catch {
-      // handled in mutation onError
-    }
-  };
-
   const getFrequencyLabel = (frequency: Task['frequency']) => {
     const labels: Record<Task['frequency'], string> = {
       once: 'Vienkartinė',
@@ -275,148 +240,7 @@ export default function AdminTasks() {
   return (
     <MainLayout>
       <div className="space-y-6">
-        <Dialog
-          open={isEditDialogOpen}
-          onOpenChange={(open) => {
-            setIsEditDialogOpen(open);
-            if (!open) {
-              resetEditForm();
-            }
-          }}
-        >
-          <DialogContent className="max-h-[90vh] overflow-y-auto sm:max-w-2xl">
-            <DialogHeader>
-              <DialogTitle>Nauja užduotis</DialogTitle>
-              <DialogDescription>Aprašykite užduoties šabloną ir žingsnius.</DialogDescription>
-            </DialogHeader>
-            <form
-              onSubmit={(event) => {
-                event.preventDefault();
-                if (!editingTaskId || updateMutation.isPending) return;
-                const payload = buildTaskPayload(editForm);
-                if (!payload) return;
-                updateMutation.mutate(
-                  { id: editingTaskId, payload },
-                  {
-                    onSuccess: () => {
-                      setIsEditDialogOpen(false);
-                      resetEditForm();
-                      invalidateQueries();
-                    },
-                  },
-                );
-              }}
-              className="space-y-6"
-            >
-              {isLoadingEditData && (
-                <p className="text-sm text-muted-foreground">Įkeliami užduoties žingsniai...</p>
-              )}
 
-              <TaskDetailsForm
-                values={editForm}
-                onChange={(updater) => setEditForm((prev) => updater(prev))}
-                disabled={editFormDisabled}
-              />
-
-              <DialogFooter className="flex flex-col gap-2 sm:flex-row sm:justify-end">
-                <Button
-                  type="button"
-                  variant="outline"
-                  onClick={() => {
-                    setIsEditDialogOpen(false);
-                    resetEditForm();
-                  }}
-                  disabled={updateMutation.isPending}
-                >
-                  Atšaukti
-                </Button>
-                <Button type="submit" disabled={updateMutation.isPending || isLoadingEditData}>
-                  {updateMutation.isPending ? (
-                    <>
-                      <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-                      Saugoma...
-                    </>
-                  ) : isLoadingEditData ? (
-                    <>
-                      <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-                      Kraunama...
-                    </>
-                  ) : (
-                    'Išsaugoti'
-                  )}
-                </Button>
-              </DialogFooter>
-            </form>
-          </DialogContent>
-        </Dialog>
-
-        <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
-          <div>
-            <h1 className="text-3xl font-bold">Užduotys</h1>
-            <p className="text-muted-foreground mt-1">
-              Kurkite ir redaguokite bitininkams skirtas užduotis.
-            </p>
-          </div>
-          <Dialog
-            open={isTaskDialogOpen}
-            onOpenChange={(open) => {
-              setIsTaskDialogOpen(open);
-              if (!open) {
-                setCreateForm(buildDefaultTaskFormValues());
-              }
-            }}
-          >
-            <DialogTrigger asChild>
-              <Button disabled={createMutation.isPending}>
-                {createMutation.isPending ? (
-                  <>
-                    <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-                    Saugoma...
-                  </>
-                ) : (
-                  <Plus className="mr-2 w-4 h-4" />
-                )}
-                {createMutation.isPending ? 'Saugoma...' : 'Sukurti užduotį'}
-              </Button>
-            </DialogTrigger>
-            <DialogContent className="max-h-[90vh] overflow-y-auto sm:max-w-2xl">
-              <DialogHeader>
-                <DialogTitle>Nauja užduotis</DialogTitle>
-                <DialogDescription>Aprašykite užduoties šabloną ir žingsnius.</DialogDescription>
-              </DialogHeader>
-              <form onSubmit={handleCreateSubmit} className="space-y-4">
-                <TaskDetailsForm
-                  values={createForm}
-                  onChange={(updater) => setCreateForm((prev) => updater(prev))}
-                  disabled={createMutation.isPending}
-                />
-                <DialogFooter className="flex flex-col gap-2 sm:flex-row sm:justify-end">
-                  <Button
-                    type="button"
-                    variant="outline"
-                    onClick={() => {
-                      setIsTaskDialogOpen(false);
-                      setCreateForm(buildDefaultTaskFormValues());
-                    }}
-                    disabled={createMutation.isPending}
-                  >
-                    Atšaukti
-                  </Button>
-                  <Button type="submit" disabled={createMutation.isPending}>
-                    {createMutation.isPending ? (
-                      <>
-                        <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-                        Saugoma...
-                      </>
-                    ) : (
-                      'Sukurti užduotį'
-                    )}
-                  </Button>
-                </DialogFooter>
-              </form>
-            </DialogContent>
-          </Dialog>
-        </div>
         <Card className="shadow-custom">
           <CardContent className="p-6">
             <div className="flex flex-col sm:flex-row gap-4">

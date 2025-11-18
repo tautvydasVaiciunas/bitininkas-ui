@@ -12,12 +12,15 @@ import { NotificationsModule } from '../notifications/notifications.module';
 import { AssignmentsModule } from '../assignments/assignments.module';
 import { Task } from '../tasks/task.entity';
 import { Hive } from '../hives/hive.entity';
+import { Template } from '../templates/template.entity';
+import { TasksModule } from '../tasks/tasks.module';
 
 @Module({
   imports: [
-    TypeOrmModule.forFeature([NewsPost, Group, GroupMember, User, Task, Hive]),
+    TypeOrmModule.forFeature([NewsPost, Group, GroupMember, User, Task, Hive, Template]),
     NotificationsModule,
     AssignmentsModule,
+    TasksModule,
   ],
   controllers: [NewsController, AdminNewsController],
   providers: [NewsService],

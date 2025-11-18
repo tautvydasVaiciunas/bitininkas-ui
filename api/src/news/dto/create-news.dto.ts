@@ -30,8 +30,20 @@ export class CreateNewsDto {
   groupIds?: string[];
 
   @IsOptional()
-  @IsUUID('4', { message: 'Neteisingas užduoties šablono identifikatorius' })
-  attachedTaskId?: string;
+  @IsBoolean()
+  attachTask?: boolean;
+
+  @IsOptional()
+  @IsUUID('4', { message: 'Neteisingas šablono identifikatorius' })
+  templateId?: string;
+
+  @IsOptional()
+  @IsString({ message: 'Užduoties pavadinimas turi būti tekstas' })
+  taskTitle?: string;
+
+  @IsOptional()
+  @IsString()
+  taskDescription?: string;
 
   @IsOptional()
   @IsDateOnlyString({ message: 'Pradžios data turi būti YYYY-MM-DD formato' })

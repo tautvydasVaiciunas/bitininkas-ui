@@ -214,6 +214,9 @@ export default function AdminTasks() {
     },
   });
 
+  const editFormDisabled =
+    !editingTaskId || updateMutation.isPending || isLoadingEditData;
+
   const createMutation = useMutation({
     mutationFn: async (payload: CreateTaskPayload) => {
       const response = await api.tasks.create(payload);

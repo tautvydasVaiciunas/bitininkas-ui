@@ -214,6 +214,22 @@ export default function AdminTasks() {
     },
   });
 
+  const handleEditSubmit = (event: FormEvent<HTMLFormElement>) => {
+    event.preventDefault();
+
+    if (!editingTaskId) {
+      toast.error(messages.updateError);
+      return;
+    }
+
+    const payload = buildTaskPayload(editForm);
+    if (!payload) {
+      return;
+    }
+
+    updateMutation.mutate({ id: editingTaskId, payload });
+  };
+
   const createMutation = useMutation({
     mutationFn: async (payload: CreateTaskPayload) => {
       const response = await api.tasks.create(payload);

@@ -51,8 +51,6 @@ interface NewsFormState {
   groupIds: string[];
   attachTask: boolean;
   attachedTaskId: string;
-  assignmentStartDate: string;
-  assignmentDueDate: string;
   sendNotifications: boolean;
 }
 
@@ -64,8 +62,6 @@ const defaultFormState: NewsFormState = {
   groupIds: [],
   attachTask: false,
   attachedTaskId: "",
-  assignmentStartDate: "",
-  assignmentDueDate: "",
   sendNotifications: true,
 };
 
@@ -161,8 +157,6 @@ const AdminNews = () => {
       groupIds: post.groups.map((group) => group.id),
       attachTask: Boolean(post.attachedTaskId),
       attachedTaskId: post.attachedTaskId ?? "",
-      assignmentStartDate: post.assignmentStartDate ?? "",
-      assignmentDueDate: post.assignmentDueDate ?? "",
       sendNotifications: post.sendNotifications ?? true,
     });
     setGroupError(null);
@@ -402,14 +396,16 @@ const AdminNews = () => {
       </div>
 
       <Dialog open={isDialogOpen} onOpenChange={(open) => (open ? setIsDialogOpen(true) : closeDialog())}>
-        <DialogContent className="max-w-2xl">
-          <form onSubmit={handleSubmit} className="space-y-4">
+        <DialogContent className="max-h-[90vh] w-full sm:max-w-2xl">
+          <form onSubmit={handleSubmit} className="flex flex-col gap-4">
             <DialogHeader>
               <DialogTitle>{editingPost ? "Redaguoti naujieną" : "Nauja naujiena"}</DialogTitle>
               <DialogDescription>
                 Užpildykite visus laukus ir pasirinkite matomumo nustatymus.
               </DialogDescription>
             </DialogHeader>
+
+            <div className="flex-1 overflow-y-auto space-y-4 pr-2">
 
             <div className="space-y-2">
               <Label htmlFor="news-title">Pavadinimas</Label>
@@ -563,78 +559,48 @@ const AdminNews = () => {
                 </div>
               </div>
 
-              {formState.attachTask ? (
-                <div className="space-y-4">
-                  <div className="space-y-2">
-                    <Label htmlFor="news-task-select">Užduoties šablonas</Label>
-                    <Select
-                      id="news-task-select"
-                      value={formState.attachedTaskId}
-                      onValueChange={(value) =>
-                        setFormState((prev) => ({ ...prev, attachedTaskId: value }))
-                      }
-                      disabled={isTasksLoading || isSaving}
-                    >
-                      <SelectTrigger>
-                        <SelectValue placeholder={isTasksLoading ? "Kraunama..." : "Pasirinkite užduotį"} />
-                      </SelectTrigger>
-                      <SelectContent>
-                        {taskOptions.map((option) => (
-                          <SelectItem key={option.id} value={option.id}>
-                            {option.label}
-                          </SelectItem>
-                        ))}
-                      </SelectContent>
-                    </Select>
-                  </div>
+                  {formState.attachTask ? (
+                    <div className="space-y-4">
+                      <div className="space-y-2">
+                        <Label htmlFor="news-task-select">Užduoties šablonas</Label>
+                        <Select
+                          id="news-task-select"
+                          value={formState.attachedTaskId}
+                          onValueChange={(value) =>
+                            setFormState((prev) => ({ ...prev, attachedTaskId: value }))
+                          }
+                          disabled={isTasksLoading || isSaving}
+                        >
+                          <SelectTrigger>
+                            <SelectValue placeholder={isTasksLoading ? "Kraunama..." : "Pasirinkite užduotį"} />
+                          </SelectTrigger>
+                          <SelectContent>
+                            {taskOptions.map((option) => (
+                              <SelectItem key={option.id} value={option.id}>
+                                {option.label}
+                              </SelectItem>
+                            ))}
+                          </SelectContent>
+                        </Select>
+                      </div>
 
-                  <div className="grid gap-4 sm:grid-cols-2">
-                    <div className="space-y-2">
-                      <Label htmlFor="news-assignment-start">Pradžios data</Label>
-                      <Input
-                        id="news-assignment-start"
-                        type="date"
-                        value={formState.assignmentStartDate}
-                        onChange={(event) =>
-                          setFormState((prev) => ({ ...prev, assignmentStartDate: event.target.value }))
-                        }
-                        disabled={isSaving}
-                      />
+                      <div className="flex items-center gap-2">
+                        <Checkbox
+                          id="news-send-notifications"
+                          checked={formState.sendNotifications}
+                          onCheckedChange={(checked) =>
+                            setFormState((prev) => ({ ...prev, sendNotifications: Boolean(checked) }))
+                          }
+                          disabled={isSaving}
+                        />
+                        <Label htmlFor="news-send-notifications" className="text-sm text-muted-foreground">
+                          Siųsti pranešimus ir el. laiškus gavėjams
+                        </Label>
+                      </div>
                     </div>
-                    <div className="space-y-2">
-                      <Label htmlFor="news-assignment-due">Pabaigos data</Label>
-                      <Input
-                        id="news-assignment-due"
-                        type="date"
-                        value={formState.assignmentDueDate}
-                        onChange={(event) =>
-                          setFormState((prev) => ({ ...prev, assignmentDueDate: event.target.value }))
-                        }
-                        disabled={isSaving}
-                      />
-                    </div>
-                  </div>
-
-                  <div className="flex items-center gap-2">
-                    <Checkbox
-                      id="news-send-notifications"
-                      checked={formState.sendNotifications}
-                      onCheckedChange={(checked) =>
-                        setFormState((prev) => ({ ...prev, sendNotifications: Boolean(checked) }))
-                      }
-                      disabled={isSaving}
-                    />
-                    <Label htmlFor="news-send-notifications" className="text-sm text-muted-foreground">
-                      Siųsti pranešimus ir el. laiškus gavėjams
-                    </Label>
-                  </div>
-
-                  <p className="text-xs text-muted-foreground">
-                    Palikite datas tuščias, jei norite naudoti numatytus terminus iš šablono.
-                  </p>
-                </div>
-              ) : null}
+                  ) : null}
             </div>
+          </div>
 
             <DialogFooter>
               <Button type="button" variant="ghost" onClick={closeDialog} disabled={isSaving}>
@@ -697,8 +663,6 @@ function buildPayload(state: NewsFormState) {
     ...(state.attachTask
       ? {
           attachedTaskId: state.attachedTaskId || undefined,
-          assignmentStartDate: state.assignmentStartDate || undefined,
-          assignmentDueDate: state.assignmentDueDate || undefined,
           sendNotifications: state.sendNotifications,
         }
       : {}),

@@ -227,7 +227,16 @@ export default function AdminTasks() {
       return;
     }
 
-    updateMutation.mutate({ id: editingTaskId, payload });
+    updateMutation.mutate(
+      { id: editingTaskId, payload },
+      {
+        onSuccess: () => {
+          setIsEditDialogOpen(false);
+          resetEditForm();
+          invalidateQueries();
+        },
+      },
+    );
   };
 
   const createMutation = useMutation({

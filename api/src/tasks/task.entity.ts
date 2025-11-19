@@ -13,6 +13,8 @@ import {
 import { User } from '../users/user.entity';
 import { TaskStep } from './steps/task-step.entity';
 import { Assignment } from '../assignments/assignment.entity';
+import { Template } from '../templates/template.entity';
+import { NewsPost } from '../news/news-post.entity';
 
 export enum TaskFrequency {
   ONCE = 'once',
@@ -45,6 +47,13 @@ export class Task {
   @Column({ name: 'default_due_days', type: 'int', default: 7 })
   defaultDueDays!: number;
 
+  @ManyToOne(() => Template, { eager: false })
+  @JoinColumn({ name: 'template_id' })
+  template?: Template | null;
+
+  @Column({ name: 'template_id', type: 'uuid', nullable: true })
+  templateId!: string | null;
+
   @ManyToOne(() => User, (user) => user.tasks, { eager: false })
   @JoinColumn({ name: 'created_by_user_id' })
   createdBy!: User;
@@ -57,6 +66,9 @@ export class Task {
 
   @OneToMany(() => Assignment, (assignment) => assignment.task)
   assignments!: Assignment[];
+
+  @OneToMany(() => NewsPost, (post) => post.attachedTask)
+  newsPosts!: NewsPost[];
 
   @CreateDateColumn({ name: 'created_at' })
   createdAt!: Date;

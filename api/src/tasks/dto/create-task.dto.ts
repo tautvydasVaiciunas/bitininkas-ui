@@ -11,6 +11,7 @@ import {
   Min,
   MinLength,
   ValidateNested,
+  IsUUID,
 } from 'class-validator';
 import { TaskFrequency } from '../task.entity';
 import { CreateTaskStepInputDto } from './create-task-step.dto';
@@ -51,4 +52,8 @@ export class CreateTaskDto {
   @ValidateNested({ each: true })
   @Type(() => CreateTaskStepInputDto)
   steps?: CreateTaskStepInputDto[];
+
+  @IsOptional()
+  @IsUUID('4', { message: 'Neteisingas šablono identifikatorius' })
+  templateId?: string;
 }

@@ -1,6 +1,6 @@
-import { useMemo, useRef, useState } from 'react';
+import { type FormEvent, useMemo, useRef, useState } from 'react';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
-import { Archive, Edit, Loader2, Plus, Search } from 'lucide-react';
+import { Archive, Edit, Loader2, Search } from 'lucide-react';
 import { toast } from 'sonner';
 
 import { MainLayout } from '@/components/Layout/MainLayout';
@@ -14,7 +14,6 @@ import {
   DialogFooter,
   DialogHeader,
   DialogTitle,
-  DialogTrigger,
 } from '@/components/ui/dialog';
 import { Input } from '@/components/ui/input';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
@@ -66,6 +65,7 @@ export default function AdminTasks() {
   const [categoryFilter, setCategoryFilter] = useState<string>('all');
   const [isEditDialogOpen, setIsEditDialogOpen] = useState(false);
   const [editingTaskId, setEditingTaskId] = useState<string | null>(null);
+  const [editingTask, setEditingTask] = useState<Task | null>(null);
   const editingTaskIdRef = useRef<string | null>(null);
   const [editForm, setEditForm] = useState<TaskFormState>(buildDefaultTaskFormValues);
   const [isLoadingEditData, setIsLoadingEditData] = useState(false);
@@ -95,7 +95,13 @@ export default function AdminTasks() {
     setEditForm(buildDefaultTaskFormValues());
     setEditingTaskId(null);
     editingTaskIdRef.current = null;
+    setEditingTask(null);
     setIsLoadingEditData(false);
+  };
+
+  const closeEditDialog = () => {
+    setIsEditDialogOpen(false);
+    resetEditForm();
   };
 
   const invalidateQueries = () => {
@@ -105,16 +111,10 @@ export default function AdminTasks() {
     void queryClient.invalidateQueries({ queryKey: ['notifications'] });
   };
 
-  const buildTaskPayload = (values: TaskFormState): CreateTaskPayload | null => {
+  const buildTaskPayload = (values: TaskFormState): UpdateTaskPayload | null => {
     const trimmedTitle = values.title.trim();
     if (!trimmedTitle) {
       toast.error(messages.validationTitle);
-      return null;
-    }
-
-    const parsedDefaultDueDays = Number(values.defaultDueDays);
-    if (!Number.isFinite(parsedDefaultDueDays) || parsedDefaultDueDays <= 0) {
-      toast.error(messages.validationDefaultDueDays);
       return null;
     }
 
@@ -132,26 +132,37 @@ export default function AdminTasks() {
       return null;
     }
 
-    const seasonMonths = [...values.seasonMonths].sort((a, b) => a - b);
-
     return {
       title: trimmedTitle,
       description: values.description.trim() || undefined,
-      category: values.category.trim() || undefined,
-      frequency: values.frequency,
-      defaultDueDays: parsedDefaultDueDays,
-      seasonMonths: seasonMonths.length > 0 ? seasonMonths : undefined,
-      steps: sanitizedSteps.map((step) => ({
+      steps: sanitizedSteps.map((step, index) => ({
         title: step.title,
         contentText: step.contentText || undefined,
+        orderIndex: index + 1,
       })),
     };
+  };
+
+  const handleEditSubmit = (event: FormEvent<HTMLFormElement>) => {
+    event.preventDefault();
+
+    if (!editingTaskId) {
+      return;
+    }
+
+    const payload = buildTaskPayload(editForm);
+    if (!payload) {
+      return;
+    }
+
+    updateMutation.mutate({ id: editingTaskId, payload });
   };
 
   const handleOpenEditDialog = (task: Task) => {
     const taskId = task.id;
     setEditingTaskId(taskId);
     editingTaskIdRef.current = taskId;
+    setEditingTask(task);
     setIsEditDialogOpen(true);
     setIsLoadingEditData(true);
     setEditForm(mapTaskToFormValues(task));
@@ -349,6 +360,50 @@ export default function AdminTasks() {
           </div>
         )}
       </div>
+
+      <Dialog open={isEditDialogOpen} onOpenChange={(open) => !open && closeEditDialog()}>
+        <DialogContent className="sm:max-w-3xl w-full">
+          <form onSubmit={handleEditSubmit} className="flex flex-col gap-4">
+            <DialogHeader>
+              <DialogTitle>Redaguoti užduotį</DialogTitle>
+              <DialogDescription>
+                Keiskite pavadinimą, aprašymą ir žingsnius. Senosios kategorijų/dažnio parinktys nerodomos.
+              </DialogDescription>
+            </DialogHeader>
+
+            {editingTask ? (
+              <div className="rounded-md border border-muted p-3 text-sm text-muted-foreground">
+                <p>
+                  <span className="font-semibold">Šablonas:</span>{' '}
+                  {editingTask.category ?? 'Informacija neprieinama'}
+                </p>
+                <p>
+                  <span className="font-semibold">Sukurta:</span>{' '}
+                  {new Date(editingTask.createdAt).toLocaleDateString('lt-LT')}
+                </p>
+              </div>
+            ) : null}
+
+            <TaskDetailsForm
+              className="flex-1"
+              values={editForm}
+              onChange={(updater) => setEditForm(updater)}
+              disabled={editFormDisabled || isLoadingEditData}
+              showScheduling={false}
+            />
+
+            <DialogFooter>
+              <Button type="button" variant="ghost" onClick={closeEditDialog} disabled={updateMutation.isPending}>
+                Atšaukti
+              </Button>
+              <Button type="submit" disabled={editFormDisabled}>
+                {updateMutation.isPending ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : null}
+                Išsaugoti
+              </Button>
+            </DialogFooter>
+          </form>
+        </DialogContent>
+      </Dialog>
     </MainLayout>
   );
 }

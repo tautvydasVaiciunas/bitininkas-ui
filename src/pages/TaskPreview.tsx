@@ -129,9 +129,16 @@ export default function TaskPreview() {
           <CardContent className="space-y-3">
             <div className="flex flex-col gap-2">
               {isActive ? (
-                <Button onClick={() => navigate(`/tasks/${assignment.assignment.id}/run`)}>
-                  Vykdyti užduotį
-                </Button>
+                <div className="mt-4 flex justify-end">
+                  <Button
+                    size="lg"
+                    variant="default"
+                    className="w-full justify-center sm:w-auto"
+                    onClick={() => navigate(`/tasks/${assignment.assignment.id}/run`)}
+                  >
+                    Vykdyti užduotį
+                  </Button>
+                </div>
               ) : (
                 <p className="text-sm text-muted-foreground">
                   Ši užduotis dar neprasidėjo. Pradžios data: {formatDate(assignment.assignment.startDate)}.

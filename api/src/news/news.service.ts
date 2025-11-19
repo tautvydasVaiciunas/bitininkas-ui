@@ -623,7 +623,6 @@ export class NewsService {
 
       const taskPayload: CreateTaskDto = {
         title: dto.taskTitle.trim(),
-        description: this.normalizeNullable(dto.taskDescription) ?? undefined,
         steps: this.buildStepsFromTemplate(template),
       };
 

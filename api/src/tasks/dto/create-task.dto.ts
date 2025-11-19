@@ -24,12 +24,6 @@ export class CreateTaskDto {
   title!: string;
 
   @IsOptional()
-  @IsString({ message: 'Aprašymas turi būti tekstas' })
-  @Transform(({ value }) => (typeof value === 'string' ? value.trim() : value))
-  @MaxLength(255, { message: 'Aprašymas per ilgas' })
-  description?: string;
-
-  @IsOptional()
   @IsString({ message: 'Kategorija turi būti tekstas' })
   @Transform(({ value }) => (typeof value === 'string' ? value.trim() : value))
   @MaxLength(100, { message: 'Kategorija per ilga' })

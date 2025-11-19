@@ -84,14 +84,16 @@ const NewsDetail = () => {
             <p className="mt-2 text-sm">Galbūt ji buvo pašalinta arba neturite prieigos.</p>
           </div>
         ) : (
-          <Card className="overflow-hidden">
-            <ResponsiveMedia
-              url={coverUrl ?? undefined}
-              type={coverMediaType}
-              title={data.title}
-              className="rounded-none"
-            />
-            <CardHeader className="space-y-4">
+      <Card className="overflow-hidden">
+        <div className="w-full max-w-4xl mx-auto">
+          <ResponsiveMedia
+            url={coverUrl ?? undefined}
+            type={coverMediaType}
+            title={data.title}
+            className="rounded-none"
+          />
+        </div>
+        <CardHeader className="space-y-4">
               <div className="flex flex-col gap-2 text-sm text-muted-foreground sm:flex-row sm:items-center sm:justify-between">
                 <span>Paskelbta: {formatDateTime(data.createdAt)}</span>
                 {data.updatedAt !== data.createdAt ? (

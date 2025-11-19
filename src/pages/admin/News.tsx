@@ -55,7 +55,6 @@ interface NewsFormState {
   assignmentStartDate: string;
   assignmentDueDate: string;
   taskTitle: string;
-  taskDescription: string;
 }
 
 const defaultFormState: NewsFormState = {
@@ -70,7 +69,6 @@ const defaultFormState: NewsFormState = {
   assignmentStartDate: "",
   assignmentDueDate: "",
   taskTitle: "",
-  taskDescription: "",
 };
 
 const PAGE_SIZE = 10;
@@ -177,7 +175,6 @@ const AdminNews = () => {
       assignmentStartDate: post.assignmentStartDate ?? "",
       assignmentDueDate: post.assignmentDueDate ?? "",
       taskTitle: "",
-      taskDescription: "",
     });
     setGroupError(null);
     setIsDialogOpen(true);
@@ -567,7 +564,6 @@ const AdminNews = () => {
                           : {
                               templateId: "",
                               taskTitle: "",
-                              taskDescription: "",
                               assignmentStartDate: "",
                               assignmentDueDate: "",
                             }),
@@ -596,18 +592,6 @@ const AdminNews = () => {
                         }
                         disabled={isSaving}
                         required
-                      />
-                    </div>
-                    <div className="space-y-2">
-                      <Label htmlFor="news-task-description">Užduoties aprašymas</Label>
-                      <Textarea
-                        id="news-task-description"
-                        value={formState.taskDescription}
-                        onChange={(event) =>
-                          setFormState((prev) => ({ ...prev, taskDescription: event.target.value }))
-                        }
-                        rows={3}
-                        disabled={isSaving}
                       />
                     </div>
                     <div className="space-y-2">
@@ -741,7 +725,6 @@ function buildPayload(state: NewsFormState) {
           attachTask: true,
           templateId: state.templateId || undefined,
           taskTitle: state.taskTitle.trim(),
-          taskDescription: state.taskDescription.trim() || undefined,
           assignmentStartDate: state.assignmentStartDate || undefined,
           assignmentDueDate: state.assignmentDueDate || undefined,
           sendNotifications: state.sendNotifications,

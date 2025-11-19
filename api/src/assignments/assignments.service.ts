@@ -8,7 +8,7 @@ import {
 } from "@nestjs/common";
 import { ConfigService } from "@nestjs/config";
 import { InjectRepository } from "@nestjs/typeorm";
-import { DataSource, FindOptionsWhere, In, Not, Repository } from "typeorm";
+import { DataSource, DeepPartial, FindOptionsWhere, In, Not, Repository } from "typeorm";
 import { Assignment, AssignmentStatus } from "./assignment.entity";
 import { CreateAssignmentDto } from "./dto/create-assignment.dto";
 import { UpdateAssignmentDto } from "./dto/update-assignment.dto";
@@ -570,9 +570,8 @@ export class AssignmentsService {
 
       const taskEntity = taskRepo.create({
         title: trimmedTitle,
-        description: dto.description?.trim() ?? '',
         createdByUserId: user.id,
-      });
+      } as DeepPartial<Task>);
       const savedTask = await taskRepo.save(taskEntity);
 
       const templateSteps = (template.steps ?? []).slice().sort((a, b) => a.orderIndex - b.orderIndex);

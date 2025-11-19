@@ -23,10 +23,6 @@ export class BulkFromTemplateDto {
   @IsNotEmpty({ message: 'Pavadinimas privalomas' })
   title!: string;
 
-  @IsOptional()
-  @IsString({ message: 'Neteisingi duomenys' })
-  description?: string;
-
   @IsDateOnlyString({ message: 'Pradžios data turi būti formato YYYY-MM-DD' })
   startDate!: string;
 

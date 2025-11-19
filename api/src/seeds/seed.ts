@@ -12,6 +12,7 @@ import {
 import { User, UserRole } from '../users/user.entity';
 import { Hive, HiveStatus } from '../hives/hive.entity';
 import { Task, TaskFrequency } from '../tasks/task.entity';
+import { DeepPartial } from 'typeorm';
 import { TaskStep, TaskStepMediaType } from '../tasks/steps/task-step.entity';
 import { Tag } from '../tasks/tags/tag.entity';
 import { Template } from '../templates/template.entity';
@@ -239,33 +240,30 @@ async function runSeed(): Promise<void> {
 
     const task1 = taskRepository.create({
       title: 'Pavasarinė apžiūra',
-      description: 'Patikrinkite avilius po žiemos',
       category: 'inspection',
       seasonMonths: [3, 4],
       frequency: TaskFrequency.ONCE,
       defaultDueDays: 7,
       createdByUserId: manager.id,
-    });
+    } as DeepPartial<Task>);
 
     const task2 = taskRepository.create({
       title: 'Medunešio derlius',
-      description: 'Surinkite medų iš meduvių',
       category: 'harvest',
       seasonMonths: [7, 8],
       frequency: TaskFrequency.MONTHLY,
       defaultDueDays: 14,
       createdByUserId: manager.id,
-    });
+    } as DeepPartial<Task>);
 
     const task3 = taskRepository.create({
       title: 'Rudeninė apsauga',
-      description: 'Kuo rūpestingiau paruoškite avilį žiemai',
       category: 'preparation',
       seasonMonths: [9, 10, 11],
       frequency: TaskFrequency.ONCE,
       defaultDueDays: 14,
       createdByUserId: manager.id,
-    });
+    } as DeepPartial<Task>);
 
     const task4 = taskRepository.create({
       title: 'Inventoriaus sąrašo atnaujinimas',
@@ -275,7 +273,7 @@ async function runSeed(): Promise<void> {
       frequency: TaskFrequency.MONTHLY,
       defaultDueDays: 30,
       createdByUserId: manager.id,
-    });
+    } as DeepPartial<Task>);
 
     await taskRepository.save([task1, task2, task3, task4]);
 

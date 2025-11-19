@@ -155,7 +155,6 @@ export class TaskStepsService {
 
     const task = this.tasksRepository.create({
       title: this.globalTaskTitle,
-      description: null,
       category: this.globalTaskCategory,
       seasonMonths: [],
       frequency: TaskFrequency.ONCE,

@@ -42,10 +42,6 @@ export class CreateNewsDto {
   taskTitle?: string;
 
   @IsOptional()
-  @IsString()
-  taskDescription?: string;
-
-  @IsOptional()
   @IsDateOnlyString({ message: 'Pradžios data turi būti YYYY-MM-DD formato' })
   assignmentStartDate?: string;
 

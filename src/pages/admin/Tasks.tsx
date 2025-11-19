@@ -16,20 +16,10 @@ import {
 } from '@/components/ui/dialog';
 import { Input } from '@/components/ui/input';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
-import { Textarea } from '@/components/ui/textarea';
 import { Label } from '@/components/ui/label';
-import { Checkbox } from '@/components/ui/checkbox';
 import ltMessages from '@/i18n/messages.lt.json';
 import api, { HttpError } from '@/lib/api';
-import {
-  mapTemplateFromApi,
-  mapTaskFromApi,
-  type CreateTaskPayload,
-  type Task,
-  type Template,
-  type UpdateTaskPayload,
-} from '@/lib/types';
-import { TaskDetailsForm, type TaskDetailsFormValues, type TaskDetailsFormStep } from '@/components/tasks/TaskDetailsForm';
+import { mapTemplateFromApi, mapTaskFromApi, type Task, type Template, type UpdateTaskPayload } from '@/lib/types';
 
 const messages = ltMessages.tasks;
 
@@ -41,27 +31,7 @@ const statusOptions: { value: TaskStatusFilter; label: string }[] = [
   { value: 'past', label: 'Praėjusios' },
   { value: 'all', label: 'Visos' },
 ];
-const buildDefaultTaskFormValues = (): TaskDetailsFormValues => ({
-  title: '',
-  category: '',
-  frequency: 'once',
-  defaultDueDays: '7',
-  seasonMonths: [],
-  steps: [{ title: '', contentText: '' }],
-});
-
-type TaskFormState = TaskDetailsFormValues;
-
-type EditFormStep = TaskDetailsFormStep;
-
-const mapTaskToFormValues = (task: Task): TaskDetailsFormValues => ({
-  title: task.title,
-  category: task.category ?? '',
-  frequency: task.frequency,
-  defaultDueDays: String(task.defaultDueDays ?? 7),
-  seasonMonths: Array.isArray(task.seasonMonths) ? [...task.seasonMonths].sort((a, b) => a - b) : [],
-  steps: [{ title: '', contentText: '' }],
-});
+const buildDefaultTaskTitle = () => '';
 
 export default function AdminTasks() {
   const queryClient = useQueryClient();
@@ -72,8 +42,7 @@ export default function AdminTasks() {
   const [editingTaskId, setEditingTaskId] = useState<string | null>(null);
   const [editingTask, setEditingTask] = useState<Task | null>(null);
   const editingTaskIdRef = useRef<string | null>(null);
-  const [editForm, setEditForm] = useState<TaskFormState>(buildDefaultTaskFormValues);
-  const [isLoadingEditData, setIsLoadingEditData] = useState(false);
+  const [editTitle, setEditTitle] = useState(buildDefaultTaskTitle());
 
   const { data: tasks = [], isLoading, isError } = useQuery<Task[]>({
     queryKey: [...adminTasksQueryKey, statusFilter],
@@ -98,20 +67,18 @@ export default function AdminTasks() {
 
   const filteredTasks = useMemo(() => {
     const normalizedQuery = searchQuery.trim().toLowerCase();
-
     return tasks.filter((task) => {
       const matchesSearch = !normalizedQuery || task.title.toLowerCase().includes(normalizedQuery);
       return matchesSearch;
     });
-  }, [tasks, searchQuery]);
+  }, [searchQuery, tasks]);
 
   const resetEditForm = () => {
-    setEditForm(buildDefaultTaskFormValues());
+    setEditTitle(buildDefaultTaskTitle());
     setEditingTaskId(null);
     editingTaskIdRef.current = null;
     setEditingTask(null);
     setSelectedTemplateId(undefined);
-    setIsLoadingEditData(false);
   };
 
   const closeEditDialog = () => {
@@ -119,44 +86,22 @@ export default function AdminTasks() {
     resetEditForm();
   };
 
-  const invalidateQueries = (currentStatus: TaskStatusFilter = statusFilter) => {
-    void queryClient.invalidateQueries({ queryKey: [...adminTasksQueryKey, currentStatus] });
+  const invalidateQueries = () => {
+    void queryClient.invalidateQueries({ queryKey: adminTasksQueryKey });
     void queryClient.invalidateQueries({ queryKey: ['tasks'] });
     void queryClient.invalidateQueries({ queryKey: ['assignments'] });
     void queryClient.invalidateQueries({ queryKey: ['notifications'] });
   };
 
-  const buildTaskPayload = (
-    values: TaskFormState,
-    templateId?: string,
-  ): UpdateTaskPayload | null => {
-    const trimmedTitle = values.title.trim();
+  const buildTaskPayload = (templateId?: string): UpdateTaskPayload | null => {
+    const trimmedTitle = editTitle.trim();
     if (!trimmedTitle) {
       toast.error(messages.validationTitle);
       return null;
     }
 
-    const sanitizedSteps = values.steps
-      .map((step) => ({
-        title: step.title.trim(),
-        contentText: step.contentText.trim(),
-      }))
-      .filter((step) => step.title.length > 0);
-
-    if (sanitizedSteps.length === 0) {
-      toast.error(
-        'Pridėkite bent vieną žingsnį. Užduotis turi turėti bent vieną žingsnį su pavadinimu.',
-      );
-      return null;
-    }
-
     const payload: UpdateTaskPayload = {
       title: trimmedTitle,
-      steps: sanitizedSteps.map((step, index) => ({
-        title: step.title,
-        contentText: step.contentText || undefined,
-        orderIndex: index + 1,
-      })),
     };
 
     if (templateId) {
@@ -174,7 +119,7 @@ export default function AdminTasks() {
     }
 
     const normalizedTemplateId = selectedTemplateId?.trim() ?? '';
-    const payload = buildTaskPayload(editForm, normalizedTemplateId || undefined);
+    const payload = buildTaskPayload(normalizedTemplateId || undefined);
     if (!payload) {
       return;
     }
@@ -188,44 +133,8 @@ export default function AdminTasks() {
     editingTaskIdRef.current = taskId;
     setEditingTask(task);
     setIsEditDialogOpen(true);
-    setIsLoadingEditData(true);
-    setEditForm(mapTaskToFormValues(task));
-    setSelectedTemplateId(undefined);
-
-    void (async () => {
-      try {
-        const response = await api.tasks.getSteps(taskId);
-        const sortedSteps = [...response].sort((a, b) => a.orderIndex - b.orderIndex);
-        const mappedSteps: EditFormStep[] = sortedSteps.map((step) => ({
-          id: step.id,
-          title: step.title,
-          contentText: step.contentText ?? '',
-        }));
-
-        if (editingTaskIdRef.current !== taskId) {
-          return;
-        }
-
-        setEditForm((previous) => ({
-          ...previous,
-          steps: mappedSteps.length > 0 ? mappedSteps : [{ title: '', contentText: '' }],
-        }));
-      } catch (error) {
-        if (editingTaskIdRef.current !== taskId) {
-          return;
-        }
-        console.error('Failed to load task steps', error);
-        toast.error('Nepavyko įkelti užduoties žingsnių.');
-        setEditForm((previous) => ({
-          ...previous,
-          steps: previous.steps.length > 0 ? previous.steps : [{ title: '', contentText: '' }],
-        }));
-      } finally {
-        if (editingTaskIdRef.current === taskId) {
-          setIsLoadingEditData(false);
-        }
-      }
-    })();
+    setEditTitle(task.title);
+    setSelectedTemplateId(task.templateId ?? undefined);
   };
 
   const updateMutation = useMutation({
@@ -235,9 +144,8 @@ export default function AdminTasks() {
     },
     onSuccess: () => {
       toast.success(messages.updateSuccess);
-      setIsEditDialogOpen(false);
-      resetEditForm();
-      invalidateQueries(statusFilter);
+      closeEditDialog();
+      invalidateQueries();
     },
     onError: (error: unknown) => {
       if (error instanceof HttpError) {
@@ -254,7 +162,7 @@ export default function AdminTasks() {
     },
     onSuccess: () => {
       toast.success('Užduotis archyvuota');
-      invalidateQueries(statusFilter);
+      invalidateQueries();
     },
     onError: (error: unknown) => {
       const message =
@@ -263,13 +171,11 @@ export default function AdminTasks() {
     },
   });
 
-  const editFormDisabled =
-    !editingTaskId || updateMutation.isPending || isLoadingEditData;
+  const editFormDisabled = !editingTaskId || updateMutation.isPending;
 
   return (
     <MainLayout>
       <div className="space-y-6">
-
         <Card className="shadow-custom">
           <CardContent className="p-6">
             <div className="flex flex-col sm:flex-row gap-4">
@@ -304,7 +210,9 @@ export default function AdminTasks() {
           </Card>
         ) : isError ? (
           <Card className="shadow-custom">
-            <CardContent className="p-12 text-center text-destructive">Nepavyko įkelti užduočių.</CardContent>
+            <CardContent className="p-12 text-center text-destructive">
+              Nepavyko įkelti užduočių.
+            </CardContent>
           </Card>
         ) : filteredTasks.length === 0 ? (
           <Card className="shadow-custom">
@@ -315,99 +223,117 @@ export default function AdminTasks() {
           </Card>
         ) : (
           <div className="space-y-4">
-            {filteredTasks.map((task) => (
-              <Card key={task.id} className="shadow-custom hover:shadow-custom-md transition-all">
-                <CardContent className="p-6 space-y-4">
-                  <div>
-                    <h3 className="font-semibold text-lg mb-1">{task.title}</h3>
-                    {(task.steps?.length ?? 0) ? (
+            {filteredTasks.map((task) => {
+              const matchingTemplate = templateList.find((template) => template.id === task.templateId);
+              const resolvedTemplateName = task.templateName ?? matchingTemplate?.name ?? null;
+
+              return (
+                <Card key={task.id} className="shadow-custom hover:shadow-custom-md transition-all">
+                  <CardContent className="p-6 space-y-4">
+                    <div>
+                      <h3 className="font-semibold text-lg mb-1">{task.title}</h3>
                       <p className="text-sm text-muted-foreground">
-                        Žingsnių: {task.steps?.length ?? 0}
+                        {resolvedTemplateName ? `Šablonas: ${resolvedTemplateName}` : 'Šablonas: nėra'}
                       </p>
-                    ) : null}
-                  </div>
-                  <div className="flex gap-2">
-                    <Button
-                      variant="outline"
-                      size="sm"
-                      onClick={() => handleOpenEditDialog(task)}
-                      disabled={updateMutation.isPending}
-                    >
-                      <Edit className="mr-2 w-4 h-4" />
-                      Redaguoti
-                    </Button>
-                    <Button
-                      variant="outline"
-                      size="sm"
-                      className="text-destructive"
-                      onClick={() => archiveMutation.mutate(task.id)}
-                      disabled={archiveMutation.isLoading || statusFilter === 'archived'}
-                    >
-                      <Archive className="mr-2 w-4 h-4" />
-                      Archyvuoti
-                    </Button>
-                  </div>
-                </CardContent>
-              </Card>
-            ))}
+                      <p className="text-sm text-muted-foreground">
+                        {task.updatedAt && task.updatedAt !== task.createdAt
+                          ? `Atnaujinta: ${new Date(task.updatedAt).toLocaleDateString('lt-LT')}`
+                          : task.createdAt
+                          ? `Sukurta: ${new Date(task.createdAt).toLocaleDateString('lt-LT')}`
+                          : 'Data: neaiški'}
+                      </p>
+                    </div>
+                    <div className="flex gap-2">
+                      <Button
+                        variant="outline"
+                        size="sm"
+                        onClick={() => handleOpenEditDialog(task)}
+                        disabled={updateMutation.isPending}
+                      >
+                        <Edit className="mr-2 w-4 h-4" />
+                        Redaguoti
+                      </Button>
+                      <Button
+                        variant="outline"
+                        size="sm"
+                        className="text-destructive"
+                        onClick={() => archiveMutation.mutate(task.id)}
+                        disabled={archiveMutation.isLoading || statusFilter === 'archived'}
+                      >
+                        <Archive className="mr-2 w-4 h-4" />
+                        Archyvuoti
+                      </Button>
+                    </div>
+                  </CardContent>
+                </Card>
+              );
+            })}
           </div>
         )}
       </div>
 
       <Dialog open={isEditDialogOpen} onOpenChange={(open) => !open && closeEditDialog()}>
-        <DialogContent className="sm:max-w-3xl w-full max-h-[90vh] flex flex-col overflow-hidden">
+        <DialogContent className="w-full max-h-[90vh] sm:max-w-2xl flex flex-col">
           <form onSubmit={handleEditSubmit} className="flex flex-col flex-1 gap-4">
             <DialogHeader>
               <DialogTitle>Redaguoti užduotį</DialogTitle>
               <DialogDescription>
-                Keiskite pavadinimą, aprašymą ir žingsnius. Senosios kategorijų/dažnio parinktys nerodomos.
+                Pakeiskite tik pavadinimą ir, jei reikia, susietą šabloną. Žingsnių redagavimas
+                atliekamas šablonų lygyje.
               </DialogDescription>
             </DialogHeader>
 
             <div className="flex-1 overflow-y-auto space-y-6 pr-2">
-              <div className="space-y-2">
-                <Label htmlFor="task-template-select">Šablonas</Label>
-                <Select
-                  id="task-template-select"
-                  value={selectedTemplateId ?? undefined}
-                  onValueChange={(next) =>
-                    setSelectedTemplateId(next === 'keep' ? undefined : next)
-                  }
-                  disabled={isTemplatesLoading}
-                >
-                  <SelectTrigger>
-                    <SelectValue placeholder="Palikite tuščią, jei šablonas nekinta" />
-                  </SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value="keep">Palikti dabartinius žingsnius</SelectItem>
-                    {templateOptions.map((option) => (
-                      <SelectItem key={option.id} value={option.id}>
-                        {option.label}
-                      </SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
-                <p className="text-sm text-muted-foreground">
-                  Pasirinkus šabloną žingsniai bus atnaujinti, bet progresas lieka nepakeistas.
-                </p>
-              </div>
-
               {editingTask ? (
                 <div className="rounded-md border border-muted p-3 text-sm text-muted-foreground">
                   <p>
-                    <span className="font-semibold">Sukurta:</span>{' '}
-                    {new Date(editingTask.createdAt).toLocaleDateString('lt-LT')}
+                    <span className="font-semibold">
+                      {editingTask.updatedAt && editingTask.updatedAt !== editingTask.createdAt
+                        ? 'Atnaujinta:'
+                        : 'Sukurta:'}
+                    </span>{' '}
+                    {editingTask.updatedAt && editingTask.updatedAt !== editingTask.createdAt
+                      ? new Date(editingTask.updatedAt).toLocaleDateString('lt-LT')
+                      : editingTask.createdAt
+                      ? new Date(editingTask.createdAt).toLocaleDateString('lt-LT')
+                      : 'nežinoma'}
                   </p>
                 </div>
               ) : null}
 
-              <TaskDetailsForm
-                className="flex-1"
-                values={editForm}
-                onChange={(updater) => setEditForm(updater)}
-                disabled={editFormDisabled || isLoadingEditData}
-                showScheduling={false}
-              />
+              <div className="space-y-4">
+                <div className="space-y-2">
+                  <Label htmlFor="task-title">Pavadinimas</Label>
+                  <Input
+                    id="task-title"
+                    value={editTitle}
+                    onChange={(event) => setEditTitle(event.target.value)}
+                    required
+                  />
+                </div>
+
+                <div className="space-y-2">
+                  <Label htmlFor="task-template-select">Šablonas</Label>
+                  <Select
+                    id="task-template-select"
+                    value={selectedTemplateId ?? ''}
+                    onValueChange={(next) => setSelectedTemplateId(next === '' ? undefined : next)}
+                    disabled={isTemplatesLoading}
+                  >
+                    <SelectTrigger>
+                      <SelectValue placeholder="Palikti dabartinį šabloną" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="">Palikti dabartinį šabloną</SelectItem>
+                      {templateOptions.map((option) => (
+                        <SelectItem key={option.id} value={option.id}>
+                          {option.label}
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                </div>
+              </div>
             </div>
 
             <DialogFooter>

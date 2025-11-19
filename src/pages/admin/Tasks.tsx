@@ -35,11 +35,12 @@ import { TaskDetailsForm, type TaskDetailsFormValues, type TaskDetailsFormStep }
 const messages = ltMessages.tasks;
 
 const adminTasksQueryKey = ['tasks', 'admin', 'overview'] as const;
-type TaskStatusFilter = 'active' | 'archived' | 'past';
+type TaskStatusFilter = 'active' | 'archived' | 'past' | 'all';
 const statusOptions: { value: TaskStatusFilter; label: string }[] = [
   { value: 'active', label: 'Aktyvios' },
   { value: 'archived', label: 'Archyvuotos' },
   { value: 'past', label: 'Praėjusios' },
+  { value: 'all', label: 'Visos' },
 ];
 const buildDefaultTaskFormValues = (): TaskDetailsFormValues => ({
   title: '',
@@ -71,7 +72,7 @@ export default function AdminTasks() {
   const queryClient = useQueryClient();
   const [searchQuery, setSearchQuery] = useState('');
   const [statusFilter, setStatusFilter] = useState<TaskStatusFilter>('active');
-  const [selectedTemplateId, setSelectedTemplateId] = useState('');
+  const [selectedTemplateId, setSelectedTemplateId] = useState<string | undefined>(undefined);
   const [isEditDialogOpen, setIsEditDialogOpen] = useState(false);
   const [editingTaskId, setEditingTaskId] = useState<string | null>(null);
   const [editingTask, setEditingTask] = useState<Task | null>(null);
@@ -117,7 +118,7 @@ export default function AdminTasks() {
     setEditingTaskId(null);
     editingTaskIdRef.current = null;
     setEditingTask(null);
-    setSelectedTemplateId('');
+    setSelectedTemplateId(undefined);
     setIsLoadingEditData(false);
   };
 
@@ -198,7 +199,7 @@ export default function AdminTasks() {
     setIsEditDialogOpen(true);
     setIsLoadingEditData(true);
     setEditForm(mapTaskToFormValues(task));
-    setSelectedTemplateId('');
+    setSelectedTemplateId(undefined);
 
     void (async () => {
       try {
@@ -429,7 +430,7 @@ export default function AdminTasks() {
                 <Label htmlFor="task-template-select">Šablonas</Label>
                 <Select
                   id="task-template-select"
-                  value={selectedTemplateId}
+                  value={selectedTemplateId ?? undefined}
                   onValueChange={(next) => setSelectedTemplateId(next)}
                   disabled={isTemplatesLoading}
                 >
@@ -437,7 +438,6 @@ export default function AdminTasks() {
                     <SelectValue placeholder="Palikite tuščią, jei šablonas nekinta" />
                   </SelectTrigger>
                   <SelectContent>
-                    <SelectItem value="">Palikti dabartinius žingsnius</SelectItem>
                     {templateOptions.map((option) => (
                       <SelectItem key={option.id} value={option.id}>
                         {option.label}

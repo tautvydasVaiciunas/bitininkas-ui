@@ -19,7 +19,7 @@ type StepInput = Partial<
   Pick<TaskStep, 'title' | 'contentText' | 'mediaUrl' | 'mediaType' | 'requireUserMedia' | 'orderIndex'>
 >;
 
-export type TaskStatusFilter = 'active' | 'archived' | 'past';
+export type TaskStatusFilter = 'active' | 'archived' | 'past' | 'all';
 
 @Injectable()
 export class TasksService {
@@ -185,11 +185,16 @@ export class TasksService {
     },
   ) {
     const { category, frequency, seasonMonth, status = 'active' } = query;
+    const showArchived = status === 'archived';
+    const showPast = status === 'past';
+    const showAll = status === 'all';
+    const today = this.getTodayDateString();
+
     const qb = this.tasksRepository.createQueryBuilder('task');
-    if (status === 'archived') {
-      qb.where('task.deletedAt IS NOT NULL');
+    if (!showAll) {
+      qb.where(`task.deletedAt IS ${showArchived ? 'NOT NULL' : 'NULL'}`);
     } else {
-      qb.where('task.deletedAt IS NULL');
+      qb.where('1=1');
     }
 
     if (user.role === UserRole.USER) {
@@ -200,14 +205,14 @@ export class TasksService {
         userId: user.id,
       });
       qb.distinct(true);
-      if (status === 'past') {
-        qb.andWhere('assignment.dueDate < :today', { today: this.getTodayDateString() });
+      if (showPast) {
+        qb.andWhere('assignment.dueDate < :today', { today });
       }
     }
 
-    if (user.role !== UserRole.USER && status === 'past') {
+    if (user.role !== UserRole.USER && showPast) {
       qb.innerJoin('task.assignments', 'pastAssignment');
-      qb.andWhere('pastAssignment.dueDate < :today', { today: this.getTodayDateString() });
+      qb.andWhere('pastAssignment.dueDate < :today', { today });
       qb.distinct(true);
     }
 

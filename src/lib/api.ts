@@ -358,9 +358,11 @@ export interface TaskResponse {
   defaultDueDays: number;
   createdAt: string;
   updatedAt: string;
+  templateId?: string | null;
+  templateName?: string | null;
 }
 
-export type TaskStatusFilter = 'active' | 'archived' | 'past';
+export type TaskStatusFilter = 'active' | 'archived' | 'past' | 'all';
 
 export interface TaskWithStepsResponse extends TaskResponse {
   steps: TaskStepResponse[];

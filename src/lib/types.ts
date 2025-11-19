@@ -93,7 +93,10 @@ export type HiveMember = ApiHiveMemberResponse;
 export type Hive = Omit<ApiHiveResponse, 'members'> & { members: HiveMember[] };
 export type HiveTag = HiveTagResponse;
 export type HiveStatus = ApiHiveStatus;
-export type Task = ApiTaskResponse;
+export type Task = ApiTaskResponse & {
+  templateId?: string | null;
+  templateName?: string | null;
+};
 export type TaskWithSteps = ApiTaskWithStepsResponse;
 export type TaskStep = ApiTaskStepResponse;
 export type Tag = ApiTagResponse;
@@ -164,6 +167,8 @@ export const mapTaskStepFromApi = (step: ApiTaskStepResponse): TaskStep => {
 export const mapTaskFromApi = (task: ApiTaskResponse): Task => ({
   ...task,
   seasonMonths: Array.isArray(task.seasonMonths) ? [...task.seasonMonths] : [],
+  templateId: mapOptionalString(task.templateId),
+  templateName: mapOptionalString(task.templateName),
 });
 
 export const mapTaskWithStepsFromApi = (task: ApiTaskWithStepsResponse): TaskWithSteps => ({

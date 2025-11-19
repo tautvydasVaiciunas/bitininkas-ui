@@ -11,8 +11,8 @@ import { mapNewsPostFromApi } from "@/lib/types";
 import { inferMediaType, resolveMediaUrl } from "@/lib/media";
 import { ResponsiveMedia } from "@/components/media/ResponsiveMedia";
 
-const formatDateTime = (date: string) =>
-  new Date(date).toLocaleString("lt-LT", {
+const formatDateTime = (date: Date) =>
+  date.toLocaleString("lt-LT", {
     year: "numeric",
     month: "long",
     day: "numeric",
@@ -44,6 +44,16 @@ const NewsDetail = () => {
   const groups = useMemo(() => data?.groups ?? [], [data]);
   const coverUrl = data ? resolveMediaUrl(data.imageUrl) : null;
   const coverMediaType = data ? inferMediaType(null, coverUrl) : null;
+
+  const metaInfo = useMemo(() => {
+    if (!data) return null;
+    const created = new Date(data.createdAt);
+    const updated = data.updatedAt ? new Date(data.updatedAt) : null;
+    if (updated && updated.getTime() > created.getTime()) {
+      return { label: "Atnaujinta", date: updated };
+    }
+    return { label: "Paskelbta", date: created };
+  }, [data]);
 
   if (!newsId) {
     return <Navigate to="/news" replace />;
@@ -84,7 +94,7 @@ const NewsDetail = () => {
             <p className="mt-2 text-sm">Galbūt ji buvo pašalinta arba neturite prieigos.</p>
           </div>
         ) : (
-      <Card className="overflow-hidden">
+        <Card className="overflow-hidden">
         <div className="w-full max-w-3xl mx-auto px-4">
           <ResponsiveMedia
             url={coverUrl ?? undefined}
@@ -94,12 +104,11 @@ const NewsDetail = () => {
           />
         </div>
         <CardHeader className="space-y-4">
-              <div className="flex flex-col gap-2 text-sm text-muted-foreground sm:flex-row sm:items-center sm:justify-between">
-                <span>Paskelbta: {formatDateTime(data.createdAt)}</span>
-                {data.updatedAt !== data.createdAt ? (
-                  <span>Atnaujinta: {formatDateTime(data.updatedAt)}</span>
-                ) : null}
-              </div>
+              {metaInfo ? (
+                <p className="text-sm text-muted-foreground text-center">
+                  {metaInfo.label}: {formatDateTime(metaInfo.date)}
+                </p>
+              ) : null}
               <CardTitle className="text-3xl leading-tight">{data.title}</CardTitle>
             </CardHeader>
             <CardContent className="space-y-4">

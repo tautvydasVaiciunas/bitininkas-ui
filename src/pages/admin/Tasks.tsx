@@ -4,7 +4,6 @@ import { Archive, Edit, Loader2, Search } from 'lucide-react';
 import { toast } from 'sonner';
 
 import { MainLayout } from '@/components/Layout/MainLayout';
-import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent } from '@/components/ui/card';
 import {
@@ -275,28 +274,6 @@ export default function AdminTasks() {
   const editFormDisabled =
     !editingTaskId || updateMutation.isPending || isLoadingEditData;
 
-  const getFrequencyLabel = (frequency: Task['frequency']) => {
-    const labels: Record<Task['frequency'], string> = {
-      once: 'Vienkartinė',
-      weekly: 'Kas savaitę',
-      monthly: 'Kas mėnesį',
-      seasonal: 'Sezoninė',
-    };
-    return labels[frequency];
-  };
-
-  const formatSeason = (months: number[]) => {
-    if (!months.length) return null;
-    const formatter = new Intl.DateTimeFormat('lt-LT', { month: 'short' });
-    return months
-      .map((month) => {
-        const date = new Date();
-        date.setUTCMonth(month - 1);
-        return formatter.format(date);
-      })
-      .join(', ');
-  };
-
   return (
     <MainLayout>
       <div className="space-y-6">
@@ -346,78 +323,46 @@ export default function AdminTasks() {
           </Card>
         ) : (
           <div className="space-y-4">
-            {filteredTasks.map((task) => {
-              const seasonLabel = formatSeason(task.seasonMonths);
-
-              return (
-                <Card key={task.id} className="shadow-custom hover:shadow-custom-md transition-all">
-                  <CardContent className="p-6">
-                    <div className="flex items-start justify-between gap-4">
-                      <div className="flex-1 space-y-3">
-                        <div className="flex items-start gap-3">
-                          <div className="flex-1">
-                            <h3 className="font-semibold text-lg mb-1">{task.title}</h3>
-                            {task.description && (
-                              <p className="text-sm text-muted-foreground">{task.description}</p>
-                            )}
-                          </div>
-                          {task.category && <Badge variant="secondary">{task.category}</Badge>}
-                        </div>
-
-                        <div className="flex flex-wrap items-center gap-4 text-sm">
-                          <div>
-                            <span className="text-muted-foreground">Dažnis:</span>{' '}
-                            <span className="font-medium">{getFrequencyLabel(task.frequency)}</span>
-                          </div>
-                          <div>
-                            <span className="text-muted-foreground">Numatytas terminas:</span>{' '}
-                            <span className="font-medium">{task.defaultDueDays} d.</span>
-                          </div>
-                        </div>
-
-                        {seasonLabel && (
-                          <div className="flex items-center gap-2">
-                            <span className="text-sm text-muted-foreground">Sezonas:</span>
-                            <div className="flex items-center gap-1 text-sm text-muted-foreground">
-                              {seasonLabel}
-                            </div>
-                          </div>
-                        )}
-                      </div>
-
-                      <div className="flex flex-col gap-2">
-                        <Button
-                          variant="outline"
-                          size="sm"
-                          onClick={() => handleOpenEditDialog(task)}
-                          disabled={updateMutation.isPending}
-                        >
-                          <Edit className="mr-2 w-4 h-4" />
-                          Redaguoti
-                        </Button>
-                        <Button
-                          variant="outline"
-                          size="sm"
-                          className="text-destructive"
-                          onClick={() => archiveMutation.mutate(task.id)}
-                          disabled={archiveMutation.isLoading || statusFilter === 'archived'}
-                        >
-                          <Archive className="mr-2 w-4 h-4" />
-                          Archyvuoti
-                        </Button>
-                      </div>
-                    </div>
-                  </CardContent>
-                </Card>
-              );
-            })}
+            {filteredTasks.map((task) => (
+              <Card key={task.id} className="shadow-custom hover:shadow-custom-md transition-all">
+                <CardContent className="p-6 space-y-4">
+                  <div>
+                    <h3 className="font-semibold text-lg mb-1">{task.title}</h3>
+                    {task.description && (
+                      <p className="text-sm text-muted-foreground">{task.description}</p>
+                    )}
+                  </div>
+                  <div className="flex gap-2">
+                    <Button
+                      variant="outline"
+                      size="sm"
+                      onClick={() => handleOpenEditDialog(task)}
+                      disabled={updateMutation.isPending}
+                    >
+                      <Edit className="mr-2 w-4 h-4" />
+                      Redaguoti
+                    </Button>
+                    <Button
+                      variant="outline"
+                      size="sm"
+                      className="text-destructive"
+                      onClick={() => archiveMutation.mutate(task.id)}
+                      disabled={archiveMutation.isLoading || statusFilter === 'archived'}
+                    >
+                      <Archive className="mr-2 w-4 h-4" />
+                      Archyvuoti
+                    </Button>
+                  </div>
+                </CardContent>
+              </Card>
+            ))}
           </div>
         )}
       </div>
 
       <Dialog open={isEditDialogOpen} onOpenChange={(open) => !open && closeEditDialog()}>
-        <DialogContent className="sm:max-w-3xl w-full">
-          <form onSubmit={handleEditSubmit} className="flex flex-col gap-4">
+        <DialogContent className="sm:max-w-3xl w-full max-h-[90vh] flex flex-col overflow-hidden">
+          <form onSubmit={handleEditSubmit} className="flex flex-col flex-1 gap-4">
             <DialogHeader>
               <DialogTitle>Redaguoti užduotį</DialogTitle>
               <DialogDescription>
@@ -425,19 +370,22 @@ export default function AdminTasks() {
               </DialogDescription>
             </DialogHeader>
 
-            <div className="space-y-4">
+            <div className="flex-1 overflow-y-auto space-y-6 pr-2">
               <div className="space-y-2">
                 <Label htmlFor="task-template-select">Šablonas</Label>
                 <Select
                   id="task-template-select"
                   value={selectedTemplateId ?? undefined}
-                  onValueChange={(next) => setSelectedTemplateId(next)}
+                  onValueChange={(next) =>
+                    setSelectedTemplateId(next === 'keep' ? undefined : next)
+                  }
                   disabled={isTemplatesLoading}
                 >
                   <SelectTrigger>
                     <SelectValue placeholder="Palikite tuščią, jei šablonas nekinta" />
                   </SelectTrigger>
                   <SelectContent>
+                    <SelectItem value="keep">Palikti dabartinius žingsnius</SelectItem>
                     {templateOptions.map((option) => (
                       <SelectItem key={option.id} value={option.id}>
                         {option.label}
@@ -446,31 +394,27 @@ export default function AdminTasks() {
                   </SelectContent>
                 </Select>
                 <p className="text-sm text-muted-foreground">
-                  Pasirinkus šabloną žingsniai bus atnaujinti ir nebaigtų užduočių progresas išvalomas.
+                  Pasirinkus šabloną žingsniai bus atnaujinti, bet progresas lieka nepakeistas.
                 </p>
               </div>
+
               {editingTask ? (
                 <div className="rounded-md border border-muted p-3 text-sm text-muted-foreground">
-                  <p>
-                    <span className="font-semibold">Šablonas:</span>{' '}
-                    {editingTask.category ?? 'Informacija neprieinama'}
-                  </p>
                   <p>
                     <span className="font-semibold">Sukurta:</span>{' '}
                     {new Date(editingTask.createdAt).toLocaleDateString('lt-LT')}
                   </p>
                 </div>
               ) : null}
+
+              <TaskDetailsForm
+                className="flex-1"
+                values={editForm}
+                onChange={(updater) => setEditForm(updater)}
+                disabled={editFormDisabled || isLoadingEditData}
+                showScheduling={false}
+              />
             </div>
-
-
-            <TaskDetailsForm
-              className="flex-1"
-              values={editForm}
-              onChange={(updater) => setEditForm(updater)}
-              disabled={editFormDisabled || isLoadingEditData}
-              showScheduling={false}
-            />
 
             <DialogFooter>
               <Button type="button" variant="ghost" onClick={closeEditDialog} disabled={updateMutation.isPending}>

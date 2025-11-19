@@ -1,6 +1,6 @@
 import { BadRequestException, ForbiddenException, Injectable, Logger, NotFoundException } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
-import { Repository } from 'typeorm';
+import { Not, Repository } from 'typeorm';
 
 import { Task, TaskFrequency } from './task.entity';
 import { TaskStep } from './steps/task-step.entity';
@@ -11,10 +11,15 @@ import { UserRole } from '../users/user.entity';
 import { ActivityLogService } from '../activity-log/activity-log.service';
 import { TaskStepsService } from './steps/task-steps.service';
 import { runWithDatabaseErrorHandling } from '../common/errors/database-error.util';
+import { AssignmentStatus } from '../assignments/assignment.entity';
+import { AssignmentsService } from '../assignments/assignments.service';
+import { Template } from '../templates/template.entity';
 
 type StepInput = Partial<
   Pick<TaskStep, 'title' | 'contentText' | 'mediaUrl' | 'mediaType' | 'requireUserMedia' | 'orderIndex'>
 >;
+
+export type TaskStatusFilter = 'active' | 'archived' | 'past';
 
 @Injectable()
 export class TasksService {
@@ -25,8 +30,11 @@ export class TasksService {
     private readonly tasksRepository: Repository<Task>,
     @InjectRepository(TaskStep)
     private readonly stepsRepository: Repository<TaskStep>,
+    @InjectRepository(Template)
+    private readonly templateRepository: Repository<Template>,
     private readonly taskStepsService: TaskStepsService,
     private readonly activityLog: ActivityLogService,
+    private readonly assignmentsService: AssignmentsService,
   ) {}
 
   private assertManager(role: UserRole) {
@@ -38,6 +46,14 @@ export class TasksService {
   private normalizeNullableString(value?: string | null) {
     const trimmed = value?.trim();
     return trimmed && trimmed.length > 0 ? trimmed : null;
+  }
+
+  private getTodayDateString() {
+    const now = new Date();
+    const year = now.getUTCFullYear();
+    const month = String(now.getUTCMonth() + 1).padStart(2, '0');
+    const day = String(now.getUTCDate()).padStart(2, '0');
+    return `${year}-${month}-${day}`;
   }
 
   private normalizeMediaType(value?: StepInput['mediaType']) {
@@ -58,6 +74,26 @@ export class TasksService {
       requireUserMedia: step.requireUserMedia ?? false,
       orderIndex,
     };
+  }
+
+  private buildStepsFromTemplate(template: Template): StepInput[] {
+    const steps = Array.isArray(template.steps) ? [...template.steps] : [];
+    return steps
+      .sort((a, b) => a.orderIndex - b.orderIndex)
+      .map((templateStep) => {
+        const taskStep = templateStep.taskStep;
+        const contentText = this.normalizeNullableString(taskStep?.contentText ?? null);
+        const mediaUrl = this.normalizeNullableString(taskStep?.mediaUrl ?? null);
+        const mediaType = taskStep?.mediaType;
+        return {
+          title: taskStep?.title ?? 'Žingsnis',
+          contentText: contentText ?? undefined,
+          mediaUrl: mediaUrl ?? undefined,
+          mediaType: mediaType ?? undefined,
+          requireUserMedia: taskStep?.requireUserMedia ?? false,
+          orderIndex: templateStep.orderIndex,
+        };
+      });
   }
 
   private async getTaskWithRelations(id: string) {
@@ -145,11 +181,16 @@ export class TasksService {
       category?: string;
       frequency?: TaskFrequency;
       seasonMonth?: number;
+      status?: TaskStatusFilter;
     },
   ) {
-    const qb = this.tasksRepository
-      .createQueryBuilder('task')
-      .where('task.deletedAt IS NULL');
+    const { category, frequency, seasonMonth, status = 'active' } = query;
+    const qb = this.tasksRepository.createQueryBuilder('task');
+    if (status === 'archived') {
+      qb.where('task.deletedAt IS NOT NULL');
+    } else {
+      qb.where('task.deletedAt IS NULL');
+    }
 
     if (user.role === UserRole.USER) {
       qb.innerJoin('task.assignments', 'assignment');
@@ -158,6 +199,15 @@ export class TasksService {
       qb.andWhere('(hive.ownerUserId = :userId OR member.id = :userId)', {
         userId: user.id,
       });
+      qb.distinct(true);
+      if (status === 'past') {
+        qb.andWhere('assignment.dueDate < :today', { today: this.getTodayDateString() });
+      }
+    }
+
+    if (user.role !== UserRole.USER && status === 'past') {
+      qb.innerJoin('task.assignments', 'pastAssignment');
+      qb.andWhere('pastAssignment.dueDate < :today', { today: this.getTodayDateString() });
       qb.distinct(true);
     }
 
@@ -203,7 +253,7 @@ export class TasksService {
 
   async update(id: string, dto: UpdateTaskDto, user: { id: string; role: UserRole }) {
     this.assertManager(user.role);
-    const { steps, ...taskData } = dto;
+    const { steps, templateId, ...taskData } = dto;
     const task = await this.findOne(id);
 
     if (taskData.title !== undefined) {
@@ -241,7 +291,28 @@ export class TasksService {
       { message: 'Nepavyko atnaujinti užduoties' },
     );
 
-    if (steps) {
+    let templateUpdated = false;
+    if (templateId) {
+      const template = await this.templateRepository.findOne({
+        where: { id: templateId },
+        relations: { steps: { taskStep: true } },
+      });
+
+      if (!template) {
+        throw new NotFoundException('Šablonas nerastas');
+      }
+
+      const templateSteps = this.buildStepsFromTemplate(template);
+      await this.updateSteps(
+        id,
+        templateSteps.map((step, index) =>
+          this.normalizeStepInput(step, step.orderIndex ?? index + 1),
+        ),
+        user,
+      );
+
+      templateUpdated = true;
+    } else if (steps) {
       await this.updateSteps(
         id,
         steps.map((step, index) =>
@@ -249,6 +320,10 @@ export class TasksService {
         ),
         user,
       );
+    }
+
+    if (templateUpdated) {
+      await this.assignmentsService.resetProgressForTask(id);
     }
 
     await this.activityLog.log('task_updated', user.id, 'task', id);
@@ -262,6 +337,23 @@ export class TasksService {
       ...saved,
       seasonMonths: Array.isArray(saved.seasonMonths) ? saved.seasonMonths : [],
     };
+  }
+
+  async setArchived(id: string, archived: boolean, user: { id: string; role: UserRole }) {
+    this.assertManager(user.role);
+    const task = await this.tasksRepository.findOne({ where: { id } });
+
+    if (!task) {
+      throw new NotFoundException('Užduotis nerasta');
+    }
+
+    task.deletedAt = archived ? new Date() : null;
+    await runWithDatabaseErrorHandling(
+      () => this.tasksRepository.save(task),
+      { message: 'Nepavyko atnaujinti užduoties statuso' },
+    );
+
+    await this.activityLog.log('task_archived', user.id, 'task', id);
   }
 
   async getSteps(taskId: string) {

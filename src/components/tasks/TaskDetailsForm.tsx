@@ -34,7 +34,6 @@ export type TaskDetailsFormStep = { id?: string; title: string; contentText: str
 
 export interface TaskDetailsFormValues {
   title: string;
-  description: string;
   category: string;
   frequency: TaskFrequency;
   defaultDueDays: string;
@@ -109,29 +108,16 @@ export function TaskDetailsForm({
 
   return (
     <div className={cn('space-y-6', className)}>
-      <div className="space-y-4">
-        <div className="space-y-2">
-          <Label htmlFor="task-title">Pavadinimas</Label>
-          <Input
-            id="task-title"
-            value={values.title}
-            onChange={handleFieldChange('title')}
-            placeholder="Pvz., Pavasarinė apžiūra"
-            disabled={disabled}
-            required
-          />
-        </div>
-        <div className="space-y-2">
-          <Label htmlFor="task-description">Aprašymas</Label>
-          <Textarea
-            id="task-description"
-            value={values.description}
-            onChange={handleFieldChange('description')}
-            placeholder="Trumpai aprašykite užduotį"
-            disabled={disabled}
-            rows={3}
-          />
-        </div>
+      <div className="space-y-2">
+        <Label htmlFor="task-title">Pavadinimas</Label>
+        <Input
+          id="task-title"
+          value={values.title}
+          onChange={handleFieldChange('title')}
+          placeholder="Pvz., Pavasarinė apžiūra"
+          disabled={disabled}
+          required
+        />
       </div>
 
       {showScheduling && (

@@ -28,9 +28,6 @@ export class Task {
   @Column({ type: 'varchar', length: 255 })
   title!: string;
 
-  @Column({ type: 'varchar', length: 255, nullable: true, default: null })
-  description!: string | null;
-
   @Column({ type: 'varchar', length: 100, nullable: true, default: null })
   category!: string | null;
 

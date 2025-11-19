@@ -402,9 +402,6 @@ const formatMonthYear = (value?: string | null) => {
                               <h4 className="font-semibold">{task?.title ?? 'Nežinoma užduotis'}</h4>
                               {getStatusBadge(assignment.status, assignment.dueDate)}
                             </div>
-                            {task?.description && (
-                              <p className="text-sm text-muted-foreground">{task.description}</p>
-                            )}
                             <div className="flex items-center gap-4 text-sm text-muted-foreground">
                               <span>Terminas: {formatDate(assignment.dueDate)}</span>
                             </div>

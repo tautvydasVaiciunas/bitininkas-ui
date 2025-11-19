@@ -355,9 +355,6 @@ export default function Dashboard() {
                         <div className="flex-1 space-y-3">
                           <div>
                             <h3 className="font-semibold text-lg mb-1">{task?.title ?? 'Nežinoma užduotis'}</h3>
-                            {task?.description && (
-                              <p className="text-sm text-muted-foreground">{task.description}</p>
-                            )}
                           </div>
 
                           <div className="flex flex-wrap items-center gap-3 text-sm">

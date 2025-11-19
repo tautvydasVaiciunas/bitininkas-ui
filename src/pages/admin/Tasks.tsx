@@ -43,7 +43,6 @@ const statusOptions: { value: TaskStatusFilter; label: string }[] = [
 ];
 const buildDefaultTaskFormValues = (): TaskDetailsFormValues => ({
   title: '',
-  description: '',
   category: '',
   frequency: 'once',
   defaultDueDays: '7',
@@ -57,13 +56,10 @@ type EditFormStep = TaskDetailsFormStep;
 
 const mapTaskToFormValues = (task: Task): TaskDetailsFormValues => ({
   title: task.title,
-  description: task.description ?? '',
   category: task.category ?? '',
   frequency: task.frequency,
   defaultDueDays: String(task.defaultDueDays ?? 7),
-  seasonMonths: Array.isArray(task.seasonMonths)
-    ? [...task.seasonMonths].sort((a, b) => a - b)
-    : [],
+  seasonMonths: Array.isArray(task.seasonMonths) ? [...task.seasonMonths].sort((a, b) => a - b) : [],
   steps: [{ title: '', contentText: '' }],
 });
 
@@ -104,10 +100,7 @@ export default function AdminTasks() {
     const normalizedQuery = searchQuery.trim().toLowerCase();
 
     return tasks.filter((task) => {
-      const matchesSearch =
-        !normalizedQuery ||
-        task.title.toLowerCase().includes(normalizedQuery) ||
-        (task.description?.toLowerCase().includes(normalizedQuery) ?? false);
+      const matchesSearch = !normalizedQuery || task.title.toLowerCase().includes(normalizedQuery);
       return matchesSearch;
     });
   }, [tasks, searchQuery]);
@@ -159,7 +152,6 @@ export default function AdminTasks() {
 
     const payload: UpdateTaskPayload = {
       title: trimmedTitle,
-      description: values.description.trim() || undefined,
       steps: sanitizedSteps.map((step, index) => ({
         title: step.title,
         contentText: step.contentText || undefined,
@@ -328,9 +320,11 @@ export default function AdminTasks() {
                 <CardContent className="p-6 space-y-4">
                   <div>
                     <h3 className="font-semibold text-lg mb-1">{task.title}</h3>
-                    {task.description && (
-                      <p className="text-sm text-muted-foreground">{task.description}</p>
-                    )}
+                    {task.steps.length ? (
+                      <p className="text-sm text-muted-foreground">
+                        Žingsnių: {task.steps.length}
+                      </p>
+                    ) : null}
                   </div>
                   <div className="flex gap-2">
                     <Button

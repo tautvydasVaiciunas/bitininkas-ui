@@ -352,7 +352,6 @@ export type UpdateNewsPayload = Partial<CreateNewsPayload>;
 export interface TaskResponse {
   id: string;
   title: string;
-  description?: string | null;
   category?: string | null;
   seasonMonths: number[];
   frequency: TaskFrequency;
@@ -369,7 +368,6 @@ export interface TaskWithStepsResponse extends TaskResponse {
 
 export interface CreateTaskPayload {
   title: string;
-  description?: string | null;
   category?: string | null;
   seasonMonths?: number[];
   frequency: TaskFrequency;

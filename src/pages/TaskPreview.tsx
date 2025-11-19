@@ -89,7 +89,6 @@ export default function TaskPreview() {
         <Card>
           <CardHeader>
             <CardTitle>{assignment.task.title}</CardTitle>
-            <p className="text-sm text-muted-foreground">{assignment.task.description}</p>
           </CardHeader>
           <CardContent className="space-y-4">
             <div className="grid gap-4 sm:grid-cols-2">

@@ -70,7 +70,6 @@ export default function Tasks() {
 
   const buildDefaultCreateForm = (): TaskDetailsFormValues => ({
     title: '',
-    description: '',
     category: '',
     frequency: 'once',
     defaultDueDays: '7',
@@ -82,7 +81,6 @@ export default function Tasks() {
     templateId: '',
     groupIds: [] as string[],
     title: '',
-    description: '',
     startDate: '',
     dueDate: '',
   });
@@ -225,7 +223,6 @@ export default function Tasks() {
 
     const payload: CreateTaskPayload = {
       title: trimmedTitle,
-      description: createForm.description.trim() || undefined,
       category: createForm.category.trim() || undefined,
       frequency: createForm.frequency,
       defaultDueDays: dueDays,
@@ -299,7 +296,6 @@ export default function Tasks() {
       templateId: bulkForm.templateId,
       groupIds: bulkForm.groupIds,
       title: trimmedTitle,
-      description: bulkForm.description.trim() || undefined,
       dueDate: bulkForm.dueDate,
     };
 
@@ -371,9 +367,7 @@ export default function Tasks() {
 
     return assignmentItems.filter(({ assignment, task }) => {
       const matchesSearch =
-        !normalizedQuery ||
-        (task?.title?.toLowerCase().includes(normalizedQuery) ?? false) ||
-        (task?.description?.toLowerCase().includes(normalizedQuery) ?? false);
+        !normalizedQuery || (task?.title?.toLowerCase().includes(normalizedQuery) ?? false);
 
       const uiStatus = resolveAssignmentUiStatus(assignment.status, assignment.dueDate);
       const matchesStatus =
@@ -474,12 +468,10 @@ export default function Tasks() {
                           <Label htmlFor="template-select">Šablonas</Label>
                           <Select
                             value={bulkForm.templateId}
-                            onValueChange={(value) =>
-                              setBulkForm((prev) => ({ ...prev, templateId: value }))
-                            }
+                            onValueChange={(value) => setBulkForm((prev) => ({ ...prev, templateId: value }))}
                           >
                             <SelectTrigger id="template-select">
-                              <SelectValue placeholder="Pasirinkite šabloną" />
+                              <SelectValue placeholder="Pasirinkite šabloną." />
                             </SelectTrigger>
                             <SelectContent>
                               {templateOptions.map((option) => (
@@ -507,15 +499,6 @@ export default function Tasks() {
                             value={bulkForm.title}
                             onChange={(event) => setBulkForm((prev) => ({ ...prev, title: event.target.value }))}
                             required
-                          />
-                        </div>
-                        <div className="space-y-2">
-                          <Label htmlFor="bulk-description">Aprašymas</Label>
-                          <Textarea
-                            id="bulk-description"
-                            value={bulkForm.description}
-                            onChange={(event) => setBulkForm((prev) => ({ ...prev, description: event.target.value }))}
-                            placeholder="Trumpai aprašykite klientams matomą informaciją"
                           />
                         </div>
                         <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
@@ -562,7 +545,7 @@ export default function Tasks() {
                           {bulkFromTemplateMutation.isPending ? (
                             <>
                               <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-                              Saugoma...
+                              Saugojama...
                             </>
                           ) : (
                             'Sukurti užduotis'
@@ -650,7 +633,6 @@ export default function Tasks() {
                       <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
                         <div className="flex-1">
                           <h3 className="mb-1 text-lg font-semibold">{task?.title ?? 'Nežinoma užduotis'}</h3>
-                          <p className="text-sm text-muted-foreground">{task?.description ?? 'Aprašymas nepateiktas'}</p>
                         </div>
                         <div className="flex items-start justify-start sm:justify-end">
                           <AssignmentStatusBadge status={assignment.status} dueDate={assignment.dueDate} />

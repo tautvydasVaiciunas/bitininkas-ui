@@ -146,7 +146,6 @@ export class TasksService {
 
     const task = this.tasksRepository.create({
       title,
-      description: this.normalizeNullableString(taskData.description),
       category: this.normalizeNullableString(taskData.category),
       seasonMonths: taskData.seasonMonths ?? [],
       frequency: taskData.frequency ?? TaskFrequency.ONCE,
@@ -188,11 +187,14 @@ export class TasksService {
     const showArchived = status === 'archived';
     const showPast = status === 'past';
     const showAll = status === 'all';
+    const showActive = status === 'active';
     const today = this.getTodayDateString();
 
     const qb = this.tasksRepository.createQueryBuilder('task');
-    if (!showAll) {
-      qb.where(`task.deletedAt IS ${showArchived ? 'NOT NULL' : 'NULL'}`);
+    if (showArchived) {
+      qb.where('task.deletedAt IS NOT NULL');
+    } else if (!showAll) {
+      qb.where('task.deletedAt IS NULL');
     } else {
       qb.where('1=1');
     }
@@ -207,13 +209,21 @@ export class TasksService {
       qb.distinct(true);
       if (showPast) {
         qb.andWhere('assignment.dueDate < :today', { today });
+      } else if (showActive) {
+        qb.andWhere('(assignment.dueDate >= :today OR assignment.dueDate IS NULL)', { today });
       }
     }
 
-    if (user.role !== UserRole.USER && showPast) {
-      qb.innerJoin('task.assignments', 'pastAssignment');
-      qb.andWhere('pastAssignment.dueDate < :today', { today });
-      qb.distinct(true);
+    if (user.role !== UserRole.USER) {
+      if (showPast) {
+        qb.innerJoin('task.assignments', 'pastAssignment');
+        qb.andWhere('pastAssignment.dueDate < :today', { today });
+        qb.distinct(true);
+      } else if (showActive) {
+        qb.innerJoin('task.assignments', 'activeAssignment');
+        qb.andWhere('(activeAssignment.dueDate >= :today OR activeAssignment.dueDate IS NULL)', { today });
+        qb.distinct(true);
+      }
     }
 
     if (query.category) {
@@ -263,10 +273,6 @@ export class TasksService {
 
     if (taskData.title !== undefined) {
       task.title = taskData.title.trim();
-    }
-
-    if (taskData.description !== undefined) {
-      task.description = this.normalizeNullableString(taskData.description);
     }
 
     if (taskData.category !== undefined) {

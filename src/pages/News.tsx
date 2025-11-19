@@ -145,30 +145,37 @@ const News = () => {
         ) : (
           <div className="space-y-8">
             <div className="space-y-6">
-              {newsItems.map((post) => {
-                const coverUrl = resolveMediaUrl(post.imageUrl);
-                const coverType = inferMediaType(null, coverUrl);
+          {newsItems.map((post) => {
+            const coverUrl = resolveMediaUrl(post.imageUrl);
+            const coverType = inferMediaType(null, coverUrl);
+            const newsLink = `/news/${post.id}`;
 
-                return (
-                  <Card key={post.id} className="overflow-hidden">
-                    <div className="grid gap-0 md:grid-cols-[minmax(0,320px),1fr]">
-                      <ResponsiveMedia url={coverUrl} type={coverType} title={post.title} />
-                      <div className="flex flex-1 flex-col">
-                        <CardHeader className="space-y-3 md:space-y-4">
-                          <span className="text-sm font-medium uppercase tracking-wide text-muted-foreground">
-                            {formatDate(post.createdAt)}
-                          </span>
-                          <CardTitle className="text-2xl leading-tight md:text-3xl">{post.title}</CardTitle>
-                        </CardHeader>
-                        <CardContent className="flex-1">
-                          <p className="text-base text-muted-foreground md:text-lg">
-                            {buildSnippet(post.body)}
-                          </p>
-                        </CardContent>
-                        <CardFooter className="mt-auto border-t border-border/60 bg-muted/10 p-6">
-                          <Button asChild className="w-full sm:w-auto sm:ml-auto">
-                            <Link to={`/news/${post.id}`}>Skaityti</Link>
-                          </Button>
+            return (
+              <Card key={post.id} className="overflow-hidden">
+                <div className="grid gap-0 md:grid-cols-[minmax(0,320px),1fr]">
+                  <Link to={newsLink} className="block">
+                    <ResponsiveMedia url={coverUrl} type={coverType} title={post.title} className="md:rounded-none" />
+                  </Link>
+                  <div className="flex flex-1 flex-col">
+                    <CardHeader className="space-y-3 md:space-y-4">
+                      <span className="text-sm font-medium uppercase tracking-wide text-muted-foreground">
+                        {formatDate(post.createdAt)}
+                      </span>
+                      <CardTitle className="text-2xl leading-tight md:text-3xl">
+                        <Link to={newsLink} className="hover:text-primary">
+                          {post.title}
+                        </Link>
+                      </CardTitle>
+                    </CardHeader>
+                    <CardContent className="flex-1">
+                      <Link to={newsLink} className="block text-base text-muted-foreground md:text-lg hover:text-foreground">
+                        {buildSnippet(post.body)}
+                      </Link>
+                    </CardContent>
+                    <CardFooter className="mt-auto border-t border-border/60 bg-muted/10 p-6">
+                      <Button asChild className="w-full sm:w-auto sm:ml-auto">
+                        <Link to={`/news/${post.id}`}>Skaityti</Link>
+                      </Button>
                         </CardFooter>
                       </div>
                     </div>

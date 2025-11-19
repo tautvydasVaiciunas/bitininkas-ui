@@ -8,7 +8,7 @@ import {
 } from "@nestjs/common";
 import { ConfigService } from "@nestjs/config";
 import { InjectRepository } from "@nestjs/typeorm";
-import { DataSource, FindOptionsWhere, In, Repository } from "typeorm";
+import { DataSource, FindOptionsWhere, In, Not, Repository } from "typeorm";
 import { Assignment, AssignmentStatus } from "./assignment.entity";
 import { CreateAssignmentDto } from "./dto/create-assignment.dto";
 import { UpdateAssignmentDto } from "./dto/update-assignment.dto";
@@ -1073,5 +1073,36 @@ export class AssignmentsService {
       assignmentsCount: assignments.length,
       completion: percent,
     };
+  }
+
+  async resetProgressForTask(taskId: string) {
+    const assignments = await this.assignmentsRepository.find({
+      select: ['id'],
+      where: {
+        taskId,
+        status: Not(AssignmentStatus.DONE),
+      },
+    });
+
+    if (!assignments.length) {
+      return;
+    }
+
+    const assignmentIds = assignments.map((assignment) => assignment.id);
+    await this.dataSource.transaction(async (manager) => {
+      await manager
+        .createQueryBuilder()
+        .update(Assignment)
+        .set({ status: AssignmentStatus.NOT_STARTED })
+        .where('id IN (:...ids)', { ids: assignmentIds })
+        .execute();
+
+      await manager
+        .createQueryBuilder()
+        .delete()
+        .from(AssignmentProgress)
+        .where('assignment_id IN (:...ids)', { ids: assignmentIds })
+        .execute();
+    });
   }
 }

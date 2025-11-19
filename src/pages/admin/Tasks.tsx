@@ -23,9 +23,11 @@ import { Checkbox } from '@/components/ui/checkbox';
 import ltMessages from '@/i18n/messages.lt.json';
 import api, { HttpError } from '@/lib/api';
 import {
+  mapTemplateFromApi,
   mapTaskFromApi,
   type CreateTaskPayload,
   type Task,
+  type Template,
   type UpdateTaskPayload,
 } from '@/lib/types';
 import { TaskDetailsForm, type TaskDetailsFormValues, type TaskDetailsFormStep } from '@/components/tasks/TaskDetailsForm';
@@ -33,6 +35,12 @@ import { TaskDetailsForm, type TaskDetailsFormValues, type TaskDetailsFormStep }
 const messages = ltMessages.tasks;
 
 const adminTasksQueryKey = ['tasks', 'admin', 'overview'] as const;
+type TaskStatusFilter = 'active' | 'archived' | 'past';
+const statusOptions: { value: TaskStatusFilter; label: string }[] = [
+  { value: 'active', label: 'Aktyvios' },
+  { value: 'archived', label: 'Archyvuotos' },
+  { value: 'past', label: 'Praėjusios' },
+];
 const buildDefaultTaskFormValues = (): TaskDetailsFormValues => ({
   title: '',
   description: '',
@@ -62,7 +70,8 @@ const mapTaskToFormValues = (task: Task): TaskDetailsFormValues => ({
 export default function AdminTasks() {
   const queryClient = useQueryClient();
   const [searchQuery, setSearchQuery] = useState('');
-  const [categoryFilter, setCategoryFilter] = useState<string>('all');
+  const [statusFilter, setStatusFilter] = useState<TaskStatusFilter>('active');
+  const [selectedTemplateId, setSelectedTemplateId] = useState('');
   const [isEditDialogOpen, setIsEditDialogOpen] = useState(false);
   const [editingTaskId, setEditingTaskId] = useState<string | null>(null);
   const [editingTask, setEditingTask] = useState<Task | null>(null);
@@ -71,12 +80,25 @@ export default function AdminTasks() {
   const [isLoadingEditData, setIsLoadingEditData] = useState(false);
 
   const { data: tasks = [], isLoading, isError } = useQuery<Task[]>({
-    queryKey: adminTasksQueryKey,
+    queryKey: [...adminTasksQueryKey, statusFilter],
     queryFn: async () => {
-      const response = await api.tasks.list();
+      const response = await api.tasks.list({ status: statusFilter });
       return response.map(mapTaskFromApi);
     },
   });
+
+  const { data: templateList = [], isLoading: isTemplatesLoading } = useQuery<Template[]>({
+    queryKey: ['templates', 'admin', 'all'],
+    queryFn: async () => {
+      const response = await api.templates.list();
+      return response.map(mapTemplateFromApi);
+    },
+  });
+
+  const templateOptions = useMemo(
+    () => templateList.map((template) => ({ id: template.id, label: template.name })),
+    [templateList],
+  );
 
   const filteredTasks = useMemo(() => {
     const normalizedQuery = searchQuery.trim().toLowerCase();
@@ -86,16 +108,16 @@ export default function AdminTasks() {
         !normalizedQuery ||
         task.title.toLowerCase().includes(normalizedQuery) ||
         (task.description?.toLowerCase().includes(normalizedQuery) ?? false);
-      const matchesCategory = categoryFilter === 'all' || task.category === categoryFilter;
-      return matchesSearch && matchesCategory;
+      return matchesSearch;
     });
-  }, [tasks, searchQuery, categoryFilter]);
+  }, [tasks, searchQuery]);
 
   const resetEditForm = () => {
     setEditForm(buildDefaultTaskFormValues());
     setEditingTaskId(null);
     editingTaskIdRef.current = null;
     setEditingTask(null);
+    setSelectedTemplateId('');
     setIsLoadingEditData(false);
   };
 
@@ -104,14 +126,17 @@ export default function AdminTasks() {
     resetEditForm();
   };
 
-  const invalidateQueries = () => {
-    void queryClient.invalidateQueries({ queryKey: adminTasksQueryKey });
+  const invalidateQueries = (currentStatus: TaskStatusFilter = statusFilter) => {
+    void queryClient.invalidateQueries({ queryKey: [...adminTasksQueryKey, currentStatus] });
     void queryClient.invalidateQueries({ queryKey: ['tasks'] });
     void queryClient.invalidateQueries({ queryKey: ['assignments'] });
     void queryClient.invalidateQueries({ queryKey: ['notifications'] });
   };
 
-  const buildTaskPayload = (values: TaskFormState): UpdateTaskPayload | null => {
+  const buildTaskPayload = (
+    values: TaskFormState,
+    templateId?: string,
+  ): UpdateTaskPayload | null => {
     const trimmedTitle = values.title.trim();
     if (!trimmedTitle) {
       toast.error(messages.validationTitle);
@@ -132,7 +157,7 @@ export default function AdminTasks() {
       return null;
     }
 
-    return {
+    const payload: UpdateTaskPayload = {
       title: trimmedTitle,
       description: values.description.trim() || undefined,
       steps: sanitizedSteps.map((step, index) => ({
@@ -141,6 +166,12 @@ export default function AdminTasks() {
         orderIndex: index + 1,
       })),
     };
+
+    if (templateId) {
+      payload.templateId = templateId;
+    }
+
+    return payload;
   };
 
   const handleEditSubmit = (event: FormEvent<HTMLFormElement>) => {
@@ -150,7 +181,8 @@ export default function AdminTasks() {
       return;
     }
 
-    const payload = buildTaskPayload(editForm);
+    const normalizedTemplateId = selectedTemplateId.trim();
+    const payload = buildTaskPayload(editForm, normalizedTemplateId || undefined);
     if (!payload) {
       return;
     }
@@ -166,6 +198,7 @@ export default function AdminTasks() {
     setIsEditDialogOpen(true);
     setIsLoadingEditData(true);
     setEditForm(mapTaskToFormValues(task));
+    setSelectedTemplateId('');
 
     void (async () => {
       try {
@@ -212,7 +245,7 @@ export default function AdminTasks() {
       toast.success(messages.updateSuccess);
       setIsEditDialogOpen(false);
       resetEditForm();
-      invalidateQueries();
+      invalidateQueries(statusFilter);
     },
     onError: (error: unknown) => {
       if (error instanceof HttpError) {
@@ -220,6 +253,21 @@ export default function AdminTasks() {
         return;
       }
       toast.error(messages.updateError);
+    },
+  });
+
+  const archiveMutation = useMutation({
+    mutationFn: async (taskId: string) => {
+      await api.tasks.archive(taskId, true);
+    },
+    onSuccess: () => {
+      toast.success('Užduotis archyvuota');
+      invalidateQueries(statusFilter);
+    },
+    onError: (error: unknown) => {
+      const message =
+        error instanceof HttpError ? error.message : 'Nepavyko archyvuoti užduoties';
+      toast.error(message);
     },
   });
 
@@ -264,15 +312,14 @@ export default function AdminTasks() {
                   className="pl-9"
                 />
               </div>
-              <Select value={categoryFilter} onValueChange={setCategoryFilter}>
+              <Select value={statusFilter} onValueChange={(value) => setStatusFilter(value as TaskStatusFilter)}>
                 <SelectTrigger className="w-full sm:w-48">
-                  <SelectValue placeholder="Kategorija" />
+                  <SelectValue placeholder="Būsena" />
                 </SelectTrigger>
                 <SelectContent>
-                  <SelectItem value="all">Visos kategorijos</SelectItem>
-                  {[...new Set(tasks.map((task) => task.category).filter(Boolean))].map((category) => (
-                    <SelectItem key={category as string} value={category as string}>
-                      {category as string}
+                  {statusOptions.map((option) => (
+                    <SelectItem key={option.value} value={option.value}>
+                      {option.label}
                     </SelectItem>
                   ))}
                 </SelectContent>
@@ -347,7 +394,13 @@ export default function AdminTasks() {
                           <Edit className="mr-2 w-4 h-4" />
                           Redaguoti
                         </Button>
-                        <Button variant="outline" size="sm">
+                        <Button
+                          variant="outline"
+                          size="sm"
+                          className="text-destructive"
+                          onClick={() => archiveMutation.mutate(task.id)}
+                          disabled={archiveMutation.isLoading || statusFilter === 'archived'}
+                        >
                           <Archive className="mr-2 w-4 h-4" />
                           Archyvuoti
                         </Button>
@@ -371,18 +424,45 @@ export default function AdminTasks() {
               </DialogDescription>
             </DialogHeader>
 
-            {editingTask ? (
-              <div className="rounded-md border border-muted p-3 text-sm text-muted-foreground">
-                <p>
-                  <span className="font-semibold">Šablonas:</span>{' '}
-                  {editingTask.category ?? 'Informacija neprieinama'}
-                </p>
-                <p>
-                  <span className="font-semibold">Sukurta:</span>{' '}
-                  {new Date(editingTask.createdAt).toLocaleDateString('lt-LT')}
+            <div className="space-y-4">
+              <div className="space-y-2">
+                <Label htmlFor="task-template-select">Šablonas</Label>
+                <Select
+                  id="task-template-select"
+                  value={selectedTemplateId}
+                  onValueChange={(next) => setSelectedTemplateId(next)}
+                  disabled={isTemplatesLoading}
+                >
+                  <SelectTrigger>
+                    <SelectValue placeholder="Palikite tuščią, jei šablonas nekinta" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="">Palikti dabartinius žingsnius</SelectItem>
+                    {templateOptions.map((option) => (
+                      <SelectItem key={option.id} value={option.id}>
+                        {option.label}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+                <p className="text-sm text-muted-foreground">
+                  Pasirinkus šabloną žingsniai bus atnaujinti ir nebaigtų užduočių progresas išvalomas.
                 </p>
               </div>
-            ) : null}
+              {editingTask ? (
+                <div className="rounded-md border border-muted p-3 text-sm text-muted-foreground">
+                  <p>
+                    <span className="font-semibold">Šablonas:</span>{' '}
+                    {editingTask.category ?? 'Informacija neprieinama'}
+                  </p>
+                  <p>
+                    <span className="font-semibold">Sukurta:</span>{' '}
+                    {new Date(editingTask.createdAt).toLocaleDateString('lt-LT')}
+                  </p>
+                </div>
+              ) : null}
+            </div>
+
 
             <TaskDetailsForm
               className="flex-1"

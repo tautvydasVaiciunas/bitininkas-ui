@@ -361,6 +361,8 @@ export interface TaskResponse {
   updatedAt: string;
 }
 
+export type TaskStatusFilter = 'active' | 'archived' | 'past';
+
 export interface TaskWithStepsResponse extends TaskResponse {
   steps: TaskStepResponse[];
 }
@@ -1001,7 +1003,12 @@ export const api = {
       }),
   },
   tasks: {
-    list: (params?: { category?: string; frequency?: TaskFrequency; seasonMonth?: number }) =>
+    list: (params?: {
+      category?: string;
+      frequency?: TaskFrequency;
+      seasonMonth?: number;
+      status?: TaskStatusFilter;
+    }) =>
       get<TaskResponse[]>('/tasks', { query: params }),
     get: (id: string) => get<TaskResponse>(`/tasks/${id}`),
     getSteps: (id: string, params?: { tagId?: string }) =>
@@ -1009,6 +1016,10 @@ export const api = {
     create: (payload: CreateTaskPayload) => post<TaskResponse>('/tasks', { json: payload }),
     update: (id: string, payload: UpdateTaskPayload) =>
       patch<TaskResponse>(`/tasks/${id}`, { json: payload }),
+    archive: (id: string, archived: boolean) =>
+      patch<{ id: string; archived: boolean }>(`/tasks/${id}/archive`, {
+        json: { archived },
+      }),
     createStep: (taskId: string, payload: CreateTaskStepPayload) =>
       post<TaskStepResponse>(`/tasks/${taskId}/steps`, { json: payload }),
     updateStep: (taskId: string, stepId: string, payload: UpdateTaskStepPayload) =>

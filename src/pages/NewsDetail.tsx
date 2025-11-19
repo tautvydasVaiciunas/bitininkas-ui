@@ -3,7 +3,7 @@ import { useParams, Link, Navigate } from "react-router-dom";
 import { useQuery } from "@tanstack/react-query";
 import { ArrowLeft } from "lucide-react";
 import { MainLayout } from "@/components/Layout/MainLayout";
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { Card, CardContent, CardFooter, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Skeleton } from "@/components/ui/skeleton";
 import api from "@/lib/api";
@@ -105,6 +105,13 @@ const NewsDetail = () => {
                 {data.body}
               </div>
             </CardContent>
+            {data.attachedTaskId ? (
+              <CardFooter className="border-t border-muted/40 bg-muted/5 justify-end">
+                <Button asChild variant="primary">
+                  <Link to="/tasks">Vykdyti užduotį</Link>
+                </Button>
+              </CardFooter>
+            ) : null}
           </Card>
         )}
       </div>

@@ -67,7 +67,7 @@ export class TasksController {
     const parsedSeasonMonth = seasonMonth ? parseInt(seasonMonth, 10) : undefined;
     const normalizedSeasonMonth = Number.isNaN(parsedSeasonMonth) ? undefined : parsedSeasonMonth;
     const normalizedStatus =
-      status === 'archived' || status === 'past' ? status : 'active';
+      status === 'archived' || status === 'past' || status === 'all' ? status : 'active';
 
     const tasks = await this.tasksService.findAll(req.user, {
       category,

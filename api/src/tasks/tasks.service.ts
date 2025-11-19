@@ -1,6 +1,6 @@
 import { BadRequestException, ForbiddenException, Injectable, Logger, NotFoundException } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
-import { Not, Repository } from 'typeorm';
+import { In, Not, Repository } from 'typeorm';
 
 import { Task, TaskFrequency } from './task.entity';
 import { TaskStep } from './steps/task-step.entity';
@@ -14,10 +14,21 @@ import { runWithDatabaseErrorHandling } from '../common/errors/database-error.ut
 import { AssignmentStatus } from '../assignments/assignment.entity';
 import { AssignmentsService } from '../assignments/assignments.service';
 import { Template } from '../templates/template.entity';
+import { NewsPost } from '../news/news-post.entity';
 
 type StepInput = Partial<
   Pick<TaskStep, 'title' | 'contentText' | 'mediaUrl' | 'mediaType' | 'requireUserMedia' | 'orderIndex'>
 >;
+
+export interface LatestNewsMetadata {
+  assignmentStartDate: string | null;
+  assignmentDueDate: string | null;
+  groups: { id: string; name: string }[];
+}
+
+export type TaskWithLatestNews = Task & {
+  latestNews: LatestNewsMetadata | null;
+};
 
 export type TaskStatusFilter = 'active' | 'archived' | 'past' | 'all';
 
@@ -32,6 +43,8 @@ export class TasksService {
     private readonly stepsRepository: Repository<TaskStep>,
     @InjectRepository(Template)
     private readonly templateRepository: Repository<Template>,
+    @InjectRepository(NewsPost)
+    private readonly newsRepository: Repository<NewsPost>,
     private readonly taskStepsService: TaskStepsService,
     private readonly activityLog: ActivityLogService,
     private readonly assignmentsService: AssignmentsService,
@@ -99,7 +112,7 @@ export class TasksService {
   private async getTaskWithRelations(id: string) {
     const task = await this.tasksRepository.findOne({
       where: { id },
-      relations: { steps: true },
+      relations: { steps: true, template: true },
       order: { steps: { orderIndex: 'ASC' } },
     });
 
@@ -150,6 +163,7 @@ export class TasksService {
       seasonMonths: taskData.seasonMonths ?? [],
       frequency: taskData.frequency ?? TaskFrequency.ONCE,
       defaultDueDays,
+      templateId: dto.templateId ?? null,
       createdByUserId: user.id,
       steps: steps.map((step, index) =>
         this.stepsRepository.create(
@@ -165,12 +179,14 @@ export class TasksService {
     await this.activityLog.log('task_created', user.id, 'task', saved.id);
     const fullTask = await this.getTaskWithRelations(saved.id);
     if (fullTask) {
-      return fullTask;
+      const [decorated] = await this.decorateTasksWithLatestNews([fullTask]);
+      return decorated;
     }
 
     return {
       ...saved,
       seasonMonths: Array.isArray(saved.seasonMonths) ? saved.seasonMonths : [],
+      latestNews: null,
     };
   }
 
@@ -191,6 +207,7 @@ export class TasksService {
     const today = this.getTodayDateString();
 
     const qb = this.tasksRepository.createQueryBuilder('task');
+    qb.leftJoinAndSelect('task.template', 'template');
     if (showArchived) {
       qb.where('task.deletedAt IS NOT NULL');
     } else if (!showAll) {
@@ -247,29 +264,75 @@ export class TasksService {
     qb.orderBy('task.createdAt', 'DESC');
 
     const tasks = await qb.getMany();
-    return tasks.map((task) => ({
-      ...task,
-      seasonMonths: Array.isArray(task.seasonMonths) ? task.seasonMonths : [],
-    }));
+    return this.decorateTasksWithLatestNews(tasks);
   }
 
   async findOne(id: string) {
-    const task = await this.tasksRepository.findOne({ where: { id } });
+    const task = await this.tasksRepository.findOne({
+      where: { id },
+      relations: { template: true },
+    });
 
     if (!task) {
       throw new NotFoundException('Užduotis nerasta');
     }
 
-    return {
+    const decorated = await this.decorateTasksWithLatestNews([task]);
+    return decorated[0];
+  }
+
+  private async decorateTasksWithLatestNews(tasks: Task[]): Promise<TaskWithLatestNews[]> {
+    if (!tasks.length) {
+      return [];
+    }
+
+    const metadataMap = await this.loadLatestNewsMetadata(tasks.map((task) => task.id));
+    return tasks.map((task) => ({
       ...task,
       seasonMonths: Array.isArray(task.seasonMonths) ? task.seasonMonths : [],
-    };
+      templateName: task.template?.name ?? null,
+      latestNews: metadataMap.get(task.id) ?? null,
+    }));
+  }
+
+  private async loadLatestNewsMetadata(taskIds: string[]) {
+    const metadata = new Map<string, LatestNewsMetadata>();
+    if (!taskIds.length) {
+      return metadata;
+    }
+
+    const posts = await this.newsRepository.find({
+      where: { attachedTaskId: In(taskIds) },
+      relations: { groups: true },
+      order: { createdAt: 'DESC' },
+    });
+
+    for (const post of posts) {
+      if (!post.attachedTaskId || metadata.has(post.attachedTaskId)) {
+        continue;
+      }
+
+      metadata.set(post.attachedTaskId, {
+        assignmentStartDate: post.assignmentStartDate,
+        assignmentDueDate: post.assignmentDueDate,
+        groups: (post.groups ?? []).map((group) => ({
+          id: group.id,
+          name: group.name,
+        })),
+      });
+    }
+
+    return metadata;
   }
 
   async update(id: string, dto: UpdateTaskDto, user: { id: string; role: UserRole }) {
     this.assertManager(user.role);
     const { steps, templateId, ...taskData } = dto;
     const task = await this.findOne(id);
+
+    if (templateId !== undefined) {
+      task.templateId = templateId ?? null;
+    }
 
     if (taskData.title !== undefined) {
       task.title = taskData.title.trim();

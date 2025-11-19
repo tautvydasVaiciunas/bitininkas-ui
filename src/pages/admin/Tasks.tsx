@@ -224,17 +224,19 @@ export default function AdminTasks() {
         ) : (
           <div className="space-y-4">
             {filteredTasks.map((task) => {
-              const matchingTemplate = templateList.find((template) => template.id === task.templateId);
-              const resolvedTemplateName = task.templateName ?? matchingTemplate?.name ?? null;
+              const latestNews = task.latestNews;
+              const groupNames = latestNews?.groups?.map((group) => group.name).filter(Boolean) ?? [];
+              const formatShortDate = (value?: string | null) =>
+                value ? new Date(value).toLocaleDateString('lt-LT') : null;
 
               return (
                 <Card key={task.id} className="shadow-custom hover:shadow-custom-md transition-all">
                   <CardContent className="p-6 space-y-4">
                     <div>
                       <h3 className="font-semibold text-lg mb-1">{task.title}</h3>
-                      <p className="text-sm text-muted-foreground">
-                        {resolvedTemplateName ? `Šablonas: ${resolvedTemplateName}` : 'Šablonas: nėra'}
-                      </p>
+                      <p className="text-sm text-muted-foreground">{`Šablonas: ${
+                        task.templateName ?? 'nepriskirtas'
+                      }`}</p>
                       <p className="text-sm text-muted-foreground">
                         {task.updatedAt && task.updatedAt !== task.createdAt
                           ? `Atnaujinta: ${new Date(task.updatedAt).toLocaleDateString('lt-LT')}`
@@ -242,6 +244,21 @@ export default function AdminTasks() {
                           ? `Sukurta: ${new Date(task.createdAt).toLocaleDateString('lt-LT')}`
                           : 'Data: neaiški'}
                       </p>
+                      {groupNames.length ? (
+                        <p className="text-sm text-muted-foreground">
+                          Grupės: {groupNames.join(', ')}
+                        </p>
+                      ) : null}
+                      {latestNews?.assignmentStartDate ? (
+                        <p className="text-sm text-muted-foreground">
+                          Pradžios data: {formatShortDate(latestNews.assignmentStartDate)}
+                        </p>
+                      ) : null}
+                      {latestNews?.assignmentDueDate ? (
+                        <p className="text-sm text-muted-foreground">
+                          Pabaigos data: {formatShortDate(latestNews.assignmentDueDate)}
+                        </p>
+                      ) : null}
                     </div>
                     <div className="flex gap-2">
                       <Button
@@ -314,24 +331,23 @@ export default function AdminTasks() {
 
                 <div className="space-y-2">
                   <Label htmlFor="task-template-select">Šablonas</Label>
-                  <Select
-                    id="task-template-select"
-                    value={selectedTemplateId ?? ''}
-                    onValueChange={(next) => setSelectedTemplateId(next === '' ? undefined : next)}
-                    disabled={isTemplatesLoading}
-                  >
-                    <SelectTrigger>
-                      <SelectValue placeholder="Palikti dabartinį šabloną" />
-                    </SelectTrigger>
-                    <SelectContent>
-                      <SelectItem value="">Palikti dabartinį šabloną</SelectItem>
-                      {templateOptions.map((option) => (
-                        <SelectItem key={option.id} value={option.id}>
-                          {option.label}
-                        </SelectItem>
-                      ))}
-                    </SelectContent>
-                  </Select>
+                <Select
+                  id="task-template-select"
+                  value={selectedTemplateId ?? undefined}
+                  onValueChange={(next) => setSelectedTemplateId(next ?? undefined)}
+                  disabled={isTemplatesLoading}
+                >
+                  <SelectTrigger>
+                    <SelectValue placeholder="Palikti dabartinį šabloną" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {templateOptions.map((option) => (
+                      <SelectItem key={option.id} value={option.id}>
+                        {option.label}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
                 </div>
               </div>
             </div>

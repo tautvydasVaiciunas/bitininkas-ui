@@ -96,6 +96,7 @@ export type HiveStatus = ApiHiveStatus;
 export type Task = ApiTaskResponse & {
   templateId?: string | null;
   templateName?: string | null;
+  latestNews?: TaskLatestNews | null;
 };
 export type TaskWithSteps = ApiTaskWithStepsResponse;
 export type TaskStep = ApiTaskStepResponse;
@@ -126,6 +127,12 @@ export type Paginated<T> = ApiPaginatedResponse<T>;
 
 export interface PaginatedNews extends Paginated<NewsPost> {
   hasMore: boolean;
+}
+
+export interface TaskLatestNews {
+  assignmentStartDate: string | null;
+  assignmentDueDate: string | null;
+  groups: NewsGroup[];
 }
 
 export interface User extends ApiAuthenticatedUser {
@@ -169,6 +176,18 @@ export const mapTaskFromApi = (task: ApiTaskResponse): Task => ({
   seasonMonths: Array.isArray(task.seasonMonths) ? [...task.seasonMonths] : [],
   templateId: mapOptionalString(task.templateId),
   templateName: mapOptionalString(task.templateName),
+  latestNews: task.latestNews
+    ? {
+        assignmentStartDate: task.latestNews.assignmentStartDate ?? null,
+        assignmentDueDate: task.latestNews.assignmentDueDate ?? null,
+        groups: Array.isArray(task.latestNews.groups)
+          ? task.latestNews.groups.map((group) => ({
+              id: group.id,
+              name: group.name,
+            }))
+          : [],
+      }
+    : null,
 });
 
 export const mapTaskWithStepsFromApi = (task: ApiTaskWithStepsResponse): TaskWithSteps => ({

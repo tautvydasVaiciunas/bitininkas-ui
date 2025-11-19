@@ -8,6 +8,7 @@ import { TemplateStep } from '../templates/template-step.entity';
 import { Task } from './task.entity';
 import { TaskStep } from './steps/task-step.entity';
 import { Tag } from './tags/tag.entity';
+import { NewsPost } from '../news/news-post.entity';
 import { TasksService } from './tasks.service';
 import { TasksController } from './tasks.controller';
 import { TaskStepsService } from './steps/task-steps.service';
@@ -18,7 +19,7 @@ import { StepsController } from './steps/steps.controller';
 
 @Module({
   imports: [
-    TypeOrmModule.forFeature([Task, TaskStep, Tag, Template, TemplateStep]),
+    TypeOrmModule.forFeature([Task, TaskStep, Tag, Template, TemplateStep, NewsPost]),
     ActivityLogModule,
     AssignmentsModule,
   ],

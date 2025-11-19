@@ -360,6 +360,11 @@ export interface TaskResponse {
   updatedAt: string;
   templateId?: string | null;
   templateName?: string | null;
+  latestNews?: {
+    assignmentStartDate?: string | null;
+    assignmentDueDate?: string | null;
+    groups: NewsGroupResponse[];
+  } | null;
 }
 
 export type TaskStatusFilter = 'active' | 'archived' | 'past' | 'all';

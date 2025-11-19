@@ -49,10 +49,11 @@ const NewsDetail = () => {
     if (!data) return null;
     const created = new Date(data.createdAt);
     const updated = data.updatedAt ? new Date(data.updatedAt) : null;
-    if (updated && updated.getTime() > created.getTime()) {
-      return { label: "Atnaujinta", date: updated };
-    }
-    return { label: "Paskelbta", date: created };
+    const isUpdated = updated !== null && updated.getTime() !== created.getTime();
+    return {
+      label: isUpdated ? "Atnaujinta" : "Paskelbta",
+      date: isUpdated ? updated! : created,
+    };
   }, [data]);
 
   if (!newsId) {

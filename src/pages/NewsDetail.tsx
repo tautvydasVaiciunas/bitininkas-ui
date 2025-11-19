@@ -85,12 +85,12 @@ const NewsDetail = () => {
           </div>
         ) : (
       <Card className="overflow-hidden">
-        <div className="w-full max-w-4xl mx-auto">
+        <div className="w-full max-w-3xl mx-auto px-4">
           <ResponsiveMedia
             url={coverUrl ?? undefined}
             type={coverMediaType}
             title={data.title}
-            className="rounded-none"
+            className="rounded-none w-full h-auto mx-auto"
           />
         </div>
         <CardHeader className="space-y-4">
@@ -109,7 +109,12 @@ const NewsDetail = () => {
             </CardContent>
             {data.attachedTaskId ? (
               <CardFooter className="border-t border-muted/40 bg-muted/5 justify-end">
-                <Button asChild variant="primary">
+                <Button
+                  asChild
+                  variant="default"
+                  size="lg"
+                  className="mt-4 w-full sm:w-auto justify-center"
+                >
                   <Link to="/tasks">Vykdyti užduotį</Link>
                 </Button>
               </CardFooter>

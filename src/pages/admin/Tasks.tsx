@@ -173,7 +173,7 @@ export default function AdminTasks() {
       return;
     }
 
-    const normalizedTemplateId = selectedTemplateId.trim();
+    const normalizedTemplateId = selectedTemplateId?.trim() ?? '';
     const payload = buildTaskPayload(editForm, normalizedTemplateId || undefined);
     if (!payload) {
       return;
@@ -320,9 +320,9 @@ export default function AdminTasks() {
                 <CardContent className="p-6 space-y-4">
                   <div>
                     <h3 className="font-semibold text-lg mb-1">{task.title}</h3>
-                    {task.steps.length ? (
+                    {(task.steps?.length ?? 0) ? (
                       <p className="text-sm text-muted-foreground">
-                        Žingsnių: {task.steps.length}
+                        Žingsnių: {task.steps?.length ?? 0}
                       </p>
                     ) : null}
                   </div>

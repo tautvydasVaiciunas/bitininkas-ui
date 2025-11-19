@@ -86,8 +86,8 @@ export default function AdminTasks() {
     resetEditForm();
   };
 
-  const invalidateQueries = () => {
-    void queryClient.invalidateQueries({ queryKey: adminTasksQueryKey });
+  const invalidateQueries = (currentStatus: TaskStatusFilter = statusFilter) => {
+    void queryClient.invalidateQueries({ queryKey: [...adminTasksQueryKey, currentStatus] });
     void queryClient.invalidateQueries({ queryKey: ['tasks'] });
     void queryClient.invalidateQueries({ queryKey: ['assignments'] });
     void queryClient.invalidateQueries({ queryKey: ['notifications'] });
@@ -145,7 +145,7 @@ export default function AdminTasks() {
     onSuccess: () => {
       toast.success(messages.updateSuccess);
       closeEditDialog();
-      invalidateQueries();
+      invalidateQueries(statusFilter);
     },
     onError: (error: unknown) => {
       if (error instanceof HttpError) {
@@ -162,7 +162,7 @@ export default function AdminTasks() {
     },
     onSuccess: () => {
       toast.success('Užduotis archyvuota');
-      invalidateQueries();
+      invalidateQueries(statusFilter);
     },
     onError: (error: unknown) => {
       const message =

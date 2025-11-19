@@ -206,14 +206,14 @@ export class TasksService {
     const showActive = status === 'active';
     const today = this.getTodayDateString();
 
-    const qb = this.tasksRepository.createQueryBuilder('task');
+    const qb = this.tasksRepository.createQueryBuilder('task').withDeleted();
     qb.leftJoinAndSelect('task.template', 'template');
     if (showArchived) {
       qb.where('task.deletedAt IS NOT NULL');
-    } else if (!showAll) {
-      qb.where('task.deletedAt IS NULL');
-    } else {
+    } else if (showAll) {
       qb.where('1=1');
+    } else {
+      qb.where('task.deletedAt IS NULL');
     }
 
     if (user.role === UserRole.USER) {

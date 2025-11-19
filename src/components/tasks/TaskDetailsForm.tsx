@@ -47,9 +47,16 @@ export interface TaskDetailsFormProps {
   onChange: (updater: (previous: TaskDetailsFormValues) => TaskDetailsFormValues) => void;
   disabled?: boolean;
   className?: string;
+  showScheduling?: boolean;
 }
 
-export function TaskDetailsForm({ values, onChange, disabled = false, className }: TaskDetailsFormProps) {
+export function TaskDetailsForm({
+  values,
+  onChange,
+  disabled = false,
+  className,
+  showScheduling = true,
+}: TaskDetailsFormProps) {
   const updateValues = (updater: (previous: TaskDetailsFormValues) => TaskDetailsFormValues) => {
     onChange(updater);
   };
@@ -102,8 +109,8 @@ export function TaskDetailsForm({ values, onChange, disabled = false, className 
 
   return (
     <div className={cn('space-y-6', className)}>
-      <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
-        <div className="space-y-2 md:col-span-2">
+      <div className="space-y-4">
+        <div className="space-y-2">
           <Label htmlFor="task-title">Pavadinimas</Label>
           <Input
             id="task-title"
@@ -114,7 +121,7 @@ export function TaskDetailsForm({ values, onChange, disabled = false, className 
             required
           />
         </div>
-        <div className="space-y-2 md:col-span-2">
+        <div className="space-y-2">
           <Label htmlFor="task-description">Aprašymas</Label>
           <Textarea
             id="task-description"
@@ -125,68 +132,74 @@ export function TaskDetailsForm({ values, onChange, disabled = false, className 
             rows={3}
           />
         </div>
-        <div className="space-y-2">
-          <Label htmlFor="task-category">Kategorija</Label>
-          <Input
-            id="task-category"
-            value={values.category}
-            onChange={handleFieldChange('category')}
-            placeholder="Pvz., Sezoninės priežiūros"
-            disabled={disabled}
-          />
-        </div>
-        <div className="space-y-2">
-          <Label htmlFor="task-frequency">Dažnumas</Label>
-          <Select
-            value={values.frequency}
-            onValueChange={(next) => handleFrequencyChange(next as TaskFrequency)}
-            disabled={disabled}
-          >
-            <SelectTrigger id="task-frequency">
-              <SelectValue placeholder="Pasirinkite dažnumą" />
-            </SelectTrigger>
-            <SelectContent>
-              {frequencyOptions.map((option) => (
-                <SelectItem key={option.value} value={option.value}>
-                  {option.label}
-                </SelectItem>
-              ))}
-            </SelectContent>
-          </Select>
-        </div>
-        <div className="space-y-2">
-          <Label htmlFor="task-default-due">Numatytasis terminas (dienomis)</Label>
-          <Input
-            id="task-default-due"
-            type="number"
-            min={1}
-            value={values.defaultDueDays}
-            onChange={handleFieldChange('defaultDueDays')}
-            disabled={disabled}
-            required
-          />
-        </div>
       </div>
 
-      <div className="space-y-2">
-        <Label>Sezoniniai mėnesiai</Label>
-        <div className="grid grid-cols-2 gap-2 sm:grid-cols-3">
-          {monthOptions.map((month) => {
-            const checked = values.seasonMonths.includes(month.value);
-            return (
-              <label key={month.value} className="flex items-center gap-2 text-sm font-medium">
-                <Checkbox
-                  checked={checked}
-                  onCheckedChange={(state) => handleToggleSeasonMonth(month.value, state === true)}
-                  disabled={disabled}
-                />
-                {month.label}
-              </label>
-            );
-          })}
-        </div>
-      </div>
+      {showScheduling && (
+        <>
+          <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
+            <div className="space-y-2">
+              <Label htmlFor="task-category">Kategorija</Label>
+              <Input
+                id="task-category"
+                value={values.category}
+                onChange={handleFieldChange('category')}
+                placeholder="Pvz., Sezoninės priežiūros"
+                disabled={disabled}
+              />
+            </div>
+            <div className="space-y-2">
+              <Label htmlFor="task-frequency">Dažnis</Label>
+              <Select
+                value={values.frequency}
+                onValueChange={(next) => handleFrequencyChange(next as TaskFrequency)}
+                disabled={disabled}
+              >
+                <SelectTrigger id="task-frequency">
+                  <SelectValue placeholder="Pasirinkite dažnį." />
+                </SelectTrigger>
+                <SelectContent>
+                  {frequencyOptions.map((option) => (
+                    <SelectItem key={option.value} value={option.value}>
+                      {option.label}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
+            <div className="space-y-2">
+              <Label htmlFor="task-default-due">Numatytasis terminas (dienomis)</Label>
+              <Input
+                id="task-default-due"
+                type="number"
+                min={1}
+                value={values.defaultDueDays}
+                onChange={handleFieldChange('defaultDueDays')}
+                disabled={disabled}
+                required
+              />
+            </div>
+          </div>
 
+          <div className="space-y-2">
+            <Label>Sezoniniai mėnesiai</Label>
+            <div className="grid grid-cols-2 gap-2 sm:grid-cols-3">
+              {monthOptions.map((month) => {
+                const checked = values.seasonMonths.includes(month.value);
+                return (
+                  <label key={month.value} className="flex items-center gap-2 text-sm font-medium">
+                    <Checkbox
+                      checked={checked}
+                      onCheckedChange={(state) => handleToggleSeasonMonth(month.value, state === true)}
+                      disabled={disabled}
+                    />
+                    {month.label}
+                  </label>
+                );
+              })}
+            </div>
+          </div>
+        </>
+      )}
       <div className="space-y-4">
         <div className="flex items-center justify-between">
           <h3 className="text-lg font-semibold">Žingsniai</h3>

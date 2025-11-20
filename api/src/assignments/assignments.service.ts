@@ -1043,34 +1043,103 @@ export class AssignmentsService {
         throw new ForbiddenException('Neleidžiama');
       }
     }
+
     const assignments = await this.assignmentsRepository.find({
       where: { hiveId },
     });
+
     if (assignments.length === 0) {
-      return { hiveId, assignmentsCount: 0, completion: 0 };
+      return {
+        hiveId,
+        assignmentsCount: 0,
+        completion: 0,
+        activeAssignmentsCount: 0,
+        overdueAssignmentsCount: 0,
+        primaryAssignmentProgress: null,
+      };
     }
+
     const assignmentIds = assignments.map((a) => a.id);
-    const progress = await this.progressRepository.find({
-      where: { assignmentId: In(assignmentIds) },
-    });
-    const completedStepIds = new Set(progress.map((p) => p.taskStepId));
+    const taskIds = Array.from(new Set(assignments.map((a) => a.taskId)));
+
+    const [progressEntries, taskSteps] = await Promise.all([
+      this.progressRepository.find({
+        where: { assignmentId: In(assignmentIds) },
+      }),
+      taskIds.length ? this.stepRepository.find({ where: { taskId: In(taskIds) } }) : [],
+    ]);
+
+    const stepsByTaskId = new Map<string, TaskStep[]>();
+    for (const step of taskSteps) {
+      const list = stepsByTaskId.get(step.taskId) ?? [];
+      list.push(step);
+      stepsByTaskId.set(step.taskId, list);
+    }
+
+    const completedStepsByAssignment = new Map<string, Set<string>>();
+    for (const entry of progressEntries) {
+      const set = completedStepsByAssignment.get(entry.assignmentId) ?? new Set<string>();
+      set.add(entry.taskStepId);
+      completedStepsByAssignment.set(entry.assignmentId, set);
+    }
+
     let totalSteps = 0;
     let completed = 0;
+    let activeAssignmentsCount = 0;
+    let overdueAssignmentsCount = 0;
+    let primaryAssignmentProgress: number | null = null;
+    let primaryDueTimestamp = Number.POSITIVE_INFINITY;
+
+    const today = new Date();
+    today.setHours(0, 0, 0, 0);
+
     for (const assignment of assignments) {
-      const taskSteps = await this.stepRepository.find({
-        where: { taskId: assignment.taskId },
-      });
-      totalSteps += taskSteps.length;
-      completed += taskSteps.filter((step) =>
-        completedStepIds.has(step.id),
-      ).length;
+      const taskStepsForAssignment = stepsByTaskId.get(assignment.taskId) ?? [];
+      totalSteps += taskStepsForAssignment.length;
+      const completedSet = completedStepsByAssignment.get(assignment.id);
+      const completedSteps = completedSet ? completedSet.size : 0;
+      completed += completedSteps;
+
+      if (assignment.status === AssignmentStatus.DONE) {
+        continue;
+      }
+
+      const startDateValue = assignment.startDate ? new Date(assignment.startDate) : null;
+      const dueDateValue = assignment.dueDate ? new Date(assignment.dueDate) : null;
+      const hasStarted = !startDateValue || startDateValue <= today;
+
+      if (!hasStarted) {
+        continue;
+      }
+
+      activeAssignmentsCount += 1;
+
+      if (dueDateValue && dueDateValue < today) {
+        overdueAssignmentsCount += 1;
+      }
+
+      const progressPercent =
+        taskStepsForAssignment.length === 0
+          ? 0
+          : Math.round((completedSteps / taskStepsForAssignment.length) * 100);
+
+      const dueTimestamp = dueDateValue ? dueDateValue.getTime() : Number.POSITIVE_INFINITY;
+      if (primaryAssignmentProgress === null || dueTimestamp < primaryDueTimestamp) {
+        primaryDueTimestamp = dueTimestamp;
+        primaryAssignmentProgress = progressPercent;
+      }
     }
+
     const percent =
       totalSteps === 0 ? 0 : Math.round((completed / totalSteps) * 100);
+
     return {
       hiveId,
       assignmentsCount: assignments.length,
       completion: percent,
+      activeAssignmentsCount,
+      overdueAssignmentsCount,
+      primaryAssignmentProgress,
     };
   }
 

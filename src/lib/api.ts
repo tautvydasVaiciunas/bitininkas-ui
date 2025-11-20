@@ -134,6 +134,11 @@ export interface HiveResponse {
   tagId?: string | null;
   tag?: HiveTagResponse | null;
   ownerUserId?: string;
+  owner?: {
+    id: string;
+    email: string;
+    name?: string | null;
+  };
   createdAt?: string;
   updatedAt?: string;
   members?: HiveMemberResponse[];
@@ -178,6 +183,9 @@ export interface HiveSummary {
   hiveId: string;
   assignmentsCount: number;
   completion: number;
+  activeAssignmentsCount: number;
+  overdueAssignmentsCount: number;
+  primaryAssignmentProgress: number | null;
 }
 
 export type TaskFrequency = 'once' | 'weekly' | 'monthly' | 'seasonal';

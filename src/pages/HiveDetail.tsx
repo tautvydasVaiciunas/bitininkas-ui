@@ -313,16 +313,9 @@ const formatMonthYear = (value?: string | null) => {
         {/* Header */}
         <div className="flex items-start justify-between">
           <div className="space-y-2">
-            <div className="flex items-center gap-3">
-              <h1 className="text-3xl font-bold">{hive.label}</h1>
-              <Badge variant={hive.status === 'active' ? 'success' : 'secondary'}>
-                {hive.status === 'active'
-                  ? 'Aktyvus'
-                  : hive.status === 'paused'
-                    ? 'Pristabdyta'
-                    : 'Archyvuota'}
-              </Badge>
-            </div>
+              <div className="flex items-center gap-3">
+                <h1 className="text-3xl font-bold">{hive.label}</h1>
+              </div>
             {showFriendlyId && friendlyId ? (
               <p className="text-sm font-mono text-muted-foreground">{friendlyId}</p>
             ) : null}
@@ -340,16 +333,18 @@ const formatMonthYear = (value?: string | null) => {
             </div>
           </div>
 
-          <div className="flex flex-wrap gap-2 justify-end">
-            <Button variant="outline" onClick={() => setActiveTab('settings')}>
-              <Edit className="mr-2 w-4 h-4" />
-              Redaguoti
-            </Button>
-            <Button variant="outline">
-              <Archive className="mr-2 w-4 h-4" />
-              Archyvuoti
-            </Button>
-          </div>
+            <div className="flex flex-wrap gap-2 justify-end">
+              <Button variant="outline" onClick={() => setActiveTab('settings')}>
+                <Edit className="mr-2 w-4 h-4" />
+                Redaguoti
+              </Button>
+              {canManageMembers ? (
+                <Button variant="outline">
+                  <Archive className="mr-2 w-4 h-4" />
+                  Archyvuoti
+                </Button>
+              ) : null}
+            </div>
         </div>
 
         {/* Details Card */}

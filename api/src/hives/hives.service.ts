@@ -127,7 +127,7 @@ export class HivesService {
       .where('hive.deletedAt IS NULL')
       .distinct(true);
 
-    if (role !== UserRole.ADMIN) {
+    if (role === UserRole.USER) {
       qb.andWhere('(hive.ownerUserId = :userId OR hm.user_id = :userId)', { userId });
     }
 

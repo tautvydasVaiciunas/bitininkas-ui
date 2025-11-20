@@ -149,11 +149,17 @@ function HiveCard({
     <div className="h-full flex flex-col">
       <Card className="shadow-custom hover:shadow-custom-md transition-all group h-full min-h-[560px] flex flex-col overflow-hidden">
         <div className="h-56 w-full overflow-hidden rounded-t-lg bg-muted-foreground/5">
-          <img
-            src={HIVE_CARD_IMAGE_SRC}
-            alt="Avilio iliustracija"
-            className="h-full w-full object-cover"
-          />
+          <Link
+            to={`/hives/${hive.id}`}
+            className="flex h-full w-full items-center justify-center"
+            aria-label={`Peržiūrėti ${hive.label}`}
+          >
+            <img
+              src={HIVE_CARD_IMAGE_SRC}
+              alt="Avilio iliustracija"
+              className="max-h-full max-w-full object-contain"
+            />
+          </Link>
         </div>
         <div className="flex flex-col flex-1">
           <CardHeader className="pt-6">

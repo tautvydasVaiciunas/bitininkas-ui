@@ -14,6 +14,7 @@ export enum HiveEventType {
   TASK_ASSIGNED = 'TASK_ASSIGNED',
   TASK_DATES_CHANGED = 'TASK_DATES_CHANGED',
   TASK_COMPLETED = 'TASK_COMPLETED',
+  MANUAL_NOTE = 'MANUAL_NOTE',
 }
 
 @Entity({ name: 'hive_events' })

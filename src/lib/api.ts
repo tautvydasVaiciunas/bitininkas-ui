@@ -47,7 +47,7 @@ export interface AuthResponse {
   user: AuthenticatedUser;
 }
 
-export type NotificationType = 'assignment' | 'news' | 'message';
+export type NotificationType = 'assignment' | 'news' | 'message' | 'hive_history';
 
 export interface NotificationResponse {
   id: string;
@@ -71,11 +71,23 @@ export interface SupportAttachmentPayload {
   kind: 'image' | 'video' | 'other';
 }
 
+export type ManualNoteAttachmentPayload = SupportAttachmentPayload;
+
 export interface SupportUploadResponse {
   url: string;
   mimeType: string;
   sizeBytes: number;
   kind: 'image' | 'video' | 'other';
+}
+
+export interface CreateManualNotePayload {
+  text: string;
+  attachments?: ManualNoteAttachmentPayload[];
+}
+
+export interface UpdateManualNotePayload {
+  text?: string;
+  attachments?: ManualNoteAttachmentPayload[];
 }
 
 export interface SupportMessageResponse {
@@ -139,7 +151,8 @@ export type HiveEventType =
   | 'HIVE_UPDATED'
   | 'TASK_ASSIGNED'
   | 'TASK_DATES_CHANGED'
-  | 'TASK_COMPLETED';
+  | 'TASK_COMPLETED'
+  | 'MANUAL_NOTE';
 
 export interface HiveHistoryEventUser {
   id: string;
@@ -1006,6 +1019,13 @@ export const api = {
       get<PaginatedResponse<HiveHistoryEventResponse>>(`/hives/${id}/history`, {
         query: params,
       }),
+    manualNotes: {
+      create: (id: string, payload: CreateManualNotePayload) =>
+        post<HiveHistoryEventResponse>(`/hives/${id}/history/manual`, { json: payload }),
+      update: (eventId: string, payload: UpdateManualNotePayload) =>
+        patch<HiveHistoryEventResponse>(`/hives/history/${eventId}`, { json: payload }),
+      delete: (eventId: string) => del<void>(`/hives/history/${eventId}`),
+    },
   },
   tasks: {
     list: (params?: {

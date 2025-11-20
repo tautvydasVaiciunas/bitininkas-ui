@@ -1,3 +1,4 @@
+import { useMemo, useState } from "react";
 import { useQuery } from "@tanstack/react-query";
 import { Link } from "react-router-dom";
 
@@ -6,17 +7,34 @@ import { useCart } from "@/contexts/CartContext";
 import { useToast } from "@/components/ui/use-toast";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardFooter, CardHeader, CardTitle } from "@/components/ui/card";
+import { Input } from "@/components/ui/input";
+import { Label } from "@/components/ui/label";
 import { StoreLayout } from "./StoreLayout";
 import { formatPrice, netToGrossCents } from "./utils";
 
 const StoreHome = () => {
   const { addItem } = useCart();
   const { toast } = useToast();
+  const [searchQuery, setSearchQuery] = useState("");
 
   const { data, isLoading, isError } = useQuery({
     queryKey: ["store-products"],
     queryFn: () => api.store.listProducts(),
   });
+
+  const filteredProducts = useMemo(() => {
+    const products = data ?? [];
+    const normalizedQuery = searchQuery.trim().toLowerCase();
+
+    if (!normalizedQuery) {
+      return products;
+    }
+
+    return products.filter((product) => {
+      const haystack = `${product.title ?? ""} ${product.shortDescription ?? ""}`.toLowerCase();
+      return haystack.includes(normalizedQuery);
+    });
+  }, [data, searchQuery]);
 
   const handleAdd = (product: StoreProduct) => {
     addItem(product, 1);
@@ -26,22 +44,38 @@ const StoreHome = () => {
     });
   };
 
+  const hasProducts = Boolean(data && data.length > 0);
+  const hasSearchResults = filteredProducts.length > 0;
+
   return (
     <StoreLayout>
-      <div className="mb-8 flex flex-col gap-2">
-        <h1 className="text-3xl font-bold">Parduotuvė</h1>
-        <p className="text-muted-foreground">
-          Užsisakykite reikalingus rinkinius ir paslaugas internetu. Po užsakymo gausite
-          išankstinę sąskaitą el. paštu.
-        </p>
+      <div className="mb-8 flex flex-col gap-4 md:flex-row md:items-end md:justify-between">
+        <div className="space-y-2">
+          <h1 className="text-3xl font-bold">Parduotuvė</h1>
+          <p className="text-muted-foreground">
+            Užsisakykite reikalingus rinkinius ir paslaugas internetu. Po užsakymo gausite
+            išankstinę sąskaitą el. paštu.
+          </p>
+        </div>
+        <div className="w-full max-w-xs">
+          <Label htmlFor="store-product-search" className="sr-only">
+            Ieškoti produktų
+          </Label>
+          <Input
+            id="store-product-search"
+            placeholder="Ieškoti produktų…"
+            value={searchQuery}
+            onChange={(event) => setSearchQuery(event.target.value)}
+          />
+        </div>
       </div>
 
       {isLoading && <p>Kraunama...</p>}
       {isError && <p>Nepavyko įkelti produktų. Bandykite dar kartą.</p>}
 
-      {data && data.length > 0 ? (
+      {hasProducts && hasSearchResults ? (
         <div className="grid grid-cols-1 gap-6 sm:grid-cols-2 lg:grid-cols-3">
-          {data.map((product) => (
+          {filteredProducts.map((product) => (
             <Card key={product.id} className="flex h-full flex-col overflow-hidden">
               {product.imageUrls?.length ? (
                 <div className="h-48 w-full bg-muted">
@@ -84,11 +118,15 @@ const StoreHome = () => {
             </Card>
           ))}
         </div>
+      ) : hasProducts && !hasSearchResults ? (
+        <p className="text-center py-6 text-muted-foreground">Nėra produktų pagal paiešką.</p>
       ) : null}
 
-      {data && data.length === 0 && !isLoading && <p>Šiuo metu produktų nėra.</p>}
-    </StoreLayout>
-  );
+      {!hasProducts && data && data.length === 0 && !isLoading && (
+        <p>Šiuo metu produktų nėra.</p>
+      )}
+  </StoreLayout>
+);
 };
 
 export default StoreHome;

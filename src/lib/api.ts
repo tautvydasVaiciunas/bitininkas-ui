@@ -186,6 +186,7 @@ export interface HiveSummary {
   activeAssignmentsCount: number;
   overdueAssignmentsCount: number;
   primaryAssignmentProgress: number | null;
+  primaryAssignmentId: string | null;
 }
 
 export type TaskFrequency = 'once' | 'weekly' | 'monthly' | 'seasonal';

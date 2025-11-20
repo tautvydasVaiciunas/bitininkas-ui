@@ -19,7 +19,7 @@ const HISTORY_EVENT_LABELS: Record<HiveHistoryEventResponse['type'], string> = {
   TASK_ASSIGNED: 'Priskirta užduotis',
   TASK_DATES_CHANGED: 'Atnaujinti terminai',
   TASK_COMPLETED: 'Užduotis užbaigta',
-  MANUAL_NOTE: 'Bus medaus bitininko pastaba',
+  MANUAL_NOTE: 'Pastaba',
 };
 
 const historyDateFormatter = new Intl.DateTimeFormat('lt-LT', { dateStyle: 'medium' });

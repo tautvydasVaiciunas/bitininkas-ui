@@ -141,7 +141,6 @@ function HiveCard({
     queryFn: () => api.hives.summary(hive.id),
   });
 
-  const completionPercent = summary ? summary.completion : 0;
   const activeAssignmentsCount = summary?.activeAssignmentsCount ?? 0;
   const overdueAssignmentsCount = summary?.overdueAssignmentsCount ?? 0;
   const progressPercent = summary
@@ -162,6 +161,9 @@ function HiveCard({
       : activeAssignmentsCount > 0
       ? "Aktyvus"
       : "Ramu";
+  const assignmentPreviewLink = summary?.primaryAssignmentId
+    ? `/tasks/${summary.primaryAssignmentId}/preview`
+    : undefined;
 
   return (
     <div className="h-full flex flex-col">
@@ -221,15 +223,36 @@ function HiveCard({
                       <span className="text-muted-foreground">Aktyvios užduotys</span>
                       <div className="flex items-center gap-2">
                         <span className="font-medium">{activeAssignmentsCount}</span>
-                        <Badge variant={urgencyVariant}>{urgencyLabel}</Badge>
+                        <Badge
+                          variant={urgencyVariant}
+                          className="h-3 w-3 p-0 border-0"
+                          aria-label={urgencyLabel}
+                        />
+                        <span className="sr-only">{urgencyLabel}</span>
                       </div>
                     </div>
-                    <div className="mt-1 text-muted-foreground">
-                      Užbaigta:{" "}
-                      <span className="font-medium text-foreground">
-                        {progressPercent}%
-                      </span>
-                    </div>
+                    {activeAssignmentsCount > 0 ? (
+                      <div className="mt-1 text-muted-foreground">
+                        {assignmentPreviewLink ? (
+                          <Link
+                            to={assignmentPreviewLink}
+                            className="inline-flex items-center gap-1 text-muted-foreground hover:text-foreground transition-colors"
+                          >
+                            Užbaigta:{" "}
+                            <span className="font-medium text-foreground">
+                              {progressPercent}%
+                            </span>
+                          </Link>
+                        ) : (
+                          <>
+                            Užbaigta:{" "}
+                            <span className="font-medium text-foreground">
+                              {progressPercent}%
+                            </span>
+                          </>
+                        )}
+                      </div>
+                    ) : null}
                   </div>
               ) : summaryError ? (
                 <div className="rounded-lg bg-destructive/10 border border-destructive/20 px-3 py-2 text-sm text-destructive-foreground">

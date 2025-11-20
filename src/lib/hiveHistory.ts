@@ -19,7 +19,7 @@ const HISTORY_EVENT_LABELS: Record<HiveHistoryEventResponse['type'], string> = {
   TASK_ASSIGNED: 'Priskirta užduotis',
   TASK_DATES_CHANGED: 'Atnaujinti terminai',
   TASK_COMPLETED: 'Užduotis užbaigta',
-  MANUAL_NOTE: 'Rankinis įrašas',
+  MANUAL_NOTE: 'Bus medaus bitininko pastaba',
 };
 
 const historyDateFormatter = new Intl.DateTimeFormat('lt-LT', { dateStyle: 'medium' });
@@ -176,8 +176,8 @@ export const describeHiveHistoryEvent = (
           : [];
       const text = typeof payload.text === 'string' ? payload.text : '';
       return {
-        title: 'Rankinis įrašas istorijoje',
-        description: text || 'Naujas komentaras avilio istorijoje.',
+        title: 'Bus medaus bitininko pastaba',
+        description: text || 'Papildoma pastaba avilio istorijoje.',
         attachments,
       };
     }

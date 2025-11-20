@@ -12,6 +12,7 @@ import {
   AlertDialogHeader,
   AlertDialogTitle,
 } from "@/components/ui/alert-dialog";
+import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import {
@@ -32,6 +33,13 @@ import {
 } from "@/components/ui/dropdown-menu";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
 import { MainLayout } from "@/components/Layout/MainLayout";
 import { Skeleton } from "@/components/ui/skeleton";
 import { useToast } from "@/components/ui/use-toast";
@@ -79,6 +87,8 @@ type HiveCardProps = {
   isDeleting: boolean;
   canManage: boolean;
 };
+
+type HiveListStatusFilter = 'active' | 'archived' | 'all';
 
 type CreateHiveFormState = {
   label: string;
@@ -131,7 +141,27 @@ function HiveCard({
     queryFn: () => api.hives.summary(hive.id),
   });
 
-  const completionPercent = summary ? Math.round(summary.completion * 100) : 0;
+  const completionPercent = summary ? summary.completion : 0;
+  const activeAssignmentsCount = summary?.activeAssignmentsCount ?? 0;
+  const overdueAssignmentsCount = summary?.overdueAssignmentsCount ?? 0;
+  const progressPercent = summary
+    ? Math.max(
+        0,
+        Math.min(100, summary.primaryAssignmentProgress ?? summary.completion),
+      )
+    : 0;
+  const urgencyVariant =
+    overdueAssignmentsCount > 0
+      ? "destructive"
+      : activeAssignmentsCount > 0
+      ? "default"
+      : "success";
+  const urgencyLabel =
+    overdueAssignmentsCount > 0
+      ? "Vėluoja"
+      : activeAssignmentsCount > 0
+      ? "Aktyvus"
+      : "Ramu";
 
   return (
     <div className="h-full flex flex-col">
@@ -185,23 +215,22 @@ function HiveCard({
             <div className="flex-1">
               {summaryLoading ? (
                 <Skeleton className="h-16 w-full rounded-lg" />
-              ) : summary ? (
-                <div className="rounded-lg border border-border px-3 py-2 text-sm">
-                  <div className="flex items-center justify-between">
-                    <span className="text-muted-foreground">
-                      Priskirtos užduotys
-                    </span>
-                    <span className="font-medium">
-                      {summary.assignmentsCount}
-                    </span>
+                ) : summary ? (
+                  <div className="rounded-lg border border-border px-3 py-2 text-sm">
+                    <div className="flex items-center justify-between">
+                      <span className="text-muted-foreground">Aktyvios užduotys</span>
+                      <div className="flex items-center gap-2">
+                        <span className="font-medium">{activeAssignmentsCount}</span>
+                        <Badge variant={urgencyVariant}>{urgencyLabel}</Badge>
+                      </div>
+                    </div>
+                    <div className="mt-1 text-muted-foreground">
+                      Užbaigta:{" "}
+                      <span className="font-medium text-foreground">
+                        {progressPercent}%
+                      </span>
+                    </div>
                   </div>
-                  <div className="mt-1 text-muted-foreground">
-                    Užbaigta:{" "}
-                    <span className="font-medium text-foreground">
-                      {completionPercent}%
-                    </span>
-                  </div>
-                </div>
               ) : summaryError ? (
                 <div className="rounded-lg bg-destructive/10 border border-destructive/20 px-3 py-2 text-sm text-destructive-foreground">
                   Nepavyko įkelti suvestinės
@@ -287,9 +316,11 @@ export default function Hives() {
     tagId: null,
   });
 
-  const isAdmin = user?.role === "admin";
-  const canManageHives = user?.role === "admin" || user?.role === "manager";
-  const canManageMembers = user?.role === "admin" || user?.role === "manager";
+    const canManageHives = user?.role === "admin" || user?.role === "manager";
+    const canManageMembers = user?.role === "admin" || user?.role === "manager";
+    const isPrivileged = canManageHives;
+    const [searchEmail, setSearchEmail] = useState("");
+    const [statusFilter, setStatusFilter] = useState<HiveListStatusFilter>("active");
 
   const { data: users = [] } = useQuery<AdminUserResponse[]>({
     queryKey: ["users", "all"],
@@ -442,14 +473,42 @@ export default function Hives() {
 
   const accessibleHives = useMemo(() => {
     const list = Array.isArray(hives) ? hives : [];
-    if (isAdmin) return list;
+    if (isPrivileged) {
+      return list;
+    }
     return list.filter((hive) => {
-      if (hive.ownerUserId === user?.id) return true;
-      return hive.members.some((member) => member.id === user?.id);
+      const isOwner = hive.ownerUserId === user?.id;
+      const isMember = hive.members.some((member) => member.id === user?.id);
+      return (isOwner || isMember) && hive.status !== "archived";
     });
-  }, [hives, isAdmin, user?.id]);
+  }, [hives, isPrivileged, user?.id]);
 
-  const filteredHives = accessibleHives;
+  const filteredHives = useMemo(() => {
+    let list = accessibleHives;
+
+    if (isPrivileged) {
+      if (statusFilter === "active") {
+        list = list.filter((hive) => hive.status !== "archived");
+      } else if (statusFilter === "archived") {
+        list = list.filter((hive) => hive.status === "archived");
+      }
+
+      const query = searchEmail.trim().toLowerCase();
+      if (query) {
+        list = list.filter((hive) => {
+          const ownerEmail = hive.owner?.email?.toLowerCase() ?? "";
+          if (ownerEmail.includes(query)) {
+            return true;
+          }
+          return hive.members.some((member) =>
+            (member.email ?? "").toLowerCase().includes(query),
+          );
+        });
+      }
+    }
+
+    return list;
+  }, [accessibleHives, isPrivileged, searchEmail, statusFilter]);
 
   const handleCreateSubmit = async (
     event: React.FormEvent<HTMLFormElement>,
@@ -504,124 +563,128 @@ export default function Hives() {
   return (
     <MainLayout>
       <div className="space-y-6">
-        <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
-          <div>
-            <h1 className="text-3xl font-bold">Aviliai</h1>
-            <p className="text-muted-foreground mt-1">Valdykite savo avilius</p>
-          </div>
-          {canManageHives ? (
-            <Dialog
-              open={isCreateDialogOpen}
-              onOpenChange={(open) => {
-                setIsCreateDialogOpen(open);
-                if (!open) {
-                  resetCreateForm();
-                }
-              }}
-            >
-              <DialogTrigger asChild>
-                <Button disabled={createHiveMutation.isPending}>
-                  {createHiveMutation.isPending ? (
-                    <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-                  ) : (
-                    <Plus className="mr-2 h-4 w-4" />
-                  )}
-                  {createHiveMutation.isPending
-                    ? "Kuriama..."
-                    : "Pridėti avilį"}
-                </Button>
-              </DialogTrigger>
-              <DialogContent>
-                <DialogHeader>
-                  <DialogTitle>Naujas avilys</DialogTitle>
-                  <DialogDescription>
-                    Užpildykite informaciją apie avilį.
-                  </DialogDescription>
-                </DialogHeader>
-                <form onSubmit={handleCreateSubmit} className="space-y-4">
-                  <div className="space-y-2">
-                    <Label htmlFor="hive-label">Pavadinimas</Label>
-                    <Input
-                      id="hive-label"
-                      value={createForm.label}
-                      onChange={(event) =>
-                        setCreateForm((prev) => ({
-                          ...prev,
-                          label: event.target.value,
-                        }))
+          <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
+            <div>
+              <h1 className="text-3xl font-bold">Aviliai</h1>
+              <p className="text-muted-foreground mt-1">Valdykite savo avilius</p>
+            </div>
+            <div className="flex flex-col gap-3 sm:flex-row sm:items-end">
+              {isPrivileged ? (
+                <div className="w-full max-w-xs">
+                  <Input
+                    placeholder="Ieškoti pagal vartotojo el. paštą…"
+                    value={searchEmail}
+                    onChange={(event) => setSearchEmail(event.target.value)}
+                  />
+                </div>
+              ) : null}
+              <div className="flex flex-wrap items-center gap-2">
+                {isPrivileged ? (
+                  <Select
+                    value={statusFilter}
+                    onValueChange={(value) =>
+                      setStatusFilter(value as HiveListStatusFilter)
+                    }
+                  >
+                    <SelectTrigger className="w-full sm:w-40">
+                      <SelectValue placeholder="Filtruoti" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="active">Aktyvūs</SelectItem>
+                      <SelectItem value="archived">Archyvuoti</SelectItem>
+                      <SelectItem value="all">Visi</SelectItem>
+                    </SelectContent>
+                  </Select>
+                ) : null}
+                {canManageHives ? (
+                  <Dialog
+                    open={isCreateDialogOpen}
+                    onOpenChange={(open) => {
+                      setIsCreateDialogOpen(open);
+                      if (!open) {
+                        resetCreateForm();
                       }
-                      placeholder="Pvz., Avilys 1"
-                      required
-                    />
-                  </div>
-                  <div className="space-y-2">
-                    <Label htmlFor="hive-location">Vieta</Label>
-                    <Input
-                      id="hive-location"
-                      value={createForm.location}
-                      onChange={(event) =>
-                        setCreateForm((prev) => ({
-                          ...prev,
-                          location: event.target.value,
-                        }))
-                      }
-                      placeholder="Pvz., Vilnius, Žvėrynas"
-                    />
-                  </div>
-                  <div className="space-y-2">
-                    <Label>Žyma</Label>
-                    <TagSelect
-                      tags={tags}
-                      value={createForm.tagId}
-                      onChange={(tagId) =>
-                        setCreateForm((prev) => ({
-                          ...prev,
-                          tagId,
-                        }))
-                      }
-                      placeholder={tagsLoading ? "Kraunama..." : "Pasirinkite žymą"}
-                      disabled={tagsLoading || createHiveMutation.isPending}
-                      allowCreate
-                      onCreateTag={(name) => createTagMutation.mutate(name)}
-                      creatingTag={createTagMutation.isPending}
-                    />
-                  </div>
-                  {canManageMembers ? (
-                    <div className="space-y-2">
-                      <Label>Priskirti vartotojus</Label>
-                      <UserMultiSelect
-                        options={memberOptions}
-                        value={createForm.members}
-                        onChange={(members) =>
-                          setCreateForm((prev) => ({ ...prev, members }))
-                        }
-                        placeholder="Pasirinkite komandos narius (nebūtina)"
-                      />
-                    </div>
-                  ) : null}
-                  <DialogFooter>
-                    <Button
-                      variant="outline"
-                      type="button"
-                      onClick={() => setIsCreateDialogOpen(false)}
-                    >
-                      Atšaukti
-                    </Button>
-                    <Button
-                      type="submit"
-                      disabled={createHiveMutation.isPending}
-                    >
-                      {createHiveMutation.isPending ? (
-                        <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                    }}
+                  >
+                    <DialogTrigger asChild>
+                      <Button disabled={createHiveMutation.isPending}>
+                        {createHiveMutation.isPending ? (
+                          <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                        ) : (
+                          <Plus className="mr-2 h-4 w-4" />
+                        )}
+                        {createHiveMutation.isPending
+                          ? "Kuriama..."
+                          : "Pridėti avilį"}
+                      </Button>
+                    </DialogTrigger>
+                    <DialogContent className="space-y-6">
+                      <div className="space-y-2">
+                        <Label htmlFor="create-hive-label">Pavadinimas</Label>
+                        <Input
+                          id="create-hive-label"
+                          value={createForm.label}
+                          onChange={(event) =>
+                            setCreateForm((prev) => ({
+                              ...prev,
+                              label: event.target.value,
+                            }))
+                          }
+                          required
+                        />
+                      </div>
+                      <div className="space-y-2">
+                        <Label htmlFor="create-hive-location">Lokacija</Label>
+                        <Input
+                          id="create-hive-location"
+                          value={createForm.location}
+                          onChange={(event) =>
+                            setCreateForm((prev) => ({
+                              ...prev,
+                              location: event.target.value,
+                            }))
+                          }
+                          placeholder="Pvz., Vilnius, Žvėrynas"
+                        />
+                      </div>
+                      {canManageMembers ? (
+                        <div className="space-y-2">
+                          <Label>Priskirti vartotojai</Label>
+                          <UserMultiSelect
+                            options={memberOptions}
+                            value={createForm.members}
+                            onChange={(members) =>
+                              setCreateForm((prev) => ({ ...prev, members }))
+                            }
+                            placeholder="Pasirinkite komandos narius (nebūtina)"
+                          />
+                        </div>
                       ) : null}
-                      Išsaugoti
-                    </Button>
-                  </DialogFooter>
-                </form>
-              </DialogContent>
-            </Dialog>
-          ) : null}
-        </div>
+                      <DialogFooter>
+                        <Button
+                          variant="outline"
+                          type="button"
+                          onClick={() => setIsCreateDialogOpen(false)}
+                        >
+                          Atšaukti
+                        </Button>
+                        <Button
+                          type="submit"
+                          form="create-hive-form"
+                          disabled={createHiveMutation.isPending}
+                        >
+                          {createHiveMutation.isPending ? (
+                            <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                          ) : null}
+                          Išsaugoti
+                        </Button>
+                      </DialogFooter>
+                    </DialogContent>
+                  </Dialog>
+                ) : null}
+              </div>
+            </div>
+          </div>
 
         
 
@@ -697,21 +760,23 @@ export default function Hives() {
                 canManage={canManageHives}
               />
             ))}
-            <Link to="/parduotuve" className="group">
-              <Card className="shadow-custom hover:shadow-custom-md transition-all group h-full min-h-[560px] flex flex-col overflow-hidden border border-dashed border-muted-foreground/60 bg-muted/10 text-muted-foreground">
-                <div className="h-56 w-full flex items-center justify-center rounded-t-lg bg-muted-foreground/20 text-muted-foreground">
-                  <Plus className="h-16 w-16" />
-                </div>
-                <CardContent className="flex flex-1 flex-col items-center justify-center gap-3 px-6 text-center">
-                  <p className="text-xl font-semibold text-foreground">
-                    Papildyti avilių kiekį
-                  </p>
-                  <p className="text-sm text-muted-foreground/80">
-                    Aplankykite parduotuvę ir papildykite atsargas įrankiais bei korpusais.
-                  </p>
-                </CardContent>
-              </Card>
-            </Link>
+            {!isPrivileged ? (
+              <Link to="/parduotuve" className="group">
+                <Card className="shadow-custom hover:shadow-custom-md transition-all group h-full min-h-[560px] flex flex-col overflow-hidden border border-dashed border-muted-foreground/60 bg-muted/10 text-muted-foreground">
+                  <div className="h-56 w-full flex items-center justify-center rounded-t-lg bg-muted-foreground/20 text-muted-foreground">
+                    <Plus className="h-16 w-16" />
+                  </div>
+                  <CardContent className="flex flex-1 flex-col items-center justify-center gap-3 px-6 text-center">
+                    <p className="text-xl font-semibold text-foreground">
+                      Papildyti avilių kiekį
+                    </p>
+                    <p className="text-sm text-muted-foreground/80">
+                      Aplankykite parduotuvę ir papildykite atsargas įrankiais bei korpusais.
+                    </p>
+                  </CardContent>
+                </Card>
+              </Link>
+            ) : null}
           </div>
         )}
       </div>

@@ -13,7 +13,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@
 import { Textarea } from '@/components/ui/textarea';
 import { Checkbox } from '@/components/ui/checkbox';
 import { toast } from 'sonner';
-import { Edit, Loader2, Plus, Search, Trash2 } from 'lucide-react';
+import { Check, Edit, Loader2, Plus, Search, Trash2, X } from 'lucide-react';
 
 import { MainLayout } from '@/components/Layout/MainLayout';
 import { ResponsiveMedia } from '@/components/media/ResponsiveMedia';
@@ -30,6 +30,17 @@ import { inferMediaType, resolveMediaUrl } from '@/lib/media';
 import ltMessages from '@/i18n/messages.lt.json';
 
 const messages = ltMessages.steps;
+const tagMessages = ltMessages.tags;
+const defaultValidationSummary =
+  messages.validationSummary ??
+  'Klaida: patikrinkite, ar pavadinimas ir aprašymas yra užpildyti, o media nuoroda teisinga.';
+
+const MAX_IMAGE_UPLOAD_MB = 10;
+const MAX_VIDEO_UPLOAD_MB = 30;
+const formatUploadSizeLimitMessage = (mimeType: string) => {
+  const limit = mimeType === 'video/mp4' ? MAX_VIDEO_UPLOAD_MB : MAX_IMAGE_UPLOAD_MB;
+  return `Failas per didelis. Maksimalus dydis: ${limit} MB.`;
+};
 
 type StepMediaTypeOption = TaskStepMediaType | '';
 
@@ -72,6 +83,10 @@ export default function AdminSteps() {
 
   const [createForm, setCreateForm] = useState<StepFormState>(defaultCreateForm);
   const [editForm, setEditForm] = useState<StepEditFormState>({ ...defaultCreateForm(), orderIndex: '' });
+  const [editingTagId, setEditingTagId] = useState<string | null>(null);
+  const [editingTagName, setEditingTagName] = useState('');
+  const [tagUpdatingId, setTagUpdatingId] = useState<string | null>(null);
+  const [tagToDelete, setTagToDelete] = useState<TagMultiSelectOption | null>(null);
 
   const [isUploadingCreateMedia, setIsUploadingCreateMedia] = useState(false);
   const [isUploadingEditMedia, setIsUploadingEditMedia] = useState(false);
@@ -88,7 +103,7 @@ export default function AdminSteps() {
     toast.error(fallback);
   };
 
-  const getHttpErrorDetails = (error: HttpError) => {
+  const getHttpErrorDetails = (error: HttpError, fallback = defaultValidationSummary) => {
     const possibleDetails =
       error.data && typeof error.data === 'object'
         ? (error.data as { details?: unknown }).details
@@ -98,7 +113,14 @@ export default function AdminSteps() {
       return possibleDetails;
     }
 
-    return error.message;
+    if (Array.isArray(possibleDetails)) {
+      const joined = possibleDetails.filter((detail): detail is string => Boolean(detail)).join(' ');
+      if (joined.trim().length > 0) {
+        return joined;
+      }
+    }
+
+    return fallback;
   };
 
   const { data: tags = [], isLoading: tagsLoading } = useQuery<Tag[]>({
@@ -177,7 +199,7 @@ export default function AdminSteps() {
     },
     onError: (error) => {
       if (error instanceof HttpError && error.status === 400) {
-        const details = getHttpErrorDetails(error);
+        const details = getHttpErrorDetails(error, defaultValidationSummary);
         setCreateFormError(details);
         toast.error(details);
         return;
@@ -202,7 +224,7 @@ export default function AdminSteps() {
     },
     onError: (error) => {
       if (error instanceof HttpError && error.status === 400) {
-        const details = getHttpErrorDetails(error);
+        const details = getHttpErrorDetails(error, defaultValidationSummary);
         setEditFormError(details);
         toast.error(details);
         return;
@@ -243,13 +265,49 @@ export default function AdminSteps() {
     },
     onError: (error) => {
       if (error instanceof HttpError && error.status === 400) {
-        const details = getHttpErrorDetails(error);
+        const details = getHttpErrorDetails(error, tagMessages.errorFallback);
         setCreateTagError(details);
         toast.error(details);
         return;
       }
 
       showError(error, messages.tagCreateError);
+    },
+  });
+
+  const updateTagMutation = useMutation({
+    mutationFn: async ({ id, name }: { id: string; name: string }) =>
+      api.tags.update(id, { name }),
+    onSuccess: () => {
+      toast.success(tagMessages.updateSuccess);
+      setEditingTagId(null);
+      setEditingTagName('');
+      queryClient.invalidateQueries({ queryKey: ['tags'] });
+      invalidateStepQueries();
+    },
+    onError: (error) => {
+      showError(error, tagMessages.errorFallback);
+    },
+  });
+
+  const deleteTagMutation = useMutation({
+    mutationFn: async (id: string) => api.tags.remove(id),
+    onSuccess: (_, id) => {
+      toast.success(tagMessages.deleteSuccess);
+      setTagToDelete(null);
+      queryClient.invalidateQueries({ queryKey: ['tags'] });
+      invalidateStepQueries();
+      setCreateForm((prev) => ({
+        ...prev,
+        tagIds: prev.tagIds.filter((tagId) => tagId !== id),
+      }));
+      setEditForm((prev) => ({
+        ...prev,
+        tagIds: prev.tagIds.filter((tagId) => tagId !== id),
+      }));
+    },
+    onError: (error) => {
+      showError(error, tagMessages.errorFallback);
     },
   });
 
@@ -360,6 +418,7 @@ export default function AdminSteps() {
     const file = event.target.files?.[0];
     if (!file) return;
 
+    const mimeType = file.type;
     setIsUploadingCreateMedia(true);
     try {
       const response = await api.media.upload(file);
@@ -371,7 +430,11 @@ export default function AdminSteps() {
       toast.success(messages.uploadSuccess);
     } catch (error) {
       console.error('Failed to upload media', error);
-      toast.error(messages.uploadError);
+      if (error instanceof HttpError && error.message === 'Failas per didelis') {
+        toast.error(formatUploadSizeLimitMessage(mimeType));
+      } else {
+        toast.error(messages.uploadError);
+      }
     } finally {
       setIsUploadingCreateMedia(false);
       event.target.value = '';
@@ -382,6 +445,7 @@ export default function AdminSteps() {
     const file = event.target.files?.[0];
     if (!file) return;
 
+    const mimeType = file.type;
     setIsUploadingEditMedia(true);
     try {
       const response = await api.media.upload(file);
@@ -393,10 +457,66 @@ export default function AdminSteps() {
       toast.success(messages.uploadSuccess);
     } catch (error) {
       console.error('Failed to upload media', error);
-      toast.error(messages.uploadError);
+      if (error instanceof HttpError && error.message === 'Failas per didelis') {
+        toast.error(formatUploadSizeLimitMessage(mimeType));
+      } else {
+        toast.error(messages.uploadError);
+      }
     } finally {
       setIsUploadingEditMedia(false);
       event.target.value = '';
+    }
+  };
+
+  const startTagEdit = (tag: TagMultiSelectOption) => {
+    setEditingTagId(tag.id);
+    setEditingTagName(tag.name);
+  };
+
+  const cancelTagEdit = () => {
+    setEditingTagId(null);
+    setEditingTagName('');
+  };
+
+  const finalizeTagEdit = async () => {
+    if (!editingTagId) {
+      return;
+    }
+
+    const trimmedName = editingTagName.trim();
+    if (!trimmedName) {
+      toast.error(tagMessages.errorFallback);
+      return;
+    }
+
+    const currentTag = tags.find((tag) => tag.id === editingTagId);
+    if (!currentTag) {
+      cancelTagEdit();
+      return;
+    }
+
+    if (currentTag.name === trimmedName) {
+      cancelTagEdit();
+      return;
+    }
+
+    setTagUpdatingId(editingTagId);
+    try {
+      await updateTagMutation.mutateAsync({ id: editingTagId, name: trimmedName });
+    } finally {
+      setTagUpdatingId(null);
+    }
+  };
+
+  const confirmTagDelete = async () => {
+    if (!tagToDelete) {
+      return;
+    }
+
+    try {
+      await deleteTagMutation.mutateAsync(tagToDelete.id);
+    } finally {
+      setTagToDelete(null);
     }
   };
 
@@ -551,13 +671,13 @@ export default function AdminSteps() {
                   />
                 </div>
                 <div className="space-y-2">
-                  <Label htmlFor="create-step-media-url">Media nuoroda</Label>
+                  <Label htmlFor="create-step-media-url">Media (nuotrauka / video)</Label>
                   <div className="flex flex-col gap-2 sm:flex-row">
                     <Input
                       id="create-step-media-url"
                       value={createForm.mediaUrl}
                       onChange={(event) => setCreateForm((prev) => ({ ...prev, mediaUrl: event.target.value }))}
-                      placeholder="https://a¦"
+                      placeholder="Įklijuokite media URL"
                       disabled={createFormDisabled}
                     />
                     <Button
@@ -605,6 +725,14 @@ export default function AdminSteps() {
                     disabled={createFormDisabled || tagsLoading}
                     onCreateTag={() => openCreateTagDialog('create')}
                     creatingTag={createTagMutation.isLoading && tagDialogContext === 'create'}
+                    editingTagId={editingTagId}
+                    editingTagName={editingTagName}
+                    onStartEditTag={startTagEdit}
+                    onEditTagNameChange={(value) => setEditingTagName(value)}
+                    onConfirmEditTag={finalizeTagEdit}
+                    onCancelEditTag={cancelTagEdit}
+                    tagUpdatingId={tagUpdatingId}
+                    onDeleteTag={(option) => setTagToDelete(option)}
                   />
                 </div>
                 <div className="flex items-center gap-2 md:col-span-2">
@@ -685,13 +813,13 @@ export default function AdminSteps() {
                   />
                 </div>
                 <div className="space-y-2">
-                  <Label htmlFor="edit-step-media-url">Media nuoroda</Label>
+                  <Label htmlFor="edit-step-media-url">Media (nuotrauka / video)</Label>
                   <div className="flex flex-col gap-2 sm:flex-row">
                     <Input
                       id="edit-step-media-url"
                       value={editForm.mediaUrl}
                       onChange={(event) => setEditForm((prev) => ({ ...prev, mediaUrl: event.target.value }))}
-                      placeholder="https://a¦"
+                      placeholder="Įklijuokite media URL"
                       disabled={editFormDisabled}
                     />
                     <Button
@@ -739,6 +867,14 @@ export default function AdminSteps() {
                     disabled={editFormDisabled || tagsLoading}
                     onCreateTag={() => openCreateTagDialog('edit')}
                     creatingTag={createTagMutation.isLoading && tagDialogContext === 'edit'}
+                    editingTagId={editingTagId}
+                    editingTagName={editingTagName}
+                    onStartEditTag={startTagEdit}
+                    onEditTagNameChange={(value) => setEditingTagName(value)}
+                    onConfirmEditTag={finalizeTagEdit}
+                    onCancelEditTag={cancelTagEdit}
+                    tagUpdatingId={tagUpdatingId}
+                    onDeleteTag={(option) => setTagToDelete(option)}
                   />
                 </div>
                 <div className="flex items-center gap-2 md:col-span-2">
@@ -859,6 +995,29 @@ export default function AdminSteps() {
             </AlertDialogFooter>
           </AlertDialogContent>
         </AlertDialog>
+        <AlertDialog
+          open={Boolean(tagToDelete)}
+          onOpenChange={(open) => (!open ? setTagToDelete(null) : undefined)}
+        >
+          <AlertDialogContent>
+            <AlertDialogHeader>
+              <AlertDialogTitle>Ištrinti žymą</AlertDialogTitle>
+              <AlertDialogDescription>
+                Ar tikrai norite ištrinti šią žymą? Ji bus pašalinta iš visų žingsnių.
+              </AlertDialogDescription>
+            </AlertDialogHeader>
+            <AlertDialogFooter>
+              <AlertDialogCancel disabled={deleteTagMutation.isLoading}>Atšaukti</AlertDialogCancel>
+              <AlertDialogAction
+                className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
+                disabled={deleteTagMutation.isLoading}
+                onClick={confirmTagDelete}
+              >
+                Ištrinti žymą
+              </AlertDialogAction>
+            </AlertDialogFooter>
+          </AlertDialogContent>
+        </AlertDialog>
       </div>
     </MainLayout>
   );
@@ -872,9 +1031,33 @@ type TagMultiSelectProps = {
   disabled?: boolean;
   onCreateTag?: () => void;
   creatingTag?: boolean;
+  editingTagId?: string | null;
+  editingTagName?: string;
+  onStartEditTag?: (option: TagMultiSelectOption) => void;
+  onEditTagNameChange?: (next: string) => void;
+  onConfirmEditTag?: () => void;
+  onCancelEditTag?: () => void;
+  tagUpdatingId?: string | null;
+  onDeleteTag?: (option: TagMultiSelectOption) => void;
 };
 
-function TagMultiSelect({ options, value, onChange, placeholder, disabled, onCreateTag, creatingTag }: TagMultiSelectProps) {
+function TagMultiSelect({
+  options,
+  value,
+  onChange,
+  placeholder,
+  disabled,
+  onCreateTag,
+  creatingTag,
+  editingTagId,
+  editingTagName,
+  onStartEditTag,
+  onEditTagNameChange,
+  onConfirmEditTag,
+  onCancelEditTag,
+  tagUpdatingId,
+  onDeleteTag,
+}: TagMultiSelectProps) {
   const [open, setOpen] = useState(false);
 
   const toggleValue = (id: string, checked: boolean) => {
@@ -906,14 +1089,104 @@ function TagMultiSelect({ options, value, onChange, placeholder, disabled, onCre
           ) : (
             options.map((option) => {
               const checked = value.includes(option.id);
+              const isEditing = editingTagId === option.id;
+              const isUpdating = tagUpdatingId === option.id;
               return (
-                <label
+                <div
                   key={option.id}
-                  className="flex cursor-pointer items-center gap-2 rounded-md px-2 py-1 text-sm hover:bg-muted"
+                  className="flex items-center justify-between gap-2 rounded-md px-2 py-1 text-sm hover:bg-muted"
                 >
-                  <Checkbox checked={checked} onCheckedChange={(state) => toggleValue(option.id, state === true)} />
-                  <span className="flex-1 truncate">{option.name}</span>
-                </label>
+                  <label
+                    className="flex flex-1 cursor-pointer items-center gap-2"
+                    onClick={(event) => {
+                      if (isEditing) {
+                        event.preventDefault();
+                      }
+                    }}
+                  >
+                    <Checkbox
+                      checked={checked}
+                      onCheckedChange={(state) => toggleValue(option.id, state === true)}
+                      disabled={Boolean(disabled) || isEditing || isUpdating}
+                    />
+                    {isEditing ? (
+                      <Input
+                        className="flex-1"
+                        value={editingTagName ?? option.name}
+                        onChange={(event) => onEditTagNameChange?.(event.target.value)}
+                        disabled={isUpdating}
+                        onKeyDown={(event) => {
+                          if (event.key === 'Enter') {
+                            event.preventDefault();
+                            onConfirmEditTag?.();
+                          }
+                          if (event.key === 'Escape') {
+                            onCancelEditTag?.();
+                          }
+                        }}
+                      />
+                    ) : (
+                      <span className="flex-1 truncate">{option.name}</span>
+                    )}
+                  </label>
+                  <div className="flex items-center gap-1">
+                    {isEditing ? (
+                      <>
+                        <Button
+                          type="button"
+                          variant="ghost"
+                          size="sm"
+                          onClick={(event) => {
+                            event.stopPropagation();
+                            onConfirmEditTag?.();
+                          }}
+                          disabled={isUpdating}
+                        >
+                          <Check className="h-3 w-3" />
+                        </Button>
+                        <Button
+                          type="button"
+                          variant="ghost"
+                          size="sm"
+                          onClick={(event) => {
+                            event.stopPropagation();
+                            onCancelEditTag?.();
+                          }}
+                          disabled={isUpdating}
+                        >
+                          <X className="h-3 w-3" />
+                        </Button>
+                      </>
+                    ) : (
+                      <>
+                        <Button
+                          type="button"
+                          variant="ghost"
+                          size="sm"
+                          onClick={(event) => {
+                            event.stopPropagation();
+                            onStartEditTag?.(option);
+                          }}
+                          disabled={Boolean(tagUpdatingId)}
+                        >
+                          <Edit className="h-3 w-3" />
+                        </Button>
+                        <Button
+                          type="button"
+                          variant="ghost"
+                          size="sm"
+                          onClick={(event) => {
+                            event.stopPropagation();
+                            setOpen(false);
+                            onDeleteTag?.(option);
+                          }}
+                        >
+                          <Trash2 className="h-3 w-3" />
+                        </Button>
+                      </>
+                    )}
+                  </div>
+                </div>
               );
             })
           )}

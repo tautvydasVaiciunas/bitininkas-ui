@@ -37,13 +37,13 @@ export class CreateTaskStepInputDto {
   @IsOptional()
   @Transform(optionalStringValue)
   @IsString({ message: 'Turinys turi būti tekstas' })
-  @MaxLength(1000, { message: 'Turinys gali būti iki 1000 simbolių' })
+  @MaxLength(5000, { message: 'Turinys gali būti iki 5000 simbolių' })
   contentText?: string;
 
   @IsOptional()
   @Transform(optionalStringValue)
-  @IsString({ message: 'Turinys turi būti tekstas' })
-  @MaxLength(1000, { message: 'Turinys gali būti iki 1000 simbolių' })
+  @IsString({ message: 'Aprašymas turi būti tekstas' })
+  @MaxLength(5000, { message: 'Aprašymas gali būti iki 5000 simbolių' })
   description?: string;
 
   @IsOptional()

@@ -66,6 +66,16 @@ export class HivesController {
   }
 
   @Roles(UserRole.MANAGER, UserRole.ADMIN)
+  @Get('user/:userId')
+  async findByUser(
+    @Param('userId') userId: string,
+    @Query('includeArchived') includeArchived = 'false',
+  ) {
+    const include = includeArchived === 'true';
+    return this.hivesService.findForUser(userId, include);
+  }
+
+  @Roles(UserRole.MANAGER, UserRole.ADMIN)
   @Patch(":id")
   async update(
     @Param("id") id: string,

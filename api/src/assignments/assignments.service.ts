@@ -1091,6 +1091,8 @@ export class AssignmentsService {
     let primaryAssignmentProgress: number | null = null;
     let primaryDueTimestamp = Number.POSITIVE_INFINITY;
     let primaryAssignmentId: string | null = null;
+    let primaryAssignmentStartDate: string | null = null;
+    let primaryAssignmentDueDate: string | null = null;
 
     const today = new Date();
     today.setHours(0, 0, 0, 0);
@@ -1130,6 +1132,8 @@ export class AssignmentsService {
         primaryDueTimestamp = dueTimestamp;
         primaryAssignmentProgress = progressPercent;
         primaryAssignmentId = assignment.id;
+        primaryAssignmentStartDate = assignment.startDate ?? null;
+        primaryAssignmentDueDate = assignment.dueDate ?? null;
       }
     }
 
@@ -1139,13 +1143,15 @@ export class AssignmentsService {
     return {
       hiveId,
       assignmentsCount: assignments.length,
-      completion: percent,
-      activeAssignmentsCount,
-      overdueAssignmentsCount,
-      primaryAssignmentProgress,
-      primaryAssignmentId,
-    };
-  }
+    completion: percent,
+    activeAssignmentsCount,
+    overdueAssignmentsCount,
+    primaryAssignmentProgress,
+    primaryAssignmentId,
+    primaryAssignmentStartDate,
+    primaryAssignmentDueDate,
+  };
+}
 
   async resetProgressForTask(taskId: string) {
     const assignments = await this.assignmentsRepository.find({

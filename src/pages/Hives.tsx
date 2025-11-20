@@ -161,9 +161,10 @@ function HiveCard({
       : activeAssignmentsCount > 0
       ? "Aktyvus"
       : "Ramu";
-  const assignmentPreviewLink = summary?.primaryAssignmentId
-    ? `/tasks/${summary.primaryAssignmentId}/preview`
-    : undefined;
+  const assignmentRunLink =
+    activeAssignmentsCount > 0 && summary?.primaryAssignmentId
+      ? `/tasks/${summary.primaryAssignmentId}/run`
+      : undefined;
 
   return (
     <div className="h-full flex flex-col">
@@ -217,43 +218,47 @@ function HiveCard({
             <div className="flex-1">
               {summaryLoading ? (
                 <Skeleton className="h-16 w-full rounded-lg" />
-                ) : summary ? (
-                  <div className="rounded-lg border border-border px-3 py-2 text-sm">
-                    <div className="flex items-center justify-between">
-                      <span className="text-muted-foreground">Aktyvios užduotys</span>
-                      <div className="flex items-center gap-2">
-                        <span className="font-medium">{activeAssignmentsCount}</span>
-                        <Badge
-                          variant={urgencyVariant}
-                          className="h-3 w-3 p-0 border-0"
-                          aria-label={urgencyLabel}
-                        />
-                        <span className="sr-only">{urgencyLabel}</span>
+              ) : summary ? (
+                (() => {
+                  const assignmentContent = (
+                    <div
+                      className={`rounded-lg border border-border px-3 py-2 text-sm ${
+                        assignmentRunLink ? "hover:border-foreground hover:bg-muted/20" : ""
+                      }`}
+                    >
+                      <div className="flex items-center justify-between">
+                        <span className="text-muted-foreground">Aktyvios užduotys</span>
+                        <div className="flex items-center gap-2">
+                          <span className="font-medium">{activeAssignmentsCount}</span>
+                          <Badge
+                            variant={urgencyVariant}
+                            className="h-3 w-3 p-0 border-0"
+                            aria-label={urgencyLabel}
+                          />
+                          <span className="sr-only">{urgencyLabel}</span>
+                        </div>
                       </div>
+                      {activeAssignmentsCount > 0 ? (
+                        <div className="mt-1 text-muted-foreground">
+                          <span className="font-medium text-foreground">
+                            Užbaigta: {progressPercent}%
+                          </span>
+                        </div>
+                      ) : null}
                     </div>
-                    {activeAssignmentsCount > 0 ? (
-                      <div className="mt-1 text-muted-foreground">
-                        {assignmentPreviewLink ? (
-                          <Link
-                            to={assignmentPreviewLink}
-                            className="inline-flex items-center gap-1 text-muted-foreground hover:text-foreground transition-colors"
-                          >
-                            Užbaigta:{" "}
-                            <span className="font-medium text-foreground">
-                              {progressPercent}%
-                            </span>
-                          </Link>
-                        ) : (
-                          <>
-                            Užbaigta:{" "}
-                            <span className="font-medium text-foreground">
-                              {progressPercent}%
-                            </span>
-                          </>
-                        )}
-                      </div>
-                    ) : null}
-                  </div>
+                  );
+                  return assignmentRunLink ? (
+                    <Link
+                      to={assignmentRunLink}
+                      className="block cursor-pointer"
+                      aria-label="Eiti į aktyviausią užduotį"
+                    >
+                      {assignmentContent}
+                    </Link>
+                  ) : (
+                    assignmentContent
+                  );
+                })()
               ) : summaryError ? (
                 <div className="rounded-lg bg-destructive/10 border border-destructive/20 px-3 py-2 text-sm text-destructive-foreground">
                   Nepavyko įkelti suvestinės

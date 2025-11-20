@@ -28,7 +28,7 @@ type NavItem = {
 
 const profileNav: NavItem = { to: "/profile", label: "Profilis", icon: User };
 const publicStoreNav: NavItem = { to: "/parduotuve", label: "Parduotuvė", icon: Package };
-const supportNav: NavItem = { to: "/support", label: "Susisiek", icon: Bell };
+const supportNav: NavItem = { to: "/support", label: "Žinutės", icon: Bell };
 const messagesNav: NavItem = { to: "/admin/support", label: "Žinutės", icon: Bell };
 
 const userNavItems: NavItem[] = [

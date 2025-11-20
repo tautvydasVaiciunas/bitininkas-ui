@@ -12,8 +12,6 @@ import {
   AlertDialogHeader,
   AlertDialogTitle,
 } from "@/components/ui/alert-dialog";
-import { Badge } from "@/components/ui/badge";
-import type { BadgeProps } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import {
@@ -89,15 +87,6 @@ type CreateHiveFormState = {
   tagId: string | null;
 };
 
-const statusMetadata: Record<
-  HiveStatus,
-  { label: string; badgeVariant: BadgeProps["variant"] }
-> = {
-  active: { label: "Aktyvus", badgeVariant: "success" },
-  paused: { label: "Pristabdytas", badgeVariant: "secondary" },
-  archived: { label: "Archyvuotas", badgeVariant: "outline" },
-};
-
 
 const formatDate = (value?: string | null) => {
   if (!value) return "-";
@@ -133,7 +122,6 @@ function HiveCard({
   canManage,
 }: HiveCardProps) {
   const [confirmAction, setConfirmAction] = useState<"archive" | "delete" | null>(null);
-  const statusMeta = statusMetadata[hive.status];
   const {
     data: summary,
     isLoading: summaryLoading,
@@ -148,7 +136,7 @@ function HiveCard({
   return (
     <div className="h-full flex flex-col">
       <Card className="shadow-custom hover:shadow-custom-md transition-all group h-full min-h-[560px] flex flex-col overflow-hidden">
-        <div className="h-56 w-full overflow-hidden rounded-t-lg bg-muted-foreground/5">
+        <div className="h-56 w-full overflow-hidden rounded-t-lg bg-white">
           <Link
             to={`/hives/${hive.id}`}
             className="flex h-full w-full items-center justify-center"
@@ -165,7 +153,7 @@ function HiveCard({
           <CardHeader className="pt-6">
             <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
               <div className="flex-1">
-                <CardTitle className="text-xl mb-1">{hive.label}</CardTitle>
+              <CardTitle className="text-xl mb-1">{hive.label}</CardTitle>
                 {hive.location ? (
                   <div className="flex items-center gap-1 text-sm text-muted-foreground">
                     <MapPin className="w-3 h-3" />
@@ -173,15 +161,14 @@ function HiveCard({
                   </div>
                 ) : null}
               </div>
-              <div className="flex flex-col items-end gap-2 text-sm">
-                <Badge variant={statusMeta.badgeVariant}>{statusMeta.label}</Badge>
-                {hive.tag ? (
-                  <div className="flex items-center gap-1 text-muted-foreground">
+              {hive.tag ? (
+                <div className="flex flex-col items-end gap-1 text-sm text-muted-foreground">
+                  <div className="flex items-center gap-1">
                     <TagIcon className="w-4 h-4" />
                     <span>{hive.tag.name}</span>
                   </div>
-                ) : null}
-              </div>
+                </div>
+              ) : null}
             </div>
           </CardHeader>
           <CardContent className="flex flex-1 flex-col space-y-4">

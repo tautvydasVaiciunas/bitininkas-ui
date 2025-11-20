@@ -188,8 +188,8 @@ const SupportChat = () => {
 
   return (
     <MainLayout>
-      <div className="mx-auto w-full max-w-4xl space-y-6 py-10 px-4">
-        <h1 className="text-2xl font-semibold">Susisiek</h1>
+        <div className="mx-auto w-full max-w-4xl space-y-6 py-10 px-4">
+          <h1 className="text-2xl font-semibold">Žinutės</h1>
         <div className="border border-border rounded-2xl bg-background/80 p-4 shadow-sm shadow-black/5">
           <div className="max-h-[60vh] overflow-y-auto space-y-4 px-2" ref={scrollRef}>
             {threadLoading ? (

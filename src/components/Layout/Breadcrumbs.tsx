@@ -10,7 +10,7 @@ const routeLabels: Record<string, string> = {
   news: 'Naujienos',
   hives: 'Aviliai',
   tasks: 'Užduotys',
-  support: 'Susisiek',
+  support: 'Žinutės',
   notifications: 'Pranešimai',
   profile: 'Profilis',
   admin: 'Administravimas',

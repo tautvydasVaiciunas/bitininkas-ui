@@ -104,6 +104,7 @@ export default function HiveDetail() {
   });
 
   const canManageMembers = user?.role === 'admin' || user?.role === 'manager';
+  const canManageHistory = canManageMembers;
 
   const { data: users = [] } = useQuery<AdminUserResponse[]>({
     queryKey: ['users', 'all'],
@@ -461,7 +462,7 @@ const formatMonthYear = (value?: string | null) => {
                   }
                 >
                   {id ? (
-                    <HiveHistoryTabLazy hiveId={id} />
+                    <HiveHistoryTabLazy hiveId={id} canManage={canManageHistory} />
                   ) : (
                     <div className="text-center py-8 text-muted-foreground">
                       Avilio istorija nepasiekiama.

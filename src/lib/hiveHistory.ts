@@ -1,10 +1,11 @@
-import type { HiveHistoryEventResponse } from '@/lib/api';
+import type { HiveHistoryEventResponse, SupportAttachmentPayload } from '@/lib/api';
 
 export type HistoryEventDescriptor = {
   title: string;
   description: string;
   link?: string;
   linkLabel?: string;
+  attachments?: SupportAttachmentPayload[];
 };
 
 const HISTORY_FIELD_LABELS: Record<string, string> = {
@@ -18,6 +19,7 @@ const HISTORY_EVENT_LABELS: Record<HiveHistoryEventResponse['type'], string> = {
   TASK_ASSIGNED: 'Priskirta užduotis',
   TASK_DATES_CHANGED: 'Atnaujinti terminai',
   TASK_COMPLETED: 'Užduotis užbaigta',
+  MANUAL_NOTE: 'Rankinis įrašas',
 };
 
 const historyDateFormatter = new Intl.DateTimeFormat('lt-LT', { dateStyle: 'medium' });
@@ -165,6 +167,18 @@ export const describeHiveHistoryEvent = (
         description: 'Visi šios užduoties veiksmai atlikti 100 %.',
         link,
         linkLabel: link ? 'Peržiūrėti užduotį' : undefined,
+      };
+    }
+    case 'MANUAL_NOTE': {
+      const attachments =
+        Array.isArray(payload.attachments) && payload.attachments.length
+          ? (payload.attachments as SupportAttachmentPayload[])
+          : [];
+      const text = typeof payload.text === 'string' ? payload.text : '';
+      return {
+        title: 'Rankinis įrašas istorijoje',
+        description: text || 'Naujas komentaras avilio istorijoje.',
+        attachments,
       };
     }
     default:

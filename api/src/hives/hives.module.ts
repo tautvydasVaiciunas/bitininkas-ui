@@ -10,6 +10,7 @@ import { HiveTag } from './tags/hive-tag.entity';
 import { HiveTagsService } from './tags/hive-tags.service';
 import { HiveTagsController } from './tags/hive-tags.controller';
 import { HiveEventsModule } from './hive-events.module';
+import { HiveHistoryController } from './hive-history.controller';
 
 @Module({
   imports: [
@@ -19,7 +20,7 @@ import { HiveEventsModule } from './hive-events.module';
     forwardRef(() => AssignmentsModule),
   ],
   providers: [HivesService, HiveTagsService],
-  controllers: [HivesController, HiveTagsController],
+  controllers: [HivesController, HiveTagsController, HiveHistoryController],
   exports: [HivesService, HiveTagsService],
 })
 export class HivesModule {}

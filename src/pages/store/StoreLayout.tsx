@@ -11,11 +11,7 @@ interface StoreLayoutProps {
   children: React.ReactNode;
 }
 
-const baseLinks = [
-  { to: "/parduotuve", label: "Produktai" },
-  { to: "/parduotuve/krepselis", label: "Krepšelis" },
-  { to: "/parduotuve/uzsakymas", label: "Užsakymas" },
-];
+const baseLinks = [{ to: "/parduotuve", label: "Produktai" }];
 
 export const StoreLayout = ({ children }: StoreLayoutProps) => {
   const location = useLocation();
@@ -55,7 +51,7 @@ export const StoreLayout = ({ children }: StoreLayoutProps) => {
               );
             })}
           </nav>
-          <Button asChild variant="outline" className="gap-2">
+          <Button asChild variant="default" className="gap-2">
             <Link to="/parduotuve/krepselis">
               <ShoppingCart className="h-4 w-4" />
               <span>Krepšelis ({totalQuantity})</span>

@@ -167,6 +167,33 @@ export default function HiveDetail() {
 
   const assignments = useMemo(() => data?.assignments ?? [], [data]);
 
+  const today = useMemo(() => {
+    const now = new Date();
+    now.setHours(0, 0, 0, 0);
+    return now;
+  }, []);
+
+  const currentAssignments = useMemo(() => {
+    const parseDate = (value?: string | null) => {
+      if (!value) return null;
+      const parsed = new Date(value);
+      return Number.isNaN(parsed.getTime()) ? null : parsed;
+    };
+
+    return assignments.filter(({ assignment }) => {
+      if (assignment.status === 'done') {
+        return false;
+      }
+
+      const startDate = parseDate(assignment.startDate);
+      const dueDate = parseDate(assignment.dueDate);
+      const startOk = !startDate || startDate <= today;
+      const activeWindow = !dueDate || dueDate >= today;
+      const overdue = dueDate && dueDate < today;
+      return startOk && (activeWindow || overdue);
+    });
+  }, [assignments, today]);
+
 const formatDate = (dateStr: string) => {
   const date = new Date(dateStr);
   return date.toLocaleDateString('lt-LT', { year: 'numeric', month: 'long', day: 'numeric' });
@@ -313,15 +340,6 @@ const formatMonthYear = (value?: string | null) => {
           </div>
 
           <div className="flex flex-wrap gap-2 justify-end">
-            <Button asChild>
-              <a
-                href="https://www.busmedaus.lt/product-page/pradedan%C4%8Diojo-rinkinio-rezervacija"
-                target="_blank"
-                rel="noopener noreferrer"
-              >
-                + įsigyti papildomą rinkinį
-              </a>
-            </Button>
             <Button variant="outline" onClick={() => setActiveTab('settings')}>
               <Edit className="mr-2 w-4 h-4" />
               Redaguoti
@@ -388,13 +406,13 @@ const formatMonthYear = (value?: string | null) => {
                 <CardTitle>Užduotys</CardTitle>
               </CardHeader>
               <CardContent>
-                {assignments.length === 0 ? (
+                {currentAssignments.length === 0 ? (
                   <div className="text-center py-8 text-muted-foreground">
                     Šiam aviliui nėra priskirtų užduočių
                   </div>
                 ) : (
                   <div className="divide-y divide-border">
-                    {assignments.map(({ assignment, task, completion }) => (
+                    {currentAssignments.map(({ assignment, task, completion }) => (
                       <div key={assignment.id} className="py-4 first:pt-0 last:pb-0">
                         <div className="flex items-start justify-between gap-4">
                           <div className="flex-1 space-y-2">

@@ -38,8 +38,7 @@ export class TaskStep {
 
   @Column({
     name: 'content_text',
-    type: 'varchar',
-    length: 1000,
+    type: 'text',
     nullable: true,
     default: null,
   })

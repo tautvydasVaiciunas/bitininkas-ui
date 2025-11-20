@@ -641,67 +641,76 @@ export default function Hives() {
                           : "Pridėti avilį"}
                       </Button>
                     </DialogTrigger>
-                    <DialogContent className="space-y-6">
-                      <div className="space-y-2">
-                        <Label htmlFor="create-hive-label">Pavadinimas</Label>
-                        <Input
-                          id="create-hive-label"
-                          value={createForm.label}
-                          onChange={(event) =>
-                            setCreateForm((prev) => ({
-                              ...prev,
-                              label: event.target.value,
-                            }))
-                          }
-                          required
-                        />
-                      </div>
-                      <div className="space-y-2">
-                        <Label htmlFor="create-hive-location">Lokacija</Label>
-                        <Input
-                          id="create-hive-location"
-                          value={createForm.location}
-                          onChange={(event) =>
-                            setCreateForm((prev) => ({
-                              ...prev,
-                              location: event.target.value,
-                            }))
-                          }
-                          placeholder="Pvz., Vilnius, Žvėrynas"
-                        />
-                      </div>
-                      {canManageMembers ? (
+                    <DialogContent className="max-h-[90vh] w-full sm:max-w-lg flex flex-col">
+                      <DialogHeader>
+                      <DialogTitle>Pridėti avilį</DialogTitle>
+                      <DialogDescription>Įveskite pagrindinius avilio duomenis.</DialogDescription>
+                      </DialogHeader>
+                      <form
+                        id="create-hive-form"
+                        onSubmit={handleCreateSubmit}
+                        className="flex flex-col flex-1 gap-6 overflow-y-auto"
+                      >
                         <div className="space-y-2">
-                          <Label>Priskirti vartotojai</Label>
-                          <UserMultiSelect
-                            options={memberOptions}
-                            value={createForm.members}
-                            onChange={(members) =>
-                              setCreateForm((prev) => ({ ...prev, members }))
+                          <Label htmlFor="create-hive-label">Pavadinimas</Label>
+                          <Input
+                            id="create-hive-label"
+                            value={createForm.label}
+                            onChange={(event) =>
+                              setCreateForm((prev) => ({
+                                ...prev,
+                                label: event.target.value,
+                              }))
                             }
-                            placeholder="Pasirinkite komandos narius (nebūtina)"
+                            required
                           />
                         </div>
-                      ) : null}
-                      <DialogFooter>
-                        <Button
-                          variant="outline"
-                          type="button"
-                          onClick={() => setIsCreateDialogOpen(false)}
-                        >
-                          Atšaukti
-                        </Button>
-                        <Button
-                          type="submit"
-                          form="create-hive-form"
-                          disabled={createHiveMutation.isPending}
-                        >
-                          {createHiveMutation.isPending ? (
-                            <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-                          ) : null}
-                          Išsaugoti
-                        </Button>
-                      </DialogFooter>
+                        <div className="space-y-2">
+                          <Label htmlFor="create-hive-location">Lokacija</Label>
+                          <Input
+                            id="create-hive-location"
+                            value={createForm.location}
+                            onChange={(event) =>
+                              setCreateForm((prev) => ({
+                                ...prev,
+                                location: event.target.value,
+                              }))
+                            }
+                            placeholder="Pvz., Vilnius, Žvėrynas"
+                          />
+                        </div>
+                        {canManageMembers ? (
+                          <div className="space-y-2">
+                            <Label>Priskirti vartotojai</Label>
+                            <UserMultiSelect
+                              options={memberOptions}
+                              value={createForm.members}
+                              onChange={(members) =>
+                                setCreateForm((prev) => ({ ...prev, members }))
+                              }
+                              placeholder="Pasirinkite komandos narius (nebūtina)"
+                            />
+                          </div>
+                        ) : null}
+                        <DialogFooter className="flex-shrink-0">
+                          <Button
+                            variant="outline"
+                            type="button"
+                            onClick={() => setIsCreateDialogOpen(false)}
+                          >
+                            Atšaukti
+                          </Button>
+                          <Button
+                            type="submit"
+                            disabled={createHiveMutation.isPending}
+                          >
+                            {createHiveMutation.isPending ? (
+                              <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                            ) : null}
+                            Išsaugoti
+                          </Button>
+                        </DialogFooter>
+                      </form>
                     </DialogContent>
                   </Dialog>
                 ) : null}

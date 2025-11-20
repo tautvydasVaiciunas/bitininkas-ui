@@ -7,6 +7,7 @@ import { MainLayout } from '@/components/Layout/MainLayout';
 import { Thumbnail } from '@/components/media/Thumbnail';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
+import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader } from '@/components/ui/card';
 import {
   Dialog,
@@ -860,47 +861,57 @@ function StepPreviewDialog({ step, open, onOpenChange }: StepPreviewDialogProps)
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="sm:max-w-lg space-y-4">
-        <DialogHeader>
+      <DialogContent className="max-h-[90vh] w-full sm:max-w-xl flex flex-col">
+        <DialogHeader className="pb-2">
           <DialogTitle>{step?.title ?? 'Žingsnio peržiūra'}</DialogTitle>
-          <DialogDescription>
-            {step?.contentText && step.contentText.trim().length > 0
-              ? step.contentText
-              : 'Šiam žingsniui aprašymas nepateiktas.'}
-          </DialogDescription>
+          <DialogDescription>Peržiūrėkite žingsnio turinį ir mediją.</DialogDescription>
         </DialogHeader>
-        {mediaUrl ? (
-          showVideo ? (
-            videoError ? (
-              <div className="rounded-lg border border-dashed border-border bg-muted/30 p-4 text-center text-muted-foreground">
-                Nepavyko įkelti vaizdo įrašo.
-              </div>
+        <div className="flex-1 overflow-y-auto space-y-4 pr-2">
+          {mediaUrl ? (
+            showVideo ? (
+              videoError ? (
+                <div className="rounded-lg border border-dashed border-border bg-muted/30 p-4 text-center text-muted-foreground">
+                  Nepavyko įkelti vaizdo įrašo.
+                </div>
+              ) : (
+                <video
+                  key={mediaUrl}
+                  src={mediaUrl}
+                  controls
+                  preload="metadata"
+                  className="w-full rounded-lg border border-border bg-black"
+                  crossOrigin="anonymous"
+                  onError={() => setVideoError(true)}
+                />
+              )
             ) : (
-              <video
-                key={mediaUrl}
+              <img
                 src={mediaUrl}
-                controls
-                preload="metadata"
-                className="w-full rounded-lg border border-border bg-black"
+                alt={step?.title ?? 'Žingsnio iliustracija'}
+                className="w-full rounded-lg border border-border object-cover"
                 crossOrigin="anonymous"
-                onError={() => setVideoError(true)}
+                onError={(event) => applyImageFallback(event.currentTarget)}
               />
             )
           ) : (
-            <img
-              src={mediaUrl}
-              alt={step?.title ?? 'Žingsnio iliustracija'}
-              className="w-full rounded-lg border border-border object-cover"
-              crossOrigin="anonymous"
-              onError={(event) => applyImageFallback(event.currentTarget)}
-            />
-          )
-        ) : (
-          <div className="rounded-lg border border-dashed border-border bg-muted/30 p-4 text-center text-muted-foreground">
-            Medija nepateikta.
+            <div className="rounded-lg border border-dashed border-border bg-muted/30 p-4 text-center text-muted-foreground">
+              Medija nepateikta.
+            </div>
+          )}
+          <div>
+            <p className="text-sm leading-relaxed whitespace-pre-line">
+              {step?.contentText && step.contentText.trim().length > 0
+                ? step.contentText
+                : 'Šiam žingsniui aprašymas nepateiktas.'}
+            </p>
           </div>
-        )}
-        <StepTagList tags={step?.tags ?? []} />
+          <StepTagList tags={step?.tags ?? []} />
+        </div>
+        <DialogFooter className="flex-shrink-0">
+          <Button variant="outline" onClick={() => onOpenChange(false)}>
+            Uždaryti
+          </Button>
+        </DialogFooter>
       </DialogContent>
     </Dialog>
   );

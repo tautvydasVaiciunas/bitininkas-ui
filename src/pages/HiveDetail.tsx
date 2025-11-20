@@ -1,5 +1,5 @@
 import { Suspense, lazy, useEffect, useMemo, useState } from 'react';
-import { useParams, Link } from 'react-router-dom';
+import { useParams, Link, useNavigate } from 'react-router-dom';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { MainLayout } from '@/components/Layout/MainLayout';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
@@ -18,6 +18,7 @@ import {
   type Assignment,
   type AssignmentStatus,
   type Hive,
+  type HiveStatus,
   type HiveTag,
   type Task,
   type UpdateHivePayload,
@@ -43,6 +44,7 @@ export default function HiveDetail() {
   const { user } = useAuth();
   const { toast } = useToast();
   const queryClient = useQueryClient();
+  const navigate = useNavigate();
 
   const { data, isLoading, isError } = useQuery<{
     hive: Hive;
@@ -94,6 +96,7 @@ export default function HiveDetail() {
   });
 
   const hive = data?.hive;
+  const isArchived = hive?.status === 'archived';
 
   const [activeTab, setActiveTab] = useState<'tasks' | 'history' | 'settings'>('tasks');
   const [editForm, setEditForm] = useState<EditFormState>({
@@ -132,6 +135,33 @@ export default function HiveDetail() {
       toast({
         title: 'Nepavyko sukurti žymos',
         description,
+        variant: 'destructive',
+      });
+    },
+  });
+
+  const archiveHiveMutation = useMutation({
+    mutationFn: ({ id, status }: { id: string; status: HiveStatus }) =>
+      api.hives.update(id, { status }),
+    onSuccess: (_, variables) => {
+      queryClient.invalidateQueries({ queryKey: ['hives'] });
+      queryClient.invalidateQueries({ queryKey: ['hive', variables.id] });
+      toast({
+        title:
+          variables.status === 'archived'
+            ? 'Avilys archyvuotas'
+            : 'Avilys suaktyvintas',
+        description:
+          variables.status === 'archived'
+            ? 'Avilys dabar nebeaktyvus.'
+            : 'Avilys vėl pasiekiamas sąraše.',
+      });
+      navigate('/hives');
+    },
+    onError: () => {
+      toast({
+        title: 'Klaida',
+        description: 'Nepavyko atnaujinti avilio būsenos.',
         variant: 'destructive',
       });
     },
@@ -313,9 +343,14 @@ const formatMonthYear = (value?: string | null) => {
         {/* Header */}
         <div className="flex items-start justify-between">
           <div className="space-y-2">
-              <div className="flex items-center gap-3">
-                <h1 className="text-3xl font-bold">{hive.label}</h1>
-              </div>
+            <div className="flex items-center gap-3">
+              <h1 className="text-3xl font-bold">{hive.label}</h1>
+              {isArchived ? (
+                <Badge variant="destructive" className="text-xs uppercase tracking-wider">
+                  Archyvuotas
+                </Badge>
+              ) : null}
+            </div>
             {showFriendlyId && friendlyId ? (
               <p className="text-sm font-mono text-muted-foreground">{friendlyId}</p>
             ) : null}
@@ -333,18 +368,28 @@ const formatMonthYear = (value?: string | null) => {
             </div>
           </div>
 
-            <div className="flex flex-wrap gap-2 justify-end">
-              <Button variant="outline" onClick={() => setActiveTab('settings')}>
-                <Edit className="mr-2 w-4 h-4" />
-                Redaguoti
+          <div className="flex flex-wrap gap-2 justify-end">
+            <Button variant="outline" onClick={() => setActiveTab('settings')}>
+              <Edit className="mr-2 w-4 h-4" />
+              Redaguoti
+            </Button>
+            {canManageMembers ? (
+              <Button
+                variant="outline"
+                onClick={() => {
+                  if (!hive) return;
+                  archiveHiveMutation.mutate({
+                    id: hive.id,
+                    status: isArchived ? 'active' : 'archived',
+                  });
+                }}
+                disabled={archiveHiveMutation.isPending}
+              >
+                <Archive className="mr-2 w-4 h-4" />
+                {isArchived ? 'Suaktyvinti' : 'Archyvuoti'}
               </Button>
-              {canManageMembers ? (
-                <Button variant="outline">
-                  <Archive className="mr-2 w-4 h-4" />
-                  Archyvuoti
-                </Button>
-              ) : null}
-            </div>
+            ) : null}
+          </div>
         </div>
 
         {/* Details Card */}

@@ -1056,6 +1056,7 @@ export class AssignmentsService {
         activeAssignmentsCount: 0,
         overdueAssignmentsCount: 0,
         primaryAssignmentProgress: null,
+        primaryAssignmentId: null,
       };
     }
 
@@ -1089,6 +1090,7 @@ export class AssignmentsService {
     let overdueAssignmentsCount = 0;
     let primaryAssignmentProgress: number | null = null;
     let primaryDueTimestamp = Number.POSITIVE_INFINITY;
+    let primaryAssignmentId: string | null = null;
 
     const today = new Date();
     today.setHours(0, 0, 0, 0);
@@ -1127,6 +1129,7 @@ export class AssignmentsService {
       if (primaryAssignmentProgress === null || dueTimestamp < primaryDueTimestamp) {
         primaryDueTimestamp = dueTimestamp;
         primaryAssignmentProgress = progressPercent;
+        primaryAssignmentId = assignment.id;
       }
     }
 
@@ -1140,6 +1143,7 @@ export class AssignmentsService {
       activeAssignmentsCount,
       overdueAssignmentsCount,
       primaryAssignmentProgress,
+      primaryAssignmentId,
     };
   }
 

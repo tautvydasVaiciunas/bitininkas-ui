@@ -1,6 +1,6 @@
 import { BadRequestException, ForbiddenException, Injectable, Logger, NotFoundException } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
-import { EntityManager, In, Repository } from 'typeorm';
+import { Brackets, EntityManager, In, Repository } from 'typeorm';
 import { Hive, HiveStatus } from './hive.entity';
 import { CreateHiveDto } from './dto/create-hive.dto';
 import { UpdateHiveDto } from './dto/update-hive.dto';
@@ -210,6 +210,30 @@ export class HivesService {
 
   async findAll(userId: string, role: UserRole, status?: HiveStatus) {
     const qb = this.buildListQuery(userId, role, status);
+    return runWithDatabaseErrorHandling(() => qb.getMany(), {
+      message: 'Neteisingi duomenys',
+    });
+  }
+
+  async findForUser(userId: string, includeArchived = false) {
+    const qb = this.hiveRepository
+      .createQueryBuilder('hive')
+      .leftJoin('hive.members', 'member')
+      .leftJoinAndSelect('hive.tag', 'tag')
+      .where(
+        new Brackets((where) =>
+          where
+            .where('hive.ownerUserId = :userId', { userId })
+            .orWhere('member.id = :userId', { userId }),
+        ),
+      )
+      .orderBy('hive.label', 'ASC')
+      .distinct(true);
+
+    if (!includeArchived) {
+      qb.andWhere('hive.status != :archived', { archived: HiveStatus.ARCHIVED });
+    }
+
     return runWithDatabaseErrorHandling(() => qb.getMany(), {
       message: 'Neteisingi duomenys',
     });

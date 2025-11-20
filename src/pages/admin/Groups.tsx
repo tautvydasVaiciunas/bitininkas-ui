@@ -34,7 +34,7 @@ import { Label } from "@/components/ui/label";
 import { Badge } from "@/components/ui/badge";
 import { MainLayout } from "@/components/Layout/MainLayout";
 import api, { type AdminUserResponse, type HiveResponse } from "@/lib/api";
-import { mapGroupFromApi, type Group, type GroupMember, type HiveTag } from "@/lib/types";
+import { mapGroupFromApi, type Group, type GroupMember } from "@/lib/types";
 import { useToast } from "@/components/ui/use-toast";
 import {
   Loader2,
@@ -68,8 +68,25 @@ export default function AdminGroups() {
     string | null
   >(null);
   const [memberToAdd, setMemberToAdd] = useState<string>('');
-  const [memberHiveToAdd, setMemberHiveToAdd] = useState<string>('');
-  const [tagFilter, setTagFilter] = useState<string>('');
+  const [memberSearch, setMemberSearch] = useState<string>('');
+  const [selectedHives, setSelectedHives] = useState<string[]>([]);
+  const [showArchivedHives, setShowArchivedHives] = useState(false);
+
+  const toggleHiveSelection = (hiveId: string) => {
+    setSelectedHives((prev) => {
+      const withoutAll = prev.filter((value) => value !== ALL_HIVES_VALUE);
+      if (withoutAll.includes(hiveId)) {
+        return withoutAll.filter((value) => value !== hiveId);
+      }
+      return [...withoutAll, hiveId];
+    });
+  };
+
+  const toggleAllHives = () => {
+    setSelectedHives((prev) =>
+      prev.includes(ALL_HIVES_VALUE) ? [] : [ALL_HIVES_VALUE],
+    );
+  };
 
   const {
     data: groups = [],
@@ -89,19 +106,13 @@ export default function AdminGroups() {
     queryFn: () => api.users.list(),
   });
 
-  const { data: hives = [] } = useQuery<HiveResponse[]>({
-    queryKey: ["hives", "all"],
-    queryFn: () => api.hives.list(),
-  });
-
-  const { data: hiveTags = [] } = useQuery<HiveTag[]>({
-    queryKey: ["hive-tags", "all"],
-    queryFn: () => api.hiveTags.list(),
-  });
-
-  const { data: tags = [] } = useQuery<Tag[]>({
-    queryKey: ["tags", "all"],
-    queryFn: () => api.tags.list(),
+  const { data: userHives = [], isFetching: userHivesLoading } = useQuery<HiveResponse[]>({
+    queryKey: ["hives", "user", memberToAdd, showArchivedHives],
+    queryFn: () =>
+      api.hives.listForUser(memberToAdd, {
+        includeArchived: showArchivedHives,
+      }),
+    enabled: Boolean(memberToAdd),
   });
 
   const editingGroup = useMemo(
@@ -114,34 +125,21 @@ export default function AdminGroups() {
     [groups, membersDialogGroupId],
   );
 
-  const userHivesMap = useMemo(() => {
-    const map = new Map<string, HiveResponse[]>();
-    for (const hive of hives) {
-      if (!hive.ownerUserId) continue;
-      const list = map.get(hive.ownerUserId) ?? [];
-      list.push(hive);
-      map.set(hive.ownerUserId, list);
-    }
-    return map;
-  }, [hives]);
+  const sortedUserHives = useMemo(() => {
+    return [...userHives].sort((a, b) => a.label.localeCompare(b.label));
+  }, [userHives]);
 
-  const selectedUserHives = memberToAdd
-    ? (userHivesMap.get(memberToAdd) ?? []).filter((hive) => {
-        if (!tagFilter) return true;
-        const hiveTagId = hive.tagId ?? hive.tag?.id ?? null;
-        return hiveTagId === tagFilter;
-      })
-    : [];
-  const hiveSelectValue = memberHiveToAdd;
-  const canSelectHive = selectedUserHives.length > 0;
+  const isAllSelected = selectedHives.includes(ALL_HIVES_VALUE);
+  const canAddMember = Boolean(memberToAdd) && (isAllSelected || selectedHives.length > 0);
 
   useEffect(() => {
-    setMemberHiveToAdd('');
-  }, [tagFilter]);
+    setSelectedHives([]);
+  }, [memberToAdd, showArchivedHives]);
 
   const resetMemberSelection = () => {
     setMemberToAdd('');
-    setMemberHiveToAdd('');
+    setSelectedHives([]);
+    setMemberSearch('');
   };
 
   const resetCreateForm = () => setCreateForm(defaultFormState);
@@ -230,19 +228,6 @@ export default function AdminGroups() {
       userId: string;
       hiveId?: string | null;
     }) => api.groups.members.add(groupId, { userId, hiveId }),
-    onSuccess: () => {
-      toast({
-        title: "Vartotojas pridėtas į grupę",
-      });
-      invalidateGroups();
-      invalidateUsers();
-      resetMemberSelection();
-    },
-    onError: (err: unknown) => {
-      const message =
-        err instanceof Error ? err.message : "Nepavyko pridėti nario";
-      showErrorToast("Klaida", message);
-    },
   });
 
   const removeMemberMutation = useMutation({
@@ -293,16 +278,48 @@ export default function AdminGroups() {
     });
   };
 
-  const availableMembers = useMemo(() => {
-    if (!tagFilter) return users;
-    return users.filter((candidate) => {
-      const ownedHives = userHivesMap.get(candidate.id) ?? [];
-      return ownedHives.some((hive) => {
-        const hiveTagId = hive.tagId ?? hive.tag?.id ?? null;
-        return hiveTagId === tagFilter;
+  const handleAddMember = async () => {
+    if (!memberToAdd || !membersDialogGroup || addMemberMutation.isPending) return;
+    if (!canAddMember) return;
+
+    const hiveIds = isAllSelected ? [undefined] : selectedHives;
+
+    if (!isAllSelected && hiveIds.length === 0) {
+      return;
+    }
+
+    try {
+      for (const hiveId of hiveIds) {
+        await addMemberMutation.mutateAsync({
+          groupId: membersDialogGroup.id,
+          userId: memberToAdd,
+          hiveId,
+        });
+      }
+
+      toast({
+        title: "Vartotojas pridėtas į grupę",
+        description: isAllSelected
+          ? "Vartotojas priskirtas visiems aviliams."
+          : `Vartotojas priskirtas ${hiveIds.length} aviliui.`,
       });
+      invalidateGroups();
+      invalidateUsers();
+      resetMemberSelection();
+    } catch (err) {
+      const message = err instanceof Error ? err.message : "Nepavyko pridėti nario";
+      showErrorToast("Klaida", message);
+    }
+  };
+
+  const availableMembers = useMemo(() => {
+    const term = memberSearch.trim().toLowerCase();
+    if (!term) return users;
+    return users.filter((candidate) => {
+      const haystack = `${candidate.name ?? ''} ${candidate.email ?? ''}`.toLowerCase();
+      return haystack.includes(term);
     });
-  }, [users, userHivesMap, tagFilter]);
+  }, [users, memberSearch]);
 
   const getErrorMessage = (value: unknown) => {
     if (!value) return undefined;
@@ -607,42 +624,30 @@ export default function AdminGroups() {
                     Pasirinkite vartotoją ir, jei reikia, konkretų avilį.
                   </p>
                 </div>
-                <div className="flex flex-col gap-4">
-                  <div className="flex flex-col gap-2 sm:flex-row sm:items-end sm:gap-4">
-                    <Select
-                      value={tagFilter || "all"}
-                      onValueChange={(value) => {
-                        setTagFilter(value === "all" ? "" : value);
-                      }}
-                      disabled={hiveTags.length === 0 && !tagFilter}
-                    >
-                      <SelectTrigger className="w-full sm:w-64">
-                        <SelectValue placeholder="Filtruoti pagal žymą" />
-                      </SelectTrigger>
-                      <SelectContent>
-                        <SelectItem value="all">Visos žymos</SelectItem>
-                        {hiveTags.map((tag) => (
-                          <SelectItem key={tag.id} value={tag.id}>
-                            {tag.name}
-                          </SelectItem>
-                        ))}
-                      </SelectContent>
-                    </Select>
+                <div className="space-y-4">
+                  <div className="space-y-3">
+                    <div className="space-y-2">
+                      <Label htmlFor="group-member-search">Paieška pagal vartotoją</Label>
+                      <Input
+                        id="group-member-search"
+                        placeholder="Ieškoti el. pašto..."
+                        value={memberSearch}
+                        onChange={(event) => setMemberSearch(event.target.value)}
+                        disabled={addMemberMutation.isPending}
+                      />
+                    </div>
                     <Select
                       value={memberToAdd}
-                      onValueChange={(value) => {
-                        setMemberToAdd(value);
-                        setMemberHiveToAdd('');
-                      }}
+                      onValueChange={(value) => setMemberToAdd(value)}
                       disabled={addMemberMutation.isPending}
                     >
-                      <SelectTrigger className="w-full sm:w-64">
+                      <SelectTrigger className="w-full sm:w-96">
                         <SelectValue placeholder="Pasirinkite vartotoją" />
                       </SelectTrigger>
                       <SelectContent>
                         {availableMembers.length === 0 ? (
                           <SelectItem value="no-options" disabled>
-                            Nėra laisvų vartotojų
+                            Nėra vartotojų
                           </SelectItem>
                         ) : (
                           availableMembers
@@ -658,55 +663,67 @@ export default function AdminGroups() {
                         )}
                       </SelectContent>
                     </Select>
-                    {memberToAdd ? (
-                      <Select
-                        value={hiveSelectValue}
-                        onValueChange={(value) => setMemberHiveToAdd(value)}
-                        disabled={addMemberMutation.isPending}
-                      >
-                        <SelectTrigger className="w-full sm:w-64">
-                          <SelectValue placeholder="Pasirinkite avilį" />
-                        </SelectTrigger>
-                        <SelectContent>
-                          {!tagFilter ? (
-                            <SelectItem value={ALL_HIVES_VALUE}>Visi aviliai</SelectItem>
-                          ) : null}
-                          {canSelectHive ? (
-                            selectedUserHives.map((hive) => (
-                              <SelectItem key={hive.id} value={hive.id}>
-                                {hive.label}
-                              </SelectItem>
+                  </div>
+                  {memberToAdd ? (
+                    <div className="space-y-2">
+                      <div className="flex items-center justify-between">
+                        <Label>Aviliai</Label>
+                        <Button
+                          variant="ghost"
+                          size="sm"
+                          onClick={() => setShowArchivedHives((prev) => !prev)}
+                        >
+                          {showArchivedHives ? "Slėpti archyvuotus" : "Rodyti archyvuotus"}
+                        </Button>
+                      </div>
+                      <div className="rounded-md border border-border/70 p-3">
+                        <label className="flex items-center gap-2 text-sm">
+                          <input
+                            type="checkbox"
+                            checked={isAllSelected}
+                            onChange={toggleAllHives}
+                          />
+                          <span>Visi aviliai</span>
+                        </label>
+                        <div className="mt-2 space-y-2 max-h-48 overflow-y-auto">
+                          {userHivesLoading ? (
+                            <p className="text-sm text-muted-foreground">Kraunama...</p>
+                          ) : sortedUserHives.length > 0 ? (
+                            sortedUserHives.map((hive) => (
+                              <label
+                                key={hive.id}
+                                className="flex items-center justify-between gap-2 rounded-md bg-muted/5 px-3 py-2 text-sm"
+                              >
+                                <div className="flex items-center gap-2">
+                                  <input
+                                    type="checkbox"
+                                    checked={selectedHives.includes(hive.id)}
+                                    onChange={() => toggleHiveSelection(hive.id)}
+                                    disabled={isAllSelected}
+                                  />
+                                  <div className="flex flex-col">
+                                    <span className="font-medium">{hive.label}</span>
+                                    <span className="text-xs text-muted-foreground">
+                                      {hive.location ?? "Lokacija nenustatyta"}
+                                    </span>
+                                  </div>
+                                </div>
+                              </label>
                             ))
                           ) : (
-                            <SelectItem value="__no_hives" disabled>
-                              {tagFilter ? 'Vartotojas neturi avilių su pasirinkta žyma' : 'Vartotojas neturi avilių'}
-                            </SelectItem>
+                            <p className="text-sm text-muted-foreground">
+                              Vartotojas neturi avilių
+                            </p>
                           )}
-                        </SelectContent>
-                      </Select>
-                    ) : null}
-                  </div>
+                        </div>
+                      </div>
+                    </div>
+                  ) : null}
                   <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-end">
                     <Button
                       className="sm:w-auto"
-                      onClick={() => {
-                        if (!memberToAdd || !membersDialogGroup) return;
-                        const hiveId =
-                          memberHiveToAdd && memberHiveToAdd !== ALL_HIVES_VALUE
-                            ? memberHiveToAdd
-                            : undefined;
-                        if (tagFilter && !hiveId) {
-                          return;
-                        }
-                        addMemberMutation.mutate({
-                          groupId: membersDialogGroup.id,
-                          userId: memberToAdd,
-                          hiveId,
-                        });
-                      }}
-                      disabled={
-                        !memberToAdd || (Boolean(tagFilter) && !memberHiveToAdd) || addMemberMutation.isPending
-                      }
+                      onClick={handleAddMember}
+                      disabled={!canAddMember || addMemberMutation.isPending}
                     >
                       {addMemberMutation.isPending ? (
                         <Loader2 className="mr-2 h-4 w-4 animate-spin" />

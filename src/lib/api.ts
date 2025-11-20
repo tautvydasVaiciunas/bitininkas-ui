@@ -187,6 +187,8 @@ export interface HiveSummary {
   overdueAssignmentsCount: number;
   primaryAssignmentProgress: number | null;
   primaryAssignmentId: string | null;
+  primaryAssignmentStartDate: string | null;
+  primaryAssignmentDueDate: string | null;
 }
 
 export type TaskFrequency = 'once' | 'weekly' | 'monthly' | 'seasonal';
@@ -1019,6 +1021,8 @@ export const api = {
   hives: {
     list: (params?: { status?: HiveStatus }) => get<HiveResponse[]>('/hives', { query: params }),
     details: (id: string) => get<HiveResponse>(`/hives/${id}`),
+    listForUser: (userId: string, params?: { includeArchived?: boolean }) =>
+      get<HiveResponse[]>(`/hives/user/${userId}`, { query: params }),
     create: (payload: CreateHivePayload) => post<HiveResponse>('/hives', { json: payload }),
     update: (id: string, payload: UpdateHivePayload) =>
       patch<HiveResponse>(`/hives/${id}`, { json: payload }),

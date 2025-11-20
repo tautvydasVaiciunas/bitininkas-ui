@@ -861,7 +861,7 @@ function StepPreviewDialog({ step, open, onOpenChange }: StepPreviewDialogProps)
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="max-h-[90vh] w-full sm:max-w-xl flex flex-col">
+      <DialogContent className="max-h-[66vh] w-full sm:max-w-xl flex flex-col">
         <DialogHeader className="pb-2">
           <DialogTitle>{step?.title ?? 'Žingsnio peržiūra'}</DialogTitle>
           <DialogDescription>Peržiūrėkite žingsnio turinį ir mediją.</DialogDescription>

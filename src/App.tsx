@@ -30,6 +30,7 @@ import StoreOrders from "./pages/admin/StoreOrders";
 import StoreOrderDetails from "./pages/admin/StoreOrderDetails";
 import { AdminStoreLayout } from "./pages/admin/AdminStoreLayout";
 import AdminSupport from "./pages/admin/AdminSupport";
+import AdminEmailTest from "./pages/admin/EmailTest";
 import StoreHome from "./pages/store/StoreHome";
 import StoreProductDetail from "./pages/store/StoreProductDetail";
 import StoreCart from "./pages/store/StoreCart";
@@ -104,6 +105,7 @@ const App = () => (
                   <Route path="/admin/templates" element={<AdminTemplates />} />
                   <Route path="/admin/news" element={<AdminNews />} />
                   <Route path="/admin/support" element={<AdminSupport />} />
+                  <Route path="/admin/email-test" element={<AdminEmailTest />} />
                   <Route path="/admin/store" element={<AdminStoreLayout />}>
                     <Route path="products" element={<AdminStoreProducts />} />
                     <Route path="orders" element={<StoreOrders />} />

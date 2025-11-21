@@ -117,6 +117,7 @@ export default function AdminGroups() {
     () => groups.find((group) => group.id === membersDialogGroupId) ?? null,
     [groups, membersDialogGroupId],
   );
+  const isMembersDialogOpen = membersDialogGroupId !== null;
 
   const sortedUserHives = useMemo(() => {
     return [...userHives].sort((a, b) => a.label.localeCompare(b.label));
@@ -566,172 +567,179 @@ export default function AdminGroups() {
         </DialogContent>
       </Dialog>
 
-      <Dialog
-        open={membersDialogGroupId !== null}
-        onOpenChange={(open) => {
-          if (!open) {
-            setMembersDialogGroupId(null);
-            resetMemberSelection();
-          }
-        }}
-      >
-        <DialogContent className="max-h-[90vh] w-full sm:max-w-3xl flex flex-col">
-          <DialogHeader>
-            <DialogTitle>Grupės nariai</DialogTitle>
-            <DialogDescription>
-              {membersDialogGroup
-                ? `Grupė „${membersDialogGroup.name}“`
-                : 'Pasirinkite grupę nariams valdyti.'}
-            </DialogDescription>
-          </DialogHeader>
-          {membersDialogGroup && (
+      {isMembersDialogOpen && (
+        <Dialog
+          open
+          onOpenChange={(open) => {
+            if (!open) {
+              setMembersDialogGroupId(null);
+              resetMemberSelection();
+            }
+          }}
+        >
+          <DialogContent className="max-h-[90vh] w-full sm:max-w-3xl flex flex-col">
+            <DialogHeader>
+              <DialogTitle>Grupės nariai</DialogTitle>
+              <DialogDescription>
+                {membersDialogGroup
+                  ? `Grupė „${membersDialogGroup.name}“`
+                  : 'Pasirinkite grupę nariams valdyti.'}
+              </DialogDescription>
+            </DialogHeader>
             <div className="flex flex-1 flex-col">
               <div className="flex-1 overflow-y-auto space-y-4 pr-2">
-                <h3 className="font-medium text-sm text-muted-foreground">
-                  Esami nariai
-                </h3>
-                {membersDialogGroup.members.length === 0 ? (
-                  <p className="text-sm text-muted-foreground">
-                    Šioje grupėje dar nėra narių.
-                  </p>
-                ) : (
-                  membersDialogGroup.members.map((member) => (
-                    <GroupMemberRow
-                      key={member.id}
-                      member={member}
-                      onRemove={() =>
-                        removeMemberMutation.mutate({
-                          groupId: membersDialogGroup.id,
-                          userId: member.userId,
-                        })
-                      }
-                      isRemoving={removeMemberMutation.isPending}
-                    />
-                  ))
-                )}
-
-                <div className="space-y-4">
-                  <div>
-                    <h3 className="text-lg font-semibold">Pridėti narį</h3>
-                    <p className="text-sm text-muted-foreground">
-                      Pasirinkite vartotoją ir, jei reikia, konkretų avilį.
-                    </p>
-                  </div>
-                  <div className="space-y-4">
-                    <div className="space-y-3">
-                      <div className="space-y-2">
-                        <Label htmlFor="group-member-search">Paieška pagal vartotoją</Label>
-                        <Input
-                          id="group-member-search"
-                          placeholder="Ieškoti el. pašto..."
-                          value={memberSearch}
-                          onChange={(event) => setMemberSearch(event.target.value)}
-                          disabled={addMemberMutation.isPending}
+                {membersDialogGroup ? (
+                  <>
+                    <h3 className="font-medium text-sm text-muted-foreground">
+                      Esami nariai
+                    </h3>
+                    {membersDialogGroup.members.length === 0 ? (
+                      <p className="text-sm text-muted-foreground">
+                        Šioje grupėje dar nėra narių.
+                      </p>
+                    ) : (
+                      membersDialogGroup.members.map((member) => (
+                        <GroupMemberRow
+                          key={member.id}
+                          member={member}
+                          onRemove={() =>
+                            removeMemberMutation.mutate({
+                              groupId: membersDialogGroup.id,
+                              userId: member.userId,
+                            })
+                          }
+                          isRemoving={removeMemberMutation.isPending}
                         />
+                      ))
+                    )}
+
+                    <div className="space-y-4">
+                      <div>
+                        <h3 className="text-lg font-semibold">Pridėti narį</h3>
+                        <p className="text-sm text-muted-foreground">
+                          Pasirinkite vartotoją ir, jei reikia, konkretų avilį.
+                        </p>
                       </div>
-                      <div className="rounded-md border border-border/70 bg-background">
-                        {availableMembers.length === 0 ? (
-                          <p className="px-4 py-2 text-sm text-muted-foreground">Nėra vartotojų</p>
-                        ) : (
-                          <div className="max-h-64 overflow-y-auto">
-                            {availableMembers.map((candidate) => (
-                              <button
-                                key={candidate.id}
-                                type="button"
-                                className={`flex w-full items-center justify-between border-b border-border/40 px-4 py-2 text-left text-sm transition-colors ${
-                                  candidate.id === memberToAdd
-                                    ? 'bg-muted/30 font-medium'
-                                    : 'hover:bg-muted/30'
-                                }`}
-                                onClick={() => setMemberToAdd(candidate.id)}
-                                disabled={addMemberMutation.isPending}
+                      <div className="space-y-4">
+                        <div className="space-y-3">
+                          <div className="space-y-2">
+                            <Label htmlFor="group-member-search">Paieška pagal vartotoją</Label>
+                            <Input
+                              id="group-member-search"
+                              placeholder="Ieškoti el. pašto..."
+                              value={memberSearch}
+                              onChange={(event) => setMemberSearch(event.target.value)}
+                              disabled={addMemberMutation.isPending}
+                            />
+                          </div>
+                          <div className="rounded-md border border-border/70 bg-background">
+                            {availableMembers.length === 0 ? (
+                              <p className="px-4 py-2 text-sm text-muted-foreground">Nėra vartotojų</p>
+                            ) : (
+                              <div className="max-h-64 overflow-y-auto">
+                                {availableMembers.map((candidate) => (
+                                  <button
+                                    key={candidate.id}
+                                    type="button"
+                                    className={`flex w-full items-center justify-between border-b border-border/40 px-4 py-2 text-left text-sm transition-colors ${
+                                      candidate.id === memberToAdd
+                                        ? 'bg-muted/30 font-medium'
+                                        : 'hover:bg-muted/30'
+                                    }`}
+                                    onClick={() => setMemberToAdd(candidate.id)}
+                                    disabled={addMemberMutation.isPending}
+                                  >
+                                    <span>{mapToOptionLabel(candidate)}</span>
+                                    {candidate.id === memberToAdd ? (
+                                      <Badge variant="outline">Pasirinktas</Badge>
+                                    ) : null}
+                                  </button>
+                                ))}
+                                <div className="h-px w-full bg-border/70 last:hidden" />
+                              </div>
+                            )}
+                          </div>
+                        </div>
+                        {memberToAdd && (
+                          <div className="space-y-2">
+                            <div className="flex items-center justify-between">
+                              <Label>Aviliai</Label>
+                              <Button
+                                variant="ghost"
+                                size="sm"
+                                onClick={() => setShowArchivedHives((prev) => !prev)}
                               >
-                                <span>{mapToOptionLabel(candidate)}</span>
-                                {candidate.id === memberToAdd ? (
-                                  <Badge variant="outline">Pasirinktas</Badge>
-                                ) : null}
-                              </button>
-                            ))}
-                            <div className="h-px w-full bg-border/70 last:hidden" />
+                                {showArchivedHives ? "Slėpti archyvuotus" : "Rodyti archyvuotus"}
+                              </Button>
+                            </div>
+                            <div className="rounded-md border border-border/70 p-3">
+                              <label className="flex items-center gap-2 text-sm">
+                                <input
+                                  type="checkbox"
+                                  checked={isAllSelected}
+                                  onChange={toggleAllHives}
+                                />
+                                <span>Visi aviliai</span>
+                              </label>
+                              <div className="mt-2 space-y-2 max-h-[20rem] overflow-y-auto">
+                                {userHivesLoading ? (
+                                  <p className="text-sm text-muted-foreground">Kraunama...</p>
+                                ) : sortedUserHives.length > 0 ? (
+                                  sortedUserHives.map((hive) => (
+                                    <label
+                                      key={hive.id}
+                                      className="flex items-center justify-between gap-2 rounded-md bg-muted/5 px-3 py-2 text-sm"
+                                    >
+                                      <div className="flex items-center gap-2">
+                                        <input
+                                          type="checkbox"
+                                          checked={selectedHives.includes(hive.id)}
+                                          onChange={() => toggleHiveSelection(hive.id)}
+                                          disabled={isAllSelected}
+                                        />
+                                        <div className="flex flex-col">
+                                          <span className="font-medium">{hive.label}</span>
+                                          <span className="text-xs text-muted-foreground">
+                                            {hive.location ?? "Lokacija nenustatyta"}
+                                          </span>
+                                        </div>
+                                      </div>
+                                    </label>
+                                  ))
+                                ) : (
+                                  <p className="text-sm text-muted-foreground">
+                                    Vartotojas neturi avilių
+                                  </p>
+                                )}
+                              </div>
+                            </div>
                           </div>
                         )}
                       </div>
                     </div>
-                    {memberToAdd && (
-                      <div className="space-y-2">
-                        <div className="flex items-center justify-between">
-                          <Label>Aviliai</Label>
-                          <Button
-                            variant="ghost"
-                            size="sm"
-                            onClick={() => setShowArchivedHives((prev) => !prev)}
-                          >
-                            {showArchivedHives ? "Slėpti archyvuotus" : "Rodyti archyvuotus"}
-                          </Button>
-                        </div>
-                        <div className="rounded-md border border-border/70 p-3">
-                          <label className="flex items-center gap-2 text-sm">
-                            <input
-                              type="checkbox"
-                              checked={isAllSelected}
-                              onChange={toggleAllHives}
-                            />
-                            <span>Visi aviliai</span>
-                          </label>
-                          <div className="mt-2 space-y-2 max-h-[20rem] overflow-y-auto">
-                            {userHivesLoading ? (
-                              <p className="text-sm text-muted-foreground">Kraunama...</p>
-                            ) : sortedUserHives.length > 0 ? (
-                              sortedUserHives.map((hive) => (
-                                <label
-                                  key={hive.id}
-                                  className="flex items-center justify-between gap-2 rounded-md bg-muted/5 px-3 py-2 text-sm"
-                                >
-                                  <div className="flex items-center gap-2">
-                                    <input
-                                      type="checkbox"
-                                      checked={selectedHives.includes(hive.id)}
-                                      onChange={() => toggleHiveSelection(hive.id)}
-                                      disabled={isAllSelected}
-                                    />
-                                    <div className="flex flex-col">
-                                      <span className="font-medium">{hive.label}</span>
-                                      <span className="text-xs text-muted-foreground">
-                                        {hive.location ?? "Lokacija nenustatyta"}
-                                      </span>
-                                    </div>
-                                  </div>
-                                </label>
-                              ))
-                            ) : (
-                              <p className="text-sm text-muted-foreground">
-                                Vartotojas neturi avilių
-                              </p>
-                            )}
-                          </div>
-                        </div>
-                      </div>
-                    )}
-                  <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-end">
-                    <Button
-                      className="sm:w-auto"
-                      onClick={handleAddMember}
-                      disabled={!canAddMember || addMemberMutation.isPending}
-                    >
-                      {addMemberMutation.isPending ? (
-                        <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-                      ) : (
-                        <UserPlus className="mr-2 h-4 w-4" />
-                      )}
-                      Pridėti narį
-                    </Button>
-                  </div>
-                </div>
+                  </>
+                ) : (
+                  <p className="text-sm text-muted-foreground">Kraunama grupės informacija...</p>
+                )}
               </div>
+              <DialogFooter className="border-t border-border/60 pt-4">
+                <Button
+                  className="sm:w-auto"
+                  onClick={handleAddMember}
+                  disabled={!canAddMember || addMemberMutation.isPending}
+                >
+                  {addMemberMutation.isPending ? (
+                    <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                  ) : (
+                    <UserPlus className="mr-2 h-4 w-4" />
+                  )}
+                  Pridėti narį
+                </Button>
+              </DialogFooter>
             </div>
-          )}
-        </DialogContent>
-      </Dialog>
+          </DialogContent>
+        </Dialog>
+      )}
     </MainLayout>
   );
 }

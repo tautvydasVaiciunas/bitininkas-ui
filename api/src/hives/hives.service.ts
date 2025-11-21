@@ -333,6 +333,11 @@ export class HivesService {
     return result.updated;
   }
 
+  async findMembers(id: string, userId: string, role: UserRole) {
+    const hive = await this.findOne(id, userId, role);
+    return hive.members ?? [];
+  }
+
   async remove(id: string, userId: string, role: UserRole) {
     if (role === UserRole.USER) {
       throw new ForbiddenException('Reikia vadybininko arba administratoriaus rolės');

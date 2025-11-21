@@ -689,6 +689,8 @@ export class AssignmentsService {
       qb.andWhere('assignment.hiveId = :hiveId', { hiveId: filter.hiveId });
     }
 
+    qb.andWhere('assignment.archived = :archived', { archived: false });
+
     if (filter.status) {
       qb.andWhere('assignment.status = :status', { status: filter.status });
     }
@@ -766,14 +768,17 @@ export class AssignmentsService {
   }
   async findOne(id: string, user, options: { skipAvailabilityCheck?: boolean } = {}) {
     const assignment = await this.assignmentsRepository.findOne({
-      where: { id },
+      where: { id, archived: false },
       relations: {
         hive: { members: true },
         task: { steps: true },
       },
     });
     if (!assignment) {
-      throw new NotFoundException("Assignment not found");
+      throw new NotFoundException('Užduotis nebegalioja');
+    }
+    if (assignment.task?.deletedAt) {
+      throw new NotFoundException('Užduotis nebegalioja');
     }
     if (user.role === UserRole.USER) {
       const allowed = await this.ensureUserCanAccessHive(assignment.hiveId, user.id);
@@ -1182,5 +1187,9 @@ export class AssignmentsService {
         .where('assignment_id IN (:...ids)', { ids: assignmentIds })
         .execute();
     });
+  }
+
+  async archiveByTask(taskId: string, archived: boolean) {
+    await this.assignmentsRepository.update({ taskId }, { archived });
   }
 }

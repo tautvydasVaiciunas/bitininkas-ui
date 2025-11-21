@@ -22,13 +22,6 @@ import {
   AlertDialogTitle,
   AlertDialogTrigger,
 } from "@/components/ui/alert-dialog";
-import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from "@/components/ui/select";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Badge } from "@/components/ui/badge";
@@ -636,33 +629,33 @@ export default function AdminGroups() {
                         disabled={addMemberMutation.isPending}
                       />
                     </div>
-                    <Select
-                      value={memberToAdd}
-                      onValueChange={(value) => setMemberToAdd(value)}
-                      disabled={addMemberMutation.isPending}
-                    >
-                      <SelectTrigger className="w-full sm:w-96">
-                        <SelectValue placeholder="Pasirinkite vartotoją" />
-                      </SelectTrigger>
-                      <SelectContent>
-                        {availableMembers.length === 0 ? (
-                          <SelectItem value="no-options" disabled>
-                            Nėra vartotojų
-                          </SelectItem>
-                        ) : (
-                          availableMembers
-                            .filter(
-                              (candidate) =>
-                                typeof candidate.id === 'string' && candidate.id.length > 0,
-                            )
-                            .map((candidate) => (
-                              <SelectItem key={candidate.id} value={candidate.id}>
-                                {mapToOptionLabel(candidate)}
-                              </SelectItem>
-                            ))
-                        )}
-                      </SelectContent>
-                    </Select>
+                    <div className="rounded-md border border-border/70 bg-background">
+                      {availableMembers.length === 0 ? (
+                        <p className="px-4 py-2 text-sm text-muted-foreground">Nėra vartotojų</p>
+                      ) : (
+                        <div className="max-h-64 overflow-y-auto">
+                          {availableMembers.map((candidate) => (
+                            <button
+                              key={candidate.id}
+                              type="button"
+                              className={`flex w-full items-center justify-between border-b border-border/40 px-4 py-2 text-left text-sm transition-colors ${
+                                candidate.id === memberToAdd
+                                  ? 'bg-muted/30 font-medium'
+                                  : 'hover:bg-muted/30'
+                              }`}
+                              onClick={() => setMemberToAdd(candidate.id)}
+                              disabled={addMemberMutation.isPending}
+                            >
+                              <span>{mapToOptionLabel(candidate)}</span>
+                              {candidate.id === memberToAdd ? (
+                                <Badge variant="outline">Pasirinktas</Badge>
+                              ) : null}
+                            </button>
+                          ))}
+                          <div className="h-px w-full bg-border/70 last:hidden" />
+                        </div>
+                      )}
+                    </div>
                   </div>
                   {memberToAdd ? (
                     <div className="space-y-2">

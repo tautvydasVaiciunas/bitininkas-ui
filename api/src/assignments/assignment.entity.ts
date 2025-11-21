@@ -62,6 +62,9 @@ export class Assignment {
   })
   status!: AssignmentStatus;
 
+  @Column({ type: 'boolean', nullable: false, default: false })
+  archived!: boolean;
+
   @CreateDateColumn({ name: 'created_at' })
   createdAt!: Date;
 

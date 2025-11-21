@@ -65,6 +65,11 @@ export class HivesController {
     return this.hivesService.findOne(id, req.user.id, req.user.role);
   }
 
+  @Get(':id/members')
+  async members(@Param('id') id: string, @Request() req) {
+    return this.hivesService.findMembers(id, req.user.id, req.user.role);
+  }
+
   @Roles(UserRole.MANAGER, UserRole.ADMIN)
   @Get('user/:userId')
   async findByUser(

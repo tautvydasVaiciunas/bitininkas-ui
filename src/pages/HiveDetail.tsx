@@ -9,7 +9,7 @@ import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Progress } from '@/components/ui/progress';
-import api, { HttpError, type AdminUserResponse } from '@/lib/api';
+import api, { HttpError, type AdminUserResponse, type HiveMemberResponse } from '@/lib/api';
 import {
   mapAssignmentDetailsFromApi,
   mapAssignmentFromApi,
@@ -115,6 +115,12 @@ export default function HiveDetail() {
     enabled: canManageMembers,
   });
 
+  const { data: assignedMembers = [] } = useQuery<HiveMemberResponse[]>({
+    queryKey: ['hive', id, 'members'],
+    enabled: !!id,
+    queryFn: () => (id ? api.hives.members(id) : []),
+  });
+
   const { data: tags = [], isLoading: tagsLoading } = useQuery<HiveTag[]>({
     queryKey: ['hive-tags', 'all'],
     queryFn: () => api.hiveTags.list(),
@@ -195,6 +201,23 @@ export default function HiveDetail() {
       members: hive.members.map((member) => member.id),
     });
   };
+
+  const assignedUsers = useMemo(() => {
+    const map = new Map<string, HiveMemberResponse>();
+    if (hive?.owner) {
+      map.set(hive.owner.id, {
+        id: hive.owner.id,
+        email: hive.owner.email,
+        name: hive.owner.name ?? null,
+      });
+    }
+    for (const member of assignedMembers ?? []) {
+      if (member.id) {
+        map.set(member.id, member);
+      }
+    }
+    return Array.from(map.values());
+  }, [hive?.owner, assignedMembers]);
 
   const assignments = useMemo(() => data?.assignments ?? [], [data]);
 
@@ -417,11 +440,11 @@ const formatMonthYear = (value?: string | null) => {
               </div>
               <div className="md:col-span-3">
                 <p className="text-sm text-muted-foreground mb-1">Priskirti vartotojai</p>
-                {hive.members.length > 0 ? (
+                {assignedUsers.length > 0 ? (
                   <div className="flex flex-wrap gap-2">
-                    {hive.members.map((member) => (
+                    {assignedUsers.map((member) => (
                       <Badge key={member.id} variant="secondary">
-                        {member.name || member.email}
+                        {member.name || member.email || member.id}
                       </Badge>
                     ))}
                   </div>

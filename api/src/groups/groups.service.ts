@@ -168,13 +168,19 @@ export class GroupsService {
     let hiveId: string | null = null;
 
     if (dto.hiveId) {
-      const hive = await this.hivesRepository.findOne({ where: { id: dto.hiveId } });
+      const hive = await this.hivesRepository.findOne({
+        where: { id: dto.hiveId },
+        relations: { members: true },
+      });
 
       if (!hive) {
         throw new NotFoundException('Hive not found');
       }
 
-      if (hive.ownerUserId !== dto.userId) {
+      const isMemberOfHive =
+        hive.members?.some((member) => member.id === dto.userId) ?? false;
+
+      if (hive.ownerUserId !== dto.userId && !isMemberOfHive) {
         throw new BadRequestException('Vartotojas nėra šio avilio savininkas');
       }
 

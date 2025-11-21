@@ -575,7 +575,7 @@ export default function AdminGroups() {
           }
         }}
       >
-        <DialogContent className="sm:max-w-[720px]">
+        <DialogContent className="sm:max-w-[720px] w-full max-h-[80vh] flex flex-col">
           <DialogHeader>
             <DialogTitle>Grupės nariai</DialogTitle>
             <DialogDescription>
@@ -585,8 +585,8 @@ export default function AdminGroups() {
             </DialogDescription>
           </DialogHeader>
           {membersDialogGroup ? (
-            <div className="flex max-h-[75vh] flex-col gap-6">
-              <div className="space-y-3 overflow-y-auto pr-1">
+          <div className="flex flex-1 flex-col gap-6">
+            <div className="space-y-3 overflow-y-auto pr-1 max-h-[35vh]">
                 <h3 className="font-medium text-sm text-muted-foreground">
                   Esami nariai
                 </h3>
@@ -669,8 +669,8 @@ export default function AdminGroups() {
                           {showArchivedHives ? "Slėpti archyvuotus" : "Rodyti archyvuotus"}
                         </Button>
                       </div>
-                      <div className="rounded-md border border-border/70 p-3">
-                        <label className="flex items-center gap-2 text-sm">
+                    <div className="rounded-md border border-border/70 p-3">
+                      <label className="flex items-center gap-2 text-sm">
                           <input
                             type="checkbox"
                             checked={isAllSelected}
@@ -678,7 +678,7 @@ export default function AdminGroups() {
                           />
                           <span>Visi aviliai</span>
                         </label>
-                        <div className="mt-2 space-y-2 max-h-48 overflow-y-auto">
+                        <div className="mt-2 space-y-2 max-h-[20rem] overflow-y-auto">
                           {userHivesLoading ? (
                             <p className="text-sm text-muted-foreground">Kraunama...</p>
                           ) : sortedUserHives.length > 0 ? (

@@ -259,7 +259,6 @@ export class NewsService {
       return [];
     }
 
-    const ownerIds = Array.from(new Set(memberships.map((membership) => membership.userId)));
     const explicitHiveIds = Array.from(
       new Set(
         memberships
@@ -268,19 +267,13 @@ export class NewsService {
       ),
     );
 
-    const where: FindOptionsWhere<Hive>[] = [];
-    if (explicitHiveIds.length) {
-      where.push({ id: In(explicitHiveIds) });
-    }
-    if (ownerIds.length) {
-      where.push({ ownerUserId: In(ownerIds) });
-    }
-
-    if (!where.length) {
+    if (!explicitHiveIds.length) {
       return [];
     }
 
-    const hives = await this.hiveRepository.find({ where });
+    const hives = await this.hiveRepository.find({
+      where: { id: In(explicitHiveIds) },
+    });
     return Array.from(new Set(hives.map((hive) => hive.id)));
   }
 

@@ -426,6 +426,7 @@ export class TasksService {
       () => this.tasksRepository.save(task),
       { message: 'Nepavyko atnaujinti užduoties statuso' },
     );
+    await this.assignmentsService.archiveByTask(id, archived);
 
     await this.activityLog.log('task_archived', user.id, 'task', id);
   }

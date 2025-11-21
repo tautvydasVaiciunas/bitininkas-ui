@@ -215,6 +215,7 @@ export const mapTemplateFromApi = (template: ApiTemplateResponse): Template => (
 export const mapAssignmentFromApi = (assignment: ApiAssignmentResponse): Assignment => ({
   ...assignment,
   startDate: assignment.startDate ?? null,
+  archived: assignment.archived ?? false,
 });
 
 export const mapStepProgressFromApi = (progress: ApiStepProgressResponse): StepProgress => ({

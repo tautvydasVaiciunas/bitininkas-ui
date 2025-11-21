@@ -454,6 +454,7 @@ export interface AssignmentResponse {
   status: AssignmentStatus;
   createdAt: string;
   updatedAt: string;
+  archived?: boolean;
 }
 
 export interface GroupMemberUser {
@@ -1021,6 +1022,7 @@ export const api = {
   hives: {
     list: (params?: { status?: HiveStatus }) => get<HiveResponse[]>('/hives', { query: params }),
     details: (id: string) => get<HiveResponse>(`/hives/${id}`),
+    members: (id: string) => get<HiveMemberResponse[]>(`/hives/${id}/members`),
     listForUser: (userId: string, params?: { includeArchived?: boolean }) =>
       get<HiveResponse[]>(`/hives/user/${userId}`, { query: params }),
     create: (payload: CreateHivePayload) => post<HiveResponse>('/hives', { json: payload }),

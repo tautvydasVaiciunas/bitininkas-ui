@@ -14,12 +14,13 @@ import {
 } from './mailer.service';
 import { DebugEmailController } from './debug-email.controller';
 import { User } from '../users/user.entity';
+import { EmailModule } from '../email/email.module';
 
 const debugControllers =
   process.env.NODE_ENV === 'production' ? [] : [DebugEmailController];
 
 @Module({
-  imports: [TypeOrmModule.forFeature([Notification, User])],
+  imports: [TypeOrmModule.forFeature([Notification, User]), EmailModule],
   providers: [
     NotificationsService,
     PostmarkMailer,

@@ -30,6 +30,7 @@ import { PaginationModule } from './common/pagination/pagination.module';
 import { StoreModule } from './store/store.module';
 import { DebugModule } from './debug/debug.module';
 import { SupportModule } from './support/support.module';
+import { EmailModule } from './email/email.module';
 
 import ormConfig from './typeorm.config';
 
@@ -81,6 +82,7 @@ import ormConfig from './typeorm.config';
     MediaModule,
     NewsModule,
     StoreModule,
+    EmailModule,
     DebugModule,
     SupportModule,
   ],

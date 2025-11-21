@@ -8,7 +8,7 @@ import {
   renderNotificationEmailHtml,
   renderNotificationEmailText,
 } from './email-template';
-import { MAILER_SERVICE, MailerService } from './mailer.service';
+import { EmailService } from '../email/email.service';
 import { User, UserRole } from '../users/user.entity';
 import {
   PaginationService,
@@ -47,8 +47,7 @@ export class NotificationsService {
     private readonly repository: Repository<Notification>,
     @InjectRepository(User)
     private readonly usersRepository: Repository<User>,
-    @Inject(MAILER_SERVICE)
-    private readonly mailer: MailerService,
+    private readonly emailService: EmailService,
     private readonly pagination: PaginationService,
   ) {}
 
@@ -439,7 +438,12 @@ export class NotificationsService {
         ctaLabel,
       });
 
-      await this.mailer.sendNotificationEmail(user.email, subject, html, text);
+      await this.emailService.sendMail({
+        to: user.email,
+        subject,
+        html,
+        text,
+      });
     } catch (error) {
       const details = error instanceof Error ? error.message : String(error);
       this.logger.warn(

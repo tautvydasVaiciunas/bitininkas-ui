@@ -117,6 +117,10 @@ export interface AdminSupportUnreadResponse {
   count: number;
 }
 
+export interface SendTestEmailPayload {
+  to: string;
+}
+
 export type HiveStatus = 'active' | 'paused' | 'archived';
 
 export interface HiveMemberResponse {
@@ -1210,6 +1214,10 @@ export const api = {
         updateStatus: (id: string, payload: { status: StoreOrderStatus }) =>
           patch<StoreOrderListItem>(`/admin/store/orders/${id}/status`, { json: payload }),
       },
+    },
+    email: {
+      sendTest: (payload: SendTestEmailPayload) =>
+        post<{ success: true }>('/admin/email/test', { json: payload }),
     },
   },
 };

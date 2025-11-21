@@ -575,7 +575,7 @@ export default function AdminGroups() {
           }
         }}
       >
-        <DialogContent className="sm:max-w-[720px] w-full max-h-[80vh] flex flex-col">
+        <DialogContent className="max-h-[90vh] w-full sm:max-w-3xl flex flex-col">
           <DialogHeader>
             <DialogTitle>Grupės nariai</DialogTitle>
             <DialogDescription>
@@ -585,8 +585,8 @@ export default function AdminGroups() {
             </DialogDescription>
           </DialogHeader>
           {membersDialogGroup ? (
-          <div className="flex flex-1 flex-col gap-6">
-            <div className="space-y-3 overflow-y-auto pr-1 max-h-[35vh]">
+            <div className="flex flex-col flex-1 gap-6">
+              <div className="flex-1 overflow-y-auto space-y-4 pr-2">
                 <h3 className="font-medium text-sm text-muted-foreground">
                   Esami nariai
                 </h3>

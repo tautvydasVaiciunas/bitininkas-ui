@@ -1,5 +1,5 @@
-import { Controller, Post, Body } from '@nestjs/common';
-import { IsEmail, IsNotEmpty } from 'class-validator';
+import { Body, Controller, Post } from '@nestjs/common';
+import { IsEmail, IsNotEmpty, IsOptional, IsString } from 'class-validator';
 
 import { Roles } from '../common/decorators/roles.decorator';
 import { UserRole } from '../users/user.entity';
@@ -9,6 +9,14 @@ class SendTestEmailDto {
   @IsEmail()
   @IsNotEmpty()
   to!: string;
+
+  @IsOptional()
+  @IsString()
+  subject?: string;
+
+  @IsOptional()
+  @IsString()
+  body?: string;
 }
 
 @Controller('admin/email')
@@ -18,11 +26,17 @@ export class EmailController {
   @Post('test')
   @Roles(UserRole.MANAGER, UserRole.ADMIN)
   async sendTestEmail(@Body() body: SendTestEmailDto) {
+    const subject =
+      body.subject?.trim() || 'Bus medaus – testinis laiškas';
+    const text =
+      body.body?.trim() || 'Tai testinis laiškas iš Bus medaus platformos.';
+    const html = `<p>${text}</p>`;
+
     await this.emailService.sendMail({
       to: body.to,
-      subject: 'Bus medaus – testinis laiškas',
-      text: 'Tai testinis laiškas iš Bus medaus platformos.',
-      html: '<p>Tai testinis laiškas iš <strong>Bus medaus</strong> platformos.</p>',
+      subject,
+      text,
+      html,
     });
 
     return { success: true };

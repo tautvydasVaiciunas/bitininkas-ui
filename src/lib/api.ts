@@ -119,6 +119,8 @@ export interface AdminSupportUnreadResponse {
 
 export interface SendTestEmailPayload {
   to: string;
+  subject?: string;
+  body?: string;
 }
 
 export type HiveStatus = 'active' | 'paused' | 'archived';

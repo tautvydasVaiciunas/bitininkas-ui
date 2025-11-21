@@ -182,6 +182,14 @@ export default function HiveDetail() {
     }));
   }, [users]);
 
+  const memberLabelMap = useMemo(() => {
+    const map = new Map<string, string>();
+    for (const option of memberOptions) {
+      map.set(option.value, option.label ?? option.value);
+    }
+    return map;
+  }, [memberOptions]);
+
   useEffect(() => {
     if (!hive) return;
     setEditForm({
@@ -576,10 +584,27 @@ const formatMonthYear = (value?: string | null) => {
                     </div>
                     {canManageMembers ? (
                       <div className="space-y-2 md:col-span-2">
-                        <Label>Priskirti vartotojus</Label>
-                        <UserMultiSelect
-                          options={memberOptions}
-                          value={editForm.members}
+                    <div className="space-y-2">
+                      <div className="flex flex-wrap gap-2">
+                        {hive?.owner ? (
+                          <Badge variant="outline">
+                            {hive.owner.name || hive.owner.email} (savininkas)
+                          </Badge>
+                        ) : null}
+                        {editForm.members.map((memberId) => (
+                          <Badge key={memberId} variant="secondary">
+                            {memberLabelMap.get(memberId) ?? memberId}
+                          </Badge>
+                        ))}
+                        {editForm.members.length === 0 && !hive?.owner ? (
+                          <p className="text-sm text-muted-foreground">Nėra priskirtų narių</p>
+                        ) : null}
+                      </div>
+                      <Label>Priskirti vartotojus</Label>
+                    </div>
+                    <UserMultiSelect
+                      options={memberOptions}
+                      value={editForm.members}
                           onChange={(members) => setEditForm((prev) => ({ ...prev, members }))}
                           placeholder="Pasirinkite komandos narius"
                         />

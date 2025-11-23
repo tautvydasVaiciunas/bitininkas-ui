@@ -1,4 +1,4 @@
-﻿import { BadRequestException, Inject, Injectable, Logger } from '@nestjs/common';
+﻿import { BadRequestException, Injectable, Logger } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
 import { Repository } from 'typeorm';
 import { ConfigService } from '@nestjs/config';
@@ -8,7 +8,7 @@ import * as bcrypt from 'bcryptjs';
 import { PasswordResetToken } from './password-reset-token.entity';
 import { User } from '../users/user.entity';
 import { ActivityLogService } from '../activity-log/activity-log.service';
-import { MAILER_SERVICE, MailerService } from '../notifications/mailer.service';
+import { EmailService } from '../email/email.service';
 
 interface CreateTokenOptions {
   template: 'forgot' | 'invite';
@@ -18,7 +18,7 @@ interface CreateTokenOptions {
 @Injectable()
 export class PasswordResetService {
   private readonly logger = new Logger(PasswordResetService.name);
-  private readonly RESET_TOKEN_TTL_MS = 60 * 60 * 1000;
+  private readonly RESET_TOKEN_TTL_MS = 24 * 60 * 60 * 1000;
   private readonly RESET_COOLDOWN_MS = 10 * 60 * 1000;
 
   constructor(
@@ -28,7 +28,7 @@ export class PasswordResetService {
     private readonly usersRepository: Repository<User>,
     private readonly configService: ConfigService,
     private readonly activityLog: ActivityLogService,
-    @Inject(MAILER_SERVICE) private readonly mailer: MailerService,
+    private readonly emailService: EmailService,
   ) {}
 
   async createTokenForUser(user: User, options: CreateTokenOptions) {
@@ -88,7 +88,12 @@ export class PasswordResetService {
       .join('');
 
     try {
-      await this.mailer.sendNotificationEmail(user.email, subject, htmlBody, textBody);
+      await this.emailService.sendMail({
+        to: user.email,
+        subject,
+        text: textBody,
+        html: htmlBody,
+      });
     } catch (error) {
       this.logger.warn(
         `Nepavyko išsiųsti slaptažodžio atstatymo laiško: ${

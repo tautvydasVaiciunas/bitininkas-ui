@@ -1,4 +1,4 @@
-import { useState } from 'react';
+﻿import { FormEvent, useState } from 'react';
 import { Link } from 'react-router-dom';
 import { ArrowLeft, Box, Loader2 } from 'lucide-react';
 import { toast } from 'sonner';
@@ -9,36 +9,37 @@ import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 
+const successMessage =
+  'Jei toks el. pašto adresas yra sistemoje, atstatymo nuoroda išsiųsta. Patikrink pašto dėžutę (įskaitant šlamštą).';
+
 export default function ForgotPassword() {
   const [email, setEmail] = useState('');
   const [loading, setLoading] = useState(false);
   const [sent, setSent] = useState(false);
-  const [devToken, setDevToken] = useState<string | undefined>();
 
-  const handleSubmit = async (event: React.FormEvent) => {
+  const handleSubmit = async (event: FormEvent<HTMLFormElement>) => {
     event.preventDefault();
     setLoading(true);
 
     try {
-      const response = await api.auth.forgotPassword(email);
+      await api.auth.forgotPassword(email);
       setSent(true);
-      setDevToken(response.token);
-      toast.success('Slapta�od�io atstatymo nuoroda i�siusta.');
+      toast.success(successMessage);
     } catch (error) {
       const message = (() => {
         if (error instanceof HttpError) {
           if (error.data && typeof error.data === 'object' && 'message' in error.data) {
-            return (error.data as { message?: string }).message ?? 'Nepavyko i�siusti nuorodos.';
+            return (error.data as { message?: string }).message ?? 'Nepavyko išsiųsti nuorodos.';
           }
           return error.message;
         }
         if (error instanceof Error) {
           return error.message;
         }
-        return 'Nepavyko i�siusti nuorodos.';
+        return 'Nepavyko išsiųsti nuorodos.';
       })();
 
-      toast.error('Nepavyko i�siusti nuorodos.', { description: message });
+      toast.error('Nepavyko išsiųsti nuorodos.', { description: message });
     } finally {
       setLoading(false);
     }
@@ -51,39 +52,29 @@ export default function ForgotPassword() {
           <div className="mx-auto w-12 h-12 rounded-xl bg-primary flex items-center justify-center mb-4">
             <Box className="w-7 h-7 text-primary-foreground" />
           </div>
-          <CardTitle className="text-2xl">Pamir�ai slapta�odi?</CardTitle>
+          <CardTitle className="text-2xl">Pamiršai slaptažodį?</CardTitle>
           <CardDescription>
             {sent
-              ? 'Patikrink el. pa�ta ir sek atstatymo nuoroda.'
-              : 'Ira�yk savo el. pa�to adresa ir atsiusime atstatymo nuoroda.'}
+              ? successMessage
+              : 'Įrašyk savo el. pašto adresą ir atsiųsime atstatymo nuorodą.'}
           </CardDescription>
         </CardHeader>
         <CardContent>
           {sent ? (
             <div className="space-y-4">
               <div className="rounded-lg bg-success/10 border border-success/20 p-4 text-sm text-success-foreground">
-                <p>
-                  Atstatymo nuoroda i�siusta adresu <strong>{email}</strong>.
-                </p>
-                <p className="mt-2 text-muted-foreground">
-                  Jei �inutes nematai, patikrink �lam�to aplanka.
-                </p>
-                {devToken ? (
-                  <p className="mt-3 text-xs font-mono break-all text-muted-foreground">
-                    Dev tokenas: {devToken}
-                  </p>
-                ) : null}
+                <p>{successMessage}</p>
               </div>
               <Button asChild variant="outline" className="w-full">
                 <Link to="/auth/login">
-                  <ArrowLeft className="mr-2 w-4 h-4" /> Gri�ti i prisijungima
+                  <ArrowLeft className="mr-2 w-4 h-4" /> Grįžti į prisijungimą
                 </Link>
               </Button>
             </div>
           ) : (
             <form onSubmit={handleSubmit} className="space-y-4">
               <div className="space-y-2">
-                <Label htmlFor="email">El. pa�tas</Label>
+                <Label htmlFor="email">El. paštas</Label>
                 <Input
                   id="email"
                   type="email"
@@ -96,12 +87,12 @@ export default function ForgotPassword() {
 
               <Button type="submit" className="w-full" disabled={loading}>
                 {loading && <Loader2 className="mr-2 w-4 h-4 animate-spin" />}
-                Siusti nuoroda
+                Siųsti nuorodą
               </Button>
 
               <Button asChild variant="ghost" className="w-full">
                 <Link to="/auth/login">
-                  <ArrowLeft className="mr-2 w-4 h-4" /> Gri�ti i prisijungima
+                  <ArrowLeft className="mr-2 w-4 h-4" /> Grįžti į prisijungimą
                 </Link>
               </Button>
             </form>

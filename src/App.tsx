@@ -68,9 +68,9 @@ const App = () => (
         <BrowserRouter>
           <CartProvider>
             <Routes>
-              <Route path="/auth/login" element={<Login />} />
-              <Route path="/auth/forgot" element={<ForgotPassword />} />
-              <Route path="/auth/reset" element={<ResetPassword />} />
+                <Route path="/auth/login" element={<Login />} />
+                <Route path="/auth/forgot" element={<ForgotPassword />} />
+                <Route path="/auth/reset" element={<ResetPassword />} />
               <Route element={<ProtectedRoute />}>
                 <Route path="/" element={<Navigate to="/news" replace />} />
                 <Route path="/news" element={<News />} />

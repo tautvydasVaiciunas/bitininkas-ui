@@ -129,19 +129,17 @@ export class UsersService {
     const saved = await this.usersRepository.save(user);
     await this.activityLog.log('user_created', saved.id, 'user', saved.id);
 
-    if (!hasPassword) {
-      try {
-        await this.passwordResetService.createTokenForUser(saved, {
-          template: 'invite',
-          enforceCooldown: false,
-        });
-      } catch (error) {
-        this.logger.warn(
-          `Nepavyko siųsti kvietimo vartotojui ${saved.email}: ${
-            error instanceof Error ? error.message : String(error)
-          }`,
-        );
-      }
+    try {
+      await this.passwordResetService.createTokenForUser(saved, {
+        template: 'invite',
+        enforceCooldown: false,
+      });
+    } catch (error) {
+      this.logger.warn(
+        `Nepavyko siųsti kvietimo vartotojui ${saved.email}: ${
+          error instanceof Error ? error.message : String(error)
+        }`,
+      );
     }
 
     return saved;

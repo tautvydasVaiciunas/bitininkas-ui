@@ -5,7 +5,7 @@ import { ConfigModule } from '@nestjs/config';
 import { PasswordResetToken } from './password-reset-token.entity';
 import { PasswordResetService } from './password-reset.service';
 import { ActivityLogModule } from '../activity-log/activity-log.module';
-import { NotificationsModule } from '../notifications/notifications.module';
+import { EmailModule } from '../email/email.module';
 import { User } from '../users/user.entity';
 
 @Module({
@@ -13,7 +13,7 @@ import { User } from '../users/user.entity';
     ConfigModule,
     TypeOrmModule.forFeature([PasswordResetToken, User]),
     ActivityLogModule,
-    NotificationsModule,
+    EmailModule,
   ],
   providers: [PasswordResetService],
   exports: [PasswordResetService],

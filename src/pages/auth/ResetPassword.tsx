@@ -1,7 +1,8 @@
-import { useState } from 'react';
+ï»¿import { FormEvent, useEffect, useMemo, useState } from 'react';
 import { Link, useNavigate, useSearchParams } from 'react-router-dom';
-import { ArrowLeft, Box, Loader2 } from 'lucide-react';
+import { ArrowLeft, Loader2 } from 'lucide-react';
 import { toast } from 'sonner';
+import { useMutation } from '@tanstack/react-query';
 
 import api, { HttpError } from '@/lib/api';
 import { Button } from '@/components/ui/button';
@@ -10,111 +11,136 @@ import { Label } from '@/components/ui/label';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 
 export default function ResetPassword() {
-  const navigate = useNavigate();
   const [searchParams] = useSearchParams();
+  const navigate = useNavigate();
+  const token = useMemo(() => searchParams.get('token') ?? '', [searchParams]);
+  const tokenMissing = token.length === 0;
   const [password, setPassword] = useState('');
   const [confirmPassword, setConfirmPassword] = useState('');
-  const [loading, setLoading] = useState(false);
-  const [error, setError] = useState<string | null>(null);
-  const token = searchParams.get('token') ?? '';
+  const [formError, setFormError] = useState<string | null>(null);
+  const [tokenError, setTokenError] = useState<string | null>(
+    tokenMissing ? 'Nuoroda neteisinga arba nebegalioja.' : null,
+  );
+  const [done, setDone] = useState(false);
 
-  const handleSubmit = async (event: React.FormEvent) => {
-    event.preventDefault();
+  const mutation = useMutation(
+    (payload: Parameters<typeof api.auth.resetPassword>[0]) =>
+      api.auth.resetPassword(payload),
+    {
+      onSuccess: () => {
+        setDone(true);
+        setFormError(null);
+        setTokenError(null);
+        toast.success('SlaptaÅ¾odis atnaujintas.');
+      },
+      onError: (error) => {
+        const message =
+          error instanceof HttpError
+            ? error.message
+            : 'Nuoroda neteisinga arba nebegalioja.';
+        setTokenError(message);
+      },
+    },
+  );
 
-    if (!token) {
-      setError('Truksta atstatymo nuorodos.');
+  useEffect(() => {
+    if (!done) {
       return;
     }
 
-    if (password.length < 6) {
-      setError('Slaptažodis turi buti bent 6 simboliu.');
+    const timer = setTimeout(() => navigate('/auth/login'), 1500);
+    return () => clearTimeout(timer);
+  }, [done, navigate]);
+
+  const handleSubmit = (event: FormEvent<HTMLFormElement>) => {
+    event.preventDefault();
+
+    if (tokenMissing) {
+      setTokenError('Nuoroda neteisinga arba nebegalioja.');
+      return;
+    }
+
+    if (!password || !confirmPassword) {
+      setFormError('UÅ¾pildykite abu laukus.');
       return;
     }
 
     if (password !== confirmPassword) {
-      setError('Slaptažodžiai turi sutapti.');
+      setFormError('SlaptaÅ¾odÅ¾iai nesutampa.');
       return;
     }
 
-    setLoading(true);
-    setError(null);
-
-    try {
-      await api.auth.resetPassword({ token, newPassword: password });
-      toast.success('Slaptažodis atnaujintas. Prisijunk nauju slaptažodžiu.');
-      navigate('/auth/login');
-    } catch (err) {
-      const message = (() => {
-        if (err instanceof HttpError) {
-          if (err.data && typeof err.data === 'object' && 'message' in err.data) {
-            return (err.data as { message?: string }).message ?? 'Nepavyko atkurti slaptažodžio.';
-          }
-          return err.message;
-        }
-        if (err instanceof Error) {
-          return err.message;
-        }
-        return 'Nepavyko atkurti slaptažodžio.';
-      })();
-      setError(message);
-    } finally {
-      setLoading(false);
-    }
+    setFormError(null);
+    mutation.mutate({ token, newPassword: password });
   };
+
+  const description = tokenError
+    ? tokenError
+    : done
+    ? 'SlaptaÅ¾odis atnaujintas. Tuoj bÅ«site nukreipti Ä¯ prisijungimÄ….'
+    : 'Ä®veskite naujÄ… slaptaÅ¾odÄ¯ ir dar kartÄ… patvirtinkite.';
 
   return (
     <div className="min-h-screen flex items-center justify-center bg-background p-4">
       <Card className="w-full max-w-md shadow-custom-lg">
         <CardHeader className="space-y-1 text-center">
-          <div className="mx-auto w-12 h-12 rounded-xl bg-primary flex items-center justify-center mb-4">
-            <Box className="w-7 h-7 text-primary-foreground" />
-          </div>
-          <CardTitle className="text-2xl">Nustatyk nauja slaptažodi</CardTitle>
-          <CardDescription>Ivesk nauja slaptažodi ir patvirtink ji žemiau</CardDescription>
+          <CardTitle className="text-2xl">Atstatyti slaptaÅ¾odÄ¯</CardTitle>
+          <CardDescription>{description}</CardDescription>
         </CardHeader>
         <CardContent>
-          <form onSubmit={handleSubmit} className="space-y-4">
-            <div className="space-y-2">
-              <Label htmlFor="password">Naujas slaptažodis</Label>
-              <Input
-                id="password"
-                type="password"
-                placeholder="••••••••"
-                value={password}
-                onChange={(event) => setPassword(event.target.value)}
-                required
-              />
+          {done ? (
+            <div className="space-y-4">
+              <div className="rounded-lg bg-success/10 border border-success/20 p-4 text-sm text-success-foreground">
+                <p>SlaptaÅ¾odis atnaujintas. Jei nepavyksta prisijungti, bandykite dar kartÄ….</p>
+              </div>
+              <Button asChild variant="outline" className="w-full">
+                <Link to="/auth/login">
+                  <ArrowLeft className="mr-2 w-4 h-4" /> GrÄ¯Å¾ti Ä¯ prisijungimÄ…
+                </Link>
+              </Button>
             </div>
-            <div className="space-y-2">
-              <Label htmlFor="confirm">Pakartok slaptažodi</Label>
-              <Input
-                id="confirm"
-                type="password"
-                placeholder="••••••••"
-                value={confirmPassword}
-                onChange={(event) => setConfirmPassword(event.target.value)}
-                required
-              />
+          ) : tokenError ? (
+            <div className="space-y-4">
+              <div className="rounded-lg bg-destructive/10 border border-destructive/40 p-4 text-sm text-destructive-foreground">
+                <p>{tokenError}</p>
+              </div>
+              <Button asChild variant="outline" className="w-full">
+                <Link to="/auth/login">
+                  <ArrowLeft className="mr-2 w-4 h-4" /> GrÄ¯Å¾ti Ä¯ prisijungimÄ…
+                </Link>
+              </Button>
             </div>
-
-            {error ? <p className="text-sm text-destructive">{error}</p> : null}
-
-            <Button type="submit" className="w-full" disabled={loading || !token}>
-              {loading && <Loader2 className="mr-2 w-4 h-4 animate-spin" />}
-              Atnaujinti slaptažodi
-            </Button>
-
-            <Button asChild variant="ghost" className="w-full">
-              <Link to="/auth/login">
-                <ArrowLeft className="mr-2 w-4 h-4" /> Grižti i prisijungima
-              </Link>
-            </Button>
-          </form>
-          {!token ? (
-            <p className="mt-4 text-sm text-destructive">
-              Truksta atstatymo tokeno. Patikrink ar nuoroda nukopijuota teisingai arba paprašyk naujos nuorodos.
-            </p>
-          ) : null}
+          ) : (
+            <form onSubmit={handleSubmit} className="space-y-4">
+              <div className="space-y-2">
+                <Label htmlFor="new-password">Naujas slaptaÅ¾odis</Label>
+                <Input
+                  id="new-password"
+                  type="password"
+                  value={password}
+                  onChange={(event) => setPassword(event.target.value)}
+                  required
+                />
+              </div>
+              <div className="space-y-2">
+                <Label htmlFor="confirm-password">Pakartokite naujÄ… slaptaÅ¾odÄ¯</Label>
+                <Input
+                  id="confirm-password"
+                  type="password"
+                  value={confirmPassword}
+                  onChange={(event) => setConfirmPassword(event.target.value)}
+                  required
+                />
+              </div>
+              {formError ? (
+                <p className="text-xs text-destructive">{formError}</p>
+              ) : null}
+              <Button type="submit" className="w-full" disabled={mutation.isPending}>
+                {mutation.isPending && <Loader2 className="mr-2 w-4 h-4 animate-spin" />}
+                Atnaujinti slaptaÅ¾odÄ¯
+              </Button>
+            </form>
+          )}
         </CardContent>
       </Card>
     </div>

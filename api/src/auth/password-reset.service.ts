@@ -18,7 +18,7 @@ interface CreateTokenOptions {
 @Injectable()
 export class PasswordResetService {
   private readonly logger = new Logger(PasswordResetService.name);
-  private readonly RESET_TOKEN_TTL_MS = 24 * 60 * 60 * 1000;
+  private readonly RESET_TOKEN_TTL_MS = 60 * 60 * 1000;
   private readonly RESET_COOLDOWN_MS = 10 * 60 * 1000;
 
   constructor(

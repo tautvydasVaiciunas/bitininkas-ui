@@ -86,7 +86,7 @@ export default function ResetPassword() {
         <CardContent>
           {done ? (
             <div className="space-y-4">
-              <div className="rounded-lg bg-success/10 border border-success/20 p-4 text-sm text-success-foreground">
+            <div className="rounded-lg bg-success/10 border border-success/20 p-4 text-sm text-foreground">
                 <p>Slaptažodis atnaujintas. Jei nepavyksta prisijungti, bandykite dar kartą.</p>
               </div>
               <Button asChild variant="outline" className="w-full">
@@ -97,7 +97,7 @@ export default function ResetPassword() {
             </div>
           ) : tokenError ? (
             <div className="space-y-4">
-              <div className="rounded-lg bg-destructive/10 border border-destructive/40 p-4 text-sm text-destructive-foreground">
+              <div className="rounded-lg bg-destructive/10 border border-destructive/40 p-4 text-sm text-foreground">
                 <p>{tokenError}</p>
               </div>
               <Button asChild variant="outline" className="w-full">
@@ -129,7 +129,7 @@ export default function ResetPassword() {
                 />
               </div>
               {formError ? (
-                <p className="text-xs text-destructive">{formError}</p>
+                <p className="text-xs text-foreground">{formError}</p>
               ) : null}
               <Button type="submit" className="w-full" disabled={mutation.isPending}>
                 {mutation.isPending && <Loader2 className="mr-2 w-4 h-4 animate-spin" />}

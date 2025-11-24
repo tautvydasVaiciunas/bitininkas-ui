@@ -10,6 +10,8 @@ import {
 } from './email-template';
 import { EmailService } from '../email/email.service';
 import { User, UserRole } from '../users/user.entity';
+import { ConfigService } from '@nestjs/config';
+import { resolveFrontendUrl } from '../common/utils/frontend-url';
 import {
   PaginationService,
   PaginatedResult,
@@ -49,6 +51,7 @@ export class NotificationsService {
     private readonly usersRepository: Repository<User>,
     private readonly emailService: EmailService,
     private readonly pagination: PaginationService,
+    private readonly configService: ConfigService,
   ) {}
 
   private async getSchemaCapabilities() {
@@ -178,12 +181,15 @@ export class NotificationsService {
 
     try {
       if (capabilities.hasIsReadColumn) {
+        const notificationLink = payload.link
+          ? resolveFrontendUrl(this.configService, payload.link)
+          : null;
         const notification = this.repository.create({
           userId,
           type: payload.type,
           title: payload.title,
           body: payload.body,
-          link: payload.link ?? null,
+          link: notificationLink,
           isRead: false,
         });
 
@@ -197,11 +203,14 @@ export class NotificationsService {
       }
 
       if (capabilities.hasReadAtColumn) {
+        const notificationLink = payload.link
+          ? resolveFrontendUrl(this.configService, payload.link)
+          : null;
         const [row] = (await this.repository.query(
           `INSERT INTO notifications (user_id, type, title, body, link, read_at)
            VALUES ($1, $2, $3, $4, $5, NULL)
            RETURNING id, user_id, type, title, body, link, read_at, created_at`,
-          [userId, payload.type, payload.title, payload.body, payload.link ?? null],
+          [userId, payload.type, payload.title, payload.body, notificationLink],
         )) as RawNotificationRow[];
 
         if (!row) {
@@ -217,11 +226,14 @@ export class NotificationsService {
         return saved;
       }
 
-      const [row] = (await this.repository.query(
+        const notificationLink = payload.link
+          ? resolveFrontendUrl(this.configService, payload.link)
+          : null;
+        const [row] = (await this.repository.query(
         `INSERT INTO notifications (user_id, type, title, body, link)
          VALUES ($1, $2, $3, $4, $5)
          RETURNING id, user_id, type, title, body, link, created_at`,
-        [userId, payload.type, payload.title, payload.body, payload.link ?? null],
+        [userId, payload.type, payload.title, payload.body, notificationLink],
       )) as RawNotificationRow[];
 
       if (!row) {
@@ -423,7 +435,8 @@ export class NotificationsService {
 
       const subject = payload.emailSubject ?? payload.title;
       const message = payload.emailBody ?? payload.body;
-      const ctaUrl = payload.emailCtaUrl ?? payload.link ?? null;
+      const rawCta = payload.emailCtaUrl ?? payload.link ?? null;
+      const ctaUrl = rawCta ? resolveFrontendUrl(this.configService, rawCta) : null;
       const ctaLabel = payload.emailCtaLabel ?? DEFAULT_CTA_LABEL;
 
       const html = renderNotificationEmailHtml({

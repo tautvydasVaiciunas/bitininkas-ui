@@ -21,6 +21,8 @@ import { CreateAttachmentDto, CreateMessageDto } from './dto/create-message.dto'
 import { CreateSupportThreadDto } from './dto/create-thread.dto';
 import { Request } from 'express';
 import { User, UserRole } from '../users/user.entity';
+import { ConfigService } from '@nestjs/config';
+import { resolveFrontendUrl } from '../common/utils/frontend-url';
 import { InjectRepository } from '@nestjs/typeorm';
 import { Repository } from 'typeorm';
 
@@ -33,6 +35,7 @@ export class SupportAdminController {
     private readonly notificationsService: NotificationsService,
     @InjectRepository(User)
     private readonly userRepository: Repository<User>,
+    private readonly configService: ConfigService,
   ) {}
 
   @Get('threads')
@@ -102,7 +105,7 @@ export class SupportAdminController {
       type: 'message',
       title: 'Atsakymas iš Bus medaus komandos',
       body: 'Gavote atsakymą į support pokalbį.',
-      link: '/support',
+      link: resolveFrontendUrl(this.configService, '/support'),
     });
 
     return {

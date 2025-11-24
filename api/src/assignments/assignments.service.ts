@@ -636,6 +636,54 @@ export class AssignmentsService {
 
     await this.initializeProgressForAssignments(assignments);
 
+    const today = this.getTodayDateString();
+    const dueSoonThreshold = this.formatDate(this.addDays(new Date(), 3));
+
+    const startNowAssignments: Assignment[] = [];
+    const futureAssignments: Assignment[] = [];
+
+    assignments.forEach((assignment) => {
+      const startDate = assignment.startDate ?? today;
+      const isStartNow = !assignment.startDate || startDate <= today;
+
+      if (isStartNow) {
+        startNowAssignments.push(assignment);
+      } else {
+        futureAssignments.push(assignment);
+      }
+
+      if (
+        assignment.dueDate &&
+        assignment.dueDate <= dueSoonThreshold &&
+        assignment.status !== AssignmentStatus.DONE
+      ) {
+        assignment.notifiedDueSoon = false;
+      }
+    });
+
+    await Promise.all(
+      startNowAssignments.map(async (assignment) => {
+        assignment.notifiedStart = true;
+        await this.assignmentsRepository.save(assignment);
+        await this.sendStartEmail(assignment);
+      }),
+    );
+
+    const dueSoonAssignments = assignments.filter(
+      (assignment) =>
+        assignment.dueDate &&
+        assignment.dueDate <= dueSoonThreshold &&
+        assignment.status !== AssignmentStatus.DONE,
+    );
+
+    await Promise.all(
+      dueSoonAssignments.map(async (assignment) => {
+        assignment.notifiedDueSoon = true;
+        await this.assignmentsRepository.save(assignment);
+        await this.sendDueSoonEmail(assignment);
+      }),
+    );
+
     if (assignments.length) {
       await Promise.all(
         assignments.map((assignment) =>
@@ -643,7 +691,9 @@ export class AssignmentsService {
         ),
       );
 
-      await this.notifyAssignmentCreated(assignments, trimmedTitle, user.id, shouldNotify);
+      if (futureAssignments.length) {
+        await this.notifyAssignmentCreated(futureAssignments, trimmedTitle, user.id, shouldNotify);
+      }
 
       if (shouldNotify) {
         await this.sendAssignmentEmails(assignments, trimmedTitle);
@@ -1291,5 +1341,166 @@ export class AssignmentsService {
 
   async archiveByTask(taskId: string, archived: boolean) {
     await this.assignmentsRepository.update({ taskId }, { archived });
+  }
+
+  private formatDate(value: Date) {
+    return value.toISOString().slice(0, 10);
+  }
+
+  private addDays(date: Date, days: number) {
+    const result = new Date(date);
+    result.setUTCDate(result.getUTCDate() + days);
+    return result;
+  }
+
+  private async markStartNotified(assignment: Assignment) {
+    await this.assignmentsRepository.save({
+      id: assignment.id,
+      notifiedStart: true,
+    } as Assignment);
+  }
+
+  private async markDueSoonNotified(assignment: Assignment) {
+    await this.assignmentsRepository.save({
+      id: assignment.id,
+      notifiedDueSoon: true,
+    } as Assignment);
+  }
+
+  private async sendStartEmail(assignment: Assignment) {
+    const hive = await this.hiveRepository.findOne({
+      where: { id: assignment.hiveId },
+      relations: ['owner', 'members'],
+    });
+    if (!hive) {
+      return;
+    }
+
+    const recipients = new Map<string, string>();
+    const addRecipient = (user?: User | null) => {
+      if (!user?.email) return;
+      if (user.role !== UserRole.USER) return;
+      recipients.set(user.id, user.email);
+    };
+
+    addRecipient(hive.owner);
+    for (const member of hive.members ?? []) {
+      addRecipient(member);
+    }
+
+    if (!recipients.size) {
+      return;
+    }
+
+    const dueDate = assignment.dueDate ?? 'Nenurodyta';
+    const link = this.buildAssignmentEmailLink(assignment.id);
+    const body = [
+      `Užduotis ${assignment.task?.title ?? 'Užduotis'} jau aktyvi.`,
+      `Pabaigos data: ${dueDate}.`,
+      `Vykdyti: ${link}`,
+    ].join('\n');
+    const html = body
+      .split('\n')
+      .map((line) => `<p>${line}</p>`)
+      .join('');
+
+    await Promise.all(
+      Array.from(recipients.values()).map(async (email) => {
+        try {
+          await this.emailService.sendMail({
+            to: email,
+            subject: 'Užduotį jau galima atlikti',
+            text: body,
+            html,
+          });
+        } catch (error) {
+          this.logger.warn(
+            `Nepavyko išsiųsti starto laiško ${email}: ${
+              error instanceof Error ? error.message : String(error)
+            }`,
+          );
+        }
+      }),
+    );
+  }
+
+  private async calculateProgressPercent(assignment: Assignment): Promise<number> {
+    const totalSteps = assignment.task?.steps?.length ?? 0;
+    if (!totalSteps) {
+      return 0;
+    }
+
+    const result = await this.progressRepository
+      .createQueryBuilder('progress')
+      .select('COUNT(DISTINCT progress.taskStepId)', 'count')
+      .where('progress.assignmentId = :assignmentId', { assignmentId: assignment.id })
+      .andWhere('progress.status = :status', { status: AssignmentProgressStatus.COMPLETED })
+      .getRawOne<{ count: string }>();
+
+    const completed = Number(result?.count ?? 0);
+    if (!Number.isFinite(completed)) {
+      return 0;
+    }
+
+    return Math.min(100, Math.max(0, Math.round((completed / totalSteps) * 100)));
+  }
+
+  private async sendDueSoonEmail(assignment: Assignment) {
+    const hive = await this.hiveRepository.findOne({
+      where: { id: assignment.hiveId },
+      relations: ['owner', 'members'],
+    });
+    if (!hive) {
+      return;
+    }
+
+    const recipients = new Map<string, string>();
+    const addRecipient = (user?: User | null) => {
+      if (!user?.email) return;
+      if (user.role !== UserRole.USER) return;
+      recipients.set(user.id, user.email);
+    };
+
+    addRecipient(hive.owner);
+    for (const member of hive.members ?? []) {
+      addRecipient(member);
+    }
+
+    if (!recipients.size) {
+      return;
+    }
+
+    const progressPercent = await this.calculateProgressPercent(assignment);
+    const dueDate = assignment.dueDate ?? 'Nenurodyta';
+    const link = this.buildAssignmentEmailLink(assignment.id);
+    const body = [
+      `Užduočiai ${assignment.task?.title ?? 'Užduotis'} liko 3 dienos.`,
+      `Pabaigos data: ${dueDate}.`,
+      `Užduoties progresas: ${progressPercent}%.`,
+      `Vykdyti: ${link}`,
+    ].join('\n');
+    const html = body
+      .split('\n')
+      .map((line) => `<p>${line}</p>`)
+      .join('');
+
+    await Promise.all(
+      Array.from(recipients.values()).map(async (email) => {
+        try {
+          await this.emailService.sendMail({
+            to: email,
+            subject: 'Primename apie nebaigtą užduotį',
+            text: body,
+            html,
+          });
+        } catch (error) {
+          this.logger.warn(
+            `Nepavyko išsiųsti due-soon laiško ${email}: ${
+              error instanceof Error ? error.message : String(error)
+            }`,
+          );
+        }
+      }),
+    );
   }
 }

@@ -1,5 +1,6 @@
 ﻿import { useEffect, useState, ChangeEvent } from 'react';
 import { useMutation } from '@tanstack/react-query';
+import { useNavigate } from 'react-router-dom';
 import { MainLayout } from '@/components/Layout/MainLayout';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
@@ -22,7 +23,8 @@ const collapseWhitespace = (value: string) => value.replace(/\s+/g, ' ');
 const normalizeNameForSubmit = (value: string) => collapseWhitespace(value).trim();
 
 export default function Profile() {
-  const { user, updateUserProfile } = useAuth();
+  const { user, updateUserProfile, logout } = useAuth();
+  const navigate = useNavigate();
   const [isEditing, setIsEditing] = useState(false);
   const [formValues, setFormValues] = useState({
     name: user?.name ? normalizeNameForSubmit(user.name) : '',
@@ -61,8 +63,10 @@ export default function Profile() {
   const changePasswordMutation = useMutation({
     mutationFn: async (payload: ChangePasswordPayload) => api.profile.changePassword(payload),
     onSuccess: () => {
-      toast.success(ltMessages.profile.passwordChanged);
+      toast.success('Slaptažodis pakeistas. Prisijunkite iš naujo.');
       setPasswordForm({ current: '', next: '', confirm: '' });
+      logout();
+      navigate('/auth/login');
     },
     onError: (error: unknown) => {
       const message = error instanceof HttpError ? error.message : ltMessages.profile.passwordChangeFailed;

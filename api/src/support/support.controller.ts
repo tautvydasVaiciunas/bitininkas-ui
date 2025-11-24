@@ -7,6 +7,8 @@ import { InjectRepository } from '@nestjs/typeorm';
 import { User, UserRole } from '../users/user.entity';
 import { Repository, In } from 'typeorm';
 import { Request } from 'express';
+import { ConfigService } from '@nestjs/config';
+import { resolveFrontendUrl } from '../common/utils/frontend-url';
 
 @UseGuards(JwtAuthGuard)
 @Controller('support')
@@ -16,6 +18,7 @@ export class SupportController {
     private readonly notificationsService: NotificationsService,
     @InjectRepository(User)
     private readonly userRepository: Repository<User>,
+    private readonly configService: ConfigService,
   ) {}
 
   @Get('my-thread')
@@ -101,7 +104,7 @@ export class SupportController {
           type: 'message',
           title: 'Nauja support žinutė',
           body: notifBody,
-          link: `/admin/support?threadId=${thread.id}`,
+          link: resolveFrontendUrl(this.configService, `/admin/support?threadId=${thread.id}`),
         }),
       ),
     );

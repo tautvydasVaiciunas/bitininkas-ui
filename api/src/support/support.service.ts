@@ -6,6 +6,8 @@ import { SupportMessage } from './entities/support-message.entity';
 import { SupportThread } from './entities/support-thread.entity';
 import { EmailService } from '../email/email.service';
 import { User, UserRole } from '../users/user.entity';
+import { ConfigService } from '@nestjs/config';
+import { resolveFrontendUrl } from '../common/utils/frontend-url';
 
 export type SupportSenderRole = 'user' | 'admin' | 'manager' | 'system';
 
@@ -46,7 +48,7 @@ const STAFF_ROLES: SupportSenderRole[] = ['admin', 'manager'];
 export class SupportService {
   private readonly logger = new Logger(SupportService.name);
   private readonly EMAIL_COOLDOWN_MS = 5 * 60 * 1000;
-  private readonly MESSAGE_LINK = 'https://app.busmedaus.lt/messages';
+  private readonly MESSAGE_LINK = '/messages';
   constructor(
     @InjectRepository(SupportThread)
     private readonly threadRepository: Repository<SupportThread>,
@@ -57,6 +59,7 @@ export class SupportService {
     @InjectRepository(User)
     private readonly userRepository: Repository<User>,
     private readonly emailService: EmailService,
+    private readonly configService: ConfigService,
   ) {}
 
   async findOrCreateThreadForUser(userId: string): Promise<SupportThread> {
@@ -242,9 +245,10 @@ export class SupportService {
       }
     }
 
+    const messageLink = resolveFrontendUrl(this.configService, this.MESSAGE_LINK);
     const body = [
       'Gavote naują žinutę.',
-      `Atsakyti: ${this.MESSAGE_LINK}`,
+      `Atsakyti: ${messageLink}`,
     ].join('\n');
     const html = body
       .split('\n')

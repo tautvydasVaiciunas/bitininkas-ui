@@ -7,10 +7,14 @@ import { User, UserRole } from '../users/user.entity';
 import { NotificationsService, CreateNotificationPayload } from '../notifications/notifications.service';
 import { CreateManualNoteDto, UpdateManualNoteDto } from './dto/manual-note.dto';
 import { EmailService } from '../email/email.service';
+import { ConfigService } from '@nestjs/config';
+import { resolveFrontendUrl } from '../common/utils/frontend-url';
 
 @Injectable()
 export class HiveEventsService {
   private readonly logger = new Logger(HiveEventsService.name);
+
+  private readonly configService: ConfigService;
 
   constructor(
     @InjectRepository(HiveEvent)
@@ -21,7 +25,10 @@ export class HiveEventsService {
     private readonly usersRepository: Repository<User>,
     private readonly notifications: NotificationsService,
     private readonly emailService: EmailService,
-  ) {}
+    configService: ConfigService,
+  ) {
+    this.configService = configService;
+  }
 
   async logEvent(
     hiveId: string,
@@ -142,6 +149,7 @@ export class HiveEventsService {
 
   private async notifyHiveManualNote(hive: Hive, text: string, creatorId?: string) {
     const payload = this.buildNotificationPayload(hive, text);
+    payload.sendEmail = false;
     const participants = this.collectHiveParticipants(hive);
     const notifiedUserIds = new Set<string>();
 
@@ -175,7 +183,7 @@ export class HiveEventsService {
   }
 
   private async sendManualNoteEmail(hive: Hive, text: string, creatorId?: string) {
-    const historyLink = `https://app.busmedaus.lt${this.getHistoryLink(hive.id)}`;
+    const historyLink = resolveFrontendUrl(this.configService, this.getHistoryLink(hive.id));
     const recipients = new Map<string, string>();
 
     for (const participant of this.collectHiveParticipants(hive)) {

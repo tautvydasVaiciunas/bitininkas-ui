@@ -48,6 +48,9 @@ export class User {
   @Column({ name: 'avatar_url', type: 'varchar', length: 255, nullable: true, default: null })
   avatarUrl!: string | null;
 
+  @Column({ name: 'last_message_email_at', type: 'timestamptz', nullable: true })
+  lastMessageEmailAt!: Date | null;
+
   @CreateDateColumn({ name: 'created_at' })
   createdAt: Date;
 

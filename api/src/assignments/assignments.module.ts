@@ -18,6 +18,7 @@ import { NotificationsModule } from '../notifications/notifications.module';
 import { AssignmentsScheduler } from './assignments.scheduler';
 import { Notification } from '../notifications/notification.entity';
 import { HiveEventsModule } from '../hives/hive-events.module';
+import { EmailModule } from '../email/email.module';
 
 @Module({
   imports: [
@@ -36,6 +37,7 @@ import { HiveEventsModule } from '../hives/hive-events.module';
     ActivityLogModule,
     NotificationsModule,
     HiveEventsModule,
+    EmailModule,
     forwardRef(() => HivesModule),
   ],
   providers: [AssignmentsService, AssignmentsScheduler],

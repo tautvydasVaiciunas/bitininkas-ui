@@ -9,11 +9,13 @@ import { SupportAdminController } from './support-admin.controller';
 import { SupportUploadController } from './support-upload.controller';
 import { NotificationsModule } from '../notifications/notifications.module';
 import { User } from '../users/user.entity';
+import { EmailModule } from '../email/email.module';
 
 @Module({
   imports: [
     TypeOrmModule.forFeature([SupportThread, SupportMessage, SupportAttachment, User]),
     NotificationsModule,
+    EmailModule,
   ],
   providers: [SupportService],
   controllers: [SupportController, SupportAdminController, SupportUploadController],

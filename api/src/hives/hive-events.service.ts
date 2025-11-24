@@ -1,14 +1,17 @@
-import { BadRequestException, Injectable, NotFoundException } from '@nestjs/common';
+import { BadRequestException, Injectable, Logger, NotFoundException } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
 import { Repository } from 'typeorm';
 import { HiveEvent, HiveEventType } from './hive-event.entity';
 import { Hive } from './hive.entity';
-import { User } from '../users/user.entity';
+import { User, UserRole } from '../users/user.entity';
 import { NotificationsService, CreateNotificationPayload } from '../notifications/notifications.service';
 import { CreateManualNoteDto, UpdateManualNoteDto } from './dto/manual-note.dto';
+import { EmailService } from '../email/email.service';
 
 @Injectable()
 export class HiveEventsService {
+  private readonly logger = new Logger(HiveEventsService.name);
+
   constructor(
     @InjectRepository(HiveEvent)
     private readonly hiveEventsRepository: Repository<HiveEvent>,
@@ -17,6 +20,7 @@ export class HiveEventsService {
     @InjectRepository(User)
     private readonly usersRepository: Repository<User>,
     private readonly notifications: NotificationsService,
+    private readonly emailService: EmailService,
   ) {}
 
   async logEvent(
@@ -137,20 +141,84 @@ export class HiveEventsService {
   }
 
   private async notifyHiveManualNote(hive: Hive, text: string, creatorId?: string) {
-    const recipients = new Set<string>();
-    recipients.add(hive.ownerUserId);
-    for (const member of hive.members ?? []) {
-      recipients.add(member.id);
-    }
-    if (creatorId) {
-      recipients.delete(creatorId);
-    }
-
     const payload = this.buildNotificationPayload(hive, text);
+    const participants = this.collectHiveParticipants(hive);
+    const notifiedUserIds = new Set<string>();
 
-    for (const userId of recipients) {
+    for (const participant of participants) {
+      if (participant.id === creatorId) {
+        continue;
+      }
+      notifiedUserIds.add(participant.id);
+    }
+
+    for (const userId of notifiedUserIds) {
       await this.notifications.createNotification(userId, payload);
     }
+
+    await this.sendManualNoteEmail(hive, text, creatorId);
+  }
+
+  private collectHiveParticipants(hive: Hive) {
+    const participants: User[] = [];
+    if (hive.owner) {
+      participants.push(hive.owner);
+    }
+    if (hive.members?.length) {
+      participants.push(...hive.members);
+    }
+    return participants;
+  }
+
+  private getHistoryLink(hiveId: string) {
+    return `/hives/${hiveId}?tab=history`;
+  }
+
+  private async sendManualNoteEmail(hive: Hive, text: string, creatorId?: string) {
+    const historyLink = `https://app.busmedaus.lt${this.getHistoryLink(hive.id)}`;
+    const recipients = new Map<string, string>();
+
+    for (const participant of this.collectHiveParticipants(hive)) {
+      if (participant.id === creatorId) {
+        continue;
+      }
+      if (!participant.email) {
+        continue;
+      }
+      if (participant.role !== UserRole.USER) {
+        continue;
+      }
+      recipients.set(participant.id, participant.email);
+    }
+
+    if (!recipients.size) {
+      return;
+    }
+
+    const body = [
+      `Bus medaus bitininkas paliko pastabą aviliui ${hive.label}.`,
+      `Peržiūrėti: ${historyLink}`,
+    ].join('\n');
+    const html = body
+      .split('\n')
+      .map((line) => `<p>${line}</p>`)
+      .join('');
+
+    await Promise.all(
+      Array.from(recipients.values()).map(async (email) => {
+        try {
+          await this.emailService.sendMail({
+            to: email,
+            subject: 'Nauja pastaba jūsų avilio istorijoje',
+            text: body,
+            html,
+          });
+        } catch (error) {
+          const details = error instanceof Error ? error.message : String(error);
+          this.logger.warn(`Nepavyko išsiųsti pastabos laiško ${email}: ${details}`);
+        }
+      }),
+    );
   }
 
   async createManualNote(

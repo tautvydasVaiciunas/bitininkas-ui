@@ -25,6 +25,7 @@ import {
 } from '../common/pagination/pagination.service';
 import { UpdatePasswordDto } from './dto/update-password.dto';
 import { PasswordResetService } from '../auth/password-reset.service';
+import { EmailService } from '../email/email.service';
 import { resolveUploadsDir, uploadsPrefix } from '../common/config/storage.config';
 
 type UserGroupDto = {
@@ -56,6 +57,7 @@ export class UsersService {
     private readonly activityLog: ActivityLogService,
     private readonly pagination: PaginationService,
     private readonly passwordResetService: PasswordResetService,
+    private readonly emailService: EmailService,
   ) {}
 
   private normalizeNullableString(value?: string | null) {
@@ -377,6 +379,30 @@ export class UsersService {
     user.passwordHash = await bcrypt.hash(newPassword, 10);
     await this.usersRepository.save(user);
     await this.activityLog.log('password_changed', user.id, 'user', user.id);
+    const subject = 'Slaptažodis pakeistas';
+    const body = [
+      'Jūsų slaptažodis buvo sėkmingai pakeistas.',
+      'Jei tai nebuvote jūs, nedelsdami atstatykite slaptažodį.',
+    ].join('\n');
+    const htmlBody = body
+      .split('\n')
+      .map((line) => `<p>${line}</p>`)
+      .join('');
+
+    try {
+      await this.emailService.sendMail({
+        to: user.email,
+        subject,
+        text: body,
+        html: htmlBody,
+      });
+    } catch (error) {
+      this.logger.warn(
+        `Nepavyko išsiųsti slaptažodžio pakeitimo laiško vartotojui ${user.email}: ${
+          error instanceof Error ? error.message : String(error)
+        }`,
+      );
+    }
 
     return { success: true };
   }

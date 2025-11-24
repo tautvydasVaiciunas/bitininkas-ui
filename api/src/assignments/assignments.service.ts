@@ -19,7 +19,7 @@ import {
   AssignmentProgress,
   AssignmentProgressStatus,
 } from "../progress/assignment-progress.entity";
-import { UserRole } from "../users/user.entity";
+import { User, UserRole } from "../users/user.entity";
 import { ActivityLogService } from "../activity-log/activity-log.service";
 import { Group } from "../groups/group.entity";
 import { GroupMember } from "../groups/group-member.entity";
@@ -39,6 +39,7 @@ import {
 } from "../common/pagination/pagination.service";
 import { HiveEventsService } from "../hives/hive-events.service";
 import { HiveEventType } from "../hives/hive-event.entity";
+import { EmailService } from "../email/email.service";
 @Injectable()
 export class AssignmentsService {
   private readonly logger = new Logger(AssignmentsService.name);
@@ -64,6 +65,7 @@ export class AssignmentsService {
     private readonly configService: ConfigService,
     private readonly pagination: PaginationService,
     private readonly hiveEvents: HiveEventsService,
+    private readonly emailService: EmailService,
   ) {
     this.appBaseUrl = this.normalizeBaseUrl(
       this.configService.get<string>("APP_URL") ??
@@ -644,6 +646,7 @@ export class AssignmentsService {
       await this.notifyAssignmentCreated(assignments, trimmedTitle, user.id, shouldNotify);
 
       if (shouldNotify) {
+        await this.sendAssignmentEmails(assignments, trimmedTitle);
         const summaryDueDate = dto.dueDate ?? assignments[0]?.dueDate ?? null;
         await this.sendBulkCreationSummary(assignments, trimmedTitle, summaryDueDate);
       }
@@ -765,6 +768,103 @@ export class AssignmentsService {
     ]);
 
     return this.pagination.buildResponse(items, page, limit, total);
+  }
+
+  private formatDateForEmail(value?: Date | string | null) {
+    if (!value) {
+      return 'Nenurodyta';
+    }
+
+    const parsed = new Date(value);
+    if (!Number.isFinite(parsed.getTime())) {
+      return 'Nenurodyta';
+    }
+
+    return parsed.toLocaleString('lt-LT', {
+      hour12: false,
+      timeZone: 'Europe/Vilnius',
+    });
+  }
+
+  private getAssignmentLink(assignmentId: string) {
+    const baseUrl = (this.appBaseUrl ?? 'https://app.busmedaus.lt').replace(/\/$/, '');
+    return `${baseUrl}/tasks/${assignmentId}`;
+  }
+
+  private async sendAssignmentEmails(assignments: Assignment[], taskTitle: string) {
+    const hiveIds = Array.from(new Set(assignments.map((assignment) => assignment.hiveId)));
+    if (!hiveIds.length) {
+      return;
+    }
+
+    const hives = await this.hiveRepository.find({
+      where: { id: In(hiveIds) },
+      relations: ['owner', 'members'],
+    });
+
+    const hiveMap = new Map(hives.map((hive) => [hive.id, hive]));
+
+    await Promise.all(
+      assignments.map(async (assignment) => {
+        const hive = hiveMap.get(assignment.hiveId);
+        if (!hive) {
+          return;
+        }
+
+        const recipients = new Map<string, string>();
+        const addRecipient = (user?: User | null) => {
+          if (!user?.email) {
+            return;
+          }
+          if (user.role !== UserRole.USER) {
+            return;
+          }
+          recipients.set(user.id, user.email);
+        };
+
+        addRecipient(hive.owner);
+        for (const member of hive.members ?? []) {
+          addRecipient(member);
+        }
+
+        if (!recipients.size) {
+          return;
+        }
+
+        const startText = this.formatDateForEmail(assignment.startDate);
+        const dueText = this.formatDateForEmail(assignment.dueDate);
+        const link = this.getAssignmentLink(assignment.id);
+        const body = [
+          `Jūsų aviliui sukurta nauja užduotis: ${taskTitle}.`,
+          `Užduotį galima bus atlikti nuo: ${startText}.`,
+          `Pabaigos data: ${dueText}.`,
+          `Peržiūrėti: ${link}`,
+        ].join('\n');
+        const html = body
+          .split('\n')
+          .map((line) => `<p>${line}</p>`)
+          .join('');
+
+        await Promise.all(
+          Array.from(recipients.values()).map(async (email) => {
+            try {
+              await this.emailService.sendMail({
+                to: email,
+                subject: 'Nauja užduotis jūsų aviliui',
+                text: body,
+                html,
+              });
+            } catch (error) {
+              this.logger.warn(
+                `Nepavyko išsiųsti užduoties laiško ${email}: ${
+                  error instanceof Error ? error.message : String(error)
+                }`,
+              );
+            }
+          }),
+        );
+      }),
+    );
   }
   async findOne(id: string, user, options: { skipAvailabilityCheck?: boolean } = {}) {
     const assignment = await this.assignmentsRepository.findOne({

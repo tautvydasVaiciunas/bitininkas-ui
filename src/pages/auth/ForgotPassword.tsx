@@ -1,4 +1,4 @@
-﻿import { FormEvent, useState } from 'react';
+import { useState } from 'react';
 import { Link } from 'react-router-dom';
 import { ArrowLeft, Box, Loader2 } from 'lucide-react';
 import { toast } from 'sonner';
@@ -17,29 +17,29 @@ export default function ForgotPassword() {
   const [loading, setLoading] = useState(false);
   const [sent, setSent] = useState(false);
 
-  const handleSubmit = async (event: FormEvent<HTMLFormElement>) => {
+  const handleSubmit = async (event: React.FormEvent<HTMLFormElement>) => {
     event.preventDefault();
     setLoading(true);
 
+    const normalizedEmail = email.trim().toLowerCase();
+
+    if (!normalizedEmail) {
+      toast.error('Įveskite galiojantį el. paštą.');
+      setLoading(false);
+      return;
+    }
+
     try {
-      await api.auth.forgotPassword(email);
+      await api.auth.forgotPassword(normalizedEmail);
       setSent(true);
       toast.success(successMessage);
     } catch (error) {
-      const message = (() => {
-        if (error instanceof HttpError) {
-          if (error.data && typeof error.data === 'object' && 'message' in error.data) {
-            return (error.data as { message?: string }).message ?? 'Nepavyko išsiųsti nuorodos.';
-          }
-          return error.message;
-        }
-        if (error instanceof Error) {
-          return error.message;
-        }
-        return 'Nepavyko išsiųsti nuorodos.';
-      })();
-
-      toast.error('Nepavyko išsiųsti nuorodos.', { description: message });
+      if (error instanceof HttpError) {
+        setSent(true);
+        toast.success(successMessage);
+      } else {
+        toast.error('Nepavyko išsiųsti nuorodos. Patikrinkite interneto ryšį.');
+      }
     } finally {
       setLoading(false);
     }

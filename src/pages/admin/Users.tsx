@@ -62,14 +62,12 @@ type MutationError = HttpError | Error;
 type UserFormState = {
   name: string;
   email: string;
-  password: string;
   role: UserRole;
 };
 
 const defaultFormValues: UserFormState = {
   name: '',
   email: '',
-  password: '',
   role: 'user',
 };
 
@@ -113,12 +111,11 @@ export default function AdminUsers() {
 
   useEffect(() => {
     if (editingUser) {
-      setFormValues({
-        name: editingUser.name ?? '',
-        email: editingUser.email,
-        password: '',
-        role: editingUser.role,
-      });
+    setFormValues({
+      name: editingUser.name ?? '',
+      email: editingUser.email,
+      role: editingUser.role,
+    });
       setFormError(null);
     }
   }, [editingUser]);
@@ -236,15 +233,6 @@ export default function AdminUsers() {
           payload.name = trimmedName ? trimmedName : null;
         }
 
-        if (formValues.password) {
-          if (formValues.password.length < 6) {
-            setFormError('Slaptažodis turi būti bent 6 simbolių.');
-            return;
-          }
-
-          payload.password = formValues.password;
-        }
-
         const hasChanges = Object.keys(payload).length > 0;
         let roleChanged = false;
 
@@ -271,19 +259,10 @@ export default function AdminUsers() {
           toast.info('Pakeitimų nerasta');
         }
       } else {
-        if (formValues.password && formValues.password.length < 6) {
-          setFormError('Slaptažodis turi būti bent 6 simbolių.');
-          return;
-        }
-
         const payload: CreateUserPayload = {
           email: trimmedEmail,
           name: trimmedName || undefined,
         };
-
-        if (formValues.password) {
-          payload.password = formValues.password;
-        }
 
         if (isAdmin) {
           payload.role = formValues.role;
@@ -417,7 +396,7 @@ export default function AdminUsers() {
               <DialogHeader>
                 <DialogTitle>{editingUser ? 'Redaguoti vartotoją' : 'Naujas vartotojas'}</DialogTitle>
                 <DialogDescription>
-                  Užpildykite vartotojo informaciją. Visi laukai, pažymėti *, yra privalomi.
+                  Užpildykite vartotojo informaciją. Sukūrus paskyrą, vartotojui bus išsiųstas prisijungimo nuorodos laiškas.
                 </DialogDescription>
               </DialogHeader>
             <form onSubmit={handleSubmit} className="space-y-4">
@@ -460,18 +439,7 @@ export default function AdminUsers() {
                   </SelectContent>
                 </Select>
               </div>
-              <div className="space-y-2">
-                <Label htmlFor="password">Slaptažodis (pasirinktinai)</Label>
-                <Input
-                  id="password"
-                  type="password"
-                  value={formValues.password}
-                  onChange={(event) => handleInputChange('password', event.target.value)}
-                  placeholder="Palikite tuščią, jei norite išsiųsti kvietimą el. paštu"
-                  minLength={6}
-                />
-              </div>
-              {formError ? <p className="text-sm text-destructive">{formError}</p> : null}
+            {formError ? <p className="text-sm text-destructive">{formError}</p> : null}
               <DialogFooter className="gap-2 sm:gap-0">
                 <Button type="button" variant="outline" onClick={closeForm} disabled={isSubmitting}>
                   Atšaukti

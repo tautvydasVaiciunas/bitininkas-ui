@@ -1,7 +1,6 @@
 ﻿import { FormEvent, useEffect, useMemo, useState } from 'react';
 import { Link, useNavigate, useSearchParams } from 'react-router-dom';
 import { ArrowLeft, Loader2 } from 'lucide-react';
-import { toast } from 'sonner';
 import { useMutation } from '@tanstack/react-query';
 
 import api, { HttpError } from '@/lib/api';
@@ -30,7 +29,6 @@ export default function ResetPassword() {
       setDone(true);
       setFormError(null);
       setTokenError(null);
-      toast.success('Slaptažodis atnaujintas.');
     },
     onError: (error) => {
       const message =

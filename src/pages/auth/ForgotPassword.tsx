@@ -32,11 +32,9 @@ export default function ForgotPassword() {
     try {
       await api.auth.forgotPassword(normalizedEmail);
       setSent(true);
-      toast.success(successMessage);
     } catch (error) {
       if (error instanceof HttpError) {
         setSent(true);
-        toast.success(successMessage);
       } else {
         toast.error('Nepavyko išsiųsti nuorodos. Patikrinkite interneto ryšį.');
       }

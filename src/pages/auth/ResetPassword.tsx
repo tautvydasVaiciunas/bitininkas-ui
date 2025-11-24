@@ -23,25 +23,23 @@ export default function ResetPassword() {
   );
   const [done, setDone] = useState(false);
 
-  const mutation = useMutation(
-    (payload: Parameters<typeof api.auth.resetPassword>[0]) =>
+  const mutation = useMutation({
+    mutationFn: (payload: Parameters<typeof api.auth.resetPassword>[0]) =>
       api.auth.resetPassword(payload),
-    {
-      onSuccess: () => {
-        setDone(true);
-        setFormError(null);
-        setTokenError(null);
-        toast.success('Slaptažodis atnaujintas.');
-      },
-      onError: (error) => {
-        const message =
-          error instanceof HttpError
-            ? error.message
-            : 'Nuoroda neteisinga arba nebegalioja.';
-        setTokenError(message);
-      },
+    onSuccess: () => {
+      setDone(true);
+      setFormError(null);
+      setTokenError(null);
+      toast.success('Slaptažodis atnaujintas.');
     },
-  );
+    onError: (error) => {
+      const message =
+        error instanceof HttpError
+          ? error.message
+          : 'Nuoroda neteisinga arba nebegalioja.';
+      setTokenError(message);
+    },
+  });
 
   useEffect(() => {
     if (!done) {

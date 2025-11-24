@@ -958,11 +958,13 @@ export const api = {
       return result;
     },
     me: () => get<AuthenticatedUser>('/auth/me'),
-    forgotPassword: (email: string) =>
-      post<{ message: string; token?: string }>('/auth/forgot-password', {
-        json: { email },
+    forgotPassword: (email: string) => {
+      const normalized = email.trim().toLowerCase();
+      return post<{ message: string }>('/auth/forgot-password', {
+        json: { email: normalized },
         skipAuth: true,
-      }),
+      });
+    },
     resetPassword: (payload: ResetPasswordPayload) =>
       post<{ message: string }>('/auth/reset-password', {
         json: payload,

@@ -60,7 +60,7 @@ export default function ForgotPassword() {
         <CardContent>
           {sent ? (
             <div className="space-y-4">
-              <div className="rounded-lg bg-success/10 border border-success/20 p-4 text-sm text-success-foreground">
+            <div className="rounded-lg bg-success/10 border border-success/20 p-4 text-sm text-foreground">
                 <p>{successMessage}</p>
               </div>
               <Button asChild variant="outline" className="w-full">

@@ -12,6 +12,7 @@ import { useToast } from "@/components/ui/use-toast";
 import { ToastAction } from "@/components/ui/toast";
 import { inferMediaType, resolveMediaUrl } from "@/lib/media";
 import { ResponsiveMedia } from "@/components/media/ResponsiveMedia";
+import { useAuth } from "@/contexts/AuthContext";
 
 const PAGE_SIZE = 6;
 
@@ -85,6 +86,16 @@ const News = () => {
     [data]
   );
 
+  const { user } = useAuth();
+  const visibleNewsItems = useMemo<NewsPost[]>(() => {
+    if (!user || user.role !== "user" || !user.createdAt) {
+      return newsItems;
+    }
+
+    const threshold = new Date(user.createdAt);
+    return newsItems.filter((post) => new Date(post.createdAt) >= threshold);
+  }, [newsItems, user]);
+
   const errorMessage =
     error instanceof HttpError ? error.message : "Bandykite dar kartą vėliau.";
 
@@ -135,7 +146,7 @@ const News = () => {
               Bandyti dar kartą
             </Button>
           </div>
-        ) : newsItems.length === 0 ? (
+        ) : visibleNewsItems.length === 0 ? (
           <div className="rounded-lg border border-dashed border-muted-foreground/30 p-12 text-center">
             <h2 className="text-xl font-semibold">Naujienų kol kas nėra</h2>
             <p className="mt-2 text-muted-foreground">
@@ -145,7 +156,7 @@ const News = () => {
         ) : (
           <div className="space-y-8">
             <div className="space-y-6">
-          {newsItems.map((post) => {
+            {visibleNewsItems.map((post) => {
             const coverUrl = resolveMediaUrl(post.imageUrl);
             const coverType = inferMediaType(null, coverUrl);
             const newsLink = `/news/${post.id}`;

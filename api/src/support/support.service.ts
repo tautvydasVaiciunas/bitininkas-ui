@@ -1,9 +1,11 @@
-import { Injectable } from '@nestjs/common';
+import { Injectable, Logger } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
 import { In, LessThan, Repository } from 'typeorm';
 import { SupportAttachment } from './entities/support-attachment.entity';
 import { SupportMessage } from './entities/support-message.entity';
 import { SupportThread } from './entities/support-thread.entity';
+import { EmailService } from '../email/email.service';
+import { User, UserRole } from '../users/user.entity';
 
 export type SupportSenderRole = 'user' | 'admin' | 'manager' | 'system';
 
@@ -42,6 +44,9 @@ const STAFF_ROLES: SupportSenderRole[] = ['admin', 'manager'];
 
 @Injectable()
 export class SupportService {
+  private readonly logger = new Logger(SupportService.name);
+  private readonly EMAIL_COOLDOWN_MS = 5 * 60 * 1000;
+  private readonly MESSAGE_LINK = 'https://app.busmedaus.lt/messages';
   constructor(
     @InjectRepository(SupportThread)
     private readonly threadRepository: Repository<SupportThread>,
@@ -49,6 +54,9 @@ export class SupportService {
     private readonly messageRepository: Repository<SupportMessage>,
     @InjectRepository(SupportAttachment)
     private readonly attachmentRepository: Repository<SupportAttachment>,
+    @InjectRepository(User)
+    private readonly userRepository: Repository<User>,
+    private readonly emailService: EmailService,
   ) {}
 
   async findOrCreateThreadForUser(userId: string): Promise<SupportThread> {
@@ -127,6 +135,10 @@ export class SupportService {
     }
 
     await this.threadRepository.update(threadId, { lastMessageAt: savedMessage.createdAt });
+
+    if (STAFF_ROLES.includes(input.senderRole)) {
+      await this.sendStaffMessageEmail(threadId);
+    }
 
     return savedMessage;
   }
@@ -209,6 +221,49 @@ export class SupportService {
       lastMessageAt: lastMessage?.createdAt ?? thread.lastMessageAt,
       unreadFromUser,
     };
+  }
+
+  private async sendStaffMessageEmail(threadId: string) {
+    const thread = await this.threadRepository.findOne({
+      where: { id: threadId },
+      relations: { user: true },
+    });
+
+    const threadUser = thread?.user;
+    if (!threadUser || threadUser.role !== UserRole.USER || !threadUser.email) {
+      return;
+    }
+
+    const now = new Date();
+    if (threadUser.lastMessageEmailAt) {
+      const elapsed = now.getTime() - threadUser.lastMessageEmailAt.getTime();
+      if (elapsed < this.EMAIL_COOLDOWN_MS) {
+        return;
+      }
+    }
+
+    const body = [
+      'Gavote naują žinutę.',
+      `Atsakyti: ${this.MESSAGE_LINK}`,
+    ].join('\n');
+    const html = body
+      .split('\n')
+      .map((line) => `<p>${line}</p>`)
+      .join('');
+
+    try {
+      await this.emailService.sendMail({
+        to: threadUser.email,
+        subject: 'Nauja žinutė iš Bus medaus bitininko',
+        text: body,
+        html,
+      });
+      threadUser.lastMessageEmailAt = now;
+      await this.userRepository.save(threadUser);
+    } catch (error) {
+      const details = error instanceof Error ? error.message : String(error);
+      this.logger.warn(`Nepavyko išsiųsti support laiško ${threadUser.email}: ${details}`);
+    }
   }
 
   async countThreadsWithUnreadFromUser(): Promise<number> {

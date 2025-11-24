@@ -5,9 +5,10 @@ import { Hive } from './hive.entity';
 import { User } from '../users/user.entity';
 import { HiveEventsService } from './hive-events.service';
 import { NotificationsModule } from '../notifications/notifications.module';
+import { EmailModule } from '../email/email.module';
 
 @Module({
-  imports: [TypeOrmModule.forFeature([HiveEvent, Hive, User]), NotificationsModule],
+  imports: [TypeOrmModule.forFeature([HiveEvent, Hive, User]), NotificationsModule, EmailModule],
   providers: [HiveEventsService],
   exports: [HiveEventsService],
 })

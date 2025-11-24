@@ -14,7 +14,9 @@ import {
 } from '../notifications/email-template';
 import { MAILER_SERVICE, MailerService } from '../notifications/mailer.service';
 import { GroupMember } from '../groups/group-member.entity';
-import { UserRole } from '../users/user.entity';
+import { AssignmentProgress, AssignmentProgressStatus } from '../progress/assignment-progress.entity';
+import { User, UserRole } from '../users/user.entity';
+import { EmailService } from '../email/email.service';
 
 const WEEKLY_REMINDER_CRON = process.env.REMINDER_CRON ?? '0 9 * * 1';
 
@@ -30,10 +32,13 @@ export class AssignmentsScheduler {
     private readonly notificationsRepository: Repository<Notification>,
     @InjectRepository(GroupMember)
     private readonly groupMembersRepository: Repository<GroupMember>,
+    @InjectRepository(AssignmentProgress)
+    private readonly progressRepository: Repository<AssignmentProgress>,
     private readonly notificationsService: NotificationsService,
     private readonly configService: ConfigService,
     @Inject(MAILER_SERVICE)
     private readonly mailer: MailerService,
+    private readonly emailService: EmailService,
   ) {
     this.appBaseUrl = this.normalizeBaseUrl(
       this.configService.get<string>('APP_URL') ??
@@ -59,8 +64,9 @@ export class AssignmentsScheduler {
         where: {
           startDate: todayLabel,
           status: Not(AssignmentStatus.DONE),
+          notifiedStart: false,
         },
-        relations: { hive: { owner: true }, task: true },
+        relations: { hive: { owner: true, members: true }, task: true },
       });
 
       for (const assignment of assignments) {
@@ -70,6 +76,8 @@ export class AssignmentsScheduler {
           `Užduotis jau aktyvi: ${taskTitle}`,
           'Užduotis jau aktyvi',
         );
+        await this.markStartNotified(assignment);
+        await this.sendStartEmail(assignment);
       }
     } catch (error) {
       const details = error instanceof Error ? error.message : String(error);
@@ -115,25 +123,31 @@ export class AssignmentsScheduler {
   }
 
   private async sendDueSoonReminders(today: Date) {
-    const targetDate = this.formatDate(this.addDays(today, 7));
+    const targetDate = this.formatDate(this.addDays(today, 3));
 
     try {
       const assignments = await this.assignmentsRepository.find({
         where: {
           dueDate: targetDate,
           status: Not(AssignmentStatus.DONE),
+          notifiedDueSoon: false,
         },
-        relations: { hive: { owner: true }, task: true },
+        relations: {
+          hive: { owner: true, members: true },
+          task: { steps: true },
+        },
       });
 
-      for (const assignment of assignments) {
-        const taskTitle = assignment.task?.title ?? 'Užduotis';
-        await this.notifyAssignment(
-          assignment,
-          `Liko savaitė iki ${taskTitle}`,
-          'Primename: liko savaitė',
-        );
-      }
+        for (const assignment of assignments) {
+          const taskTitle = assignment.task?.title ?? 'Užduotis';
+          await this.notifyAssignment(
+            assignment,
+            `Liko savaitė iki ${taskTitle}`,
+            'Primename: liko savaitė',
+          );
+          await this.sendDueSoonEmail(assignment);
+          await this.markDueSoonNotified(assignment);
+        }
     } catch (error) {
       const details = error instanceof Error ? error.message : String(error);
       this.logger.error(
@@ -406,5 +420,155 @@ export class AssignmentsScheduler {
     }
 
     return trimmed.endsWith('/') ? trimmed.slice(0, -1) : trimmed;
+  }
+
+  private async markStartNotified(assignment: Assignment) {
+    assignment.notifiedStart = true;
+    await this.assignmentsRepository.save({
+      id: assignment.id,
+      notifiedStart: true,
+    } as Assignment);
+  }
+
+  private async sendStartEmail(assignment: Assignment) {
+    const hive = assignment.hive;
+    if (!hive) {
+      return;
+    }
+
+    const recipients = new Map<string, string>();
+    const addRecipient = (user?: User | null) => {
+      if (!user?.email) {
+        return;
+      }
+
+      if (user.role !== UserRole.USER) {
+        return;
+      }
+
+      recipients.set(user.id, user.email);
+    };
+
+    addRecipient(hive.owner);
+    for (const member of hive.members ?? []) {
+      addRecipient(member);
+    }
+
+    if (!recipients.size) {
+      return;
+    }
+
+    const dueDate = assignment.dueDate ?? 'Nenurodyta';
+    const link = this.buildAssignmentEmailLink(assignment.id);
+    const body = [
+      `Užduotis ${assignment.task?.title ?? 'Užduotis'} jau aktyvi.`,
+      `Pabaigos data: ${dueDate}.`,
+      `Vykdyti: ${link}`,
+    ].join('\n');
+    const html = body
+      .split('\n')
+      .map((line) => `<p>${line}</p>`)
+      .join('');
+
+    await Promise.all(
+      Array.from(recipients.values()).map(async (email) => {
+        try {
+          await this.emailService.sendMail({
+            to: email,
+            subject: 'Užduotį jau galima atlikti',
+            text: body,
+            html,
+          });
+        } catch (error) {
+          const details = error instanceof Error ? error.message : String(error);
+          this.logger.warn(`Nepavyko išsiųsti aktyvacijos laiško ${email}: ${details}`);
+        }
+      }),
+    );
+  }
+  private async markDueSoonNotified(assignment: Assignment) {
+    assignment.notifiedDueSoon = true;
+    await this.assignmentsRepository.save({
+      id: assignment.id,
+      notifiedDueSoon: true,
+    } as Assignment);
+  }
+
+  private async calculateProgressPercent(assignment: Assignment): Promise<number> {
+    const totalSteps = assignment.task?.steps?.length ?? 0;
+    if (!totalSteps) {
+      return 0;
+    }
+
+    const result = await this.progressRepository
+      .createQueryBuilder('progress')
+      .select('COUNT(DISTINCT progress.taskStepId)', 'count')
+      .where('progress.assignmentId = :assignmentId', { assignmentId: assignment.id })
+      .andWhere('progress.status = :status', { status: AssignmentProgressStatus.COMPLETED })
+      .getRawOne<{ count: string }>();
+
+    const completed = Number(result?.count ?? 0);
+    if (!Number.isFinite(completed)) {
+      return 0;
+    }
+
+    return Math.min(100, Math.max(0, Math.round((completed / totalSteps) * 100)));
+  }
+
+  private async sendDueSoonEmail(assignment: Assignment) {
+    const hive = assignment.hive;
+    if (!hive) {
+      return;
+    }
+
+    const recipients = new Map<string, string>();
+    const addRecipient = (user?: User | null) => {
+      if (!user?.email) {
+        return;
+      }
+      if (user.role !== UserRole.USER) {
+        return;
+      }
+      recipients.set(user.id, user.email);
+    };
+
+    addRecipient(hive.owner);
+    for (const member of hive.members ?? []) {
+      addRecipient(member);
+    }
+
+    if (!recipients.size) {
+      return;
+    }
+
+    const progressPercent = await this.calculateProgressPercent(assignment);
+    const dueDate = assignment.dueDate ?? 'Nenurodyta';
+    const link = this.buildAssignmentEmailLink(assignment.id);
+    const body = [
+      `Užduočiai ${assignment.task?.title ?? 'Užduotis'} liko 3 dienos.`,
+      `Pabaigos data: ${dueDate}.`,
+      `Užduoties progresas: ${progressPercent}%.`,
+      `Vykdyti: ${link}`,
+    ].join('\n');
+    const html = body
+      .split('\n')
+      .map((line) => `<p>${line}</p>`)
+      .join('');
+
+    await Promise.all(
+      Array.from(recipients.values()).map(async (email) => {
+        try {
+          await this.emailService.sendMail({
+            to: email,
+            subject: 'Primename apie nebaigtą užduotį',
+            text: body,
+            html,
+          });
+        } catch (error) {
+          const details = error instanceof Error ? error.message : String(error);
+          this.logger.warn(`Nepavyko išsiųsti priminimo laiško ${email}: ${details}`);
+        }
+      }),
+    );
   }
 }

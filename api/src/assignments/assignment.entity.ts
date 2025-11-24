@@ -62,8 +62,14 @@ export class Assignment {
   })
   status!: AssignmentStatus;
 
+  @Column({ name: 'notified_start', type: 'boolean', default: false })
+  notifiedStart!: boolean;
+
   @Column({ type: 'boolean', nullable: false, default: false })
   archived!: boolean;
+
+  @Column({ name: 'notified_due_soon', type: 'boolean', default: false })
+  notifiedDueSoon!: boolean;
 
   @CreateDateColumn({ name: 'created_at' })
   createdAt!: Date;

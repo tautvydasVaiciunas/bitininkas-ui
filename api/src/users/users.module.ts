@@ -7,9 +7,10 @@ import { ProfileController } from './profile.controller';
 import { User } from './user.entity';
 import { ActivityLogModule } from '../activity-log/activity-log.module';
 import { PasswordResetModule } from '../auth/password-reset.module';
+import { EmailModule } from '../email/email.module';
 
 @Module({
-  imports: [TypeOrmModule.forFeature([User]), ActivityLogModule, PasswordResetModule],
+  imports: [TypeOrmModule.forFeature([User]), ActivityLogModule, PasswordResetModule, EmailModule],
   providers: [UsersService],
   controllers: [UsersController, ProfileController],
   exports: [UsersService],

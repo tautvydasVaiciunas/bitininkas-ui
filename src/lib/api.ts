@@ -469,6 +469,7 @@ export interface AssignmentResponse {
   reviewComment?: string | null;
   reviewByUserId?: string | null;
   reviewAt?: string | null;
+  ratedAt?: string | null;
 }
 
 export interface SubmitAssignmentRatingPayload {
@@ -1213,6 +1214,8 @@ export const api = {
       }),
     submitRating: (id: string, payload: SubmitAssignmentRatingPayload) =>
       patch<AssignmentResponse>(`/assignments/${id}/rating`, { json: payload }),
+    rate: (id: string, payload: SubmitAssignmentRatingPayload) =>
+      post<AssignmentResponse>(`/assignments/${id}/rate`, { json: payload }),
     review: (id: string, payload: SubmitAssignmentReviewPayload) =>
       patch<AssignmentResponse>(`/assignments/${id}/review`, { json: payload }),
     bulkFromTemplate: (payload: BulkAssignmentsFromTemplatePayload) =>

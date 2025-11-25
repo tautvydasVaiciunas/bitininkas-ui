@@ -13,6 +13,7 @@ import { AssignmentsService } from './assignments.service';
 import { AssignmentsScheduler } from './assignments.scheduler';
 import { AssignmentReviewStatus } from './assignment.entity';
 import { CreateAssignmentDto } from './dto/create-assignment.dto';
+import { RateAssignmentDto } from './dto/rate-assignment.dto';
 import { ReviewAssignmentDto } from './dto/review-assignment.dto';
 import { UpdateAssignmentDto } from './dto/update-assignment.dto';
 import { Roles } from '../common/decorators/roles.decorator';
@@ -98,5 +99,10 @@ export class AssignmentsController {
   @Patch(':id/review')
   review(@Param('id') id: string, @Body() dto: ReviewAssignmentDto, @Request() req) {
     return this.assignmentsService.reviewAssignment(id, dto, req.user);
+  }
+
+  @Post(':id/rate')
+  rate(@Param('id') id: string, @Body() dto: RateAssignmentDto, @Request() req) {
+    return this.assignmentsService.rateAssignment(id, dto, req.user);
   }
 }

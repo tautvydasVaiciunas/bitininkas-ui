@@ -226,9 +226,7 @@ export default function TaskRun() {
     SubmitAssignmentRatingPayload
   >({
     mutationFn: (payload) =>
-      api.assignments
-        .submitRating(id!, payload)
-        .then(mapAssignmentFromApi),
+      api.assignments.rate(id!, payload).then(mapAssignmentFromApi),
     onSuccess: (updatedAssignment) => {
       queryClient.setQueryData<AssignmentDetails | undefined>(['assignments', id, 'details'], (oldData) => {
         if (!oldData) return oldData;
@@ -310,7 +308,9 @@ export default function TaskRun() {
     toggleStepMutation.mutate({ taskStepId: currentProgress.taskStepId, stepIndex: currentStepIndex });
   };
 
-  const canSubmitRating = allStepsCompleted && ratingValue !== null;
+  const hasRated = Boolean(assignment?.ratedAt);
+  const canSubmitRating =
+    allStepsCompleted && ratingValue !== null && !hasRated;
   const handleSubmitRating = () => {
     if (!id || !canSubmitRating || ratingMutation.isPending) {
       return;
@@ -498,7 +498,11 @@ export default function TaskRun() {
                     onClick={handleSubmitRating}
                     disabled={!canSubmitRating || ratingMutation.isPending}
                   >
-                    {ratingMutation.isPending ? 'Siunčiama...' : assignment?.rating ? 'Atnaujinti vertinimą' : 'Siųsti vertinimą'}
+                    {ratingMutation.isPending
+                      ? 'Siunčiama...'
+                      : hasRated
+                      ? 'Vertinimas išsaugotas'
+                      : 'Siųsti vertinimą'}
                   </Button>
                   {assignment?.rating ? (
                     <p className="text-sm text-muted-foreground">

@@ -577,17 +577,17 @@ export default function AdminGroups() {
             }
           }}
         >
-          <DialogContent className="max-h-[90vh] w-full sm:max-w-3xl flex flex-col">
-            <DialogHeader>
-              <DialogTitle>Grupės nariai</DialogTitle>
-              <DialogDescription>
+        <DialogContent className="max-h-[80vh] w-full sm:max-w-3xl flex flex-col overflow-y-auto">
+          <DialogHeader>
+            <DialogTitle>Grupės nariai</DialogTitle>
+            <DialogDescription>
                 {membersDialogGroup
                   ? `Grupė „${membersDialogGroup.name}“`
                   : 'Pasirinkite grupę nariams valdyti.'}
               </DialogDescription>
             </DialogHeader>
             <div className="flex flex-1 flex-col">
-              <div className="flex-1 overflow-y-auto space-y-4 pr-2">
+              <div className="flex-1 space-y-4 pr-2">
                 {membersDialogGroup ? (
                   <>
                     <h3 className="font-medium text-sm text-muted-foreground">
@@ -681,7 +681,7 @@ export default function AdminGroups() {
                                 />
                                 <span>Visi aviliai</span>
                               </label>
-                              <div className="mt-2 space-y-2 max-h-[20rem] overflow-y-auto">
+                              <div className="mt-2 max-h-[40vh] overflow-y-auto space-y-2">
                                 {userHivesLoading ? (
                                   <p className="text-sm text-muted-foreground">Kraunama...</p>
                                 ) : sortedUserHives.length > 0 ? (

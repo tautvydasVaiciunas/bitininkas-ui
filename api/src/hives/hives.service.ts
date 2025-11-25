@@ -9,6 +9,8 @@ import { ActivityLogService } from '../activity-log/activity-log.service';
 import { runWithDatabaseErrorHandling } from '../common/errors/database-error.util';
 import { HiveTag } from './tags/hive-tag.entity';
 import { HiveEventsService } from './hive-events.service';
+import { NotificationsService } from '../notifications/notifications.service';
+import { EmailService } from '../email/email.service';
 
 @Injectable()
 export class HivesService {
@@ -23,6 +25,8 @@ export class HivesService {
     private readonly hiveTagRepository: Repository<HiveTag>,
     private readonly activityLog: ActivityLogService,
     private readonly hiveEvents: HiveEventsService,
+    private readonly notifications: NotificationsService,
+    private readonly emailService: EmailService,
   ) {}
 
   private normalizeNullableString(value?: string | null) {
@@ -165,6 +169,7 @@ export class HivesService {
     const memberIds = await this.validateMemberIds(
       normalizedUserIds.filter((id) => id !== ownerUserId),
     );
+    const creationMemberChanges = { added: memberIds, removed: [] as string[] };
 
     const saved = await runWithDatabaseErrorHandling(
       () =>
@@ -203,6 +208,14 @@ export class HivesService {
 
     if (!hiveWithRelations) {
       throw new NotFoundException('Avilys nerastas');
+    }
+
+    if (hiveWithRelations && (creationMemberChanges.added.length || creationMemberChanges.removed.length)) {
+      await this.handleMembershipChanges(
+        hiveWithRelations,
+        creationMemberChanges.added,
+        creationMemberChanges.removed,
+      );
     }
 
     return hiveWithRelations;
@@ -252,6 +265,11 @@ export class HivesService {
   }
 
   async update(id: string, dto: UpdateHiveDto, userId: string, role: UserRole): Promise<Hive> {
+    let memberChanges: { added: string[]; removed: string[] } = {
+      added: [],
+      removed: [],
+    };
+
     const result = await runWithDatabaseErrorHandling(
       () =>
         this.hiveRepository.manager.transaction(async (manager) => {
@@ -295,11 +313,19 @@ export class HivesService {
 
           let memberIds: string[] | null = null;
 
+          const previousMemberIds = hive.members?.map((member) => member.id) ?? [];
+
           if (dto.members !== undefined || dto.userIds !== undefined) {
             const normalized = this.normalizeUserIds(dto.userIds ?? dto.members ?? []);
             memberIds = await this.validateMemberIds(
               normalized.filter((memberId) => memberId !== hive.ownerUserId),
             );
+            const previousSet = new Set(previousMemberIds);
+            const newSet = new Set(memberIds);
+            memberChanges = {
+              added: memberIds.filter((memberId) => !previousSet.has(memberId)),
+              removed: previousMemberIds.filter((memberId) => !newSet.has(memberId)),
+            };
           }
 
           const saved = await hiveRepo.save(hive);
@@ -330,6 +356,14 @@ export class HivesService {
       await this.hiveEvents.logHiveUpdated(result.updated.id, result.changedFields, userId);
     }
 
+    if (memberChanges.added.length || memberChanges.removed.length) {
+      await this.handleMembershipChanges(
+        result.updated,
+        memberChanges.added,
+        memberChanges.removed,
+      );
+    }
+
     return result.updated;
   }
 
@@ -343,9 +377,82 @@ export class HivesService {
       throw new ForbiddenException('Reikia vadybininko arba administratoriaus rolės');
     }
     const hive = await this.findOne(id, userId, role);
-    await this.hiveRepository.softDelete(id);
-    await this.activityLog.log('hive_deleted', userId, 'hive', id);
-    return { success: true };
+      await this.hiveRepository.softDelete(id);
+      await this.activityLog.log('hive_deleted', userId, 'hive', id);
+      return { success: true };
+    }
+
+  private async handleMembershipChanges(hive: Hive, added: string[], removed: string[]) {
+    const userIds = Array.from(new Set([...added, ...removed]));
+    if (!userIds.length) {
+      return;
+    }
+
+    const users = await this.userRepository.find({
+      where: { id: In(userIds) },
+    });
+    const usersById = new Map(users.map((user) => [user.id, user]));
+
+    for (const userId of added) {
+      const user = usersById.get(userId);
+      if (user) {
+        await this.notifyMembershipChange(user, hive, true);
+      }
+    }
+
+    for (const userId of removed) {
+      const user = usersById.get(userId);
+      if (user) {
+        await this.notifyMembershipChange(user, hive, false);
+      }
+    }
+  }
+
+  private async notifyMembershipChange(user: User, hive: Hive, added: boolean) {
+    const subject = added ? 'Priskirtas naujas avilys' : 'Avilys pašalintas iš jūsų paskyros';
+    const text = added
+      ? `Jums priskirtas avilys „${hive.label}“. Peržiūrėti: https://app.busmedaus.lt/hives/${hive.id}`
+      : `Avilys „${hive.label}“ nebėra priskirtas jūsų paskyrai. Jei manote, kad tai klaida, parašykite žinutę per sistemą.`;
+    const html = added
+      ? `<p>Jums priskirtas avilys „${hive.label}“.</p><p><a href="https://app.busmedaus.lt/hives/${hive.id}">Peržiūrėti avilį</a></p>`
+      : `<p>Avilys „${hive.label}“ nebėra priskirtas jūsų paskyrai.</p><p><a href="https://app.busmedaus.lt/support">Parašykite žinutę</a></p>`;
+
+    if (user.email) {
+      try {
+        await this.emailService.sendMail({
+          to: user.email,
+          subject,
+          text,
+          html,
+        });
+      } catch (error) {
+        this.logger.warn(
+          `Nepavyko siųsti avilio priskyrimo el. laiško vartotojui ${user.email}: ${
+            error instanceof Error ? error.message : String(error)
+          }`,
+          error instanceof Error ? error.stack : undefined,
+        );
+      }
+    }
+
+    try {
+      await this.notifications.createNotification(user.id, {
+        type: 'hive_assignment',
+        title: subject,
+        body: added
+          ? `Jums priskirtas avilys ${hive.label}.`
+          : `Avilys ${hive.label} nebėra priskirtas jūsų paskyrai.`,
+        link: added ? `/hives/${hive.id}` : '/support',
+        sendEmail: false,
+      });
+    } catch (error) {
+      this.logger.warn(
+        `Nepavyko sukurti pranešimo apie avilio priskyrimą vartotojui ${user.id}: ${
+          error instanceof Error ? error.message : String(error)
+        }`,
+        error instanceof Error ? error.stack : undefined,
+      );
+    }
   }
 
   private buildChangedFields(

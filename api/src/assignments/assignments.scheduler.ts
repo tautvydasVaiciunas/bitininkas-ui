@@ -14,7 +14,6 @@ import {
 } from '../notifications/email-template';
 import { MAILER_SERVICE, MailerService } from '../notifications/mailer.service';
 import { GroupMember } from '../groups/group-member.entity';
-import { AssignmentProgress, AssignmentProgressStatus } from '../progress/assignment-progress.entity';
 import { User, UserRole } from '../users/user.entity';
 import { EmailService } from '../email/email.service';
 
@@ -32,8 +31,6 @@ export class AssignmentsScheduler {
     private readonly notificationsRepository: Repository<Notification>,
     @InjectRepository(GroupMember)
     private readonly groupMembersRepository: Repository<GroupMember>,
-    @InjectRepository(AssignmentProgress)
-    private readonly progressRepository: Repository<AssignmentProgress>,
     private readonly notificationsService: NotificationsService,
     private readonly configService: ConfigService,
     @Inject(MAILER_SERVICE)
@@ -458,11 +455,12 @@ export class AssignmentsScheduler {
       return;
     }
 
+    const taskTitle = assignment.task?.title ?? 'Užduotis';
     const dueDate = assignment.dueDate ?? 'Nenurodyta';
     const link = this.buildAssignmentEmailLink(assignment.id);
     const body = [
-      `Užduotis ${assignment.task?.title ?? 'Užduotis'} jau aktyvi.`,
-      `Pabaigos data: ${dueDate}.`,
+      `Užduotį „${taskTitle}“ galite vykdyti jau dabar.`,
+      `Atlikite ją iki ${dueDate}.`,
       `Vykdyti: ${link}`,
     ].join('\n');
     const html = body
@@ -475,7 +473,7 @@ export class AssignmentsScheduler {
         try {
           await this.emailService.sendMail({
             to: email,
-            subject: 'Užduotį jau galima atlikti',
+            subject: 'Jau galite vykdyti užduotį',
             text: body,
             html,
           });
@@ -492,27 +490,6 @@ export class AssignmentsScheduler {
       id: assignment.id,
       notifiedDueSoon: true,
     } as Assignment);
-  }
-
-  private async calculateProgressPercent(assignment: Assignment): Promise<number> {
-    const totalSteps = assignment.task?.steps?.length ?? 0;
-    if (!totalSteps) {
-      return 0;
-    }
-
-    const result = await this.progressRepository
-      .createQueryBuilder('progress')
-      .select('COUNT(DISTINCT progress.taskStepId)', 'count')
-      .where('progress.assignmentId = :assignmentId', { assignmentId: assignment.id })
-      .andWhere('progress.status = :status', { status: AssignmentProgressStatus.COMPLETED })
-      .getRawOne<{ count: string }>();
-
-    const completed = Number(result?.count ?? 0);
-    if (!Number.isFinite(completed)) {
-      return 0;
-    }
-
-    return Math.min(100, Math.max(0, Math.round((completed / totalSteps) * 100)));
   }
 
   private async sendDueSoonEmail(assignment: Assignment) {
@@ -542,32 +519,14 @@ export class AssignmentsScheduler {
     }
 
     const taskTitle = assignment.task?.title ?? 'Užduotis';
-
-    const progressPercent = await this.calculateProgressPercent(assignment);
-
     const dueDate = assignment.dueDate ?? 'Nenurodyta';
-
     const link = this.buildAssignmentEmailLink(assignment.id);
-
-    const body = [
-
-      `Primename: liko 3 dienos užduočiai „${taskTitle}“ atlikti.`,
-
-      `Pabaigos data: ${dueDate}.`,
-
-      `Užduoties progresas: ${progressPercent}%.`,
-
+    const bodyLines = [
+      `Primename, kad užduotį „${taskTitle}“ reikia atlikti iki ${dueDate}.`,
       `Vykdyti: ${link}`,
-
-    ].join('\n');
-
-    const html = body
-
-      .split('\n')
-
-      .map((line) => `<p>${line}</p>`)
-
-      .join('');
+    ];
+    const body = bodyLines.join('\n');
+    const html = bodyLines.map((line) => `<p>${line}</p>`).join('');
 
 
 
@@ -576,7 +535,7 @@ export class AssignmentsScheduler {
         try {
           await this.emailService.sendMail({
             to: email,
-            subject: `Primename: liko 3 dienos užduočiai „${taskTitle}“ atlikti.`,
+            subject: 'Primename apie užduotį',
             text: body,
             html,
           });

@@ -103,6 +103,9 @@ export class Assignment {
   @Column({ name: 'rating_comment', type: 'text', nullable: true })
   ratingComment!: string | null;
 
+  @Column({ name: 'rated_at', type: 'timestamptz', nullable: true })
+  ratedAt!: Date | null;
+
   @CreateDateColumn({ name: 'created_at' })
   createdAt!: Date;
 

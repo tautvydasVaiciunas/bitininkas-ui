@@ -11,6 +11,8 @@ import { HiveTagsService } from './tags/hive-tags.service';
 import { HiveTagsController } from './tags/hive-tags.controller';
 import { HiveEventsModule } from './hive-events.module';
 import { HiveHistoryController } from './hive-history.controller';
+import { EmailModule } from '../email/email.module';
+import { NotificationsModule } from '../notifications/notifications.module';
 
 @Module({
   imports: [
@@ -18,6 +20,8 @@ import { HiveHistoryController } from './hive-history.controller';
     ActivityLogModule,
     HiveEventsModule,
     forwardRef(() => AssignmentsModule),
+    NotificationsModule,
+    EmailModule,
   ],
   providers: [HivesService, HiveTagsService],
   controllers: [HivesController, HiveTagsController, HiveHistoryController],

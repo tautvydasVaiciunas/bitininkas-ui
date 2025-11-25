@@ -5,6 +5,9 @@
 ```md
 # AGENTS
 
+codex --search --sandbox=danger-full-access --ask-for-approval=never -c
+sandbox_workspace_write.network_access=true
+
 ## write access 
  - You have enabled write access and confirmation that you can run the necessary patch/apply commands.
 

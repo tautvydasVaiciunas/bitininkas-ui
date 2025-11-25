@@ -2,12 +2,13 @@ import { Module } from '@nestjs/common';
 import { TypeOrmModule } from '@nestjs/typeorm';
 import { ReportsController } from './reports.controller';
 import { ReportsService } from './reports.service';
+import { Assignment } from '../assignments/assignment.entity';
 import { GroupMember } from '../groups/group-member.entity';
 import { Task } from '../tasks/task.entity';
 import { GroupsModule } from '../groups/groups.module';
 
 @Module({
-  imports: [TypeOrmModule.forFeature([GroupMember, Task]), GroupsModule],
+  imports: [TypeOrmModule.forFeature([Assignment, GroupMember, Task]), GroupsModule],
   controllers: [ReportsController],
   providers: [ReportsService],
 })

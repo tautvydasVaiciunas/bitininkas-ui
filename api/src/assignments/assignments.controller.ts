@@ -11,7 +11,9 @@ import {
 
 import { AssignmentsService } from './assignments.service';
 import { AssignmentsScheduler } from './assignments.scheduler';
+import { AssignmentReviewStatus } from './assignment.entity';
 import { CreateAssignmentDto } from './dto/create-assignment.dto';
+import { ReviewAssignmentDto } from './dto/review-assignment.dto';
 import { UpdateAssignmentDto } from './dto/update-assignment.dto';
 import { Roles } from '../common/decorators/roles.decorator';
 import { UserRole } from '../users/user.entity';
@@ -70,8 +72,31 @@ export class AssignmentsController {
     return this.assignmentsService.getForRun(id, req.user);
   }
 
+  @Roles(UserRole.ADMIN, UserRole.MANAGER)
+  @Get('review-queue')
+  reviewQueue(
+    @Query('status') status?: AssignmentReviewStatus | 'all',
+    @Query('page') page = '1',
+    @Query('limit') limit = '20',
+  ) {
+    const parsedPage = Number(page);
+    const parsedLimit = Number(limit);
+
+    return this.assignmentsService.listReviewQueue({
+      status: status ?? AssignmentReviewStatus.PENDING,
+      page: Number.isFinite(parsedPage) ? parsedPage : 1,
+      limit: Number.isFinite(parsedLimit) ? parsedLimit : 20,
+    });
+  }
+
   @Patch(':id/rating')
   submitRating(@Param('id') id: string, @Body() dto: SubmitAssignmentRatingDto, @Request() req) {
     return this.assignmentsService.submitRating(id, dto, req.user);
+  }
+
+  @Roles(UserRole.ADMIN, UserRole.MANAGER)
+  @Patch(':id/review')
+  review(@Param('id') id: string, @Body() dto: ReviewAssignmentDto, @Request() req) {
+    return this.assignmentsService.reviewAssignment(id, dto, req.user);
   }
 }

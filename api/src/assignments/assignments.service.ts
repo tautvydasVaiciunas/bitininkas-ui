@@ -8,8 +8,8 @@ import {
 } from "@nestjs/common";
 import { ConfigService } from "@nestjs/config";
 import { InjectRepository } from "@nestjs/typeorm";
-import { DataSource, DeepPartial, FindOptionsWhere, In, Not, Repository } from "typeorm";
-import { Assignment, AssignmentStatus } from "./assignment.entity";
+import { DataSource, DeepPartial, FindOptionsWhere, In, IsNull, Not, Repository } from "typeorm";
+import { Assignment, AssignmentStatus, AssignmentReviewStatus } from "./assignment.entity";
 import { CreateAssignmentDto } from "./dto/create-assignment.dto";
 import { UpdateAssignmentDto } from "./dto/update-assignment.dto";
 import { SubmitAssignmentRatingDto } from "./dto/submit-rating.dto";
@@ -38,9 +38,11 @@ import {
   PaginationService,
   PaginatedResult,
 } from "../common/pagination/pagination.service";
+import { CreateManualNoteDto } from "../hives/dto/manual-note.dto";
 import { HiveEventsService } from "../hives/hive-events.service";
 import { HiveEventType } from "../hives/hive-event.entity";
 import { EmailService } from "../email/email.service";
+import { ReviewAssignmentDto } from "./dto/review-assignment.dto";
 @Injectable()
 export class AssignmentsService {
   private readonly logger = new Logger(AssignmentsService.name);
@@ -1050,6 +1052,10 @@ export class AssignmentsService {
       assignment.status = dto.status;
     }
 
+    if (assignment.status === AssignmentStatus.DONE && !assignment.completedAt) {
+      assignment.completedAt = new Date();
+    }
+
     if (dto.dueDate !== undefined) {
       assignment.dueDate = dto.dueDate;
     }
@@ -1257,6 +1263,122 @@ export class AssignmentsService {
       ...result,
       isActive: this.isAssignmentActive(result.assignment),
     };
+  }
+
+  async listReviewQueue(options: {
+    status?: AssignmentReviewStatus | 'all';
+    page?: number;
+    limit?: number;
+  }) {
+    const statusFilter = options.status ?? AssignmentReviewStatus.PENDING;
+    const page = Math.max(1, options.page ?? 1);
+    const limit = Math.min(100, options.limit ?? 20);
+
+    const buildQueueQuery = () => {
+      const query = this.assignmentsRepository
+        .createQueryBuilder('assignment')
+        .leftJoinAndSelect('assignment.task', 'task')
+        .leftJoinAndSelect('assignment.hive', 'hive')
+        .leftJoinAndSelect('hive.owner', 'owner')
+        .where('assignment.status = :done', { done: AssignmentStatus.DONE })
+        .andWhere('assignment.rating IS NOT NULL');
+
+      if (statusFilter && statusFilter !== 'all') {
+        query.andWhere('assignment.reviewStatus = :status', { status: statusFilter });
+      }
+
+      return query;
+    };
+
+    const baseQuery = buildQueueQuery();
+    const itemsQuery = baseQuery.clone().orderBy('assignment.completedAt', 'DESC');
+    const totalQuery = buildQueueQuery();
+
+    const [items, total, pending, approved, rejected] = await Promise.all([
+      itemsQuery.skip((page - 1) * limit).take(limit).getMany(),
+      totalQuery.getCount(),
+      this.countByReviewStatus(AssignmentReviewStatus.PENDING),
+      this.countByReviewStatus(AssignmentReviewStatus.APPROVED),
+      this.countByReviewStatus(AssignmentReviewStatus.REJECTED),
+    ]);
+
+    const data = items.map((assignment) => ({
+      id: assignment.id,
+      taskTitle: assignment.task?.title ?? 'Užduotis',
+      hiveLabel: assignment.hive?.label ?? '—',
+      hiveId: assignment.hiveId,
+      userName:
+        assignment.hive?.owner?.name ??
+        assignment.hive?.owner?.email ??
+        '—',
+      rating: assignment.rating ?? null,
+      ratingComment: assignment.ratingComment ?? null,
+      startDate: assignment.startDate ?? null,
+      dueDate: assignment.dueDate ?? null,
+      completedAt: assignment.completedAt ?? null,
+      reviewStatus: assignment.reviewStatus,
+      reviewComment: assignment.reviewComment ?? null,
+      reviewAt: assignment.reviewAt ?? null,
+      reviewByUserId: assignment.reviewByUserId ?? null,
+    }));
+
+    return {
+      data,
+      total,
+      page,
+      limit,
+      counts: {
+        pending,
+        approved,
+        rejected,
+      },
+    };
+  }
+
+  private countByReviewStatus(status: AssignmentReviewStatus) {
+    return this.assignmentsRepository.count({
+      where: {
+        status: AssignmentStatus.DONE,
+        reviewStatus: status,
+        rating: Not(IsNull()),
+      },
+    });
+  }
+
+  async reviewAssignment(id: string, dto: ReviewAssignmentDto, user) {
+    const assignment = await this.assignmentsRepository.findOne({
+      where: { id },
+      relations: { hive: true },
+    });
+
+    if (!assignment) {
+      throw new NotFoundException('Assignment not found');
+    }
+
+    if (![UserRole.ADMIN, UserRole.MANAGER].includes(user.role)) {
+      const allowed = assignment.hiveId
+        ? await this.ensureUserCanAccessHive(assignment.hiveId, user.id)
+        : false;
+      if (!allowed) {
+        throw new ForbiddenException('Neleidžiama');
+      }
+    }
+
+    assignment.reviewStatus = dto.status;
+    assignment.reviewComment = dto.comment?.trim() || null;
+    assignment.reviewByUserId = user.id;
+    assignment.reviewAt = new Date();
+
+    const saved = await this.assignmentsRepository.save(assignment);
+    await this.activityLog.log('assignment_reviewed', user.id, 'assignment', assignment.id);
+
+    if (assignment.hiveId && dto.comment?.trim()) {
+      await this.hiveEvents.createManualNote(assignment.hiveId, {
+        text: `Bus medaus bitininko pastaba: ${dto.comment.trim()}`,
+      } as CreateManualNoteDto, user.id);
+    }
+
+    return saved;
   }
 
   async submitRating(id: string, dto: SubmitAssignmentRatingDto, user) {

@@ -2,6 +2,13 @@ import type {
   AssignmentDetails as ApiAssignmentDetails,
   AssignmentResponse as ApiAssignmentResponse,
   AssignmentStatus as ApiAssignmentStatus,
+  AssignmentReviewQueueItem as ApiAssignmentReviewQueueItem,
+  AssignmentReviewQueueResponse as ApiAssignmentReviewQueueResponse,
+  AssignmentReviewStatus as ApiAssignmentReviewStatus,
+  AssignmentAnalyticsResponse as ApiAssignmentAnalyticsResponse,
+  AssignmentAnalyticsRow as ApiAssignmentAnalyticsRow,
+  AssignmentAnalyticsStatus as ApiAssignmentAnalyticsStatus,
+  AssignmentAnalyticsSummary as ApiAssignmentAnalyticsSummary,
   AuthenticatedUser as ApiAuthenticatedUser,
   BulkAssignmentsFromTemplatePayload,
   BulkAssignmentsFromTemplateResponse,
@@ -53,6 +60,7 @@ import type {
   PaginatedNewsResponse as ApiPaginatedNewsResponse,
   PaginatedResponse as ApiPaginatedResponse,
   NewsGroupResponse as ApiNewsGroupResponse,
+  SubmitAssignmentReviewPayload as ApiSubmitAssignmentReviewPayload,
 } from './api';
 import { inferMediaType, resolveMediaUrl } from '@/lib/media';
 
@@ -89,6 +97,7 @@ export type AuthenticatedUser = ApiAuthenticatedUser;
 export type Assignment = ApiAssignmentResponse;
 export type AssignmentDetails = ApiAssignmentDetails;
 export type AssignmentStatus = ApiAssignmentStatus;
+export type AssignmentReviewStatus = ApiAssignmentReviewStatus;
 export type HiveMember = ApiHiveMemberResponse;
 export type Hive = Omit<ApiHiveResponse, 'members'> & { members: HiveMember[] };
 export type HiveTag = HiveTagResponse;
@@ -112,6 +121,13 @@ export interface StepProgressToggleResult {
   taskStepId: string;
   progress: StepProgress;
 }
+export type AssignmentReviewQueueItem = ApiAssignmentReviewQueueItem;
+export type AssignmentReviewQueueResponse = ApiAssignmentReviewQueueResponse;
+export type SubmitAssignmentReviewPayload = ApiSubmitAssignmentReviewPayload;
+export type AssignmentAnalyticsStatus = ApiAssignmentAnalyticsStatus;
+export type AssignmentAnalyticsRow = ApiAssignmentAnalyticsRow;
+export type AssignmentAnalyticsSummary = ApiAssignmentAnalyticsSummary;
+export type AssignmentAnalyticsResponse = ApiAssignmentAnalyticsResponse;
 export type Notification = ApiNotificationResponse;
 export type NotificationType = ApiNotificationType;
 export type HiveSummary = ApiHiveSummary;

@@ -448,6 +448,7 @@ export interface ReorderTemplateStepsPayload {
   stepIds: string[];
 }
 
+export type AssignmentReviewStatus = 'pending' | 'approved' | 'rejected';
 export type AssignmentStatus = 'not_started' | 'in_progress' | 'done';
 
 export interface AssignmentResponse {
@@ -463,11 +464,81 @@ export interface AssignmentResponse {
   archived?: boolean;
   rating?: number | null;
   ratingComment?: string | null;
+  completedAt?: string | null;
+  reviewStatus?: AssignmentReviewStatus;
+  reviewComment?: string | null;
+  reviewByUserId?: string | null;
+  reviewAt?: string | null;
 }
 
 export interface SubmitAssignmentRatingPayload {
   rating: number;
   ratingComment?: string | null;
+}
+
+export interface SubmitAssignmentReviewPayload {
+  status: AssignmentReviewStatus | 'approved' | 'rejected';
+  comment?: string | null;
+}
+
+export interface AssignmentReviewQueueItem {
+  id: string;
+  taskTitle: string;
+  hiveLabel: string;
+  hiveId: string;
+  userName: string;
+  rating: number | null;
+  ratingComment: string | null;
+  startDate: string | null;
+  dueDate: string | null;
+  completedAt: string | null;
+  reviewStatus: AssignmentReviewStatus;
+  reviewComment: string | null;
+  reviewAt: string | null;
+  reviewByUserId: string | null;
+}
+
+export interface AssignmentReviewQueueResponse {
+  data: AssignmentReviewQueueItem[];
+  total: number;
+  page: number;
+  limit: number;
+  counts: Record<AssignmentReviewStatus, number>;
+}
+
+export type AssignmentAnalyticsStatus = 'all' | 'active' | 'completed' | 'overdue';
+
+export interface AssignmentAnalyticsRow {
+  assignmentId: string;
+  taskId: string;
+  taskTitle: string;
+  hiveId: string | null;
+  hiveLabel: string;
+  userId: string | null;
+  userName: string;
+  status: AssignmentStatus;
+  overdue: boolean;
+  rating: number | null;
+  ratingComment: string | null;
+  completedAt: string | null;
+  dueDate: string | null;
+  startDate: string | null;
+}
+
+export interface AssignmentAnalyticsSummary {
+  total: number;
+  completed: number;
+  avgRating: number | null;
+  uniqueUsers: number;
+  completedUsers: number;
+}
+
+export interface AssignmentAnalyticsResponse {
+  summary: AssignmentAnalyticsSummary;
+  data: AssignmentAnalyticsRow[];
+  total: number;
+  page: number;
+  limit: number;
 }
 
 export interface GroupMemberUser {
@@ -1132,8 +1203,18 @@ export const api = {
     run: (id: string) => get<AssignmentDetails>(`/assignments/${id}/run`),
     preview: (id: string) =>
       get<AssignmentDetails & { isActive: boolean }>(`/assignments/${id}/preview`),
+    reviewQueue: (params?: {
+      status?: AssignmentReviewStatus | 'all';
+      page?: number;
+      limit?: number;
+    }) =>
+      get<AssignmentReviewQueueResponse>('/assignments/review-queue', {
+        query: params,
+      }),
     submitRating: (id: string, payload: SubmitAssignmentRatingPayload) =>
       patch<AssignmentResponse>(`/assignments/${id}/rating`, { json: payload }),
+    review: (id: string, payload: SubmitAssignmentReviewPayload) =>
+      patch<AssignmentResponse>(`/assignments/${id}/review`, { json: payload }),
     bulkFromTemplate: (payload: BulkAssignmentsFromTemplatePayload) =>
       post<BulkAssignmentsFromTemplateResponse>('/assignments/bulk-from-template', { json: payload }),
   },
@@ -1168,6 +1249,18 @@ export const api = {
   reports: {
     assignments: (params: { groupId: string; taskId?: string }) =>
       get<AssignmentReportRow[]>('/reports/assignments', { query: params }),
+    assignmentAnalytics: (params?: {
+      dateFrom?: string;
+      dateTo?: string;
+      taskId?: string;
+      status?: AssignmentAnalyticsStatus;
+      groupId?: string;
+      page?: number;
+      limit?: number;
+    }) =>
+      get<AssignmentAnalyticsResponse>('/reports/assignments/analytics', {
+        query: params,
+      }),
   },
   progress: {
     completeStep: (payload: CompleteStepPayload) =>

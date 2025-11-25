@@ -133,6 +133,20 @@ export const Sidebar = () => {
 
   const adminUnreadCount = adminSupportUnreadQuery.data?.count ?? 0;
 
+  const reviewQueueBadgeQuery = useQuery({
+    queryKey: ['admin', 'assignments', 'review-count'],
+    queryFn: () =>
+      api.assignments.reviewQueue({
+        status: 'pending',
+        page: 1,
+        limit: 1,
+      }),
+    enabled: !!user && isPrivileged,
+    staleTime: 60_000,
+  });
+
+  const pendingReviewCount = reviewQueueBadgeQuery.data?.counts.pending ?? 0;
+
   return (
     <aside className="fixed inset-x-0 bottom-0 z-40 h-16 border-t border-sidebar-border bg-sidebar shadow-lg shadow-black/5 lg:left-0 lg:top-0 lg:h-screen lg:w-64 lg:border-t-0 lg:border-r lg:shadow-none">
       <div className="hidden border-b border-sidebar-border p-6 lg:block">
@@ -212,6 +226,11 @@ export const Sidebar = () => {
                     {item.to === messagesNav.to && adminUnreadCount > 0 ? (
                       <span className="ml-2 inline-flex items-center justify-center rounded-full bg-destructive px-2 py-0.5 text-[0.6rem] font-semibold text-white">
                         {adminUnreadCount}
+                      </span>
+                    ) : null}
+                    {item.to === '/admin/tasks' && pendingReviewCount > 0 ? (
+                      <span className="ml-2 inline-flex h-5 min-w-[1.25rem] items-center justify-center rounded-full bg-destructive px-2 py-0.5 text-[0.6rem] font-semibold text-white">
+                        {pendingReviewCount}
                       </span>
                     ) : null}
                     {item.label}

@@ -1,6 +1,10 @@
 import { Controller, Get, Query, Request } from '@nestjs/common';
 import { ReportsService } from './reports.service';
-import type { AssignmentReportRow } from './reports.service';
+import type {
+  AssignmentAnalyticsResponse,
+  AssignmentReportRow,
+} from './reports.service';
+import { AssignmentAnalyticsQueryDto } from './dto/assignment-analytics-query.dto';
 import { Roles } from '../common/decorators/roles.decorator';
 import { UserRole } from '../users/user.entity';
 
@@ -16,5 +20,13 @@ export class ReportsController {
     @Request() req,
   ): Promise<AssignmentReportRow[]> {
     return this.reportsService.groupAssignmentProgress(groupId, taskId, req.user);
+  }
+
+  @Get('assignments/analytics')
+  async assignmentAnalytics(
+    @Query() query: AssignmentAnalyticsQueryDto,
+    @Request() req,
+  ): Promise<AssignmentAnalyticsResponse> {
+    return this.reportsService.assignmentAnalytics(query, req.user);
   }
 }

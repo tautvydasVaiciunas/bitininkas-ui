@@ -21,6 +21,12 @@ export enum AssignmentStatus {
   DONE = 'done',
 }
 
+export enum AssignmentReviewStatus {
+  PENDING = 'pending',
+  APPROVED = 'approved',
+  REJECTED = 'rejected',
+}
+
 @Entity({ name: 'assignments' })
 @Index('IDX_ASSIGNMENTS_HIVE_ID', ['hiveId'])
 @Index('IDX_ASSIGNMENTS_CREATED_AT', ['createdAt'])
@@ -70,6 +76,26 @@ export class Assignment {
 
   @Column({ name: 'notified_due_soon', type: 'boolean', default: false })
   notifiedDueSoon!: boolean;
+
+  @Column({ name: 'completed_at', type: 'timestamptz', nullable: true })
+  completedAt!: Date | null;
+
+  @Column({
+    name: 'review_status',
+    type: 'enum',
+    enum: AssignmentReviewStatus,
+    default: AssignmentReviewStatus.PENDING,
+  })
+  reviewStatus!: AssignmentReviewStatus;
+
+  @Column({ name: 'review_comment', type: 'text', nullable: true })
+  reviewComment!: string | null;
+
+  @Column({ name: 'review_by_user_id', type: 'uuid', nullable: true })
+  reviewByUserId!: string | null;
+
+  @Column({ name: 'review_at', type: 'timestamptz', nullable: true })
+  reviewAt!: Date | null;
 
   @Column({ type: 'smallint', nullable: true, default: null })
   rating!: number | null;

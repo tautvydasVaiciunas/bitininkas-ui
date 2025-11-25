@@ -17,6 +17,7 @@ import { Roles } from '../common/decorators/roles.decorator';
 import { UserRole } from '../users/user.entity';
 import { ListAssignmentsQueryDto } from './dto/list-assignments-query.dto';
 import { BulkFromTemplateDto } from './dto/bulk-from-template.dto';
+import { SubmitAssignmentRatingDto } from './dto/submit-rating.dto';
 
 @Controller('assignments')
 export class AssignmentsController {
@@ -67,5 +68,10 @@ export class AssignmentsController {
   @Get(':id/run')
   run(@Param('id') id: string, @Request() req) {
     return this.assignmentsService.getForRun(id, req.user);
+  }
+
+  @Patch(':id/rating')
+  submitRating(@Param('id') id: string, @Body() dto: SubmitAssignmentRatingDto, @Request() req) {
+    return this.assignmentsService.submitRating(id, dto, req.user);
   }
 }

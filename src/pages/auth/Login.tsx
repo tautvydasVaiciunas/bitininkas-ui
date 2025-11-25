@@ -18,6 +18,7 @@ export default function Login() {
   const [loading, setLoading] = useState(false);
   const { login, isAuthenticated } = useAuth();
   const navigate = useNavigate();
+  const [loginError, setLoginError] = useState<string | null>(null);
 
   if (isAuthenticated) {
     navigate('/');
@@ -33,9 +34,10 @@ export default function Login() {
 
     if (result.success) {
       toast.success('Sėkmingai prisijungta!');
+      setLoginError(null);
       navigate('/');
     } else {
-      toast.error(result.error || 'Nepavyko prisijungti');
+      setLoginError('Neteisingas el. paštas arba slaptažodis.');
     }
   };
 
@@ -55,6 +57,11 @@ export default function Login() {
           <CardDescription>Įveskite savo prisijungimo duomenis</CardDescription>
         </CardHeader>
         <CardContent>
+          {loginError ? (
+            <div className="rounded-lg bg-destructive/10 border border-destructive/40 p-4 text-sm text-foreground mb-4">
+              <p>{loginError}</p>
+            </div>
+          ) : null}
           <form onSubmit={handleSubmit} className="space-y-4">
             <div className="space-y-2">
               <Label htmlFor="email">El. paštas</Label>

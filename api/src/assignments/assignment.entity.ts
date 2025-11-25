@@ -71,6 +71,12 @@ export class Assignment {
   @Column({ name: 'notified_due_soon', type: 'boolean', default: false })
   notifiedDueSoon!: boolean;
 
+  @Column({ type: 'smallint', nullable: true, default: null })
+  rating!: number | null;
+
+  @Column({ name: 'rating_comment', type: 'text', nullable: true })
+  ratingComment!: string | null;
+
   @CreateDateColumn({ name: 'created_at' })
   createdAt!: Date;
 

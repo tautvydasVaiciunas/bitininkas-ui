@@ -108,16 +108,19 @@ export default function ResetPassword() {
             </div>
           ) : (
             <form onSubmit={handleSubmit} className="space-y-4">
-              <div className="space-y-2">
-                <Label htmlFor="new-password">Naujas slaptažodis</Label>
-                <Input
-                  id="new-password"
-                  type="password"
-                  value={password}
-                  onChange={(event) => setPassword(event.target.value)}
-                  required
-                />
-              </div>
+            <div className="space-y-2">
+              <Label htmlFor="new-password">Naujas slaptažodis</Label>
+              <Input
+                id="new-password"
+                type="password"
+                value={password}
+                onChange={(event) => setPassword(event.target.value)}
+                required
+              />
+              <p className="text-xs text-muted-foreground">
+                Slaptažodis turi būti bent 8 simboliai, turėti bent vieną didžiąją raidę ir skaičių.
+              </p>
+            </div>
               <div className="space-y-2">
                 <Label htmlFor="confirm-password">Pakartokite naują slaptažodį</Label>
                 <Input

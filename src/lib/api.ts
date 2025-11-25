@@ -461,6 +461,13 @@ export interface AssignmentResponse {
   createdAt: string;
   updatedAt: string;
   archived?: boolean;
+  rating?: number | null;
+  ratingComment?: string | null;
+}
+
+export interface SubmitAssignmentRatingPayload {
+  rating: number;
+  ratingComment?: string | null;
 }
 
 export interface GroupMemberUser {
@@ -1125,6 +1132,8 @@ export const api = {
     run: (id: string) => get<AssignmentDetails>(`/assignments/${id}/run`),
     preview: (id: string) =>
       get<AssignmentDetails & { isActive: boolean }>(`/assignments/${id}/preview`),
+    submitRating: (id: string, payload: SubmitAssignmentRatingPayload) =>
+      patch<AssignmentResponse>(`/assignments/${id}/rating`, { json: payload }),
     bulkFromTemplate: (payload: BulkAssignmentsFromTemplatePayload) =>
       post<BulkAssignmentsFromTemplateResponse>('/assignments/bulk-from-template', { json: payload }),
   },

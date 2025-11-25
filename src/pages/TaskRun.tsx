@@ -11,21 +11,21 @@ import { Progress } from '@/components/ui/progress';
 import { Skeleton } from '@/components/ui/skeleton';
 import { AssignmentStatusBadge } from '@/components/AssignmentStatusBadge';
 import { Badge } from '@/components/ui/badge';
-import api, { type HttpError } from '@/lib/api';
+import api, { type HttpError, type SubmitAssignmentRatingPayload } from '@/lib/api';
 import {
   mapAssignmentDetailsFromApi,
   mapAssignmentFromApi,
   mapHiveFromApi,
   mapStepToggleResponseFromApi,
+  type Assignment,
   type AssignmentDetails,
   type AssignmentStatus,
   type Hive,
   type StepProgress,
   type StepProgressToggleResult,
-  type UpdateProgressPayload,
 } from '@/lib/types';
 import { inferMediaType, resolveMediaUrl } from '@/lib/media';
-import { Calendar, CheckCircle2, ChevronLeft, ChevronRight, Loader2, RotateCcw } from 'lucide-react';
+import { Calendar, CheckCircle2, ChevronLeft, Loader2, RotateCcw, Star } from 'lucide-react';
 import { toast } from 'sonner';
 
 const formatDate = (value?: string | null) => {
@@ -46,17 +46,9 @@ export default function TaskRun() {
   const navigate = useNavigate();
   const queryClient = useQueryClient();
   const [currentStepIndex, setCurrentStepIndex] = useState(0);
-  const [stepNotes, setStepNotes] = useState<Record<string, string>>({});
-  const saveTimeouts = useRef<Record<string, ReturnType<typeof setTimeout>>>({});
-
-  useEffect(() => {
-    const timeouts = saveTimeouts.current;
-    return () => {
-      Object.values(timeouts).forEach((timeoutId) => {
-        clearTimeout(timeoutId);
-      });
-    };
-  }, []);
+  const [ratingValue, setRatingValue] = useState<number | null>(null);
+  const [ratingComment, setRatingComment] = useState('');
+  const [videoError, setVideoError] = useState(false);
 
   const {
     data,
@@ -68,17 +60,6 @@ export default function TaskRun() {
     queryFn: () => api.assignments.run(id ?? '').then(mapAssignmentDetailsFromApi),
     enabled: Boolean(id),
   });
-
-  useEffect(() => {
-    if (!data) return;
-    setStepNotes((prev) => {
-      const next = { ...prev };
-      data.progress.forEach((entry) => {
-        next[entry.taskStepId] = entry.notes ?? '';
-      });
-      return next;
-    });
-  }, [data]);
 
   const steps = useMemo(() => {
     if (!data) return [];
@@ -99,37 +80,42 @@ export default function TaskRun() {
     );
   }, [data]);
 
-  const currentStep = steps[currentStepIndex];
+  const allStepsCompleted = steps.length === 0 || steps.every((step) => completedStepIds.has(step.id));
+  const currentStep = currentStepIndex < steps.length ? steps[currentStepIndex] : undefined;
   const assignment = data?.assignment;
   const hiveId = assignment?.hiveId;
-  const currentNotes = currentStep ? stepNotes[currentStep.id] ?? '' : '';
   const currentProgress = currentStep ? progressMap.get(currentStep.id) : undefined;
   const currentMediaUrl = resolveMediaUrl(currentStep?.mediaUrl ?? null);
   const currentMediaType = inferMediaType(currentStep?.mediaType ?? null, currentMediaUrl);
-  const [videoError, setVideoError] = useState(false);
+
+  const lastCompletedStepIndex = useMemo(() => {
+    for (let index = steps.length - 1; index >= 0; index -= 1) {
+      if (completedStepIds.has(steps[index].id)) {
+        return index;
+      }
+    }
+    return -1;
+  }, [steps, completedStepIds]);
+
+  const hasCurrentStepCompleted = Boolean(currentProgress?.status === 'completed');
+  const canUncompleteCurrentStep = hasCurrentStepCompleted && currentStepIndex === lastCompletedStepIndex;
+  const isRatingStep = currentStepIndex >= steps.length;
 
   useEffect(() => {
     setVideoError(false);
   }, [currentStep?.id]);
 
-  const scheduleNoteSave = (stepId: string, value: string) => {
-    const progressEntry = progressMap.get(stepId);
-    if (!progressEntry) return;
-    const normalizedValue = value;
-    if ((progressEntry.notes ?? '') === normalizedValue) return;
-    const existingTimeout = saveTimeouts.current[stepId];
-    if (existingTimeout) {
-      clearTimeout(existingTimeout);
+  useEffect(() => {
+    if (!assignment) return;
+    setRatingValue(assignment.rating ?? null);
+    setRatingComment(assignment.ratingComment ?? '');
+  }, [assignment]);
+
+  useEffect(() => {
+    if (currentStepIndex > steps.length) {
+      setCurrentStepIndex(steps.length);
     }
-    const timeoutId = setTimeout(() => {
-      updateProgressMutation.mutate({
-        progressId: progressEntry.id,
-        taskStepId: stepId,
-        payload: { notes: normalizedValue || null },
-      });
-    }, 500);
-    saveTimeouts.current[stepId] = timeoutId;
-  };
+  }, [currentStepIndex, steps.length]);
 
   const { data: hive } = useQuery<Hive>({
     queryKey: ['hives', hiveId],
@@ -153,41 +139,14 @@ export default function TaskRun() {
     },
   });
 
-  const updateProgressMutation = useMutation<
-    StepProgress,
-    HttpError | Error,
-    { progressId: string; taskStepId: string; payload: UpdateProgressPayload }
-  >({
-    mutationFn: ({ progressId, payload }) => api.progress.update(progressId, payload).then(mapStepProgressFromApi),
-    onSuccess: (updatedProgress) => {
-      queryClient.setQueryData<AssignmentDetails | undefined>(['assignments', id, 'details'], (oldData) => {
-        if (!oldData) return oldData;
-        const progress = oldData.progress.map((entry) => (entry.id === updatedProgress.id ? updatedProgress : entry));
-        return { ...oldData, progress };
-      });
-      setStepNotes((prev) => ({ ...prev, [updatedProgress.taskStepId]: updatedProgress.notes ?? '' }));
-      delete saveTimeouts.current[updatedProgress.taskStepId];
-    },
-    onError: (mutationError: HttpError | Error, variables) => {
-      if (variables) {
-        delete saveTimeouts.current[variables.taskStepId];
-      }
-      toast.error('Nepavyko išsaugoti pastabų', {
-        description: getErrorMessage(mutationError),
-      });
-    },
-  });
-
   const toggleStepMutation = useMutation<
     StepProgressToggleResult,
     HttpError | Error,
-    { taskStepId: string; notes?: string }
+    { taskStepId: string; stepIndex: number }
   >({
     mutationFn: (payload) =>
-      api.progress
-        .completeStep({ assignmentId: id!, taskStepId: payload.taskStepId, notes: payload.notes })
-        .then(mapStepToggleResponseFromApi),
-    onSuccess: (result) => {
+      api.progress.completeStep({ assignmentId: id!, taskStepId: payload.taskStepId }).then(mapStepToggleResponseFromApi),
+    onSuccess: (result, variables) => {
       const progressEntry = result.progress;
       let previousAssignmentStatus: AssignmentStatus | undefined;
       let previousStepStatus: StepProgress['status'] | undefined;
@@ -218,17 +177,6 @@ export default function TaskRun() {
         },
       );
 
-      const existingTimeout = saveTimeouts.current[progressEntry.taskStepId];
-      if (existingTimeout) {
-        clearTimeout(existingTimeout);
-      }
-      delete saveTimeouts.current[progressEntry.taskStepId];
-
-      setStepNotes((prev) => ({
-        ...prev,
-        [progressEntry.taskStepId]: progressEntry.notes ?? '',
-      }));
-
       queryClient.invalidateQueries({ queryKey: ['assignments', 'list'] });
 
       if (result.status === 'completed') {
@@ -237,14 +185,13 @@ export default function TaskRun() {
 
           if (previousAssignmentStatus === 'not_started' && newCompletion < 100) {
             updateAssignmentStatusMutation.mutate('in_progress');
+          } else if (newCompletion === 100) {
+            updateAssignmentStatusMutation.mutate('done');
+            toast.success('Visi žingsniai atlikti – prašome pateikti vertinimą.');
           }
 
-          if (newCompletion === 100) {
-            updateAssignmentStatusMutation.mutate('done');
-            toast.success('Užduotis užbaigta!');
-            setTimeout(() => navigate('/tasks'), 1500);
-          } else if (currentStepIndex < steps.length - 1) {
-            setCurrentStepIndex((index) => index + 1);
+          if (variables?.stepIndex !== undefined) {
+            setCurrentStepIndex(Math.min(steps.length, variables.stepIndex + 1));
           }
         }
         return;
@@ -256,11 +203,12 @@ export default function TaskRun() {
         previousAssignmentStatus !== 'not_started'
       ) {
         updateAssignmentStatusMutation.mutate('not_started');
-      } else if (
-        previousAssignmentStatus === 'done' &&
-        newCompletion < 100
-      ) {
+      } else if (previousAssignmentStatus === 'done' && newCompletion < 100) {
         updateAssignmentStatusMutation.mutate('in_progress');
+      }
+
+      if (variables?.stepIndex !== undefined) {
+        setCurrentStepIndex(Math.min(steps.length - 1, Math.max(0, variables.stepIndex)));
       }
 
       toast.success('Žingsnis grąžintas į neįvykdytą');
@@ -268,6 +216,29 @@ export default function TaskRun() {
     onError: (stepError: HttpError | Error) => {
       toast.error('Nepavyko atnaujinti žingsnio būsenos', {
         description: getErrorMessage(stepError),
+      });
+    },
+  });
+
+  const ratingMutation = useMutation<
+    Assignment,
+    HttpError | Error,
+    SubmitAssignmentRatingPayload
+  >({
+    mutationFn: (payload) =>
+      api.assignments
+        .submitRating(id!, payload)
+        .then(mapAssignmentFromApi),
+    onSuccess: (updatedAssignment) => {
+      queryClient.setQueryData<AssignmentDetails | undefined>(['assignments', id, 'details'], (oldData) => {
+        if (!oldData) return oldData;
+        return { ...oldData, assignment: updatedAssignment };
+      });
+      toast.success('Ačiū už vertinimą');
+    },
+    onError: (ratingError: HttpError | Error) => {
+      toast.error('Nepavyko išsiųsti vertinimo', {
+        description: getErrorMessage(ratingError),
       });
     },
   });
@@ -318,34 +289,37 @@ export default function TaskRun() {
   }
 
   const progressPercent = data.completion ?? 0;
-  const hasCurrentStepCompleted = currentStep ? completedStepIds.has(currentStep.id) : false;
 
   const handlePrevStep = () => {
     setCurrentStepIndex((index) => Math.max(0, index - 1));
   };
 
-  const handleNextStep = () => {
-    setCurrentStepIndex((index) => Math.min(steps.length - 1, index + 1));
-  };
-
   const handleStepComplete = () => {
     if (!currentStep || toggleStepMutation.isPending) return;
-    const existingTimeout = saveTimeouts.current[currentStep.id];
-    if (existingTimeout) {
-      clearTimeout(existingTimeout);
-      delete saveTimeouts.current[currentStep.id];
-    }
-    toggleStepMutation.mutate({ taskStepId: currentStep.id, notes: currentNotes || undefined });
+    toggleStepMutation.mutate({ taskStepId: currentStep.id, stepIndex: currentStepIndex });
   };
 
   const handleStepUncomplete = () => {
-    if (!currentProgress || toggleStepMutation.isPending) return;
-    const existingTimeout = saveTimeouts.current[currentProgress.taskStepId];
-    if (existingTimeout) {
-      clearTimeout(existingTimeout);
-      delete saveTimeouts.current[currentProgress.taskStepId];
+    if (
+      !currentProgress ||
+      toggleStepMutation.isPending ||
+      !canUncompleteCurrentStep
+    ) {
+      return;
     }
-    toggleStepMutation.mutate({ taskStepId: currentProgress.taskStepId });
+    toggleStepMutation.mutate({ taskStepId: currentProgress.taskStepId, stepIndex: currentStepIndex });
+  };
+
+  const canSubmitRating = allStepsCompleted && ratingValue !== null;
+  const handleSubmitRating = () => {
+    if (!id || !canSubmitRating || ratingMutation.isPending) {
+      return;
+    }
+
+    ratingMutation.mutate({
+      rating: ratingValue,
+      ratingComment: ratingComment.trim() || undefined,
+    });
   };
 
   return (
@@ -387,18 +361,26 @@ export default function TaskRun() {
               {steps.map((step, index) => {
                 const isCompleted = completedStepIds.has(step.id);
                 const isActive = index === currentStepIndex;
+                const maxSelectable = Math.min(steps.length - 1, lastCompletedStepIndex + 1);
+                const isSelectable = index <= maxSelectable;
 
                 return (
                   <button
                     key={step.id}
-                    onClick={() => setCurrentStepIndex(index)}
+                    type="button"
+                    onClick={() => {
+                      if (isSelectable) {
+                        setCurrentStepIndex(index);
+                      }
+                    }}
+                    disabled={!isSelectable}
                     className={`w-full rounded-lg p-3 text-left transition-colors ${
                       isActive
                         ? 'bg-primary text-primary-foreground'
                         : isCompleted
                         ? 'bg-success/10 text-success'
                         : 'bg-muted hover:bg-muted/80'
-                    }`}
+                    } ${!isSelectable ? 'cursor-not-allowed opacity-60' : ''}`}
                   >
                     <div className="flex items-center gap-2">
                       {isCompleted ? (
@@ -423,109 +405,135 @@ export default function TaskRun() {
                 <div className="flex items-start justify-between">
                   <div className="flex-1">
                     <p className="mb-1 text-sm text-muted-foreground">
-                      Žingsnis {currentStepIndex + 1} iš {steps.length}
+                      {isRatingStep
+                        ? 'Paskutinis žingsnis'
+                        : `Žingsnis ${currentStepIndex + 1} iš ${steps.length}`}
                     </p>
-                    <CardTitle className="text-2xl">{currentStep?.title ?? 'Žingsnis nerastas'}</CardTitle>
+                    <CardTitle className="text-2xl">
+                      {isRatingStep ? 'Užduoties vertinimas' : currentStep?.title ?? 'Žingsnis nerastas'}
+                    </CardTitle>
                   </div>
-                  {hasCurrentStepCompleted ? <CheckCircle2 className="h-6 w-6 text-success" /> : null}
+                  {!isRatingStep && hasCurrentStepCompleted ? (
+                    <CheckCircle2 className="h-6 w-6 text-success" />
+                  ) : null}
                 </div>
               </CardHeader>
               <CardContent className="space-y-6">
-                <div>
-                  <h4 className="mb-2 font-semibold">Instrukcijos</h4>
-                  <p className="text-foreground">
-                    {currentStep?.contentText ?? 'Šio žingsnio instrukcijos nepateiktos.'}
-                  </p>
-                </div>
-
-                {currentMediaUrl ? (
-                  <div className="space-y-2">
-                    <h4 className="font-semibold">Prisegtas failas</h4>
-                    <ResponsiveMedia
-                      url={currentMediaUrl}
-                      type={currentMediaType}
-                      title={currentStep?.title ?? 'Žingsnis'}
-                    />
-                    <a
-                      href={currentMediaUrl}
-                      target="_blank"
-                      rel="noreferrer"
-                      className="text-sm text-primary underline-offset-4 hover:underline"
-                    >
-                      Atsisiusti faila
-                    </a>
+                {isRatingStep ? (
+                  <div className="space-y-6">
+                    <p className="text-foreground">
+                      Praėję žingsnius, pasirinkite 1–5 žvaigždutes ir palikite komentarą, jei norite.
+                    </p>
+                    <div className="flex items-center gap-1">
+                      {Array.from({ length: 5 }).map((_, index) => {
+                        const value = index + 1;
+                        const isActiveStar = ratingValue !== null && ratingValue >= value;
+                        return (
+                          <button
+                            key={value}
+                            type="button"
+                            onClick={() => setRatingValue(value)}
+                            className="focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-primary"
+                            aria-label={`${value} žvaigždutės`}
+                          >
+                            <Star
+                              className={`h-8 w-8 transition-colors ${
+                                isActiveStar ? 'text-amber-500' : 'text-muted-foreground'
+                              }`}
+                            />
+                          </button>
+                        );
+                      })}
+                    </div>
+                    <div className="space-y-2">
+                      <Label htmlFor="ratingComment">Komentaras (neprivaloma)</Label>
+                      <Textarea
+                        id="ratingComment"
+                        value={ratingComment}
+                        placeholder="Palikite savo pastabas apie užduotį..."
+                        rows={4}
+                        onChange={(event) => setRatingComment(event.target.value)}
+                      />
+                    </div>
                   </div>
-                ) : null}
-
-                {currentStep?.requireUserMedia ? (
-                  <Badge variant="outline" className="border-amber-500/40 bg-amber-50 text-amber-700">
-                    Šiam žingsniui reikalinga jūsų nuotrauka arba vaizdo įrašas
-                  </Badge>
-                ) : null}
-
-                <div className="space-y-2">
-                  <Label htmlFor="notes">Pastabos (išsaugoma automatiškai)</Label>
-                  <Textarea
-                    id="notes"
-                    placeholder="Įveskite savo pastabas..."
-                    value={currentNotes}
-                    onChange={(event) => {
-                      if (!currentStep) return;
-                      const value = event.target.value;
-                      setStepNotes((prev) => ({ ...prev, [currentStep.id]: value }));
-                      if (progressMap.has(currentStep.id)) {
-                        scheduleNoteSave(currentStep.id, value);
-                      }
-                    }}
-                    rows={4}
-                  />
-                </div>
-
-                <div className="flex items-center gap-4 text-sm text-muted-foreground">
-                  <Calendar className="h-4 w-4" />
-                  <span>Žingsnis sukurtas: {currentStep ? formatDate(currentStep.createdAt) : '—'}</span>
-                </div>
+                ) : (
+                  <>
+                    <div>
+                      <h4 className="mb-2 font-semibold">Instrukcijos</h4>
+                      <p className="text-foreground">
+                        {currentStep?.contentText ?? 'Šio žingsnio instrukcijos nepateiktos.'}
+                      </p>
+                    </div>
+                    {currentMediaUrl ? (
+                      <div className="space-y-2">
+                        <h4 className="font-semibold">Prisegtas failas</h4>
+                        <div className="mx-auto w-full max-w-[600px]">
+                          <ResponsiveMedia
+                            url={currentMediaUrl}
+                            type={currentMediaType}
+                            title={currentStep?.title ?? 'Žingsnis'}
+                            className="rounded-lg"
+                          />
+                        </div>
+                      </div>
+                    ) : null}
+                    {currentStep?.requireUserMedia ? (
+                      <Badge variant="outline" className="border-amber-500/40 bg-amber-50 text-amber-700">
+                        Šiam žingsniui reikalinga jūsų nuotrauka arba vaizdo įrašas
+                      </Badge>
+                    ) : null}
+                  </>
+                )}
               </CardContent>
             </Card>
 
-            <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+            <div className="flex flex-col gap-3 sm:flex-row sm:items-end sm:justify-between">
               <Button variant="outline" onClick={handlePrevStep} disabled={currentStepIndex === 0}>
                 <ChevronLeft className="mr-2 h-4 w-4" /> Atgal
               </Button>
 
-              <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:gap-3">
-                {hasCurrentStepCompleted ? (
+              {isRatingStep ? (
+                <div className="flex flex-col items-end gap-2">
                   <Button
-                    variant="outline"
-                    onClick={handleStepUncomplete}
-                    disabled={toggleStepMutation.isPending}
+                    onClick={handleSubmitRating}
+                    disabled={!canSubmitRating || ratingMutation.isPending}
                   >
-                    {toggleStepMutation.isPending ? (
-                      <>
-                        <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-                        Grąžinama...
-                      </>
-                    ) : (
-                      <>
-                        <RotateCcw className="mr-2 h-4 w-4" />
-                        Pažymėti kaip neatliktą
-                      </>
-                    )}
+                    {ratingMutation.isPending ? 'Siunčiama...' : assignment?.rating ? 'Atnaujinti vertinimą' : 'Siųsti vertinimą'}
                   </Button>
-                ) : (
-                  <Button onClick={handleStepComplete} disabled={toggleStepMutation.isPending}>
-                    <CheckCircle2 className="mr-2 h-4 w-4" />
-                    {toggleStepMutation.isPending ? 'Žymima...' : 'Pažymėti kaip atliktą'}
-                  </Button>
-                )}
-
-                {currentStepIndex < steps.length - 1 ? (
-                  <Button variant="outline" onClick={handleNextStep}>
-                    Kitas žingsnis
-                    <ChevronRight className="ml-2 h-4 w-4" />
-                  </Button>
-                ) : null}
-              </div>
+                  {assignment?.rating ? (
+                    <p className="text-sm text-muted-foreground">
+                      Jūsų paskutinis įvertinimas: {assignment.rating} / 5
+                    </p>
+                  ) : null}
+                </div>
+              ) : (
+                <div className="flex gap-3">
+                  {hasCurrentStepCompleted ? (
+                    <Button
+                      variant="outline"
+                      onClick={handleStepUncomplete}
+                      disabled={!canUncompleteCurrentStep || toggleStepMutation.isPending}
+                    >
+                      {toggleStepMutation.isPending ? (
+                        <>
+                          <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                          Grąžinama...
+                        </>
+                      ) : (
+                        <>
+                          <RotateCcw className="mr-2 h-4 w-4" />
+                          Pažymėti kaip neatliktą
+                        </>
+                      )}
+                    </Button>
+                  ) : (
+                    <Button onClick={handleStepComplete} disabled={toggleStepMutation.isPending}>
+                      <CheckCircle2 className="mr-2 h-4 w-4" />
+                      {toggleStepMutation.isPending ? 'Žymima...' : 'Pažymėti kaip atliktą'}
+                    </Button>
+                  )}
+                </div>
+              )}
             </div>
           </div>
         </div>

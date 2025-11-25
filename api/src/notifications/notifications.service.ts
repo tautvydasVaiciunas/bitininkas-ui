@@ -18,7 +18,12 @@ import {
   PaginationOptions,
 } from '../common/pagination/pagination.service';
 
-export type NotificationType = 'assignment' | 'news' | 'message' | 'hive_history';
+export type NotificationType =
+  | 'assignment'
+  | 'news'
+  | 'message'
+  | 'hive_history'
+  | 'hive_assignment';
 
 export interface CreateNotificationPayload {
   type: NotificationType;

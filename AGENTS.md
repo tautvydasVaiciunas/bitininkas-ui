@@ -1,9 +1,12 @@
 # Codex 5.1 – Bus medaus / bitininkas-ui
 
-## 1. AGENTS.md šablonas 
+## 1. AGENTS.md  
 
 ```md
 # AGENTS
+
+## write access 
+ - You have enabled write access and confirmation that you can run the necessary patch/apply commands.
 
 ## Project
 - SaaS platforma „Bus medaus“ bitininkams.

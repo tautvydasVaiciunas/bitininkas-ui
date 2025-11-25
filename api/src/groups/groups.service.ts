@@ -3,6 +3,7 @@ import {
   ConflictException,
   ForbiddenException,
   Injectable,
+  Logger,
   NotFoundException,
 } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
@@ -14,6 +15,8 @@ import { UpdateGroupDto } from './dto/update-group.dto';
 import { AddGroupMemberDto } from './dto/add-group-member.dto';
 import { User, UserRole } from '../users/user.entity';
 import { Hive } from '../hives/hive.entity';
+import { EmailService } from '../email/email.service';
+import { NotificationsService } from '../notifications/notifications.service';
 import {
   PaginationService,
   PaginatedResult,
@@ -29,10 +32,14 @@ export class GroupsService {
     private readonly membersRepository: Repository<GroupMember>,
     @InjectRepository(User)
     private readonly usersRepository: Repository<User>,
-    @InjectRepository(Hive)
-    private readonly hivesRepository: Repository<Hive>,
+  @InjectRepository(Hive)
+  private readonly hivesRepository: Repository<Hive>,
     private readonly pagination: PaginationService,
+    private readonly emailService: EmailService,
+    private readonly notificationsService: NotificationsService,
   ) {}
+
+  private readonly logger = new Logger(GroupsService.name);
 
   private ensureManager(role: UserRole) {
     if (![UserRole.MANAGER, UserRole.ADMIN].includes(role)) {
@@ -205,10 +212,14 @@ export class GroupsService {
     });
 
     const saved = await this.membersRepository.save(member);
-    return this.membersRepository.findOne({
+    const result = await this.membersRepository.findOne({
       where: { id: saved.id },
       relations: { user: true, hive: true },
     });
+
+    await this.notifyHiveAssignment(result?.user ?? null, result?.hive ?? null);
+
+    return result;
   }
 
   async removeMember(groupId: string, userId: string, actor: { role: UserRole }) {
@@ -224,5 +235,47 @@ export class GroupsService {
 
     await this.membersRepository.remove(memberships);
     return { success: true };
+  }
+  private async notifyHiveAssignment(user: User | null, hive: Hive | null) {
+    if (!user || !hive) {
+      return;
+    }
+
+    const subject = 'Jums priskirtas avilys';
+    const body = `Jums priskirtas avilys ${hive.label}. Peržiūrėti: https://app.busmedaus.lt/hives/${hive.id}`;
+    const html = `<p>Jums priskirtas avilys ${hive.label}.</p><p><a href="https://app.busmedaus.lt/hives/${hive.id}">Peržiūrėti avilį</a></p>`;
+
+    try {
+      await this.emailService.sendMail({
+        to: user.email,
+        subject,
+        text: body,
+        html,
+      });
+    } catch (error) {
+      this.logger.warn(
+        `Nepavyko išsiųsti avilio priskyrimo laiško vartotojui ${user.email}: ${
+          error instanceof Error ? error.message : String(error)
+        }`,
+        error instanceof Error ? error.stack : undefined,
+      );
+    }
+
+    try {
+      await this.notificationsService.createNotification(user.id, {
+        type: 'hive_assignment',
+        title: 'Priskirtas avilys',
+        body: `Jums priskirtas avilys ${hive.label}.`,
+        link: `/hives/${hive.id}`,
+        sendEmail: false,
+      });
+    } catch (error) {
+      this.logger.warn(
+        `Nepavyko sukurti pranešimo apie avilio priskyrimą vartotojui ${user.id}: ${
+          error instanceof Error ? error.message : String(error)
+        }`,
+        error instanceof Error ? error.stack : undefined,
+      );
+    }
   }
 }

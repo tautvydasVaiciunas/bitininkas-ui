@@ -12,6 +12,7 @@ import { DataSource, DeepPartial, FindOptionsWhere, In, Not, Repository } from "
 import { Assignment, AssignmentStatus } from "./assignment.entity";
 import { CreateAssignmentDto } from "./dto/create-assignment.dto";
 import { UpdateAssignmentDto } from "./dto/update-assignment.dto";
+import { SubmitAssignmentRatingDto } from "./dto/submit-rating.dto";
 import { Hive } from "../hives/hive.entity";
 import { Task } from "../tasks/task.entity";
 import { TaskStep } from "../tasks/steps/task-step.entity";
@@ -641,6 +642,7 @@ export class AssignmentsService {
 
     const startNowAssignments: Assignment[] = [];
     const futureAssignments: Assignment[] = [];
+    const shortDurationAssignments: { assignment: Assignment; durationDays: number }[] = [];
 
     assignments.forEach((assignment) => {
       const startDate = assignment.startDate ?? today;
@@ -650,6 +652,21 @@ export class AssignmentsService {
         startNowAssignments.push(assignment);
       } else {
         futureAssignments.push(assignment);
+      }
+
+      if (
+        assignment.startDate &&
+        assignment.dueDate &&
+        assignment.status !== AssignmentStatus.DONE
+      ) {
+        const startValue = new Date(assignment.startDate).getTime();
+        const dueValue = new Date(assignment.dueDate).getTime();
+        if (dueValue > startValue) {
+          const durationDays = (dueValue - startValue) / (1000 * 60 * 60 * 24);
+          if (durationDays < 3) {
+            shortDurationAssignments.push({ assignment, durationDays });
+          }
+        }
       }
 
       if (
@@ -669,11 +686,22 @@ export class AssignmentsService {
       }),
     );
 
+    await Promise.all(
+      shortDurationAssignments.map(async ({ assignment, durationDays }) => {
+        await this.markDueSoonNotified(assignment);
+        await this.sendDueSoonEmail(assignment, {
+          template: 'shortTerm',
+          durationDays,
+        });
+      }),
+    );
+
     const dueSoonAssignments = assignments.filter(
       (assignment) =>
         assignment.dueDate &&
         assignment.dueDate <= dueSoonThreshold &&
-        assignment.status !== AssignmentStatus.DONE,
+        assignment.status !== AssignmentStatus.DONE &&
+        !assignment.notifiedDueSoon,
     );
 
     await Promise.all(
@@ -696,7 +724,9 @@ export class AssignmentsService {
       }
 
       if (shouldNotify) {
-        await this.sendAssignmentEmails(assignments, trimmedTitle);
+        if (futureAssignments.length) {
+          await this.sendAssignmentEmails(futureAssignments, trimmedTitle);
+        }
         const summaryDueDate = dto.dueDate ?? assignments[0]?.dueDate ?? null;
         await this.sendBulkCreationSummary(assignments, trimmedTitle, summaryDueDate);
       }
@@ -882,18 +912,70 @@ export class AssignmentsService {
         }
 
         const startText = this.formatDateForEmail(assignment.startDate);
+
         const dueText = this.formatDateForEmail(assignment.dueDate);
+
         const link = this.getAssignmentLink(assignment.id);
-        const body = [
-          `Jūsų aviliui sukurta nauja užduotis: ${taskTitle}.`,
-          `Užduotį galima bus atlikti nuo: ${startText}.`,
-          `Pabaigos data: ${dueText}.`,
-          `Peržiūrėti: ${link}`,
-        ].join('\n');
-        const html = body
-          .split('\n')
-          .map((line) => `<p>${line}</p>`)
-          .join('');
+
+        const startDateValue = assignment.startDate
+
+          ? new Date(assignment.startDate).getTime()
+
+          : null;
+
+        const now = Date.now();
+
+        const isFutureStart = startDateValue !== null && startDateValue > now;
+
+
+
+        const subject = isFutureStart
+
+          ? `Nauja užduotis (prasidės ${startText})`
+
+          : 'Užduotis tapo aktyvi';
+
+
+
+        const bodyLines = isFutureStart
+
+          ? [
+
+              `Jums priskirta užduotis „${taskTitle}“, kuri prasidės ${startText} ir baigsis ${dueText}.`,
+
+              `Peržiūrėti: ${link}`,
+
+            ]
+
+          : [
+
+              `Užduotis „${taskTitle}“ jau gali būti vykdoma.`,
+
+              `Terminas: ${dueText}.`,
+
+              `Peržiūrėti: ${link}`,
+
+            ];
+
+        const body = bodyLines.join('\n');
+
+        const html = bodyLines.map((line) => `<p>${line}</p>`).join('');
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
 
         await Promise.all(
           Array.from(recipients.values()).map(async (email) => {
@@ -1177,6 +1259,36 @@ export class AssignmentsService {
     };
   }
 
+  async submitRating(id: string, dto: SubmitAssignmentRatingDto, user) {
+    const assignment = await this.assignmentsRepository.findOne({
+      where: { id },
+      relations: { hive: { members: true } },
+    });
+
+    if (!assignment) {
+      throw new NotFoundException('Assignment not found');
+    }
+
+    if (![UserRole.ADMIN, UserRole.MANAGER].includes(user.role)) {
+      if (!assignment.hiveId) {
+        throw new ForbiddenException('Neleidžiama');
+      }
+
+      const allowed = await this.ensureUserCanAccessHive(assignment.hiveId, user.id);
+      if (!allowed) {
+        throw new ForbiddenException('Neleidžiama');
+      }
+    }
+
+    assignment.rating = dto.rating;
+    const normalizedComment = dto.ratingComment?.trim() ?? '';
+    assignment.ratingComment = normalizedComment.length ? normalizedComment : null;
+
+    const saved = await this.assignmentsRepository.save(assignment);
+    await this.activityLog.log('assignment_rated', user.id, 'assignment', assignment.id);
+    return saved;
+  }
+
   private isAssignmentActive(assignment: Assignment) {
     const today = this.getTodayDateString();
     if (assignment.startDate && assignment.startDate > today) {
@@ -1392,11 +1504,12 @@ export class AssignmentsService {
       return;
     }
 
-    const dueDate = assignment.dueDate ?? 'Nenurodyta';
+    const taskTitle = assignment.task?.title ?? 'Užduotis';
+    const dueDate = this.formatDateForEmail(assignment.dueDate);
     const link = this.buildAssignmentEmailLink(assignment.id);
     const body = [
-      `Užduotis ${assignment.task?.title ?? 'Užduotis'} jau aktyvi.`,
-      `Pabaigos data: ${dueDate}.`,
+      `Užduotis „${taskTitle}“ jau gali būti vykdoma.`,
+      `Terminas: ${dueDate}.`,
       `Vykdyti: ${link}`,
     ].join('\n');
     const html = body
@@ -1409,7 +1522,7 @@ export class AssignmentsService {
         try {
           await this.emailService.sendMail({
             to: email,
-            subject: 'Užduotį jau galima atlikti',
+          subject: 'Užduotis tapo aktyvi',
             text: body,
             html,
           });
@@ -1445,62 +1558,75 @@ export class AssignmentsService {
     return Math.min(100, Math.max(0, Math.round((completed / totalSteps) * 100)));
   }
 
-  private async sendDueSoonEmail(assignment: Assignment) {
-    const hive = await this.hiveRepository.findOne({
-      where: { id: assignment.hiveId },
-      relations: ['owner', 'members'],
-    });
-    if (!hive) {
-      return;
-    }
-
-    const recipients = new Map<string, string>();
-    const addRecipient = (user?: User | null) => {
-      if (!user?.email) return;
-      if (user.role !== UserRole.USER) return;
-      recipients.set(user.id, user.email);
-    };
-
-    addRecipient(hive.owner);
-    for (const member of hive.members ?? []) {
-      addRecipient(member);
-    }
-
-    if (!recipients.size) {
-      return;
-    }
-
-    const progressPercent = await this.calculateProgressPercent(assignment);
-    const dueDate = assignment.dueDate ?? 'Nenurodyta';
-    const link = this.buildAssignmentEmailLink(assignment.id);
-    const body = [
-      `Užduočiai ${assignment.task?.title ?? 'Užduotis'} liko 3 dienos.`,
-      `Pabaigos data: ${dueDate}.`,
-      `Užduoties progresas: ${progressPercent}%.`,
-      `Vykdyti: ${link}`,
-    ].join('\n');
-    const html = body
-      .split('\n')
-      .map((line) => `<p>${line}</p>`)
-      .join('');
-
-    await Promise.all(
-      Array.from(recipients.values()).map(async (email) => {
-        try {
-          await this.emailService.sendMail({
-            to: email,
-            subject: 'Primename apie nebaigtą užduotį',
-            text: body,
-            html,
-          });
-        } catch (error) {
-          this.logger.warn(
-            `Nepavyko išsiųsti due-soon laiško ${email}: ${
-              error instanceof Error ? error.message : String(error)
-            }`,
-          );
-        }
-      }),
-    );
+  private async sendDueSoonEmail(
+    assignment: Assignment,
+    options?: { template?: 'dueSoon' | 'shortTerm'; durationDays?: number },
+  ) {
+    const hive = await this.hiveRepository.findOne({
+      where: { id: assignment.hiveId },
+      relations: ['owner', 'members'],
+    });
+    if (!hive) {
+      return;
+    }
+
+    const recipients = new Map<string, string>();
+    const addRecipient = (user?: User | null) => {
+      if (!user?.email) return;
+      if (user.role !== UserRole.USER) return;
+      recipients.set(user.id, user.email);
+    };
+
+    addRecipient(hive.owner);
+    for (const member of hive.members ?? []) {
+      addRecipient(member);
+    }
+
+    if (!recipients.size) {
+      return;
+    }
+
+    const dueDate = this.formatDateForEmail(assignment.dueDate);
+    const link = this.buildAssignmentEmailLink(assignment.id);
+    const taskTitle = assignment.task?.title ?? 'Užduotis';
+    const template = options?.template ?? 'dueSoon';
+    const bodyLines: string[] = [];
+    let subject: string;
+
+    if (template === 'shortTerm') {
+      const durationDays = Math.max(0, options?.durationDays ?? 0);
+      const dayCount = Math.max(1, Math.ceil(durationDays));
+      subject = 'Svarbu: trumpas užduoties terminas';
+      bodyLines.push(`Užduotis turi labai trumpą atlikimo laiką (${dayCount} d.).`);
+      bodyLines.push(`Pabaigos data: ${dueDate}.`);
+      bodyLines.push('Rekomenduojame pradėti nedelsiant.');
+      bodyLines.push(`Vykdyti: ${link}`);
+    } else {
+      subject = `Primename: liko 3 dienos užduočiai „${taskTitle}“ atlikti.`;
+      const progressPercent = await this.calculateProgressPercent(assignment);
+      bodyLines.push(`Primename: liko 3 dienos užduočiai „${taskTitle}“ atlikti.`);
+      bodyLines.push(`Pabaigos data: ${dueDate}.`);
+      bodyLines.push(`Užduoties progresas: ${progressPercent}%.`);
+      bodyLines.push(`Vykdyti: ${link}`);
+    }
+
+    const body = bodyLines.join('\n');
+    const html = bodyLines.map((line) => `<p>${line}</p>`).join('');
+
+    await Promise.all(
+      Array.from(recipients.values()).map(async (email) => {
+        try {
+          await this.emailService.sendMail({
+            to: email,
+            subject,
+            text: body,
+            html,
+          });
+        } catch (error) {
+          const details = error instanceof Error ? error.message : String(error);
+          this.logger.warn(`Nepavyko išsiųsti priminimo laiško ${email}: ${details}`);
+        }
+      }),
+    );
   }
 }

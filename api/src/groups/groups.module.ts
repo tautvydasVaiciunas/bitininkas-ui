@@ -6,9 +6,15 @@ import { Group } from './group.entity';
 import { GroupMember } from './group-member.entity';
 import { User } from '../users/user.entity';
 import { Hive } from '../hives/hive.entity';
+import { EmailModule } from '../email/email.module';
+import { NotificationsModule } from '../notifications/notifications.module';
 
 @Module({
-  imports: [TypeOrmModule.forFeature([Group, GroupMember, User, Hive])],
+  imports: [
+    TypeOrmModule.forFeature([Group, GroupMember, User, Hive]),
+    EmailModule,
+    NotificationsModule,
+  ],
   controllers: [GroupsController],
   providers: [GroupsService],
   exports: [GroupsService],

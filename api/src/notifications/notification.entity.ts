@@ -26,7 +26,7 @@ export class Notification {
   userId!: string;
 
   @Column({ type: 'varchar', length: 32 })
-  type!: 'assignment' | 'news' | 'message' | 'hive_history';
+  type!: 'assignment' | 'news' | 'message' | 'hive_history' | 'hive_assignment';
 
   @Column({ type: 'text' })
   title!: string;

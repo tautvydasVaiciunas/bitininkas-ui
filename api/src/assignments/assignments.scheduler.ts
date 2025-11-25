@@ -541,26 +541,42 @@ export class AssignmentsScheduler {
       return;
     }
 
+    const taskTitle = assignment.task?.title ?? 'Užduotis';
+
     const progressPercent = await this.calculateProgressPercent(assignment);
+
     const dueDate = assignment.dueDate ?? 'Nenurodyta';
+
     const link = this.buildAssignmentEmailLink(assignment.id);
+
     const body = [
-      `Užduočiai ${assignment.task?.title ?? 'Užduotis'} liko 3 dienos.`,
+
+      `Primename: liko 3 dienos užduočiai „${taskTitle}“ atlikti.`,
+
       `Pabaigos data: ${dueDate}.`,
+
       `Užduoties progresas: ${progressPercent}%.`,
+
       `Vykdyti: ${link}`,
+
     ].join('\n');
+
     const html = body
+
       .split('\n')
+
       .map((line) => `<p>${line}</p>`)
+
       .join('');
+
+
 
     await Promise.all(
       Array.from(recipients.values()).map(async (email) => {
         try {
           await this.emailService.sendMail({
             to: email,
-            subject: 'Primename apie nebaigtą užduotį',
+            subject: `Primename: liko 3 dienos užduočiai „${taskTitle}“ atlikti.`,
             text: body,
             html,
           });

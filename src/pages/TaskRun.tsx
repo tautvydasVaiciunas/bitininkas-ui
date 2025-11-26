@@ -233,6 +233,7 @@ export default function TaskRun() {
         return { ...oldData, assignment: updatedAssignment };
       });
       toast.success('Ačiū už vertinimą');
+      navigate('/tasks');
     },
     onError: (ratingError: HttpError | Error) => {
       toast.error('Nepavyko išsiųsti vertinimo', {

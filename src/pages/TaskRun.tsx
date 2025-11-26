@@ -310,7 +310,7 @@ export default function TaskRun() {
 
   const hasRated = Boolean(assignment?.ratedAt);
   const canSubmitRating =
-    allStepsCompleted && ratingValue !== null && !hasRated;
+    isRatingStep && ratingValue !== null && !hasRated;
   const handleSubmitRating = () => {
     if (!id || !canSubmitRating || ratingMutation.isPending) {
       return;

@@ -6,7 +6,7 @@ import {
   NotFoundException,
 } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
-import { IsNull, Repository } from 'typeorm';
+import { FindOptionsWhere, IsNull, Repository } from 'typeorm';
 import { Group } from './group.entity';
 import { GroupMember } from './group-member.entity';
 import { CreateGroupDto } from './dto/create-group.dto';
@@ -213,12 +213,18 @@ export class GroupsService {
     return result;
   }
 
-  async removeMember(groupId: string, userId: string, actor: { role: UserRole }) {
+  async removeMember(
+    groupId: string,
+    userId: string,
+    hiveId: string | undefined,
+    actor: { role: UserRole },
+  ) {
     this.ensureManager(actor.role);
 
-    const memberships = await this.membersRepository.find({
-      where: { groupId, userId },
-    });
+    const where: FindOptionsWhere<GroupMember> = hiveId
+      ? { groupId, userId, hiveId }
+      : { groupId, userId };
+    const memberships = await this.membersRepository.find({ where });
 
     if (!memberships.length) {
       throw new NotFoundException('Membership not found');

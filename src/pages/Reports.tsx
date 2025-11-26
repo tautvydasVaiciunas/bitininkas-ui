@@ -65,9 +65,9 @@ const formatShortDate = (value?: string | null) =>
 const defaultAnalyticsFilters: AnalyticsFilterState = {
   dateFrom: "",
   dateTo: "",
-  taskId: "",
+  taskId: "all",
   status: "all",
-  groupId: "",
+  groupId: "all",
   page: 1,
   limit: 20,
 };
@@ -123,16 +123,26 @@ export default function Reports() {
 
   const analyticsQuery = useQuery<AssignmentAnalyticsResponse>({
     queryKey: ["reports", "assignment-analytics", analyticsFilters],
-    queryFn: () =>
-      api.reports.assignmentAnalytics({
+    queryFn: () => {
+      const taskIdParam =
+        analyticsFilters.taskId && analyticsFilters.taskId !== 'all'
+          ? analyticsFilters.taskId
+          : undefined;
+      const groupIdParam =
+        analyticsFilters.groupId && analyticsFilters.groupId !== 'all'
+          ? analyticsFilters.groupId
+          : undefined;
+
+      return api.reports.assignmentAnalytics({
         dateFrom: analyticsFilters.dateFrom || undefined,
         dateTo: analyticsFilters.dateTo || undefined,
-        taskId: analyticsFilters.taskId || undefined,
+        taskId: taskIdParam,
         status: analyticsFilters.status,
-        groupId: analyticsFilters.groupId || undefined,
+        groupId: groupIdParam,
         page: analyticsFilters.page,
         limit: analyticsFilters.limit,
-      }),
+      });
+    },
     keepPreviousData: true,
   });
 
@@ -403,7 +413,7 @@ export default function Reports() {
                   <SelectValue placeholder="Visos užduotys" />
                 </SelectTrigger>
                 <SelectContent>
-                  <SelectItem value="">Visos užduotys</SelectItem>
+                  <SelectItem value="all">Visos užduotys</SelectItem>
                   {tasks.map((task) => (
                     <SelectItem key={task.id} value={task.id}>
                       {task.title}
@@ -427,7 +437,7 @@ export default function Reports() {
                   <SelectValue placeholder="Visos grupės" />
                 </SelectTrigger>
                 <SelectContent>
-                  <SelectItem value="">Visos grupės</SelectItem>
+                  <SelectItem value="all">Visos grupės</SelectItem>
                   {groups.map((group) => (
                     <SelectItem key={group.id} value={group.id}>
                       {group.name}

@@ -175,9 +175,7 @@ export class HivesService {
         ? dto.ownerUserId ?? normalizedUserIds[0] ?? userId
         : userId;
 
-    const memberIds = await this.validateMemberIds(
-      normalizedUserIds.filter((id) => id !== ownerUserId),
-    );
+    const memberIds = await this.validateMemberIds(normalizedUserIds);
     const saved = await runWithDatabaseErrorHandling(
       () =>
         this.hiveRepository.manager.transaction(async (manager) => {
@@ -220,7 +218,7 @@ export class HivesService {
     if (hiveWithRelations) {
       const oldUserIds: string[] = [];
       const newUserIds = this.collectUserIds(hiveWithRelations);
-      const memberChanges = this.computeMemberChanges(oldUserIds, newUserIds);
+      const memberChanges = this.computeMemberChanges(newUserIds, oldUserIds);
 
       this.logger.debug('Hive membership diff on create', {
         hiveId: hiveWithRelations.id,
@@ -341,9 +339,7 @@ export class HivesService {
 
           if (dto.members !== undefined || dto.userIds !== undefined) {
             const normalized = this.normalizeUserIds(dto.userIds ?? dto.members ?? []);
-            memberIds = await this.validateMemberIds(
-              normalized.filter((memberId) => memberId !== hive.ownerUserId),
-            );
+            memberIds = await this.validateMemberIds(normalized);
           }
 
           const saved = await hiveRepo.save(hive);
@@ -375,7 +371,7 @@ export class HivesService {
     }
 
     const newMembershipIds = this.collectUserIds(result.updated);
-    const memberChanges = this.computeMemberChanges(previousMembershipIds, newMembershipIds);
+    const memberChanges = this.computeMemberChanges(newMembershipIds, previousMembershipIds);
 
     this.logger.debug('Hive membership diff on update', {
       hiveId: result.updated.id,
@@ -440,10 +436,6 @@ export class HivesService {
   private collectUserIds(hive: Hive): string[] {
     const ids = new Set<string>();
 
-    if (hive.ownerUserId) {
-      ids.add(hive.ownerUserId);
-    }
-
     if (hive.members?.length) {
       for (const member of hive.members) {
         ids.add(member.id);
@@ -455,7 +447,6 @@ export class HivesService {
 
   private async notifyMembershipChange(user: User, hive: Hive, added: boolean) {
     const hiveUrl = resolveFrontendUrl(this.configService, `/hives/${hive.id}`);
-    const hivesUrl = resolveFrontendUrl(this.configService, '/hives');
     const supportUrl = resolveFrontendUrl(this.configService, '/support');
     const subject = added ? 'Priskirtas naujas avilys' : 'Avilys pašalintas iš jūsų paskyros';
     const text = added
@@ -463,7 +454,7 @@ export class HivesService {
       : `Avilys „${hive.label}“ nebėra priskirtas jūsų paskyrai. Jei manote, kad tai klaida, parašykite žinutę per sistemą: ${supportUrl}`;
     const html = added
       ? `<p>Jums priskirtas avilys „${hive.label}“.</p><p><a href="${hiveUrl}">Peržiūrėti avilį</a></p>`
-      : `<p>Avilys „${hive.label}“ nebėra priskirtas jūsų paskyrai.</p><p><a href="${supportUrl}">Parašykite žinutę</a></p><p><a href="${hivesUrl}">Peržiūrėti kitus avilius</a></p>`;
+      : `<p>Avilys „${hive.label}“ nebėra priskirtas jūsų paskyrai.</p><p><a href="${supportUrl}">Parašykite žinutę</a></p>`;
 
     if (user.email) {
       try {
@@ -472,6 +463,8 @@ export class HivesService {
           subject,
           text,
           html,
+          primaryButtonLabel: added ? 'Peržiūrėti avilį' : null,
+          primaryButtonUrl: added ? hiveUrl : null,
         });
       } catch (error) {
         this.logger.warn(

@@ -43,6 +43,7 @@ type UserWithGroups = {
   createdAt: Date;
   updatedAt: Date;
   deletedAt?: Date;
+  lastLoginAt: Date | null;
   groups: UserGroupDto[];
 };
 
@@ -172,6 +173,7 @@ export class UsersService {
       createdAt: user.createdAt,
       updatedAt: user.updatedAt,
       deletedAt: user.deletedAt,
+      lastLoginAt: user.lastLoginAt ?? null,
       groups: this.mapUserGroups(user),
     };
   }

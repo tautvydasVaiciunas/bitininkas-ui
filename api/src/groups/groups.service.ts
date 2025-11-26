@@ -3,6 +3,7 @@ import {
   ConflictException,
   ForbiddenException,
   Injectable,
+  Logger,
   NotFoundException,
 } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
@@ -14,6 +15,8 @@ import { UpdateGroupDto } from './dto/update-group.dto';
 import { AddGroupMemberDto } from './dto/add-group-member.dto';
 import { User, UserRole } from '../users/user.entity';
 import { Hive } from '../hives/hive.entity';
+import { NotificationsService } from '../notifications/notifications.service';
+import { EmailService } from '../email/email.service';
 import {
   PaginationService,
   PaginatedResult,
@@ -22,6 +25,7 @@ import {
 
 @Injectable()
 export class GroupsService {
+  private readonly logger = new Logger(GroupsService.name);
   constructor(
     @InjectRepository(Group)
     private readonly groupsRepository: Repository<Group>,
@@ -29,9 +33,11 @@ export class GroupsService {
     private readonly membersRepository: Repository<GroupMember>,
     @InjectRepository(User)
     private readonly usersRepository: Repository<User>,
-  @InjectRepository(Hive)
-  private readonly hivesRepository: Repository<Hive>,
+    @InjectRepository(Hive)
+    private readonly hivesRepository: Repository<Hive>,
     private readonly pagination: PaginationService,
+    private readonly notificationsService: NotificationsService,
+    private readonly emailService: EmailService,
   ) {}
 
   private ensureManager(role: UserRole) {
@@ -210,6 +216,10 @@ export class GroupsService {
       relations: { user: true, hive: true },
     });
 
+    if (result?.user && result?.hive) {
+      await this.notifyHiveMemberChange(result.user, result.hive, true);
+    }
+
     return result;
   }
 
@@ -224,13 +234,71 @@ export class GroupsService {
     const where: FindOptionsWhere<GroupMember> = hiveId
       ? { groupId, userId, hiveId }
       : { groupId, userId };
-    const memberships = await this.membersRepository.find({ where });
+    const memberships = await this.membersRepository.find({
+      where,
+      relations: { user: true, hive: true },
+    });
 
     if (!memberships.length) {
       throw new NotFoundException('Membership not found');
     }
 
+    const hiveMembers = memberships.filter((membership) => membership.hive);
     await this.membersRepository.remove(memberships);
+    for (const membership of hiveMembers) {
+      if (membership.user && membership.hive) {
+        await this.notifyHiveMemberChange(membership.user, membership.hive, false);
+      }
+    }
     return { success: true };
+  }
+
+  private async notifyHiveMemberChange(user: User | null, hive: Hive | null, added: boolean) {
+    if (!user || !hive) {
+      return;
+    }
+
+    const subject = added ? 'Priskirtas naujas avilys' : 'Avilys pašalintas iš jūsų paskyros';
+    const text = added
+      ? `Jums priskirtas avilys „${hive.label}“. Peržiūrėti: https://app.busmedaus.lt/hives/${hive.id}`
+      : `Avilys „${hive.label}“ nebėra priskirtas jūsų paskyrai. Jei manote, kad tai klaida, parašykite žinutę per sistemą.`;
+    const html = added
+      ? `<p>Jums priskirtas avilys „${hive.label}“.</p><p><a href="https://app.busmedaus.lt/hives/${hive.id}">Peržiūrėti avilį</a></p>`
+      : `<p>Avilys „${hive.label}“ nebėra priskirtas jūsų paskyrai.</p><p><a href="https://app.busmedaus.lt/support">Parašykite žinutę</a></p>`;
+
+    if (user.email) {
+      try {
+        await this.emailService.sendMail({
+          to: user.email,
+          subject,
+          text,
+          html,
+        });
+      } catch (error) {
+        this.logger.warn(
+          `Nepavyko siųsti avilio pakeitimo el. laiško vartotojui ${user.email}: ${
+            error instanceof Error ? error.message : String(error)
+          }`,
+          error instanceof Error ? error.stack : undefined,
+        );
+      }
+    }
+
+    try {
+      await this.notificationsService.createNotification(user.id, {
+        type: 'hive_assignment',
+        title: subject,
+        body: added ? `Jums priskirtas avilys ${hive.label}.` : `Avilys ${hive.label} nebėra priskirtas jūsų paskyrai.`,
+        link: `/hives/${hive.id}`,
+        sendEmail: false,
+      });
+    } catch (error) {
+      this.logger.warn(
+        `Nepavyko sukurti pranešimo apie avilio pakeitimą vartotojui ${user.id}: ${
+          error instanceof Error ? error.message : String(error)
+        }`,
+        error instanceof Error ? error.stack : undefined,
+      );
+    }
   }
 }

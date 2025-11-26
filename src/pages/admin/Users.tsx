@@ -1,6 +1,6 @@
 import { useEffect, useMemo, useState, type FormEvent } from 'react';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
-import { Plus, Search, Edit, Trash2 } from 'lucide-react';
+import { Plus, Search, Edit, Trash2, AlertTriangle } from 'lucide-react';
 import { toast } from 'sonner';
 
 import { MainLayout } from '@/components/Layout/MainLayout';
@@ -275,6 +275,46 @@ export default function AdminUsers() {
     }
   };
 
+  const renderLastLogin = (iso?: string | null) => {
+    if (!iso) {
+      return (
+        <span className="flex items-center gap-1 text-destructive text-sm">
+          <AlertTriangle className="h-4 w-4 flex-shrink-0" />
+          Niekada
+        </span>
+      );
+    }
+
+    const lastLogin = new Date(iso);
+    const now = Date.now();
+    const diffDays = (now - lastLogin.getTime()) / (1000 * 60 * 60 * 24);
+
+    if (Number.isNaN(diffDays)) {
+      return <span className="text-sm text-foreground">—</span>;
+    }
+
+    if (diffDays >= 90) {
+      return (
+        <span className="flex items-center gap-1 text-destructive text-sm">
+          <AlertTriangle className="h-4 w-4 flex-shrink-0" />
+          {lastLogin.toLocaleString('lt-LT')}
+        </span>
+      );
+    }
+
+    if (diffDays >= 30) {
+      return (
+        <span className="text-sm text-amber-500">
+          {lastLogin.toLocaleString('lt-LT')}
+        </span>
+      );
+    }
+
+    return (
+      <span className="text-sm text-foreground">{lastLogin.toLocaleString('lt-LT')}</span>
+    );
+  };
+
   return (
     <MainLayout>
       <div className="space-y-6">
@@ -317,6 +357,7 @@ export default function AdminUsers() {
                       <TableHead>El. paštas</TableHead>
                       <TableHead>Rolė</TableHead>
                       <TableHead>Grupės</TableHead>
+                      <TableHead>Paskutinį kartą prisijungęs</TableHead>
                       <TableHead className="text-right">Veiksmai</TableHead>
                     </TableRow>
                   </TableHeader>
@@ -334,6 +375,9 @@ export default function AdminUsers() {
                           <TableCell className="min-w-[14rem] break-words">{user.email}</TableCell>
                           <TableCell>{getRoleBadge(user.role)}</TableCell>
                           <TableCell>{renderUserGroups(user.groups)}</TableCell>
+                          <TableCell>
+                            {renderLastLogin(user.lastLoginAt ?? null)}
+                          </TableCell>
                           <TableCell className="text-right">
                             {isAdmin ? (
                               <div className="flex flex-wrap items-center justify-end gap-2">

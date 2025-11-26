@@ -1404,6 +1404,10 @@ export class AssignmentsService {
       throw new BadRequestException('Užduotis jau įvertinta');
     }
 
+    if (assignment.status !== AssignmentStatus.DONE) {
+      throw new BadRequestException('Užduotis turi būti pažymėta kaip atlikta');
+    }
+
     assignment.rating = dto.rating;
     const normalizedComment = dto.ratingComment?.trim() ?? '';
     assignment.ratingComment = normalizedComment.length ? normalizedComment : null;

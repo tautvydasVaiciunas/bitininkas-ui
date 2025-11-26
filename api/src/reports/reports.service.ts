@@ -206,7 +206,7 @@ export class ReportsService {
     const limit = Math.min(100, filters.limit ?? 20);
 
     const dataQuery = this.createAnalyticsBaseQuery(filters)
-      .orderBy('assignment.created_at', 'DESC')
+      .orderBy('assignment.createdAt', 'DESC')
       .skip((page - 1) * limit)
       .take(limit);
 

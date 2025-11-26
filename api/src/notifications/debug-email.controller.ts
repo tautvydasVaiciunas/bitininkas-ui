@@ -7,7 +7,7 @@ import {
   DEFAULT_CTA_LABEL,
   renderNotificationEmailHtml,
   renderNotificationEmailText,
-} from './email-template';
+} from '../email/email-template';
 import { MAILER_SERVICE, MailerService } from './mailer.service';
 
 class TestEmailDto {

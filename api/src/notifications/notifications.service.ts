@@ -7,7 +7,7 @@ import {
   DEFAULT_CTA_LABEL,
   renderNotificationEmailHtml,
   renderNotificationEmailText,
-} from './email-template';
+} from '../email/email-template';
 import { EmailService } from '../email/email.service';
 import { User, UserRole } from '../users/user.entity';
 import { ConfigService } from '@nestjs/config';

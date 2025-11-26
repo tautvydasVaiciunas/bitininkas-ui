@@ -76,7 +76,8 @@ export class ProgressService {
     }
 
     const memberIds = hive.members?.map((member) => member.id) ?? [];
-    return Array.from(new Set([hive.ownerUserId, ...memberIds]));
+    const ownerIds = hive.ownerUserId ? [hive.ownerUserId] : [];
+    return Array.from(new Set([...ownerIds, ...memberIds]));
   }
 
   private async resolveTargetUserId(

@@ -1,6 +1,7 @@
 import { Injectable, Logger } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
 import { SESClient, SendEmailCommand } from '@aws-sdk/client-ses';
+import { EmailLayoutOptions, renderEmailLayout } from './email-template';
 
 export interface EmailPayload {
   to: string;
@@ -93,5 +94,9 @@ export class EmailService {
 
     const trimmed = value.trim();
     return trimmed.length ? trimmed : null;
+  }
+
+  renderLayout(options: EmailLayoutOptions): string {
+    return renderEmailLayout(options);
   }
 }

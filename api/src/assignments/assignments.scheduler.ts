@@ -11,7 +11,7 @@ import {
   DEFAULT_CTA_LABEL,
   renderNotificationEmailHtml,
   renderNotificationEmailText,
-} from '../notifications/email-template';
+} from '../email/email-template';
 import { MAILER_SERVICE, MailerService } from '../notifications/mailer.service';
 import { GroupMember } from '../groups/group-member.entity';
 import { User, UserRole } from '../users/user.entity';

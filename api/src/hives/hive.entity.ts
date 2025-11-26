@@ -26,12 +26,12 @@ export class Hive {
   @PrimaryGeneratedColumn('uuid')
   id: string;
 
-  @ManyToOne(() => User, (user) => user.hives, { eager: false })
+  @ManyToOne(() => User, (user) => user.hives, { eager: false, nullable: true })
   @JoinColumn({ name: 'owner_user_id' })
-  owner: User;
+  owner?: User | null;
 
-  @Column({ name: 'owner_user_id', type: 'uuid' })
-  ownerUserId!: string;
+  @Column({ name: 'owner_user_id', type: 'uuid', nullable: true })
+  ownerUserId!: string | null;
 
   @ManyToMany(() => User, (user) => user.memberHives, { cascade: false })
   @JoinTable({

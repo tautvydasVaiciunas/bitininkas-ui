@@ -274,12 +274,15 @@ export class HivesService {
   }
 
   async update(id: string, dto: UpdateHiveDto, userId: string, role: UserRole): Promise<Hive> {
-    let memberChanges: { added: string[]; removed: string[] } = {
-      added: [],
-      removed: [],
+    let previousMemberIds: string[] = [];
+
+    type HiveUpdateResult = {
+      updated: Hive;
+      changedFields: Record<string, { before: string | null; after: string | null }>;
+      memberIds: string[] | null;
     };
 
-    const result = await runWithDatabaseErrorHandling(
+    const result = await runWithDatabaseErrorHandling<HiveUpdateResult>(
       () =>
         this.hiveRepository.manager.transaction(async (manager) => {
           const hiveRepo = manager.getRepository(Hive);
@@ -300,7 +303,7 @@ export class HivesService {
             tagName: hive.tag?.name ?? null,
           };
 
-          if (dto.ownerUserId && role !== UserRole.USER) {
+          if (dto.ownerUserId !== undefined && role !== UserRole.USER) {
             hive.ownerUserId = dto.ownerUserId;
           }
 
@@ -322,19 +325,13 @@ export class HivesService {
 
           let memberIds: string[] | null = null;
 
-          const previousMemberIds = hive.members?.map((member) => member.id) ?? [];
+          previousMemberIds = hive.members?.map((member) => member.id) ?? [];
 
           if (dto.members !== undefined || dto.userIds !== undefined) {
             const normalized = this.normalizeUserIds(dto.userIds ?? dto.members ?? []);
             memberIds = await this.validateMemberIds(
               normalized.filter((memberId) => memberId !== hive.ownerUserId),
             );
-            const previousSet = new Set(previousMemberIds);
-            const newSet = new Set(memberIds);
-            memberChanges = {
-              added: memberIds.filter((memberId) => !previousSet.has(memberId)),
-              removed: previousMemberIds.filter((memberId) => !newSet.has(memberId)),
-            };
           }
 
           const saved = await hiveRepo.save(hive);
@@ -354,7 +351,7 @@ export class HivesService {
 
           const changedFields = this.buildChangedFields(originalSnapshot, updated);
 
-          return { updated, changedFields };
+          return { updated, changedFields, memberIds };
         }),
       { message: 'Neteisingi duomenys' },
     );
@@ -363,6 +360,21 @@ export class HivesService {
 
     if (Object.keys(result.changedFields).length) {
       await this.hiveEvents.logHiveUpdated(result.updated.id, result.changedFields, userId);
+    }
+
+    const memberChanges =
+      result.memberIds !== null
+        ? this.computeMemberChanges(result.memberIds, previousMemberIds)
+        : { added: [], removed: [] };
+
+    if (result.memberIds !== null) {
+      this.logger.debug('Hive membership changed', {
+        hiveId: result.updated.id,
+        oldMemberIds: previousMemberIds,
+        newMemberIds: result.memberIds,
+        addedCount: memberChanges.added.length,
+        removedCount: memberChanges.removed.length,
+      });
     }
 
     if (memberChanges.added.length || memberChanges.removed.length) {
@@ -487,5 +499,18 @@ export class HivesService {
     }
 
     return changed;
+  }
+
+  private computeMemberChanges(
+    newMemberIds: string[],
+    previousMemberIds: string[],
+  ): { added: string[]; removed: string[] } {
+    const newSet = new Set(newMemberIds);
+    const previousSet = new Set(previousMemberIds);
+
+    return {
+      added: newMemberIds.filter((id) => !previousSet.has(id)),
+      removed: previousMemberIds.filter((id) => !newSet.has(id)),
+    };
   }
 }

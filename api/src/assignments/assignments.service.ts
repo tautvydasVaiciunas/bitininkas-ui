@@ -32,7 +32,7 @@ import {
   DEFAULT_CTA_LABEL,
   renderNotificationEmailHtml,
   renderNotificationEmailText,
-} from "../notifications/email-template";
+} from "../email/email-template";
 import { MAILER_SERVICE, MailerService } from "../notifications/mailer.service";
 import { NotificationsService } from "../notifications/notifications.service";
 import {
@@ -138,7 +138,8 @@ export class AssignmentsService {
     }
 
     const members = hive.members?.map((member) => member.id) ?? [];
-    return Array.from(new Set([hive.ownerUserId, ...members]));
+    const ownerIds = hive.ownerUserId ? [hive.ownerUserId] : [];
+    return Array.from(new Set([...ownerIds, ...members]));
   }
 
   private async initializeProgressForAssignments(assignments: Assignment[]) {
@@ -186,7 +187,7 @@ export class AssignmentsService {
       }
 
       const participantIds = new Set<string>([
-        hive.ownerUserId,
+        ...(hive.ownerUserId ? [hive.ownerUserId] : []),
         ...(hive.members ?? []).map((member) => member.id),
       ]);
       const stepsForTask = stepsByTaskId.get(assignment.taskId) ?? [];
@@ -570,6 +571,9 @@ export class AssignmentsService {
 
       const hiveIdsByOwner = new Map<string, string[]>();
       for (const hive of hives) {
+        if (!hive.ownerUserId) {
+          continue;
+        }
         const list = hiveIdsByOwner.get(hive.ownerUserId) ?? [];
         list.push(hive.id);
         hiveIdsByOwner.set(hive.ownerUserId, list);

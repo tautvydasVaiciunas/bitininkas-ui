@@ -37,6 +37,8 @@ type EditFormState = {
   members: string[];
 };
 
+type HiveTab = 'tasks' | 'history' | 'settings';
+
 const HiveHistoryTabLazy = lazy(() => import('./HiveHistoryTab'));
 
 export default function HiveDetail() {
@@ -98,7 +100,7 @@ export default function HiveDetail() {
   const hive = data?.hive;
   const isArchived = hive?.status === 'archived';
 
-  const [activeTab, setActiveTab] = useState<'tasks' | 'history' | 'settings'>('tasks');
+  const [activeTab, setActiveTab] = useState<HiveTab>('tasks');
   const [editForm, setEditForm] = useState<EditFormState>({
     label: '',
     location: '',
@@ -108,6 +110,20 @@ export default function HiveDetail() {
 
   const canManageMembers = user?.role === 'admin' || user?.role === 'manager';
   const canManageHistory = canManageMembers;
+
+  const handleTabChange = (value: HiveTab) => {
+    if (!canManageMembers && value === 'settings') {
+      return;
+    }
+
+    setActiveTab(value);
+  };
+
+  useEffect(() => {
+    if (!canManageMembers && activeTab === 'settings') {
+      setActiveTab('tasks');
+    }
+  }, [activeTab, canManageMembers]);
 
   const { data: users = [] } = useQuery<AdminUserResponse[]>({
     queryKey: ['users', 'all'],
@@ -400,10 +416,12 @@ const formatMonthYear = (value?: string | null) => {
           </div>
 
           <div className="flex flex-wrap gap-2 justify-end">
-            <Button variant="outline" onClick={() => setActiveTab('settings')}>
-              <Edit className="mr-2 w-4 h-4" />
-              Redaguoti
-            </Button>
+            {canManageMembers ? (
+              <Button variant="outline" onClick={() => handleTabChange('settings')}>
+                <Edit className="mr-2 w-4 h-4" />
+                Redaguoti
+              </Button>
+            ) : null}
             {canManageMembers ? (
               <Button
                 variant="outline"
@@ -438,10 +456,12 @@ const formatMonthYear = (value?: string | null) => {
                 <p className="text-sm text-muted-foreground mb-1">Lokacija</p>
                 <p className="font-medium">{hive.location ?? 'Nenurodyta'}</p>
               </div>
-              <div>
-                <p className="text-sm text-muted-foreground mb-1">Žyma</p>
-                <p className="font-medium">{hive.tag?.name ?? 'Nenurodyta'}</p>
-              </div>
+              {canManageMembers && (
+                <div>
+                  <p className="text-sm text-muted-foreground mb-1">Žyma</p>
+                  <p className="font-medium">{hive.tag?.name ?? 'Nenurodyta'}</p>
+                </div>
+              )}
               <div>
                 <p className="text-sm text-muted-foreground mb-1">Sukurta</p>
                 <p className="font-medium">{formatMonthYear(hive.createdAt ?? null)}</p>
@@ -465,11 +485,15 @@ const formatMonthYear = (value?: string | null) => {
         </Card>
 
         {/* Tabs */}
-        <Tabs value={activeTab} onValueChange={(value) => setActiveTab(value as typeof activeTab)} className="space-y-6">
+        <Tabs
+          value={activeTab}
+          onValueChange={(value) => handleTabChange(value as HiveTab)}
+          className="space-y-6"
+        >
           <TabsList>
             <TabsTrigger value="tasks">Užduotys</TabsTrigger>
             <TabsTrigger value="history">Istorija</TabsTrigger>
-            <TabsTrigger value="settings">Nustatymai</TabsTrigger>
+            {canManageMembers ? <TabsTrigger value="settings">Nustatymai</TabsTrigger> : null}
           </TabsList>
 
           <TabsContent value="tasks">
@@ -543,12 +567,13 @@ const formatMonthYear = (value?: string | null) => {
               </CardContent>
             </Card>
           </TabsContent>
-          <TabsContent value="settings">
-            <Card className="shadow-custom">
-              <CardHeader>
-                <CardTitle>Avilio nustatymai</CardTitle>
-              </CardHeader>
-              <CardContent>
+          {canManageMembers ? (
+            <TabsContent value="settings">
+              <Card className="shadow-custom">
+                <CardHeader>
+                  <CardTitle>Avilio nustatymai</CardTitle>
+                </CardHeader>
+                <CardContent>
                 <form onSubmit={handleEditSubmit} className="space-y-6">
                   <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
                     <div className="space-y-2">
@@ -635,6 +660,7 @@ const formatMonthYear = (value?: string | null) => {
               </CardContent>
             </Card>
           </TabsContent>
+          ) : null}
         </Tabs>
       </div>
     </MainLayout>

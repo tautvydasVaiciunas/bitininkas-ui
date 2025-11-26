@@ -30,8 +30,8 @@ export class CreateHiveDto {
   status?: HiveStatus;
 
   @IsOptional()
-  @IsString({ message: 'Savininko ID turi būti tekstas' })
-  ownerUserId?: string;
+  @IsUUID('4', { message: 'Savininko ID neteisingas' })
+  ownerUserId?: string | null;
 
   @IsOptional()
   @IsArray({ message: 'Narių sąrašas turi būti masyvas' })

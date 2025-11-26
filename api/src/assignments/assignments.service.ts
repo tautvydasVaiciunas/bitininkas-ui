@@ -312,12 +312,10 @@ export class AssignmentsService {
         subject,
         message,
         ctaUrl,
-        ctaLabel: DEFAULT_CTA_LABEL,
       });
       const text = renderNotificationEmailText({
         message,
         ctaUrl: ctaUrl ?? undefined,
-        ctaLabel: DEFAULT_CTA_LABEL,
       });
 
       try {

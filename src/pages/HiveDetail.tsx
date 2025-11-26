@@ -301,6 +301,7 @@ const formatMonthYear = (value?: string | null) => {
         if (!old) return old;
         return { ...old, hive: updatedHive };
       });
+      queryClient.invalidateQueries({ queryKey: ['hive', id, 'members'] });
       queryClient.invalidateQueries({ queryKey: ['hives'] });
       toast({
         title: 'Avilio informacija atnaujinta',
@@ -613,7 +614,7 @@ const formatMonthYear = (value?: string | null) => {
                       <div className="flex flex-wrap gap-2">
                         {hive?.owner ? (
                           <Badge variant="outline">
-                            {hive.owner.name || hive.owner.email} (savininkas)
+                            {hive.owner.name || hive.owner.email}
                           </Badge>
                         ) : null}
                         {editForm.members.map((memberId) => (

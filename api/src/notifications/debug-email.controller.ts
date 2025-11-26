@@ -35,15 +35,14 @@ export class DebugEmailController {
   @Roles(UserRole.ADMIN)
   async sendTestEmail(@Body() body: TestEmailDto) {
     const fallbackMessage = body.text ?? 'Testinis pranešimas';
-    const html =
-      body.html ??
+      const html =
+        body.html ??
       renderNotificationEmailHtml({
         subject: body.subject,
         message: fallbackMessage,
         ctaUrl: null,
-        ctaLabel: DEFAULT_CTA_LABEL,
       });
-    const text = body.text ?? renderNotificationEmailText({ message: fallbackMessage });
+      const text = body.text ?? renderNotificationEmailText({ message: fallbackMessage });
 
     await this.mailer.sendNotificationEmail(body.to, body.subject, html, text);
 

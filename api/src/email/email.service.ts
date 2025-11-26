@@ -1,4 +1,4 @@
-import { Injectable, Logger } from '@nestjs/common';
+﻿import { Injectable, Logger } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
 import { SESClient, SendEmailCommand } from '@aws-sdk/client-ses';
 import { EmailLayoutOptions, renderEmailLayout } from './email-template';
@@ -8,6 +8,9 @@ export interface EmailPayload {
   subject: string;
   html?: string;
   text?: string;
+  mainHtml?: string;
+  primaryButtonLabel?: string | null;
+  primaryButtonUrl?: string | null;
 }
 
 @Injectable()
@@ -37,7 +40,7 @@ export class EmailService {
     } else {
       this.client = null;
       this.logger.warn(
-        'AWS SES neapkonfigūruotas (AWS_SES_REGION/AWS_SES_ACCESS_KEY_ID/AWS_SES_SECRET_ACCESS_KEY/EMAIL_FROM). Laiškai nebus siųsti.',
+        "AWS SES neapkonfiguruotas (AWS_SES_REGION/AWS_SES_ACCESS_KEY_ID/AWS_SES_SECRET_ACCESS_KEY/EMAIL_FROM). Laiškai nebus siunčiami.",
       );
     }
   }
@@ -57,8 +60,23 @@ export class EmailService {
       body.Text = { Data: payload.text, Charset: 'UTF-8' };
     }
 
-    if (payload.html) {
-      body.Html = { Data: payload.html, Charset: 'UTF-8' };
+    const htmlIsLayout =
+      payload.html?.includes('<html') || payload.html?.includes('<body');
+    const layoutContent = htmlIsLayout ? undefined : payload.mainHtml ?? payload.html;
+
+    const finalHtml = htmlIsLayout
+      ? payload.html
+      : layoutContent
+      ? renderEmailLayout({
+          subject: payload.subject,
+          mainHtml: layoutContent,
+          primaryButtonLabel: payload.primaryButtonLabel ?? null,
+          primaryButtonUrl: payload.primaryButtonUrl ?? null,
+        })
+      : undefined;
+
+    if (finalHtml) {
+      body.Html = { Data: finalHtml, Charset: 'UTF-8' };
     }
 
     if (!body.Text && !body.Html) {

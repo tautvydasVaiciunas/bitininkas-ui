@@ -213,12 +213,10 @@ export class AssignmentsScheduler {
       subject,
       message,
       ctaUrl: emailLink,
-      ctaLabel: DEFAULT_CTA_LABEL,
     });
     const text = renderNotificationEmailText({
       message,
       ctaUrl: emailLink,
-      ctaLabel: DEFAULT_CTA_LABEL,
     });
 
     const notifiedEmails = new Set<string>();

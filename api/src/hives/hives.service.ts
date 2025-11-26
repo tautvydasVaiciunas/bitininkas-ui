@@ -178,8 +178,6 @@ export class HivesService {
     const memberIds = await this.validateMemberIds(
       normalizedUserIds.filter((id) => id !== ownerUserId),
     );
-    const creationMemberChanges = { added: memberIds, removed: [] as string[] };
-
     const saved = await runWithDatabaseErrorHandling(
       () =>
         this.hiveRepository.manager.transaction(async (manager) => {
@@ -219,12 +217,26 @@ export class HivesService {
       throw new NotFoundException('Avilys nerastas');
     }
 
-    if (hiveWithRelations && (creationMemberChanges.added.length || creationMemberChanges.removed.length)) {
-      await this.handleMembershipChanges(
-        hiveWithRelations,
-        creationMemberChanges.added,
-        creationMemberChanges.removed,
-      );
+    if (hiveWithRelations) {
+      const oldUserIds: string[] = [];
+      const newUserIds = this.collectUserIds(hiveWithRelations);
+      const memberChanges = this.computeMemberChanges(oldUserIds, newUserIds);
+
+      this.logger.debug('Hive membership diff on create', {
+        hiveId: hiveWithRelations.id,
+        oldUserIds,
+        newUserIds,
+        addedUserIds: memberChanges.added,
+        removedUserIds: memberChanges.removed,
+      });
+
+      if (memberChanges.added.length || memberChanges.removed.length) {
+        await this.handleMembershipChanges(
+          hiveWithRelations,
+          memberChanges.added,
+          memberChanges.removed,
+        );
+      }
     }
 
     return hiveWithRelations;
@@ -274,12 +286,11 @@ export class HivesService {
   }
 
   async update(id: string, dto: UpdateHiveDto, userId: string, role: UserRole): Promise<Hive> {
-    let previousMemberIds: string[] = [];
+    const previousMembershipIds: string[] = [];
 
     type HiveUpdateResult = {
       updated: Hive;
       changedFields: Record<string, { before: string | null; after: string | null }>;
-      memberIds: string[] | null;
     };
 
     const result = await runWithDatabaseErrorHandling<HiveUpdateResult>(
@@ -325,7 +336,8 @@ export class HivesService {
 
           let memberIds: string[] | null = null;
 
-          previousMemberIds = hive.members?.map((member) => member.id) ?? [];
+          const currentMembershipIds = this.collectUserIds(hive);
+          previousMembershipIds.push(...currentMembershipIds);
 
           if (dto.members !== undefined || dto.userIds !== undefined) {
             const normalized = this.normalizeUserIds(dto.userIds ?? dto.members ?? []);
@@ -362,20 +374,16 @@ export class HivesService {
       await this.hiveEvents.logHiveUpdated(result.updated.id, result.changedFields, userId);
     }
 
-    const memberChanges =
-      result.memberIds !== null
-        ? this.computeMemberChanges(result.memberIds, previousMemberIds)
-        : { added: [], removed: [] };
+    const newMembershipIds = this.collectUserIds(result.updated);
+    const memberChanges = this.computeMemberChanges(previousMembershipIds, newMembershipIds);
 
-    if (result.memberIds !== null) {
-      this.logger.debug('Hive membership changed', {
-        hiveId: result.updated.id,
-        oldMemberIds: previousMemberIds,
-        newMemberIds: result.memberIds,
-        addedCount: memberChanges.added.length,
-        removedCount: memberChanges.removed.length,
-      });
-    }
+    this.logger.debug('Hive membership diff on update', {
+      hiveId: result.updated.id,
+      oldUserIds: previousMembershipIds,
+      newUserIds: newMembershipIds,
+      addedUserIds: memberChanges.added,
+      removedUserIds: memberChanges.removed,
+    });
 
     if (memberChanges.added.length || memberChanges.removed.length) {
       await this.handleMembershipChanges(
@@ -427,6 +435,22 @@ export class HivesService {
         await this.notifyMembershipChange(user, hive, false);
       }
     }
+  }
+
+  private collectUserIds(hive: Hive): string[] {
+    const ids = new Set<string>();
+
+    if (hive.ownerUserId) {
+      ids.add(hive.ownerUserId);
+    }
+
+    if (hive.members?.length) {
+      for (const member of hive.members) {
+        ids.add(member.id);
+      }
+    }
+
+    return Array.from(ids);
   }
 
   private async notifyMembershipChange(user: User, hive: Hive, added: boolean) {

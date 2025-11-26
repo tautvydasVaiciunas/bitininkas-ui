@@ -448,18 +448,18 @@ export class NotificationsService {
         subject,
         message,
         ctaUrl,
-        ctaLabel,
       });
       const text = renderNotificationEmailText({
         message,
         ctaUrl: ctaUrl ?? undefined,
-        ctaLabel,
       });
 
       await this.emailService.sendMail({
         to: user.email,
         subject,
         html,
+        primaryButtonLabel: ctaUrl ? ctaLabel : null,
+        primaryButtonUrl: ctaUrl ?? null,
         text,
       });
     } catch (error) {

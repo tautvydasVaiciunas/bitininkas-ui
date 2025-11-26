@@ -5,7 +5,6 @@ export interface NotificationEmailContent {
   subject: string;
   message: string;
   ctaUrl?: string | null;
-  ctaLabel?: string;
 }
 
 export const DEFAULT_CTA_LABEL = 'Peržiūrėti';
@@ -81,7 +80,6 @@ export function renderNotificationEmailHtml({
   subject,
   message,
   ctaUrl,
-  ctaLabel = DEFAULT_CTA_LABEL,
 }: NotificationEmailContent): string {
   const paragraphHtml = message
     .split(/\r?\n/)
@@ -95,23 +93,22 @@ export function renderNotificationEmailHtml({
     )
     .join('');
 
-  const mainHtml = `<h1 style="font-size: 24px; line-height: 32px; margin: 0 0 24px 0; color: #111827;">${escapeHtml(
-    subject,
-  )}</h1>${paragraphHtml}`;
+  const ctaLine = ctaUrl
+    ? `<p style="margin: 0 0 16px 0; font-size: 16px;"><strong>${escapeHtml(
+        DEFAULT_CTA_LABEL,
+      )}:</strong> <a href="${escapeAttribute(ctaUrl)}" style="color: #0acb8b;">${escapeHtml(ctaUrl)}</a></p>`
+    : '';
 
-  return renderEmailLayout({
+  return `<h1 style="font-size: 24px; line-height: 32px; margin: 0 0 24px 0; color: #111827;">${escapeHtml(
     subject,
-    mainHtml,
-    primaryButtonLabel: ctaUrl ? ctaLabel : undefined,
-    primaryButtonUrl: ctaUrl ?? undefined,
-  });
+  )}</h1>${paragraphHtml}${ctaLine}`;
 }
 
 export function renderNotificationEmailText({
   message,
   ctaUrl,
   ctaLabel = DEFAULT_CTA_LABEL,
-}: Pick<NotificationEmailContent, 'message' | 'ctaUrl' | 'ctaLabel'>): string {
+}: Pick<NotificationEmailContent, 'message' | 'ctaUrl'> & { ctaLabel?: string }): string {
   const lines = [message.trim()].filter((line) => line.length > 0);
 
   if (ctaUrl) {

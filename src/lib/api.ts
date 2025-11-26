@@ -1245,8 +1245,10 @@ export const api = {
         }).then(attachPaginationMetadata),
       add: (groupId: string, payload: AddGroupMemberPayload) =>
         post<GroupMemberResponse>(`/groups/${groupId}/members`, { json: payload }),
-      remove: (groupId: string, userId: string) =>
-        del<void>(`/groups/${groupId}/members/${userId}`),
+      remove: (groupId: string, userId: string, hiveId?: string) =>
+        del<void>(`/groups/${groupId}/members/${userId}`, {
+          query: hiveId ? { hiveId } : undefined,
+        }),
     },
   },
   reports: {

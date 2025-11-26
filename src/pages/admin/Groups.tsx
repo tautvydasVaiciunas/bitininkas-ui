@@ -225,8 +225,15 @@ export default function AdminGroups() {
   });
 
   const removeMemberMutation = useMutation({
-    mutationFn: ({ groupId, userId }: { groupId: string; userId: string }) =>
-      api.groups.members.remove(groupId, userId),
+    mutationFn: ({
+      groupId,
+      userId,
+      hiveId,
+    }: {
+      groupId: string;
+      userId: string;
+      hiveId?: string;
+    }) => api.groups.members.remove(groupId, userId, hiveId),
     onSuccess: () => {
       toast({
         title: "Vartotojas pašalintas iš grupės",
@@ -606,6 +613,7 @@ export default function AdminGroups() {
                             removeMemberMutation.mutate({
                               groupId: membersDialogGroup.id,
                               userId: member.userId,
+                              hiveId: member.hiveId ?? undefined,
                             })
                           }
                           isRemoving={removeMemberMutation.isPending}

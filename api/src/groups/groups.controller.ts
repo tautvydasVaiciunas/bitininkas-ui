@@ -63,7 +63,12 @@ export class GroupsController {
   }
 
   @Delete(':id/members/:userId')
-  removeMember(@Param('id') id: string, @Param('userId') userId: string, @Request() req) {
-    return this.groupsService.removeMember(id, userId, req.user);
+  removeMember(
+    @Param('id') id: string,
+    @Param('userId') userId: string,
+    @Query('hiveId') hiveId: string | undefined,
+    @Request() req,
+  ) {
+    return this.groupsService.removeMember(id, userId, hiveId, req.user);
   }
 }

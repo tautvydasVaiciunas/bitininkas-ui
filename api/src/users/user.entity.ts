@@ -51,6 +51,9 @@ export class User {
   @Column({ name: 'last_message_email_at', type: 'timestamptz', nullable: true })
   lastMessageEmailAt!: Date | null;
 
+  @Column({ name: 'last_login_at', type: 'timestamptz', nullable: true })
+  lastLoginAt!: Date | null;
+
   @CreateDateColumn({ name: 'created_at' })
   createdAt: Date;
 

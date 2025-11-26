@@ -655,6 +655,7 @@ export interface AdminUserResponse {
   role: UserRole;
   createdAt: string;
   updatedAt?: string;
+  lastLoginAt?: string | null;
   groups: AdminUserGroup[];
 }
 

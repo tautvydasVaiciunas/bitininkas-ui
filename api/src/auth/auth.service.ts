@@ -81,6 +81,8 @@ export class AuthService {
 
   async login(dto: LoginDto) {
     const user = await this.validateUser(dto.email, dto.password);
+    user.lastLoginAt = new Date();
+    await this.usersRepository.save(user);
     await this.activityLog.log('user_login', user.id, 'user', user.id);
 
     return this.buildAuthResponse(user);

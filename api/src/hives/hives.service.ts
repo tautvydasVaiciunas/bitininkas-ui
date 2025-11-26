@@ -1,4 +1,10 @@
-import { BadRequestException, ForbiddenException, Injectable, Logger, NotFoundException } from '@nestjs/common';
+import {
+  BadRequestException,
+  ForbiddenException,
+  Injectable,
+  Logger,
+  NotFoundException,
+} from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
 import { Brackets, EntityManager, In, Repository } from 'typeorm';
 import { Hive, HiveStatus } from './hive.entity';
@@ -11,6 +17,8 @@ import { HiveTag } from './tags/hive-tag.entity';
 import { HiveEventsService } from './hive-events.service';
 import { NotificationsService } from '../notifications/notifications.service';
 import { EmailService } from '../email/email.service';
+import { ConfigService } from '@nestjs/config';
+import { resolveFrontendUrl } from '../common/utils/frontend-url';
 
 @Injectable()
 export class HivesService {
@@ -27,6 +35,7 @@ export class HivesService {
     private readonly hiveEvents: HiveEventsService,
     private readonly notifications: NotificationsService,
     private readonly emailService: EmailService,
+    private readonly configService: ConfigService,
   ) {}
 
   private normalizeNullableString(value?: string | null) {
@@ -409,13 +418,16 @@ export class HivesService {
   }
 
   private async notifyMembershipChange(user: User, hive: Hive, added: boolean) {
+    const hiveUrl = resolveFrontendUrl(this.configService, `/hives/${hive.id}`);
+    const hivesUrl = resolveFrontendUrl(this.configService, '/hives');
+    const supportUrl = resolveFrontendUrl(this.configService, '/support');
     const subject = added ? 'Priskirtas naujas avilys' : 'Avilys pašalintas iš jūsų paskyros';
     const text = added
-      ? `Jums priskirtas avilys „${hive.label}“. Peržiūrėti: https://app.busmedaus.lt/hives/${hive.id}`
-      : `Avilys „${hive.label}“ nebėra priskirtas jūsų paskyrai. Jei manote, kad tai klaida, parašykite žinutę per sistemą.`;
+      ? `Jums priskirtas avilys „${hive.label}“. Peržiūrėti: ${hiveUrl}`
+      : `Avilys „${hive.label}“ nebėra priskirtas jūsų paskyrai. Jei manote, kad tai klaida, parašykite žinutę per sistemą: ${supportUrl}`;
     const html = added
-      ? `<p>Jums priskirtas avilys „${hive.label}“.</p><p><a href="https://app.busmedaus.lt/hives/${hive.id}">Peržiūrėti avilį</a></p>`
-      : `<p>Avilys „${hive.label}“ nebėra priskirtas jūsų paskyrai.</p><p><a href="https://app.busmedaus.lt/support">Parašykite žinutę</a></p>`;
+      ? `<p>Jums priskirtas avilys „${hive.label}“.</p><p><a href="${hiveUrl}">Peržiūrėti avilį</a></p>`
+      : `<p>Avilys „${hive.label}“ nebėra priskirtas jūsų paskyrai.</p><p><a href="${supportUrl}">Parašykite žinutę</a></p><p><a href="${hivesUrl}">Peržiūrėti kitus avilius</a></p>`;
 
     if (user.email) {
       try {
@@ -442,7 +454,7 @@ export class HivesService {
         body: added
           ? `Jums priskirtas avilys ${hive.label}.`
           : `Avilys ${hive.label} nebėra priskirtas jūsų paskyrai.`,
-        link: added ? `/hives/${hive.id}` : '/support',
+        link: added ? `/hives/${hive.id}` : '/hives',
         sendEmail: false,
       });
     } catch (error) {

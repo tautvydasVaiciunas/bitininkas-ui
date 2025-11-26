@@ -1405,7 +1405,11 @@ export class AssignmentsService {
     }
 
     if (assignment.status !== AssignmentStatus.DONE) {
-      throw new BadRequestException('Užduotis turi būti pažymėta kaip atlikta');
+      assignment.status = AssignmentStatus.DONE;
+    }
+
+    if (!assignment.completedAt) {
+      assignment.completedAt = new Date();
     }
 
     assignment.rating = dto.rating;

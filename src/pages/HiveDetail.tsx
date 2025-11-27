@@ -227,21 +227,12 @@ export default function HiveDetail() {
   };
 
   const assignedUsers = useMemo(() => {
-    const map = new Map<string, HiveMemberResponse>();
-    if (hive?.owner) {
-      map.set(hive.owner.id, {
-        id: hive.owner.id,
-        email: hive.owner.email,
-        name: hive.owner.name ?? null,
-      });
-    }
-    for (const member of assignedMembers ?? []) {
-      if (member.id) {
-        map.set(member.id, member);
-      }
-    }
-    return Array.from(map.values());
-  }, [hive?.owner, assignedMembers]);
+    return Array.from(
+      new Map(
+        (assignedMembers ?? []).map((member) => [member.id, member]),
+      ).values(),
+    );
+  }, [assignedMembers]);
 
   const assignments = useMemo(() => data?.assignments ?? [], [data]);
 

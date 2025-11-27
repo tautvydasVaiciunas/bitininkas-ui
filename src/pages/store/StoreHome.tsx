@@ -73,30 +73,38 @@ const StoreHome = () => {
       {isLoading && <p>Kraunama...</p>}
       {isError && <p>Nepavyko įkelti produktų. Bandykite dar kartą.</p>}
 
-      {hasProducts && hasSearchResults ? (
-        <div className="grid grid-cols-1 gap-6 sm:grid-cols-2 lg:grid-cols-3">
-          {filteredProducts.map((product) => (
-            <Card key={product.id} className="flex h-full flex-col overflow-hidden">
-              {product.imageUrls?.length ? (
-                <div className="h-48 w-full bg-muted">
-                  <img
-                    src={product.imageUrls[0]}
-                    alt={product.title}
-                    className="h-full w-full object-cover"
-                    loading="lazy"
-                  />
-                </div>
-              ) : (
-                <div className="h-48 flex w-full items-center justify-center bg-muted text-sm text-muted-foreground">
-                  Nėra nuotraukos
-                </div>
-              )}
-              <CardHeader className="flex flex-col gap-3">
-                <CardTitle className="flex items-center justify-between gap-4 text-base">
-                  <span>{product.title}</span>
-                  <div className="text-right">
-                    <p className="text-xs uppercase tracking-wide text-muted-foreground">
-                      Kaina su PVM
+        {hasProducts && hasSearchResults ? (
+          <div className="grid grid-cols-1 gap-6 sm:grid-cols-2 lg:grid-cols-3">
+            {filteredProducts.map((product) => (
+              <Card key={product.id} className="flex h-full flex-col overflow-hidden">
+                {product.imageUrls?.length ? (
+                  <Link
+                    to={`/parduotuve/produktas/${product.slug}`}
+                    className="block h-48 w-full bg-muted"
+                  >
+                    <img
+                      src={product.imageUrls[0]}
+                      alt={product.title}
+                      className="h-full w-full object-cover"
+                      loading="lazy"
+                    />
+                  </Link>
+                ) : (
+                  <div className="h-48 flex w-full items-center justify-center bg-muted text-sm text-muted-foreground">
+                    Nėra nuotraukos
+                  </div>
+                )}
+                <CardHeader className="flex flex-col gap-3">
+                  <CardTitle className="flex items-center justify-between gap-4 text-base">
+                    <Link
+                      to={`/parduotuve/produktas/${product.slug}`}
+                      className="text-sm font-semibold leading-tight text-foreground transition-colors hover:text-primary"
+                    >
+                      {product.title}
+                    </Link>
+                    <div className="text-right">
+                      <p className="text-xs uppercase tracking-wide text-muted-foreground">
+                        Kaina su PVM
                     </p>
                     <p className="text-base font-semibold text-primary">
                       {formatPrice(netToGrossCents(product.priceCents))}

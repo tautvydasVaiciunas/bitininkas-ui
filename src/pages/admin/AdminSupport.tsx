@@ -250,74 +250,87 @@ const AdminSupport = () => {
 
   return (
     <MainLayout>
-      <div className="mx-auto flex w-full max-w-6xl gap-6 py-10 px-4">
-        <aside className="w-80 space-y-3 rounded-2xl border border-border bg-background p-4">
-          <div className="relative">
-            <Input
-              placeholder="Ieškoti vartotojo..."
-              value={userQuery}
-              onChange={(event) => setUserQuery(event.target.value)}
-              className="mb-2"
-            />
-            {userQuery.trim() &&
-            (searchLoading || searchError || userSearchResults.length > 0) ? (
-              <div className="absolute inset-x-0 top-full z-10 mt-1 max-h-52 overflow-y-auto rounded-xl border bg-background shadow-lg">
-                {searchLoading ? (
-                  <p className="px-3 py-2 text-sm text-muted-foreground">Kraunama...</p>
-                ) : searchError ? (
-                  <p className="px-3 py-2 text-sm text-destructive">{searchError}</p>
-                ) : (
-                  userSearchResults.map((user) => (
+      <div className="mx-auto flex w-full max-w-6xl flex-col gap-6 px-4 py-10">
+        <div className="grid gap-6 lg:grid-cols-[minmax(0,320px)_1fr]">
+          <aside className="flex flex-col gap-4 rounded-2xl border border-border bg-background/60 p-4 shadow-sm shadow-black/5">
+            <div>
+              <h2 className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">
+                Pokalbiai
+              </h2>
+              <p className="text-xs text-muted-foreground">
+                Raskite vartotoją arba pasirinkite esamą temą.
+              </p>
+            </div>
+            <div className="relative">
+              <Input
+                placeholder="Ieškoti vartotojo..."
+                value={userQuery}
+                onChange={(event) => setUserQuery(event.target.value)}
+                className="mb-2"
+              />
+              {userQuery.trim() &&
+              (searchLoading || searchError || userSearchResults.length > 0) ? (
+                <div className="absolute inset-x-0 top-full z-20 mt-1 max-h-52 overflow-y-auto rounded-xl border bg-background shadow-lg">
+                  {searchLoading ? (
+                    <p className="px-3 py-2 text-sm text-muted-foreground">Kraunama...</p>
+                  ) : searchError ? (
+                    <p className="px-3 py-2 text-sm text-destructive">{searchError}</p>
+                  ) : (
+                    userSearchResults.map((user) => (
+                      <button
+                        key={user.id}
+                        type="button"
+                        onMouseDown={(event) => event.preventDefault()}
+                        onClick={() => handleSelectUser(user)}
+                        className="w-full px-3 py-2 text-left text-sm transition hover:bg-primary/10"
+                      >
+                        <p className="font-medium">{user.name ?? user.email}</p>
+                        <p className="text-xs text-muted-foreground">{user.email}</p>
+                      </button>
+                    ))
+                  )}
+                </div>
+              ) : null}
+            </div>
+            <div className="flex-1 overflow-auto">
+              {threadsLoading ? (
+                <p className="text-sm text-muted-foreground">Kraunama...</p>
+              ) : threadsError ? (
+                <p className="text-sm text-destructive">{threadsError}</p>
+              ) : (
+                <div className="space-y-2">
+                  {threads.map((thread) => (
                     <button
-                      key={user.id}
-                      type="button"
-                      onMouseDown={(event) => event.preventDefault()}
-                      onClick={() => handleSelectUser(user)}
-                      className="w-full px-3 py-2 text-left text-sm transition hover:bg-primary/10"
+                      key={thread.id}
+                      onClick={() => setSelectedThreadId(thread.id)}
+                      className={cn(
+                        'w-full rounded-2xl border px-3 py-3 text-left text-sm transition-colors',
+                        thread.id === activeThread?.id
+                          ? 'border-primary bg-primary/10 text-primary'
+                          : 'border-border bg-muted/80 hover:border-primary hover:text-foreground',
+                      )}
                     >
-                      <p className="font-medium">{user.name ?? user.email}</p>
-                      <p className="text-xs text-muted-foreground">{user.email}</p>
+                      <p className="font-medium">{thread.userName ?? 'Vartotojas'}</p>
+                      {thread.userEmail ? (
+                        <p className="text-xs text-muted-foreground">{thread.userEmail}</p>
+                      ) : null}
+                      <p className="text-xs text-muted-foreground">
+                        {thread.lastMessageText ?? 'Nėra žinučių'} • {thread.unreadFromUser} neperskaitytų
+                      </p>
                     </button>
-                  ))
-                )}
-              </div>
-            ) : null}
-          </div>
-          <h2 className="text-sm font-semibold uppercase tracking-wide text-muted-foreground">Pokalbiai</h2>
-          {threadsLoading ? (
-            <p className="text-sm text-muted-foreground">Kraunama...</p>
-          ) : threadsError ? (
-            <p className="text-sm text-destructive">{threadsError}</p>
-          ) : (
-            threads.map((thread) => (
-                <button
-                  key={thread.id}
-                  onClick={() => setSelectedThreadId(thread.id)}
-                  className={cn(
-                    'w-full rounded-xl border px-3 py-2 text-left text-sm transition-colors',
-                    thread.id === activeThread?.id
-                    ? 'border-primary bg-primary/10'
-                    : 'border-border bg-muted hover:border-primary hover:text-primary',
-                )}
-              >
-                  <p className="font-medium">{thread.userName ?? 'Vartotojas'}</p>
-                  {thread.userEmail ? (
-                    <p className="text-xs text-muted-foreground">{thread.userEmail}</p>
-                  ) : null}
-                  <p className="text-xs text-muted-foreground">
-                    {thread.lastMessageText ?? 'Nėra žinučių'} • {thread.unreadFromUser} neperskaitytų
-                  </p>
-                </button>
-            ))
-          )}
-        </aside>
+                  ))}
+                </div>
+              )}
+            </div>
+          </aside>
 
-        <div className="flex-1 space-y-4 rounded-2xl border border-border bg-background/80 p-4 shadow-sm shadow-black/5">
-          <header>
-            <h1 className="text-xl font-semibold">Žinutės</h1>
-            <p className="text-xs text-muted-foreground">Atsakykite į vartotojų klausimus</p>
-          </header>
-          <div className="max-h-[60vh] space-y-4 overflow-y-auto rounded-xl border border-border/70 p-3">
+          <div className="flex flex-1 flex-col gap-4 rounded-2xl border border-border bg-background/80 p-4 shadow-sm shadow-black/5">
+            <header className="space-y-1">
+              <h1 className="text-xl font-semibold">Žinutės</h1>
+              <p className="text-xs text-muted-foreground">Atsakykite į vartotojų klausimus</p>
+            </header>
+            <div className="flex-1 overflow-hidden rounded-xl border border-border/70 bg-white/80 p-3">
+              <div className="flex h-full flex-col gap-4 overflow-y-auto pr-1">
             {showLoadMore && (
               <div className="flex justify-center">
                 <Button variant="ghost" size="sm" onClick={handleLoadMore} disabled={loadingMore}>
@@ -371,6 +384,8 @@ const AdminSupport = () => {
                 </div>
               ))
             )}
+              </div>
+            </div>
           </div>
           <div className="space-y-2">
             <div className="flex items-center gap-2">

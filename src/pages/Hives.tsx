@@ -182,7 +182,7 @@ function HiveCard({
             />
           </Link>
         </div>
-        <div className="flex flex-col flex-1">
+        <div className="flex flex-col">
           <CardHeader className="pt-6">
             <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
               <div className="flex-1">
@@ -204,7 +204,7 @@ function HiveCard({
               ) : null}
             </div>
           </CardHeader>
-          <CardContent className="flex flex-1 flex-col space-y-4">
+          <CardContent className="flex flex-col gap-3">
             <div className="space-y-2 text-sm">
               <div className="flex items-center gap-2">
                 <Calendar className="w-4 h-4 text-muted-foreground" />
@@ -215,7 +215,7 @@ function HiveCard({
               </div>
             </div>
 
-            <div className="flex-1">
+            <div>
               {summaryLoading ? (
                 <Skeleton className="h-16 w-full rounded-lg" />
               ) : summary ? (
@@ -820,3 +820,4 @@ export default function Hives() {
     </MainLayout>
   );
 }
+

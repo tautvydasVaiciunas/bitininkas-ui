@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { useQuery } from "@tanstack/react-query";
 import { Link, useParams } from "react-router-dom";
 
@@ -27,6 +27,12 @@ const StoreProductDetail = () => {
       }
     },
   });
+
+  useEffect(() => {
+    if (!activeImage && data?.imageUrls?.length) {
+      setActiveImage(data.imageUrls[0]);
+    }
+  }, [activeImage, data]);
 
   const handleAdd = () => {
     if (!data) return;

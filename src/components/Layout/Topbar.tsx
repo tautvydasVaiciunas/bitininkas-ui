@@ -8,6 +8,7 @@ import {
   Megaphone,
   MessageCircle,
   CheckCheck,
+  ShoppingBag,
   HelpCircle,
 } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
@@ -95,6 +96,8 @@ export const Topbar = () => {
       assignment: <Bell className="w-4 h-4 text-primary" />,
       news: <Megaphone className="w-4 h-4 text-success" />,
       message: <MessageCircle className="w-4 h-4 text-muted-foreground" />,
+      hive_assignment: <CheckCheck className="w-4 h-4 text-foreground" />,
+      store_order: <ShoppingBag className="w-4 h-4 text-amber-500" />,
     };
     return icons[type] ?? <Bell className="w-4 h-4 text-muted-foreground" />;
   }, []);

@@ -45,6 +45,11 @@ export default function Login() {
     setEmail(demoEmail);
     setPassword('password');
   };
+  const demoAccounts = [
+    { label: 'Administratorius', email: 'admin@example.com' },
+    { label: 'Manageris', email: 'manager@example.com' },
+    { label: 'Vartotojas', email: 'jonas@example.com' },
+  ];
 
   return (
     <div className="min-h-screen flex items-center justify-center bg-background p-4">
@@ -128,23 +133,20 @@ export default function Login() {
               </div>
             </div>
 
-            <div className="space-y-2 text-sm">
-              <Button
-                type="button"
-                variant="outline"
-                className="w-full justify-start"
-                onClick={() => fillDemo('admin@example.com')}
-              >
-                Administratorius: admin@example.com / password
-              </Button>
-              <Button
-                type="button"
-                variant="outline"
-                className="w-full justify-start"
-                onClick={() => fillDemo('jonas@example.com')}
-              >
-                Vartotojas: jonas@example.com / password
-              </Button>
+            <div className="space-y-3 text-center text-sm text-muted-foreground">
+              <p>Pasirinkite demo paskyrą, kad iškart prisijungtumėte</p>
+              <div className="grid gap-2 sm:grid-cols-3">
+                {demoAccounts.map((account) => (
+                  <Button
+                    key={account.email}
+                    type="button"
+                    variant="outline"
+                    onClick={() => fillDemo(account.email)}
+                  >
+                    {account.label}
+                  </Button>
+                ))}
+              </div>
             </div>
           </form>
         </CardContent>

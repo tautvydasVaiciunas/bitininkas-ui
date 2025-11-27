@@ -15,6 +15,7 @@ import {
   Newspaper,
   User,
 } from "lucide-react";
+import { Badge } from "@/components/ui/badge";
 import {
   GroupBeeIcon,
   HiveBeeIcon,
@@ -127,6 +128,14 @@ export const Sidebar = () => {
     };
   }, [user?.id, isPrivileged]);
 
+  const { data: storeOrdersCountData } = useQuery<{ count: number }>({
+    queryKey: ['admin-store-orders-count'],
+    queryFn: () => api.admin.store.orders.count(),
+    enabled: isPrivileged,
+    staleTime: 60_000,
+  });
+  const pendingOrdersCount = storeOrdersCountData?.count ?? 0;
+
   const adminSupportUnreadQuery = useQuery<AdminSupportUnreadResponse>({
     queryKey: ['admin', 'support', 'unread-count'],
     queryFn: () => api.support.admin.unreadCount(),
@@ -226,6 +235,14 @@ export const Sidebar = () => {
                     }
                   >
                     <item.icon className="h-5 w-5" />
+                    <div className="flex items-center gap-2">
+                      <span>{item.label}</span>
+                      {item.to === "/admin/store/products" && pendingOrdersCount > 0 ? (
+                        <Badge className="text-[0.6rem] px-2 py-0.5" variant="destructive">
+                          {pendingOrdersCount}
+                        </Badge>
+                      ) : null}
+                    </div>
                     {item.to === messagesNav.to && adminUnreadCount > 0 ? (
                       <span className="ml-2 inline-flex items-center justify-center rounded-full bg-destructive px-2 py-0.5 text-[0.6rem] font-semibold text-white">
                         {adminUnreadCount}

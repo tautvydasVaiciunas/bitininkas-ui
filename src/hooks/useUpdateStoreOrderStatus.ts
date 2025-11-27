@@ -19,6 +19,7 @@ export const useUpdateStoreOrderStatus = () => {
       toast({ title: "Užsakymo būsena atnaujinta" });
       queryClient.invalidateQueries({ queryKey: ["admin-store-orders"] });
       queryClient.invalidateQueries({ queryKey: ["admin-store-order", variables.orderId] });
+      queryClient.invalidateQueries({ queryKey: ["admin-store-orders-count"] });
     },
     onError: () => {
       toast({

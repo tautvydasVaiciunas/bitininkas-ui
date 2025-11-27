@@ -267,7 +267,7 @@ const AdminNews = () => {
       return;
     }
 
-    if (!formState.title.trim() || !formState.body.trim()) {
+    if (formState.createNews && (!formState.title.trim() || !formState.body.trim())) {
       toast({
         title: "Nepavyko išsaugoti",
         description: "Užpildykite pavadinimą ir turinį.",
@@ -437,87 +437,6 @@ const AdminNews = () => {
             </DialogHeader>
 
             <div className="flex-1 overflow-y-auto space-y-4 pr-2">
-              <div className="space-y-2">
-                <Label htmlFor="news-title">Pavadinimas</Label>
-                <Input
-                  id="news-title"
-                  value={formState.title}
-                  onChange={(event) =>
-                    setFormState((prev) => ({ ...prev, title: event.target.value }))
-                  }
-                  placeholder="Įveskite pavadinimą"
-                  required
-                />
-              </div>
-
-              <div className="space-y-2">
-                <Label htmlFor="news-body">Turinys</Label>
-                <Textarea
-                  id="news-body"
-                  value={formState.body}
-                  onChange={(event) =>
-                    setFormState((prev) => ({ ...prev, body: event.target.value }))
-                  }
-                  placeholder="Įveskite naujienos tekstą"
-                  rows={8}
-                  required
-                />
-              </div>
-
-              <div className="space-y-2">
-                <Label>Paveikslėlis</Label>
-                <div className="flex flex-col gap-3 sm:flex-row sm:items-center">
-                  <Input
-                    value={formState.imageUrl}
-                    onChange={(event) =>
-                      setFormState((prev) => ({ ...prev, imageUrl: event.target.value }))
-                    }
-                    placeholder="Įklijuokite URL arba įkelkite failą"
-                  />
-                  <div className="flex items-center gap-2">
-                    <input
-                      ref={fileInputRef}
-                      type="file"
-                      accept="image/*"
-                      className="hidden"
-                      onChange={(event) => {
-                        const file = event.target.files?.[0];
-                        if (file) {
-                          void handleUploadImage(file);
-                          event.target.value = "";
-                        }
-                      }}
-                    />
-                    <Button
-                      type="button"
-                      variant="outline"
-                      disabled={isUploadingImage}
-                      onClick={() => fileInputRef.current?.click()}
-                    >
-                      {isUploadingImage ? (
-                        <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-                      ) : (
-                        <ImageIcon className="mr-2 h-4 w-4" />
-                      )}
-                      Įkelti
-                    </Button>
-                    {formState.imageUrl ? (
-                      <Button
-                        type="button"
-                        variant="ghost"
-                        className="text-muted-foreground"
-                        onClick={() => setFormState((prev) => ({ ...prev, imageUrl: "" }))}
-                      >
-                        Pašalinti
-                      </Button>
-                    ) : null}
-                  </div>
-                </div>
-                <p className="text-sm text-muted-foreground">
-                  Galimi URL, prasidedantys nuo /uploads/ arba http(s).
-                </p>
-              </div>
-
               <div className="space-y-3">
                 <div className="flex items-start gap-3 rounded-md border border-muted p-3">
                   <Checkbox
@@ -585,8 +504,94 @@ const AdminNews = () => {
                     </p>
                   </div>
                 </div>
+
+                {formState.createNews ? (
+                  <div className="space-y-4 pt-2">
+                    <div className="space-y-2">
+                      <Label htmlFor="news-title">Pavadinimas</Label>
+                      <Input
+                        id="news-title"
+                        value={formState.title}
+                        onChange={(event) =>
+                          setFormState((prev) => ({ ...prev, title: event.target.value }))
+                        }
+                        placeholder="Įveskite pavadinimą"
+                        required={formState.createNews}
+                      />
+                    </div>
+                    <div className="space-y-2">
+                      <Label htmlFor="news-body">Turinys</Label>
+                      <Textarea
+                        id="news-body"
+                        value={formState.body}
+                        onChange={(event) =>
+                          setFormState((prev) => ({ ...prev, body: event.target.value }))
+                        }
+                        placeholder="Įveskite naujienos tekstą"
+                        rows={8}
+                        required={formState.createNews}
+                      />
+                    </div>
+                    <div className="space-y-2">
+                      <Label>Paveikslėlis</Label>
+                      <div className="flex flex-col gap-3 sm:flex-row sm:items-center">
+                        <Input
+                          value={formState.imageUrl}
+                          onChange={(event) =>
+                            setFormState((prev) => ({ ...prev, imageUrl: event.target.value }))
+                          }
+                          placeholder="Įklijuokite URL arba įkelkite failą"
+                        />
+                        <div className="flex items-center gap-2">
+                          <input
+                            ref={fileInputRef}
+                            type="file"
+                            accept="image/*"
+                            className="hidden"
+                            onChange={(event) => {
+                              const file = event.target.files?.[0];
+                              if (file) {
+                                void handleUploadImage(file);
+                                event.target.value = "";
+                              }
+                            }}
+                          />
+                          <Button
+                            type="button"
+                            variant="outline"
+                            disabled={isUploadingImage}
+                            onClick={() => fileInputRef.current?.click()}
+                          >
+                            {isUploadingImage ? (
+                              <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                            ) : (
+                              <ImageIcon className="mr-2 h-4 w-4" />
+                            )}
+                            Įkelti
+                          </Button>
+                          {formState.imageUrl ? (
+                            <Button
+                              type="button"
+                              variant="ghost"
+                              className="text-muted-foreground"
+                              onClick={() => setFormState((prev) => ({ ...prev, imageUrl: "" }))}
+                            >
+                              Pašalinti
+                            </Button>
+                          ) : null}
+                        </div>
+                      </div>
+                      <p className="text-sm text-muted-foreground">
+                        Galimi URL, prasidedantys nuo /uploads/ arba http(s).
+                      </p>
+                    </div>
+                  </div>
+                ) : null}
+              </div>
+
+              <div className="space-y-3 rounded-md border border-muted p-3">
                 <div className="flex items-start gap-3">
-                <Checkbox
+                  <Checkbox
                     id="news-create-assignment"
                     checked={formState.createAssignment}
                     onCheckedChange={(checked) =>
@@ -614,9 +619,7 @@ const AdminNews = () => {
                   </div>
                 </div>
 
-                {toggleError ? (
-                  <p className="text-xs text-destructive">{toggleError}</p>
-                ) : null}
+                {toggleError ? <p className="text-xs text-destructive">{toggleError}</p> : null}
 
                 {formState.createAssignment ? (
                   <div className="space-y-4 pt-2">

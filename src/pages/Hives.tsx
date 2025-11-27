@@ -168,7 +168,7 @@ function HiveCard({
 
   return (
     <div className="h-full flex flex-col">
-      <Card className="shadow-custom hover:shadow-custom-md transition-all group h-full min-h-[560px] flex flex-col overflow-hidden">
+      <Card className="shadow-custom hover:shadow-custom-md transition-all group h-full flex flex-col overflow-hidden">
         <div className="h-56 w-full overflow-hidden rounded-t-lg bg-white">
           <Link
             to={`/hives/${hive.id}`}
@@ -182,7 +182,7 @@ function HiveCard({
             />
           </Link>
         </div>
-        <div className="flex flex-col">
+        <div className="flex flex-col flex-1">
           <CardHeader className="pt-6">
             <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
               <div className="flex-1">
@@ -204,7 +204,7 @@ function HiveCard({
               ) : null}
             </div>
           </CardHeader>
-          <CardContent className="flex flex-col flex-1 gap-3">
+          <CardContent className="flex flex-col flex-1 gap-4">
             <div className="flex flex-col gap-3 text-sm flex-1">
               <div className="flex items-center gap-2">
                 <Calendar className="w-4 h-4 text-muted-foreground" />
@@ -270,17 +270,17 @@ function HiveCard({
               </div>
             </div>
 
-            <div className="mt-auto flex flex-col gap-2 sm:flex-row">
+            <div className="flex flex-col gap-2 sm:flex-row">
               <Button asChild variant="outline" className="flex-1">
                 <Link to={`/hives/${hive.id}`}>
                   Peržiūrėti
                   <ChevronRight className="ml-2 w-4 h-4 opacity-0 group-hover:opacity-100 transition-opacity" />
-                </Link>
-              </Button>
-            </div>
-          </CardContent>
-        </div>
-      </Card>
+                  </Link>
+                </Button>
+              </div>
+            </CardContent>
+          </div>
+        </Card>
 
       <AlertDialog
         open={confirmAction !== null}

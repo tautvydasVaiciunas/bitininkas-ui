@@ -204,8 +204,8 @@ function HiveCard({
               ) : null}
             </div>
           </CardHeader>
-          <CardContent className="flex flex-col gap-3">
-            <div className="space-y-2 text-sm">
+          <CardContent className="flex flex-col flex-1 gap-3">
+            <div className="flex flex-col gap-3 text-sm flex-1">
               <div className="flex items-center gap-2">
                 <Calendar className="w-4 h-4 text-muted-foreground" />
                 <span className="text-muted-foreground">
@@ -213,64 +213,64 @@ function HiveCard({
                 </span>
                 <span>{formatMonthYear(hive.createdAt)}</span>
               </div>
-            </div>
 
-            <div>
-              {summaryLoading ? (
-                <Skeleton className="h-16 w-full rounded-lg" />
-              ) : summary ? (
-                (() => {
-                  const assignmentContent = (
-                    <div
-                      className={`rounded-lg border border-border px-3 py-2 text-sm ${
-                        assignmentRunLink ? "hover:border-foreground hover:bg-muted/20" : ""
-                      }`}
-                    >
-                      <div className="flex items-center justify-between">
-                        <span className="text-muted-foreground">Aktyvios užduotys</span>
-                        <div className="flex items-center gap-2">
-                          <span className="font-medium">{activeAssignmentsCount}</span>
-                          <Badge
-                            variant={urgencyVariant}
-                            className="h-3 w-3 p-0 border-0"
-                            aria-label={urgencyLabel}
-                          />
-                          <span className="sr-only">{urgencyLabel}</span>
+              <div>
+                {summaryLoading ? (
+                  <Skeleton className="h-16 w-full rounded-lg" />
+                ) : summary ? (
+                  (() => {
+                    const assignmentContent = (
+                      <div
+                        className={`rounded-lg border border-border px-3 py-2 text-sm ${
+                          assignmentRunLink ? "hover:border-foreground hover:bg-muted/20" : ""
+                        }`}
+                      >
+                        <div className="flex items-center justify-between">
+                          <span className="text-muted-foreground">Aktyvios užduotys</span>
+                          <div className="flex items-center gap-2">
+                            <span className="font-medium">{activeAssignmentsCount}</span>
+                            <Badge
+                              variant={urgencyVariant}
+                              className="h-3 w-3 p-0 border-0"
+                              aria-label={urgencyLabel}
+                            />
+                            <span className="sr-only">{urgencyLabel}</span>
+                          </div>
                         </div>
+                        {activeAssignmentsCount > 0 ? (
+                          <div className="mt-1 text-muted-foreground">
+                            <span className="font-medium text-foreground">
+                              Užbaigta: {progressPercent}%
+                            </span>
+                          </div>
+                        ) : null}
                       </div>
-                      {activeAssignmentsCount > 0 ? (
-                        <div className="mt-1 text-muted-foreground">
-                          <span className="font-medium text-foreground">
-                            Užbaigta: {progressPercent}%
-                          </span>
-                        </div>
-                      ) : null}
-                    </div>
-                  );
-                  return assignmentRunLink ? (
-                    <Link
-                      to={assignmentRunLink}
-                      className="block cursor-pointer"
-                      aria-label="Eiti į aktyviausią užduotį"
-                    >
-                      {assignmentContent}
-                    </Link>
-                  ) : (
-                    assignmentContent
-                  );
-                })()
-              ) : summaryError ? (
-                <div className="rounded-lg bg-destructive/10 border border-destructive/20 px-3 py-2 text-sm text-destructive-foreground">
-                  Nepavyko įkelti suvestinės
-                </div>
-              ) : (
-                <div className="rounded-lg border border-border px-3 py-2 text-sm text-muted-foreground">
-                  Nėra suvestinės duomenų
-                </div>
-              )}
+                    );
+                    return assignmentRunLink ? (
+                      <Link
+                        to={assignmentRunLink}
+                        className="block cursor-pointer"
+                        aria-label="Eiti į aktyviausią užduotį"
+                      >
+                        {assignmentContent}
+                      </Link>
+                    ) : (
+                      assignmentContent
+                    );
+                  })()
+                ) : summaryError ? (
+                  <div className="rounded-lg bg-destructive/10 border border-destructive/20 px-3 py-2 text-sm text-destructive-foreground">
+                    Nepavyko įkelti suvestinės
+                  </div>
+                ) : (
+                  <div className="rounded-lg border border-border px-3 py-2 text-sm text-muted-foreground">
+                    Nėra suvestinės duomenų
+                  </div>
+                )}
+              </div>
             </div>
 
-            <div className="flex flex-col gap-2 sm:flex-row">
+            <div className="mt-auto flex flex-col gap-2 sm:flex-row">
               <Button asChild variant="outline" className="flex-1">
                 <Link to={`/hives/${hive.id}`}>
                   Peržiūrėti

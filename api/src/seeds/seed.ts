@@ -117,6 +117,10 @@ const seedMediaUrl = (asset: SeedMediaAsset) =>
 
 const IMAGE_MEDIA_TYPE: TaskStepMediaType = 'image';
 
+/**
+ * Seed helper for local/dev only.
+ * Run with `npm run seed` (or `ts-node src/seeds/seed.ts`) after resetting the dev database.
+ */
 async function runSeed(): Promise<void> {
   const dataSource = AppDataSource;
 
@@ -181,49 +185,62 @@ async function runSeed(): Promise<void> {
       name: 'Vadovas',
     });
 
-    const user = userRepository.create({
+    const beekeeper = userRepository.create({
       email: 'jonas@example.com',
       passwordHash,
       role: UserRole.USER,
       name: 'Bitininkas Jonas',
     });
 
-    await userRepository.save([admin, manager, user]);
+    const beekeeper2 = userRepository.create({
+      email: 'laura@example.com',
+      passwordHash,
+      role: UserRole.USER,
+      name: 'Bitininkė Laura',
+    });
+
+    await userRepository.save([admin, manager, beekeeper, beekeeper2]);
 
     const communityGroup = groupRepository.create({
       name: 'Bendrystės klubas',
-      description: 'Bitininkų bendruomenės grupė',
+      description: 'Bitininkų bendruomenė su mokymų programa',
     });
 
     const forestGroup = groupRepository.create({
       name: 'Miško bitininkai',
-      description: 'Grupė darbui miškuose',
+      description: 'Grupė darbui miškuose su paisymas temperatūros',
     });
 
-    await groupRepository.save([communityGroup, forestGroup]);
+    const valleyGroup = groupRepository.create({
+      name: 'Slėnio draugija',
+      description: 'Mažų ūkelių tinklas pietiniame slėnyje',
+    });
+
+    await groupRepository.save([communityGroup, forestGroup, valleyGroup]);
 
     await groupMemberRepository.save([
       groupMemberRepository.create({ groupId: communityGroup.id, userId: admin.id }),
       groupMemberRepository.create({ groupId: communityGroup.id, userId: manager.id }),
-      groupMemberRepository.create({ groupId: communityGroup.id, userId: user.id }),
+      groupMemberRepository.create({ groupId: communityGroup.id, userId: beekeeper.id }),
+      groupMemberRepository.create({ groupId: valleyGroup.id, userId: beekeeper2.id }),
       groupMemberRepository.create({ groupId: forestGroup.id, userId: manager.id }),
     ]);
 
     const hive1 = hiveRepository.create({
       label: 'Avilys Alfa',
-      ownerUserId: user.id,
+      ownerUserId: beekeeper.id,
       status: HiveStatus.ACTIVE,
     });
 
     const hive2 = hiveRepository.create({
       label: 'Avilys Beta',
-      ownerUserId: user.id,
+      ownerUserId: beekeeper.id,
       status: HiveStatus.PAUSED,
     });
 
     const hive3 = hiveRepository.create({
       label: 'Avilys Gama',
-      ownerUserId: user.id,
+      ownerUserId: beekeeper2.id,
       status: HiveStatus.ACTIVE,
     });
 
@@ -232,10 +249,10 @@ async function runSeed(): Promise<void> {
     await dataSource.query(
       `
         INSERT INTO "hive_members" ("hive_id", "user_id")
-        VALUES ($1, $2), ($3, $4), ($5, $6)
+        VALUES ($1, $2), ($3, $4), ($5, $6), ($7, $8)
         ON CONFLICT DO NOTHING
       `,
-      [hive1.id, user.id, hive2.id, user.id, hive3.id, user.id],
+      [hive1.id, beekeeper.id, hive2.id, beekeeper.id, hive3.id, beekeeper2.id, hive3.id, manager.id],
     );
 
     const task1 = taskRepository.create({
@@ -542,8 +559,8 @@ async function runSeed(): Promise<void> {
       }
     };
 
-    appendEntries(assignment1, task1.id, user.id);
-    appendEntries(assignment2, task2.id, user.id);
+    appendEntries(assignment1, task1.id, beekeeper.id);
+    appendEntries(assignment2, task2.id, beekeeper.id);
 
     const completedEntries = baseProgressEntries
       .filter((entry) => entry.assignmentId === assignment1.id)
@@ -592,7 +609,7 @@ async function runSeed(): Promise<void> {
 
     const baseNotificationPayloads: NotificationSeedInput[] = [
       {
-        userId: user.id,
+        userId: beekeeper.id,
         type: 'assignment',
         title: 'Primename apie užduotį',
         body: 'Primename apie artėjančią užduotį jūsų aviliui.',
@@ -638,34 +655,41 @@ async function runSeed(): Promise<void> {
         imageUrl: seedMediaUrl(SEED_MEDIA_ASSETS.springField),
       }),
       newsRepository.create({
-        title: 'Miško bitininkų susitikimas',
-        body: 'Kviečiame miško bitininkų grupę susitikti, kad aptartume pavasario maršrutą ir pasidalintume patirtimi.',
+        title: 'Miško bitininkų kalendorius',
+        body: 'Miško bitininkų susitikimas ir kalendoriaus planavimas Rytų giriose.',
         targetAll: false,
         imageUrl: null,
         groups: [forestGroup],
       }),
       newsRepository.create({
         title: 'Bendrystės klubo dirbtuvės',
-        body: 'Bendrystės klubo nariai kviečiami dalintis medaus receptais ir aptarti pasiruošimą vasaros šventėms.',
+        body: 'Klubo nariai kviečiami dalintis receptais ir aptarti vasaros šventės renginius.',
         targetAll: false,
         imageUrl: seedMediaUrl(SEED_MEDIA_ASSETS.communityTrading),
         groups: [communityGroup],
       }),
       newsRepository.create({
+        title: 'Slėnio draugijos mainų vakaras',
+        body: 'Slėnio draugija keičiasi įrankiais ir pasakoja, kaip įrengti erdvius medaus laikymo sandėlius.',
+        targetAll: false,
+        imageUrl: seedMediaUrl(SEED_MEDIA_ASSETS.sequenceB),
+        groups: [valleyGroup],
+      }),
+      newsRepository.create({
         title: 'Lauko seminaras apie avilių priežiūrą',
-        body: 'Seminaro metu rodysime, kaip stebėti ligos požymius ir palaikyti ventiliaciją net per vėsesnį orą.',
+        body: 'Rodysime, kaip stebėti ligos požymius ir palaikyti ventiliaciją net per vėsesnį orą.',
         targetAll: true,
         imageUrl: seedMediaUrl(SEED_MEDIA_ASSETS.hiveMeeting),
       }),
       newsRepository.create({
         title: 'Medaus degustacijos savaitgalis',
-        body: 'Degustacijos metu ragaujame naują derlių ir diskutuojame apie aromatus bei tinkamus laikymo sprendimus.',
+        body: 'Ragaujame naują derlių ir diskutuojame apie aromatus bei tinkamus laikymo sprendimus.',
         targetAll: true,
         imageUrl: seedMediaUrl(SEED_MEDIA_ASSETS.harvestStock),
       }),
       newsRepository.create({
         title: 'Inventoriaus patikra ir žymėjimas',
-        body: 'Inventoriaus patikros metu tikrinkite dėžes, etiketes ir papildykite trūkstamus įrankius.',
+        body: 'Tikrinkite dėžes, etiketes ir papildykite trūkstamus įrankius prieš rudens sezono pradžią.',
         targetAll: false,
         imageUrl: seedMediaUrl(SEED_MEDIA_ASSETS.inventoryEvening),
         groups: [forestGroup],
@@ -683,34 +707,34 @@ async function runSeed(): Promise<void> {
 
     const storeProducts = [
       productRepository.create({
-        slug: 'degustacinis-medaus-rinkinys',
-        title: 'Degustacinis medaus rinkinys 3x200 g',
-        shortDescription: 'Rinkinyje – nevienodos rūšies medus tiesiai iš bendruomenės avilių.',
+        slug: 'fiksuotoju-rinkinys',
+        title: 'Pavasario patikros rinkinys',
+        shortDescription: 'Įrankiai patikrai ir dokumentacijai',
         description:
-          'Trijų skonių rinkinys su kvapiaisiais laukinių žolelių, pavasario ir liepų medumi. Puikiai tinka dovanai ar savaitgalio stalui.',
-        priceCents: 1380,
+          'Rinkinį sudaro nerūdijantis šablonas, langų kištukai ir pastabų knygelė, kad būtų paprasta žymėti pastebėjimus.',
+        priceCents: 2190,
+        imageUrls: [seedMediaUrl(SEED_MEDIA_ASSETS.screenshotTools)],
+        isActive: true,
+      }),
+      productRepository.create({
+        slug: 'degustacinis-medaus-rinkinys',
+        title: 'Degustacinis medus 3x250g',
+        shortDescription: 'Aviečių, liepų ir grikių skonių trio',
+        description:
+          'Aukštos kokybės medus iš trijų skonių dėžutės bei degustacijos kortelė su aromato aprašais.',
+        priceCents: 7490,
         imageUrls: [
-          seedMediaUrl(SEED_MEDIA_ASSETS.springField),
           seedMediaUrl(SEED_MEDIA_ASSETS.harvestStock),
+          seedMediaUrl(SEED_MEDIA_ASSETS.sequenceB),
         ],
         isActive: true,
       }),
       productRepository.create({
-        slug: 'šilumos-aviliai-apklotas',
-        title: 'Šilumos avilių apklotas',
-        shortDescription: 'Dvipusis apsauginis apklotas žiemai su termo sluoksniu.',
+        slug: 'bendruomenes- lagaminas',
+        title: 'Komplektuotas įrankių lagaminas',
+        shortDescription: 'Korpusų tikrinimo įrankių dėklas',
         description:
-          'Tvirtas poliesterio audinys su atšvaitine išorine danga ir plonais termo sluoksniais viduje. Lengvai tvirtinamas prie korpusų.',
-        priceCents: 7490,
-        imageUrls: [seedMediaUrl(SEED_MEDIA_ASSETS.screenshotPackaging)],
-        isActive: true,
-      }),
-      productRepository.create({
-        slug: 'bičiuliai-aviliai-komplektas',
-        title: 'Avilių priežiūros komplektas',
-        shortDescription: 'Įrankių rinkinys su šluotelėmis ir tvarkingu saugojimo lagaminu.',
-        description:
-          'Komplekte yra švara palaikanti šepetys, antgaliai korpusų patikrai ir kompaktinis lagaminas, kad visi įrankiai būtų vienoje vietoje.',
+          'Lengvas lagaminas su skyreliais ir specialiais įrankiais korpusų apžiūrai, skirtas mainų renginiams.',
         priceCents: 4520,
         imageUrls: [
           seedMediaUrl(SEED_MEDIA_ASSETS.communityTrading),
@@ -719,13 +743,23 @@ async function runSeed(): Promise<void> {
         isActive: true,
       }),
       productRepository.create({
-        slug: 'dovana-bitininko-stiklainiai',
-        title: 'Bitininko dovanų stiklainiai',
-        shortDescription: 'Trijų dydžių stiklainiai su užsukamomis metalinėmis dangteliais.',
+        slug: 'ranku-darbo-stiklainiai',
+        title: 'Rankų darbo stiklainiai',
+        shortDescription: 'Trijų dydžių indeliai su metaliniais dangteliais',
         description:
-          'Švari ir patvari stiklo danga, puikiai tinka laikyti medui ar dovanojamoms dovanoms. Paviršius lengvai dekoruojamas etiketėmis.',
+          'Matinis stiklas, puikiai tinka laikyti medui ar dovanojamoms dovanoms. Dėžutėje taip pat etiketas žymėjimui.',
         priceCents: 2430,
         imageUrls: [seedMediaUrl(SEED_MEDIA_ASSETS.meadowSunset)],
+        isActive: true,
+      }),
+      productRepository.create({
+        slug: 'inventoriaus-zurnalas',
+        title: 'Inventoriaus žurnalas',
+        shortDescription: 'Minkštas viršelis su lentelėmis',
+        description:
+          'Patogus žurnalas su vieta kiekvienam įrankių rinkiniui ir nuotraukoms, kad lengvai sekumėte inventorių.',
+        priceCents: 1790,
+        imageUrls: [seedMediaUrl(SEED_MEDIA_ASSETS.inventoryEvening)],
         isActive: true,
       }),
     ];

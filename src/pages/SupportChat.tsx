@@ -188,10 +188,18 @@ const SupportChat = () => {
 
   return (
     <MainLayout>
-        <div className="mx-auto w-full max-w-4xl space-y-6 py-10 px-4">
+      <div className="mx-auto w-full max-w-4xl space-y-6 px-4 py-10">
+        <div className="space-y-1">
           <h1 className="text-2xl font-semibold">Žinutės</h1>
-        <div className="border border-border rounded-2xl bg-background/80 p-4 shadow-sm shadow-black/5">
-          <div className="max-h-[60vh] overflow-y-auto space-y-4 px-2" ref={scrollRef}>
+          <p className="text-sm text-muted-foreground">
+            Čia galite rašyti mūsų komandai. Visi pranešimai atskirai išsaugomi jūsų paskyroje.
+          </p>
+        </div>
+        <div className="flex flex-col gap-4 rounded-2xl border border-border bg-background/80 p-4 shadow-sm shadow-black/5">
+          <div
+            className="flex h-96 flex-col gap-4 overflow-y-auto rounded-2xl border border-border/70 bg-white/80 p-3"
+            ref={scrollRef}
+          >
             {threadLoading ? (
               <div className="py-10 text-center text-sm text-muted-foreground">Kraunama...</div>
             ) : threadError ? (
@@ -243,24 +251,24 @@ const SupportChat = () => {
                             isUser ? 'bg-primary text-primary-foreground' : 'bg-muted text-muted-foreground',
                           )}
                         >
-                  {message.text && <p className="whitespace-pre-wrap">{message.text}</p>}
-                  {(() => {
-                    const attachments = message.attachments ?? [];
-                    if (!attachments.length) {
-                      return null;
-                    }
-                    return (
-                      <div className="mt-3 grid gap-2">
-                        {attachments.map((attachment) => (
-                          <SupportAttachmentPreview
-                            key={attachment.url}
-                            attachment={attachment}
-                            showDownloadAction={false}
-                          />
-                        ))}
-                      </div>
-                    );
-                  })()}
+                          {message.text && <p className="whitespace-pre-wrap">{message.text}</p>}
+                          {(() => {
+                            const attachments = message.attachments ?? [];
+                            if (!attachments.length) {
+                              return null;
+                            }
+                            return (
+                              <div className="mt-3 grid gap-2">
+                                {attachments.map((attachment) => (
+                                  <SupportAttachmentPreview
+                                    key={attachment.url}
+                                    attachment={attachment}
+                                    showDownloadAction={false}
+                                  />
+                                ))}
+                              </div>
+                            );
+                          })()}
                         </div>
                       </div>
                     );
@@ -269,8 +277,7 @@ const SupportChat = () => {
               </>
             )}
           </div>
-
-          <div className="mt-4 space-y-2">
+          <div className="space-y-2 rounded-2xl border border-border/70 bg-white/80 p-3">
             {attachments.length ? (
               <div className="flex flex-wrap gap-2">
                 {attachments.map((attachment) => (

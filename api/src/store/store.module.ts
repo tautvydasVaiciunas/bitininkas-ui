@@ -12,11 +12,14 @@ import { PublicStoreOrdersController } from './public-orders.controller';
 import { AdminStoreOrdersController } from './admin-orders.controller';
 import { StoreCustomerOrdersController } from './customer-orders.controller';
 import { NotificationsModule } from '../notifications/notifications.module';
+import { EmailModule } from '../email/email.module';
+import { User } from '../users/user.entity';
 
 @Module({
   imports: [
-    TypeOrmModule.forFeature([StoreProduct, StoreOrder, StoreOrderItem]),
+    TypeOrmModule.forFeature([StoreProduct, StoreOrder, StoreOrderItem, User]),
     NotificationsModule,
+    EmailModule,
   ],
   controllers: [
     PublicStoreProductsController,

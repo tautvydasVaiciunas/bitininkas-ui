@@ -23,7 +23,8 @@ export type NotificationType =
   | 'news'
   | 'message'
   | 'hive_history'
-  | 'hive_assignment';
+  | 'hive_assignment'
+  | 'store_order';
 
 export interface CreateNotificationPayload {
   type: NotificationType;

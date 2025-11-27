@@ -7,7 +7,7 @@ import {
 } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
 import { ConfigService } from '@nestjs/config';
-import { In, Repository } from 'typeorm';
+import { In, Not, Repository } from 'typeorm';
 
 import { StoreOrder, StoreOrderStatus } from './entities/order.entity';
 import { StoreOrderItem } from './entities/order-item.entity';
@@ -19,6 +19,13 @@ import {
 } from '../common/pagination/pagination.service';
 import { ListOrdersQueryDto } from './dto/list-orders-query.dto';
 import { MAILER_SERVICE, MailerService } from '../notifications/mailer.service';
+import {
+  CreateNotificationPayload,
+  NotificationsService,
+} from '../notifications/notifications.service';
+import { EmailService } from '../email/email.service';
+import { resolveFrontendUrl } from '../common/utils/frontend-url';
+import { User, UserRole } from '../users/user.entity';
 
 const VAT_RATE = 0.21;
 
@@ -70,9 +77,13 @@ export class StoreOrdersService {
     private readonly orderItemsRepository: Repository<StoreOrderItem>,
     @InjectRepository(StoreProduct)
     private readonly productsRepository: Repository<StoreProduct>,
+    @InjectRepository(User)
+    private readonly usersRepository: Repository<User>,
     private readonly pagination: PaginationService,
     private readonly configService: ConfigService,
     @Inject(MAILER_SERVICE) private readonly mailer: MailerService,
+    private readonly notifications: NotificationsService,
+    private readonly emailService: EmailService,
   ) {
     this.internalNotifyEmail =
       this.configService.get<string>('ORDERS_NOTIFY_EMAIL')?.trim() || undefined;
@@ -237,6 +248,12 @@ export class StoreOrdersService {
         }`,
       );
     });
+    this.notifyAdmins(saved).catch((error) => {
+      const details = error instanceof Error ? error.message : String(error);
+      this.logger.warn(
+        `Nepavyko pranešti administracijai apie užsakymą (${saved.id}): ${details}`,
+      );
+    });
 
     return this.mapOrder(await this.getOrderEntity(saved.id, true), true) as OrderDetails;
   }
@@ -257,6 +274,14 @@ export class StoreOrdersService {
     const data = orders.map((order) => this.mapOrder(order));
 
     return this.pagination.buildResponse(data, page, limit, total);
+  }
+
+  async countForAdmin(status?: StoreOrderStatus): Promise<{ count: number }> {
+    const where = status
+      ? { status }
+      : { status: Not(StoreOrderStatus.COMPLETED) };
+    const count = await this.ordersRepository.count({ where });
+    return { count };
   }
 
   async listOrdersForUser(userId: string): Promise<CustomerOrderSummary[]> {
@@ -315,16 +340,87 @@ export class StoreOrdersService {
     const fullOrder = await this.getOrderEntity(order.id, true);
     const items = fullOrder.items ?? [];
 
+    await this.sendCustomerEmail(fullOrder).catch((error) => {
+      const details = error instanceof Error ? error.message : String(error);
+      this.logger.warn(
+        `Nepavyko išsiųsti užsakymo el. laiško klientui (${fullOrder.id}): ${details}`,
+      );
+    });
+
     const html = this.buildEmailHtml(fullOrder, items);
     const text = this.buildEmailText(fullOrder, items);
     const subject = `Naujas užsakymas #${fullOrder.id.slice(0, 8).toUpperCase()}`;
-
-    await this.mailer.sendNotificationEmail(fullOrder.customerEmail, subject, html, text);
 
     if (this.internalNotifyEmail) {
       await this.mailer.sendNotificationEmail(this.internalNotifyEmail, subject, html, text);
     } else {
       this.logger.warn('ORDERS_NOTIFY_EMAIL nenurodytas – vidinis pranešimas neišsiųstas');
+    }
+  }
+
+  private async sendCustomerEmail(order: StoreOrder) {
+    if (!order.customerEmail) {
+      return;
+    }
+
+    const shortId = order.id.slice(0, 8).toUpperCase();
+    const subject = 'Gautas naujas užsakymas';
+    const summary = [
+      `Gautas naujas užsakymas #${shortId}`,
+      `Suma (su PVM): ${this.formatPrice(order.totalAmountCents)}`,
+      'Su jumis susisieksime artimiausiu metu dėl užsakymo.',
+    ].join('<br />');
+    const text = [
+      `Gautas naujas užsakymas #${shortId}`,
+      `Suma (su PVM): ${this.formatPrice(order.totalAmountCents)}`,
+      'Su jumis susisieksime artimiausiu metu dėl užsakymo.',
+    ].join('\n');
+    const ctaUrl = resolveFrontendUrl(this.configService, '/parduotuve/uzsakymai');
+
+    await this.emailService.sendMail({
+      to: order.customerEmail,
+      subject,
+      mainHtml: summary,
+      text,
+      primaryButtonLabel: 'Peržiūrėti užsakymus',
+      primaryButtonUrl: ctaUrl,
+    });
+  }
+
+  private async notifyAdmins(order: StoreOrder) {
+    try {
+      const admins = await this.usersRepository.find({
+        where: { role: In([UserRole.ADMIN, UserRole.MANAGER]) },
+        select: ['id'],
+      });
+
+      if (!admins.length) {
+        return;
+      }
+
+      const shortId = order.id.slice(0, 8).toUpperCase();
+      const payload: CreateNotificationPayload = {
+        type: 'store_order',
+        title: 'Naujas parduotuvės užsakymas',
+        body: `Gautas naujas užsakymas #${shortId} (${this.formatPrice(order.totalAmountCents)})`,
+        link: `/admin/store/orders/${order.id}`,
+      };
+
+      await Promise.all(
+        admins.map((admin) =>
+          this.notifications.createNotification(admin.id, payload).catch((error) => {
+            const details = error instanceof Error ? error.message : String(error);
+            this.logger.warn(
+              `Nepavyko sukurti pranešimo administratoriui ${admin.id}: ${details}`,
+            );
+          }),
+        ),
+      );
+    } catch (error) {
+      const details = error instanceof Error ? error.message : String(error);
+      this.logger.warn(
+        `Nepavyko pranešti administracijai apie užsakymą ${order.id}: ${details}`,
+      );
     }
   }
 

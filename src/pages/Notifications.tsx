@@ -8,7 +8,7 @@ import { useAuth } from '@/contexts/AuthContext';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import api, { type NotificationsUnreadCountResponse } from '@/lib/api';
 import { mapNotificationFromApi, type Notification, type NotificationType } from '@/lib/types';
-import { Bell, CheckCheck, Megaphone, MessageCircle } from 'lucide-react';
+import { Bell, CheckCheck, Megaphone, MessageCircle, ShoppingBag } from 'lucide-react';
 import { toast } from 'sonner';
 import { useNavigate } from 'react-router-dom';
 
@@ -118,6 +118,8 @@ export default function Notifications() {
       assignment: <Bell className="w-5 h-5 text-primary" />,
       news: <Megaphone className="w-5 h-5 text-success" />,
       message: <MessageCircle className="w-5 h-5 text-muted-foreground" />,
+      hive_assignment: <CheckCheck className="w-5 h-5 text-foreground" />,
+      store_order: <ShoppingBag className="w-5 h-5 text-amber-500" />,
     };
     return icons[type] ?? <Bell className="w-5 h-5 text-muted-foreground" />;
   };

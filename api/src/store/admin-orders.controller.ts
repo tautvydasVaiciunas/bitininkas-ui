@@ -5,6 +5,7 @@ import { Roles } from '../common/decorators/roles.decorator';
 import { UserRole } from '../users/user.entity';
 import { ListOrdersQueryDto } from './dto/list-orders-query.dto';
 import { UpdateOrderStatusDto } from './dto/update-order-status.dto';
+import { StoreOrderStatus } from './entities/order.entity';
 
 @Controller('admin/store/orders')
 @Roles(UserRole.MANAGER, UserRole.ADMIN)
@@ -14,6 +15,11 @@ export class AdminStoreOrdersController {
   @Get()
   list(@Query() query: ListOrdersQueryDto) {
     return this.ordersService.listForAdmin(query);
+  }
+
+  @Get('count')
+  count(@Query('status') status?: StoreOrderStatus) {
+    return this.ordersService.countForAdmin(status);
   }
 
   @Get(':id')

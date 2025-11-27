@@ -47,7 +47,13 @@ export interface AuthResponse {
   user: AuthenticatedUser;
 }
 
-export type NotificationType = 'assignment' | 'news' | 'message' | 'hive_history';
+export type NotificationType =
+  | 'assignment'
+  | 'news'
+  | 'message'
+  | 'hive_history'
+  | 'hive_assignment'
+  | 'store_order';
 
 export interface NotificationResponse {
   id: string;
@@ -323,6 +329,10 @@ export interface StoreOrderListItem {
   totalGrossCents: number;
   totalAmountCents: number;
   createdAt: string;
+}
+
+export interface StoreOrdersCountResponse {
+  count: number;
 }
 
 export interface StoreMyOrderItem {
@@ -1340,6 +1350,7 @@ export const api = {
         get: (id: string) => get<StoreOrderResponse>(`/admin/store/orders/${id}`),
         updateStatus: (id: string, payload: { status: StoreOrderStatus }) =>
           patch<StoreOrderListItem>(`/admin/store/orders/${id}/status`, { json: payload }),
+        count: () => get<StoreOrdersCountResponse>('/admin/store/orders/count'),
       },
     },
     email: {

@@ -1,4 +1,4 @@
-﻿import { Column, CreateDateColumn, Entity, ManyToOne, PrimaryGeneratedColumn } from 'typeorm';
+﻿import { Column, CreateDateColumn, Entity, JoinColumn, ManyToOne, PrimaryGeneratedColumn } from 'typeorm';
 import { Assignment } from './assignment.entity';
 import { TaskStep } from '../tasks/steps/task-step.entity';
 import { User } from '../users/user.entity';
@@ -9,18 +9,21 @@ export class AssignmentStepMedia {
   id!: string;
 
   @ManyToOne(() => Assignment, { onDelete: 'CASCADE' })
+  @JoinColumn({ name: 'assignment_id' })
   assignment!: Assignment;
 
   @Column({ name: 'assignment_id', type: 'uuid' })
   assignmentId!: string;
 
   @ManyToOne(() => TaskStep, { onDelete: 'CASCADE' })
+  @JoinColumn({ name: 'step_id' })
   step!: TaskStep;
 
   @Column({ name: 'step_id', type: 'uuid' })
   stepId!: string;
 
   @ManyToOne(() => User, { onDelete: 'CASCADE' })
+  @JoinColumn({ name: 'user_id' })
   user!: User;
 
   @Column({ name: 'user_id', type: 'uuid' })

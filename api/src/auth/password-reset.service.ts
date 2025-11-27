@@ -80,11 +80,11 @@ export class PasswordResetService {
         ? this.buildInviteMessage(resetLink)
         : this.buildForgotMessage(resetLink);
 
-    const htmlBody = textBody
+    const lines = textBody
       .split('\n')
-      .map((line) =>
-        line === resetLink ? `<p><a href="${resetLink}">${resetLink}</a></p>` : `<p>${line || '&nbsp;'}</p>`,
-      )
+      .filter((line) => line.length > 0 && line !== resetLink);
+    const mainHtml = lines
+      .map((line) => `<p style="margin: 0 0 16px 0; font-size: 16px; line-height: 24px;">${line}</p>`)
       .join('');
 
     try {
@@ -92,7 +92,10 @@ export class PasswordResetService {
         to: user.email,
         subject,
         text: textBody,
-        html: htmlBody,
+        mainHtml,
+        primaryButtonLabel:
+          options.template === 'invite' ? 'Prisijungti' : 'Atstatyti slaptažodį',
+        primaryButtonUrl: resetLink,
       });
     } catch (error) {
       this.logger.warn(

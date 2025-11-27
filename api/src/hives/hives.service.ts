@@ -170,25 +170,23 @@ export class HivesService {
     const normalizedUserIds = this.normalizeUserIds(dto.userIds ?? dto.members);
     const normalizedTagId = await this.normalizeTagId(dto.tagId ?? null);
 
-    const ownerUserId =
-      role === UserRole.ADMIN || role === UserRole.MANAGER
-        ? dto.ownerUserId ?? normalizedUserIds[0] ?? userId
-        : userId;
-
     const memberIds = await this.validateMemberIds(normalizedUserIds);
+    let ownerUserId: string | null = null;
+    if (dto.ownerUserId) {
+      const owner = await this.userRepository.findOne({ where: { id: dto.ownerUserId } });
+      if (!owner) {
+        throw new BadRequestException({
+          message: 'Neteisingi duomenys',
+          details: 'Savininkas nerastas',
+        });
+      }
+      ownerUserId = dto.ownerUserId;
+    }
+
     const saved = await runWithDatabaseErrorHandling(
       () =>
         this.hiveRepository.manager.transaction(async (manager) => {
           const hiveRepo = manager.getRepository(Hive);
-          const userRepo = manager.getRepository(User);
-
-          const owner = await userRepo.findOne({ where: { id: ownerUserId } });
-          if (!owner) {
-            throw new BadRequestException({
-              message: 'Neteisingi duomenys',
-              details: 'Savininkas nerastas',
-            });
-          }
 
           const hive = hiveRepo.create({
             label,
@@ -453,8 +451,8 @@ export class HivesService {
       ? `Jums priskirtas avilys „${hive.label}“. Peržiūrėti: ${hiveUrl}`
       : `Avilys „${hive.label}“ nebėra priskirtas jūsų paskyrai. Jei manote, kad tai klaida, parašykite žinutę per sistemą: ${supportUrl}`;
     const html = added
-      ? `<p>Jums priskirtas avilys „${hive.label}“.</p><p><a href="${hiveUrl}">Peržiūrėti avilį</a></p>`
-      : `<p>Avilys „${hive.label}“ nebėra priskirtas jūsų paskyrai.</p><p><a href="${supportUrl}">Parašykite žinutę</a></p>`;
+      ? `<p>Jums priskirtas avilys „${hive.label}“.</p>`
+      : `<p>Avilys „${hive.label}“ nebėra priskirtas jūsų paskyrai.</p><p>Jei manote, kad tai klaida, <a href="${supportUrl}">parašykite žinutę</a>.</p>`;
 
     if (user.email) {
       try {
@@ -462,7 +460,7 @@ export class HivesService {
           to: user.email,
           subject,
           text,
-          html,
+          mainHtml: html,
           primaryButtonLabel: added ? 'Peržiūrėti avilį' : null,
           primaryButtonUrl: added ? hiveUrl : null,
         });

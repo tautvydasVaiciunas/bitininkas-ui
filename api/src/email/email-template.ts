@@ -1,5 +1,9 @@
 const LOGO_URL =
   'https://static.wixstatic.com/media/453317_cb9f63ff26714a80828d532ffc091160~mv2.png';
+const FRONTEND_APP_URL =
+  process.env.APP_URL ?? process.env.FRONTEND_URL ?? 'https://app.busmedaus.lt';
+const FACEBOOK_ICON_URL = `${FRONTEND_APP_URL}/assets/Facebook_Logo_Primary.png`;
+const INSTAGRAM_ICON_URL = `${FRONTEND_APP_URL}/assets/instagram.png`;
 
 export interface NotificationEmailContent {
   subject: string;
@@ -25,7 +29,7 @@ export function renderEmailLayout({
   const buttonHtml =
     primaryButtonLabel && primaryButtonUrl
       ? `<tr>
-          <td align="center" style="padding: 24px 0 16px 0;">
+          <td align="center" style="padding: 16px 0 12px 0;">
             <a href="${escapeAttribute(primaryButtonUrl)}" style="background-color: #0acb8b; color: #ffffff; text-decoration: none; padding: 12px 32px; border-radius: 9999px; font-weight: 600; font-size: 15px; display: inline-block;">${escapeHtml(
               primaryButtonLabel,
             )}</a>
@@ -59,25 +63,41 @@ export function renderEmailLayout({
             </tr>
             ${buttonHtml}
             <tr>
-              <td style="background-color: #ffffff; padding: 0;"></td>
-            </tr>
             <tr>
               <td style="background-color: #fed773; padding: 24px 48px 32px 48px; color: #111827;">
                 <p style="margin: 0 0 4px 0; font-weight: 600;">Bitininku tapti paprasta su „Bus medaus“</p>
                 <p style="margin: 0 0 4px 0;">© „Bus medaus“ | busmedaus.lt</p>
                 <p style="margin: 0 0 8px 0;">+370 610 69 676</p>
                 <p style="margin: 0; font-size: 14px;">
-                  Sekite mus:&nbsp;
+                  Sekite mus:
                   <a
                     href="https://www.facebook.com/busmedaus.lt"
                     aria-label="Facebook"
-                    style="display:inline-block;width:26px;height:26px;line-height:26px;border-radius:50%;background-color:#111827;color:#ffffff;text-decoration:none;text-align:center;font-weight:600;font-size:12px;margin-right:6px;"
-                  >f</a>
+                    style="display:inline-block;margin-left:10px;"
+                  >
+                    <img
+                      src="${FACEBOOK_ICON_URL}"
+                      alt="Facebook"
+                      width="24"
+                      height="24"
+                      style="display:block;border:0;outline:none;text-decoration:none;"
+                      loading="lazy"
+                    />
+                  </a>
                   <a
                     href="https://www.instagram.com/busmedaus_lt/"
                     aria-label="Instagram"
-                    style="display:inline-block;width:26px;height:26px;line-height:26px;border-radius:50%;background-color:#111827;color:#ffffff;text-decoration:none;text-align:center;font-weight:600;font-size:12px;"
-                  >IG</a>
+                    style="display:inline-block;margin-left:6px;"
+                  >
+                    <img
+                      src="${INSTAGRAM_ICON_URL}"
+                      alt="Instagram"
+                      width="24"
+                      height="24"
+                      style="display:block;border:0;outline:none;text-decoration:none;"
+                      loading="lazy"
+                    />
+                  </a>
                 </p>
               </td>
             </tr>
@@ -106,15 +126,9 @@ export function renderNotificationEmailHtml({
     )
     .join('');
 
-  const ctaLine = ctaUrl
-    ? `<p style="margin: 0 0 16px 0; font-size: 16px;"><strong>${escapeHtml(
-        DEFAULT_CTA_LABEL,
-      )}:</strong> <a href="${escapeAttribute(ctaUrl)}" style="color: #0acb8b;">${escapeHtml(ctaUrl)}</a></p>`
-    : '';
-
   return `<h1 style="font-size: 24px; line-height: 32px; margin: 0 0 24px 0; color: #111827;">${escapeHtml(
     subject,
-  )}</h1>${paragraphHtml}${ctaLine}`;
+  )}</h1>${paragraphHtml}`;
 }
 
 export function renderNotificationEmailText({

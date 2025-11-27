@@ -25,7 +25,7 @@ export function renderEmailLayout({
   const buttonHtml =
     primaryButtonLabel && primaryButtonUrl
       ? `<tr>
-          <td align="center" style="padding: 16px 0 0 0;">
+          <td align="center" style="padding: 24px 0 16px 0;">
             <a href="${escapeAttribute(primaryButtonUrl)}" style="background-color: #0acb8b; color: #ffffff; text-decoration: none; padding: 12px 32px; border-radius: 9999px; font-weight: 600; font-size: 15px; display: inline-block;">${escapeHtml(
               primaryButtonLabel,
             )}</a>
@@ -47,7 +47,9 @@ export function renderEmailLayout({
           <table role="presentation" width="600" cellspacing="0" cellpadding="0" style="border-radius: 12px; overflow: hidden;">
             <tr>
               <td style="background-color: #fed773; padding: 20px 24px; text-align: left;">
-                <img src="${LOGO_URL}" alt="Bus medaus" style="display: block; max-width: 180px; height: auto;" />
+                <div style="display:block;">
+                  <img src="${LOGO_URL}" alt="Bus medaus" style="display: block; max-width: 180px; height: auto; border: 0; outline: none; text-decoration: none;" />
+                </div>
               </td>
             </tr>
             <tr>
@@ -57,14 +59,25 @@ export function renderEmailLayout({
             </tr>
             ${buttonHtml}
             <tr>
+              <td style="background-color: #ffffff; padding: 0;"></td>
+            </tr>
+            <tr>
               <td style="background-color: #fed773; padding: 24px 48px 32px 48px; color: #111827;">
                 <p style="margin: 0 0 4px 0; font-weight: 600;">Bitininku tapti paprasta su „Bus medaus“</p>
                 <p style="margin: 0 0 4px 0;">© „Bus medaus“ | busmedaus.lt</p>
                 <p style="margin: 0 0 8px 0;">+370 610 69 676</p>
-                <p style="margin: 0; font-size: 14px;">Sekite mus:
-                  <a href="https://www.facebook.com/busmedaus.lt" style="color: #111827; text-decoration: none;">Facebook</a>
-                  &nbsp;·&nbsp;
-                  <a href="https://www.instagram.com/busmedaus_lt/" style="color: #111827; text-decoration: none;">Instagram</a>
+                <p style="margin: 0; font-size: 14px;">
+                  Sekite mus:&nbsp;
+                  <a
+                    href="https://www.facebook.com/busmedaus.lt"
+                    aria-label="Facebook"
+                    style="display:inline-block;width:26px;height:26px;line-height:26px;border-radius:50%;background-color:#111827;color:#ffffff;text-decoration:none;text-align:center;font-weight:600;font-size:12px;margin-right:6px;"
+                  >f</a>
+                  <a
+                    href="https://www.instagram.com/busmedaus_lt/"
+                    aria-label="Instagram"
+                    style="display:inline-block;width:26px;height:26px;line-height:26px;border-radius:50%;background-color:#111827;color:#ffffff;text-decoration:none;text-align:center;font-weight:600;font-size:12px;"
+                  >IG</a>
                 </p>
               </td>
             </tr>

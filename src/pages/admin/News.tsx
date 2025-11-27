@@ -49,7 +49,8 @@ interface NewsFormState {
   imageUrl: string;
   targetAll: boolean;
   groupIds: string[];
-  attachTask: boolean;
+  createNews: boolean;
+  createAssignment: boolean;
   templateId: string;
   sendNotifications: boolean;
   assignmentStartDate: string;
@@ -63,7 +64,8 @@ const defaultFormState: NewsFormState = {
   imageUrl: "",
   targetAll: true,
   groupIds: [],
-  attachTask: false,
+  createNews: true,
+  createAssignment: false,
   templateId: "",
   sendNotifications: true,
   assignmentStartDate: "",
@@ -91,6 +93,7 @@ const AdminNews = () => {
   const [editingPost, setEditingPost] = useState<NewsPost | null>(null);
   const [formState, setFormState] = useState<NewsFormState>(defaultFormState);
   const [groupError, setGroupError] = useState<string | null>(null);
+  const [toggleError, setToggleError] = useState<string | null>(null);
   const [isUploadingImage, setIsUploadingImage] = useState(false);
   const [postToDelete, setPostToDelete] = useState<NewsPost | null>(null);
   const fileInputRef = useRef<HTMLInputElement | null>(null);
@@ -169,7 +172,8 @@ const AdminNews = () => {
       imageUrl: post.imageUrl ?? "",
       targetAll: post.targetAll,
       groupIds: post.groups.map((group) => group.id),
-      attachTask: Boolean(post.attachedTaskId),
+      createNews: true,
+      createAssignment: Boolean(post.attachedTaskId),
       templateId: "",
       sendNotifications: post.sendNotifications ?? true,
       assignmentStartDate: post.assignmentStartDate ?? "",
@@ -190,12 +194,16 @@ const AdminNews = () => {
     mutationFn: async (payload: NewsFormState) => {
       const prepared = buildPayload(payload);
       const result = await api.news.admin.create(prepared);
-      return mapNewsPostFromApi(result);
+      return result ? mapNewsPostFromApi(result) : null;
     },
     onSuccess: (post) => {
-      toast({ title: "Naujiena sukurta", description: `„${post.title}“ paskelbta sėkmingai.` });
-      invalidateNews();
-      setPage(1);
+      if (post) {
+        toast({ title: "Naujiena sukurta", description: `„${post.title}“ paskelbta sėkmingai.` });
+        invalidateNews();
+        setPage(1);
+      } else {
+        toast({ title: "Užduotis sukurta", description: "Užduotis priskirta pasirinktoms grupėms." });
+      }
       closeDialog();
     },
     onError: (err: unknown) => {
@@ -239,12 +247,18 @@ const AdminNews = () => {
   const handleSubmit = async (event: React.FormEvent<HTMLFormElement>) => {
     event.preventDefault();
 
+    if (!formState.createNews && !formState.createAssignment) {
+      setToggleError("Pažymėkite naujienos arba užduoties kūrimą");
+      return;
+    }
+    setToggleError(null);
+
     if (!formState.targetAll && formState.groupIds.length === 0) {
       setGroupError("Pasirinkite bent vieną grupę");
       return;
     }
 
-    if (formState.attachTask && !formState.templateId) {
+    if (formState.createAssignment && !formState.templateId) {
       toast({
         title: "Nepavyko išsaugoti",
         description: "Pasirinkite užduoties šabloną, kad sukurtumėte priskirtą užduotį.",
@@ -553,12 +567,32 @@ const AdminNews = () => {
               <div className="space-y-3 rounded-md border border-muted p-3">
                 <div className="flex items-start gap-3">
                   <Checkbox
-                    id="news-attach-task"
-                    checked={formState.attachTask}
+                    id="news-create-news"
+                    checked={formState.createNews}
                     onCheckedChange={(checked) =>
                       setFormState((prev) => ({
                         ...prev,
-                        attachTask: checked === true,
+                        createNews: checked === true,
+                      }))
+                    }
+                  />
+                  <div className="space-y-1">
+                    <Label htmlFor="news-create-news" className="cursor-pointer">
+                      Sukurti naujieną
+                    </Label>
+                    <p className="text-sm text-muted-foreground">
+                      Pažymėkite, jei norite paskelbti naujieną pasirinktoms grupėms.
+                    </p>
+                  </div>
+                </div>
+                <div className="flex items-start gap-3">
+                <Checkbox
+                    id="news-create-assignment"
+                    checked={formState.createAssignment}
+                    onCheckedChange={(checked) =>
+                      setFormState((prev) => ({
+                        ...prev,
+                        createAssignment: checked === true,
                         ...(checked === true
                           ? {}
                           : {
@@ -571,16 +605,20 @@ const AdminNews = () => {
                     }
                   />
                   <div className="space-y-1">
-                    <Label htmlFor="news-attach-task" className="cursor-pointer">
-                      Pridėti užduotį šiai naujienai
+                    <Label htmlFor="news-create-assignment" className="cursor-pointer">
+                      Sukurti užduotį
                     </Label>
                     <p className="text-sm text-muted-foreground">
-                      Pažymėkite, jei norite išsiųsti užduotį konkrečioms grupėms.
+                      Pažymėkite, jei norite priskirti užduotį pasirinktiems vartotojams.
                     </p>
                   </div>
                 </div>
 
-                {formState.attachTask ? (
+                {toggleError ? (
+                  <p className="text-xs text-destructive">{toggleError}</p>
+                ) : null}
+
+                {formState.createAssignment ? (
                   <div className="space-y-4 pt-2">
                     <div className="space-y-2">
                       <Label htmlFor="news-task-title">Užduoties pavadinimas</Label>
@@ -713,23 +751,27 @@ const AdminNews = () => {
 
 function buildPayload(state: NewsFormState) {
   const imageUrl = state.imageUrl.trim();
-  return {
+  const payload: Record<string, unknown> = {
     title: state.title.trim(),
     body: state.body.trim(),
     targetAll: state.targetAll,
     imageUrl: imageUrl.length ? imageUrl : null,
     groupIds: state.targetAll ? undefined : state.groupIds,
+    createNews: state.createNews,
+    createAssignment: state.createAssignment,
+  };
 
-    ...(state.attachTask
-      ? {
-          attachTask: true,
-          templateId: state.templateId || undefined,
-          taskTitle: state.taskTitle.trim(),
-          assignmentStartDate: state.assignmentStartDate || undefined,
-          assignmentDueDate: state.assignmentDueDate || undefined,
-          sendNotifications: state.sendNotifications,
-      }
-      : {}),
+  if (!state.createAssignment) {
+    return payload;
+  }
+
+  return {
+    ...payload,
+    templateId: state.templateId || undefined,
+    taskTitle: state.taskTitle.trim(),
+    assignmentStartDate: state.assignmentStartDate || undefined,
+    assignmentDueDate: state.assignmentDueDate || undefined,
+    sendNotifications: state.sendNotifications,
   };
 }
 

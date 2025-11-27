@@ -381,6 +381,8 @@ export interface CreateNewsPayload {
   imageUrl?: string | null;
   targetAll: boolean;
   groupIds?: string[];
+  createNews?: boolean;
+  createAssignment?: boolean;
   attachedTaskId?: string | null;
   assignmentStartDate?: string | null;
   assignmentDueDate?: string | null;
@@ -1122,7 +1124,7 @@ export const api = {
         get<PaginatedNewsResponse>('/admin/news', { query: params }),
       get: (id: string) => get<NewsPostResponse>(`/admin/news/${id}`),
       create: (payload: CreateNewsPayload) =>
-        post<NewsPostResponse>('/admin/news', { json: payload }),
+        post<NewsPostResponse | null>('/admin/news', { json: payload }),
       update: (id: string, payload: UpdateNewsPayload) =>
         patch<NewsPostResponse>(`/admin/news/${id}`, { json: payload }),
       remove: (id: string) => del<{ success: boolean }>(`/admin/news/${id}`),

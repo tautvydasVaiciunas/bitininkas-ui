@@ -253,7 +253,6 @@ export const Sidebar = () => {
                         {pendingReviewCount}
                       </span>
                     ) : null}
-                    {item.label}
                   </NavLink>
                 ))}
                 {index < adminNavSections.length - 1 && (

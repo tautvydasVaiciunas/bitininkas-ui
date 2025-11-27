@@ -542,7 +542,10 @@ export class NewsService {
     }
   }
 
-  async create(dto: CreateNewsDto, actor: { id: string; role: UserRole }): Promise<NewsPostResponse> {
+  async create(
+    dto: CreateNewsDto,
+    actor: { id: string; role: UserRole },
+  ): Promise<NewsPostResponse | null> {
     const title = this.sanitizeTitle(dto.title);
     const body = this.sanitizeBody(dto.body);
     const targetAll = dto.targetAll !== undefined ? dto.targetAll : true;
@@ -560,48 +563,62 @@ export class NewsService {
     }
 
     const attachTask = dto.attachTask === true;
+    const createNews = dto.createNews !== false;
+    const createAssignment = (dto.createAssignment ?? attachTask) === true;
+
+    if (!createNews && !createAssignment) {
+      throw new BadRequestException('Būtina sukurti naujieną arba užduotį');
+    }
+    if (createAssignment && groups.length === 0) {
+      throw new BadRequestException('Pridėkite bent vieną grupę, kad sukurtumėte užduotį');
+    }
+
     const normalizedStartDate = this.normalizeDate(dto.assignmentStartDate);
     const normalizedDueDate = this.normalizeDate(dto.assignmentDueDate);
     const sendNotifications = dto.sendNotifications !== false;
 
-    const post = this.newsRepository.create({
-      title,
-      body,
-      imageUrl: imageUrl === undefined ? null : imageUrl,
-      targetAll,
-      groups,
-      assignmentStartDate: normalizedStartDate,
-      assignmentDueDate: normalizedDueDate,
-      sendNotifications,
-    });
+    let full: NewsPost | null = null;
+    if (createNews) {
+      const post = this.newsRepository.create({
+        title,
+        body,
+        imageUrl: imageUrl === undefined ? null : imageUrl,
+        targetAll,
+        groups,
+        assignmentStartDate: normalizedStartDate,
+        assignmentDueDate: normalizedDueDate,
+        sendNotifications,
+      });
 
-    const saved = await runWithDatabaseErrorHandling(
-      () => this.newsRepository.save(post),
-      { message: 'Nepavyko sukurti naujienos' },
-    );
-    const full = await this.newsRepository.findOne({
-      where: { id: saved.id },
-      relations: { groups: true },
-    });
+      const saved = await runWithDatabaseErrorHandling(
+        () => this.newsRepository.save(post),
+        { message: 'Nepavyko sukurti naujienos' },
+      );
+      full = await this.newsRepository.findOne({
+        where: { id: saved.id },
+        relations: { groups: true },
+      });
 
-    if (!full) {
-      throw new NotFoundException('Naujiena nerasta');
+      if (!full) {
+        throw new NotFoundException('Naujiena nerasta');
+      }
     }
 
-    if (attachTask) {
+    const newsId = full?.id ?? null;
+
+    if (createAssignment) {
       if (!dto.templateId) {
-        await this.newsRepository.delete(saved.id);
+        if (newsId) {
+          await this.newsRepository.delete(newsId);
+        }
         throw new BadRequestException('Pridėkite užduoties šabloną');
       }
 
       if (!dto.taskTitle?.trim()) {
-        await this.newsRepository.delete(saved.id);
+        if (newsId) {
+          await this.newsRepository.delete(newsId);
+        }
         throw new BadRequestException('Užduoties pavadinimas privalomas');
-      }
-
-      if (!groups.length) {
-        await this.newsRepository.delete(saved.id);
-        throw new BadRequestException('Pridėkite bent vieną grupę, kad sukurtumėte užduotį');
       }
 
       const template = await this.templateRepository.findOne({
@@ -610,7 +627,9 @@ export class NewsService {
       });
 
       if (!template) {
-        await this.newsRepository.delete(saved.id);
+        if (newsId) {
+          await this.newsRepository.delete(newsId);
+        }
         throw new NotFoundException('Šablonas nerastas');
       }
 
@@ -629,7 +648,9 @@ export class NewsService {
       const hiveIds = await this.collectAssignmentHives(groups.map((group) => group.id));
 
       if (!hiveIds.length) {
-        await this.newsRepository.delete(saved.id);
+        if (newsId) {
+          await this.newsRepository.delete(newsId);
+        }
         throw new BadRequestException('Nepavyko rasti avilių pasirinktomis grupėmis');
       }
 
@@ -649,53 +670,59 @@ export class NewsService {
           ),
         );
       } catch (error) {
-        await this.newsRepository.delete(saved.id);
+        if (newsId) {
+          await this.newsRepository.delete(newsId);
+        }
         throw error;
       }
 
-      full.attachedTaskId = createdTask.id;
-      full.assignmentStartDate = normalizedStartDate ?? null;
-      full.assignmentDueDate = normalizedDueDate ?? null;
-      full.sendNotifications = sendNotifications;
-      await runWithDatabaseErrorHandling(
-        () => this.newsRepository.save(full),
-        { message: 'Nepavyko atnaujinti naujienos su užduotimi' },
-      );
-    }
-
-    const recipientGroupIds = groups.map((group) => group.id);
-    const recipients = await this.collectRecipientIds(targetAll, recipientGroupIds);
-
-    const uniqueRecipients = Array.from(new Set(recipients)).filter(
-      (recipientId) => recipientId !== actor.id,
-    );
-
-    const link = this.buildNewsLink(full.id);
-    const emailCtaUrl = this.buildNewsListLink();
-
-    for (const recipientId of uniqueRecipients) {
-      try {
-        await this.notifications.createNotification(recipientId, {
-          type: 'news',
-          title: `Nauja naujiena: ${title}`,
-          body,
-          link,
-          sendEmail: true,
-          emailSubject: 'Nauja naujiena',
-          emailBody: `Paskelbta nauja naujiena "${title}"
-
-${body}`,
-          emailCtaUrl,
-        });
-      } catch (error) {
-        this.logger.warn(
-          `Nepavyko sukurti naujienos pranešimo naudotojui ${recipientId}`,
-          error instanceof Error ? error.stack : undefined,
+      if (full) {
+        full.attachedTaskId = createdTask.id;
+        full.assignmentStartDate = normalizedStartDate ?? null;
+        full.assignmentDueDate = normalizedDueDate ?? null;
+        full.sendNotifications = sendNotifications;
+        await runWithDatabaseErrorHandling(
+          () => this.newsRepository.save(full),
+          { message: 'Nepavyko atnaujinti naujienos su užduotimi' },
         );
       }
     }
 
-    return this.mapPost(full);
+    if (createNews && full) {
+      const recipientGroupIds = groups.map((group) => group.id);
+      const recipients = await this.collectRecipientIds(targetAll, recipientGroupIds);
+
+      const uniqueRecipients = Array.from(new Set(recipients)).filter(
+        (recipientId) => recipientId !== actor.id,
+      );
+
+      const link = this.buildNewsLink(full.id);
+      const emailCtaUrl = this.buildNewsListLink();
+
+      for (const recipientId of uniqueRecipients) {
+        try {
+          await this.notifications.createNotification(recipientId, {
+            type: 'news',
+            title: `Nauja naujiena: ${title}`,
+            body,
+            link,
+            sendEmail: true,
+            emailSubject: 'Nauja naujiena',
+            emailBody: `Paskelbta nauja naujiena "${title}"
+
+${body}`,
+            emailCtaUrl,
+          });
+        } catch (error) {
+          this.logger.warn(
+            `Nepavyko sukurti naujienos pranešimo naudotojui ${recipientId}`,
+            error instanceof Error ? error.stack : undefined,
+          );
+        }
+      }
+    }
+
+    return full ? this.mapPost(full) : null;
   }
   async update(id: string, dto: UpdateNewsDto): Promise<NewsPostResponse> {
     const post = await this.newsRepository.findOne({

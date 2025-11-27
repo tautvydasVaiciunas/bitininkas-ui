@@ -358,6 +358,73 @@ export class StoreOrdersService {
     }
   }
 
+  private buildOrderLineItemsHtml(items: StoreOrderItem[]): string {
+    if (!items.length) {
+      return '';
+    }
+    const rows = items
+      .map(
+        (item) => `
+          <tr>
+            <td>${this.escape(item.productTitle)}</td>
+            <td style="text-align: center;">${item.quantity}</td>
+            <td style="text-align: right;">${this.formatPrice(item.unitGrossCents)}</td>
+            <td style="text-align: right;">${this.formatPrice(item.lineGrossCents)}</td>
+          </tr>
+        `,
+      )
+      .join('');
+
+    return `
+      <table cellpadding="6" cellspacing="0" border="0" width="100%" style="border-collapse: collapse; margin-top: 12px;">
+        <thead>
+          <tr>
+            <th align="left">Produktas</th>
+            <th align="center">Kiekis</th>
+            <th align="right">Vnt. kaina</th>
+            <th align="right">Suma</th>
+          </tr>
+        </thead>
+        <tbody>
+          ${rows}
+        </tbody>
+      </table>
+    `;
+  }
+
+  private buildOrderTotalsHtml(order: StoreOrder): string {
+    const rows: string[] = [];
+    if (order.subtotalNetCents) {
+      rows.push(`
+        <tr>
+          <td colspan="3" style="text-align: right;">Tarpinė suma (be PVM)</td>
+          <td style="text-align: right;"><strong>${this.formatPrice(order.subtotalNetCents)}</strong></td>
+        </tr>
+      `);
+    }
+    if (order.vatCents) {
+      rows.push(`
+        <tr>
+          <td colspan="3" style="text-align: right;">PVM (21%)</td>
+          <td style="text-align: right;"><strong>${this.formatPrice(order.vatCents)}</strong></td>
+        </tr>
+      `);
+    }
+    rows.push(`
+      <tr>
+        <td colspan="3" style="text-align: right;"><strong>Iš viso (su PVM)</strong></td>
+        <td style="text-align: right;"><strong>${this.formatPrice(order.totalAmountCents)}</strong></td>
+      </tr>
+    `);
+    return `
+      <table cellpadding="6" cellspacing="0" border="0" width="100%" style="border-collapse: collapse; margin-top: 16px;">
+        <tbody>
+          ${rows.join('')}
+        </tbody>
+      </table>
+    `;
+  }
+
   private async sendCustomerEmail(order: StoreOrder) {
     if (!order.customerEmail) {
       return;
@@ -365,22 +432,37 @@ export class StoreOrdersService {
 
     const shortId = order.id.slice(0, 8).toUpperCase();
     const subject = 'Gautas naujas užsakymas';
-    const summary = [
+    const lineItemsHtml = this.buildOrderLineItemsHtml(order.items ?? []);
+    const totalsHtml = this.buildOrderTotalsHtml(order);
+    const summaryHtml = lineItemsHtml
+      ? `
+        <p style="margin-bottom: 0.5rem;">Gautas naujas užsakymas #${shortId}</p>
+        ${lineItemsHtml}
+        ${totalsHtml}
+        <p style="margin-top: 12px;">Su jumis susisieksime artimiausiu metu dėl užsakymo.</p>
+      `
+      : `
+        <p>Gautas naujas užsakymas #${shortId}</p>
+        <p style="margin-top: 4px;">Suma (su PVM): ${this.formatPrice(order.totalAmountCents)}</p>
+        <p style="margin-top: 12px;">Su jumis susisieksime artimiausiu metu dėl užsakymo.</p>
+      `;
+    const textLines = [
       `Gautas naujas užsakymas #${shortId}`,
+      ...((order.items ?? []).map(
+        (item) =>
+          `${item.productTitle} x${item.quantity} – ${this.formatPrice(item.lineGrossCents)}`,
+      )),
+      '',
       `Suma (su PVM): ${this.formatPrice(order.totalAmountCents)}`,
       'Su jumis susisieksime artimiausiu metu dėl užsakymo.',
-    ].join('<br />');
-    const text = [
-      `Gautas naujas užsakymas #${shortId}`,
-      `Suma (su PVM): ${this.formatPrice(order.totalAmountCents)}`,
-      'Su jumis susisieksime artimiausiu metu dėl užsakymo.',
-    ].join('\n');
+    ];
+    const text = textLines.join('\n');
     const ctaUrl = resolveFrontendUrl(this.configService, '/parduotuve/uzsakymai');
 
     await this.emailService.sendMail({
       to: order.customerEmail,
       subject,
-      mainHtml: summary,
+      mainHtml: summaryHtml,
       text,
       primaryButtonLabel: 'Peržiūrėti užsakymus',
       primaryButtonUrl: ctaUrl,

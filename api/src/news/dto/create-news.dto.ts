@@ -9,6 +9,14 @@ import {
 import { IsDateOnlyString } from '../../common/validators/is-date-only-string.decorator';
 
 export class CreateNewsDto {
+  @IsOptional()
+  @IsBoolean({ message: 'Netinkamas pasirinkimas' })
+  createNews?: boolean;
+
+  @IsOptional()
+  @IsBoolean({ message: 'Netinkamas pasirinkimas' })
+  createAssignment?: boolean;
+
   @IsString({ message: 'Pavadinimas privalomas' })
   @MaxLength(255, { message: 'Pavadinimas per ilgas' })
   title!: string;

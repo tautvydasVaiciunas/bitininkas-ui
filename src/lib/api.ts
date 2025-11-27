@@ -628,6 +628,17 @@ export interface StepProgressResponse {
   evidenceUrl?: string | null;
   createdAt: string;
   updatedAt: string;
+  media?: AssignmentStepMediaResponse[];
+}
+
+export interface AssignmentStepMediaResponse {
+  id: string;
+  url: string;
+  mimeType: string;
+  kind: string;
+  sizeBytes: number;
+  createdAt: string;
+  userId: string;
 }
 
 export interface StepProgressToggleResponse {
@@ -1217,6 +1228,10 @@ export const api = {
       patch<AssignmentResponse>(`/assignments/${id}/rating`, { json: payload }),
     rate: (id: string, payload: SubmitAssignmentRatingPayload) =>
       post<AssignmentResponse>(`/assignments/${id}/rate`, { json: payload }),
+    uploadStepMedia: (assignmentId: string, stepId: string, formData: FormData) =>
+      post<AssignmentStepMediaResponse>(`/assignments/${assignmentId}/steps/${stepId}/media`, {
+        body: formData,
+      }),
     review: (id: string, payload: SubmitAssignmentReviewPayload) =>
       patch<AssignmentResponse>(`/assignments/${id}/review`, { json: payload }),
     bulkFromTemplate: (payload: BulkAssignmentsFromTemplatePayload) =>

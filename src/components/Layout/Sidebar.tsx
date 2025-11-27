@@ -1,39 +1,42 @@
 import { NavLink } from "react-router-dom";
-import type { LucideIcon } from "lucide-react";
-import {
-  BarChart3,
-  Bell,
-  Box,
-  ClipboardList,
-  FileStack,
-  ListChecks,
-  ListTodo,
-  Newspaper,
-  Package,
-  User,
-  Users,
-  UsersRound,
-} from "lucide-react";
 import { useEffect, useState } from "react";
 import { useQuery } from "@tanstack/react-query";
 import { useAuth } from "@/contexts/AuthContext";
 import api from "@/lib/api";
 import { cn } from "@/lib/utils";
+import type { ComponentType } from "react";
+import {
+  BarChart3,
+  Bell,
+  ClipboardList,
+  FileStack,
+  ListChecks,
+  ListTodo,
+  Newspaper,
+  User,
+} from "lucide-react";
+import {
+  GroupBeeIcon,
+  HiveBeeIcon,
+  ShopBeeIcon,
+  UserBeeIcon,
+} from "@/components/icons/BeekeepingIcons";
 
+type NavIcon = ComponentType<{ className?: string }>;
 type NavItem = {
   to: string;
   label: string;
-  icon: LucideIcon;
+  icon: NavIcon;
 };
 
 const profileNav: NavItem = { to: "/profile", label: "Profilis", icon: User };
-const publicStoreNav: NavItem = { to: "/parduotuve", label: "Parduotuvė", icon: Package };
+const publicStoreNav: NavItem = { to: "/parduotuve", label: "Parduotuvė", icon: ShopBeeIcon };
 const supportNav: NavItem = { to: "/support", label: "Žinutės", icon: Bell };
 const messagesNav: NavItem = { to: "/admin/support", label: "Žinutės", icon: Bell };
 
 const userNavItems: NavItem[] = [
   { to: "/news", label: "Naujienos", icon: Newspaper },
-  { to: "/hives", label: "Aviliai", icon: Box },
+  { to: "/hives", label: "Aviliai", icon: HiveBeeIcon },
   { to: "/tasks", label: "Užduotys", icon: ListTodo },
   supportNav,
   publicStoreNav,
@@ -41,10 +44,10 @@ const userNavItems: NavItem[] = [
 
 const adminNavSections: NavItem[][] = [
   [
-    { to: "/admin/users", label: "Vartotojai", icon: Users },
-    { to: "/admin/groups", label: "Grupės", icon: UsersRound },
+    { to: "/admin/users", label: "Vartotojai", icon: UserBeeIcon },
+    { to: "/admin/groups", label: "Grupės", icon: GroupBeeIcon },
     messagesNav,
-    { to: "/hives", label: "Aviliai", icon: Box },
+    { to: "/hives", label: "Aviliai", icon: HiveBeeIcon },
   ],
   [
     { to: "/admin/news", label: "Naujienos", icon: Newspaper },
@@ -53,12 +56,12 @@ const adminNavSections: NavItem[][] = [
     { to: "/admin/tasks", label: "Užduotys", icon: ClipboardList },
     { to: "/reports", label: "Ataskaitos", icon: BarChart3 },
   ],
-  [{ to: "/admin/store/products", label: "Parduotuvė", icon: Package }],
+  [{ to: "/admin/store/products", label: "Parduotuvė", icon: ShopBeeIcon }],
 ];
 
 const adminDesktopNavItems = adminNavSections.flat();
 const adminMobileMainNav: NavItem[] = [
-  { to: "/admin/users", label: "Vartotojai", icon: Users },
+  { to: "/admin/users", label: "Vartotojai", icon: UserBeeIcon },
   { to: "/notifications", label: "Pranešimai", icon: Bell },
   { to: "/admin/news", label: "Naujienos", icon: Newspaper },
   { to: "/reports", label: "Ataskaitos", icon: BarChart3 },

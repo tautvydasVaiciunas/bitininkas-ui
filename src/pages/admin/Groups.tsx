@@ -44,7 +44,6 @@ interface GroupFormState {
 }
 
 const defaultFormState: GroupFormState = { name: "", description: "" };
-const ALL_HIVES_VALUE = "__ALL__";
 
 const mapToOptionLabel = (user: AdminUserResponse) => user.name || user.email;
 
@@ -64,22 +63,6 @@ export default function AdminGroups() {
   const [memberSearch, setMemberSearch] = useState<string>('');
   const [selectedHives, setSelectedHives] = useState<string[]>([]);
   const [showArchivedHives, setShowArchivedHives] = useState(false);
-
-  const toggleHiveSelection = (hiveId: string) => {
-    setSelectedHives((prev) => {
-      const withoutAll = prev.filter((value) => value !== ALL_HIVES_VALUE);
-      if (withoutAll.includes(hiveId)) {
-        return withoutAll.filter((value) => value !== hiveId);
-      }
-      return [...withoutAll, hiveId];
-    });
-  };
-
-  const toggleAllHives = () => {
-    setSelectedHives((prev) =>
-      prev.includes(ALL_HIVES_VALUE) ? [] : [ALL_HIVES_VALUE],
-    );
-  };
 
   const {
     data: groups = [],
@@ -118,13 +101,32 @@ export default function AdminGroups() {
     [groups, membersDialogGroupId],
   );
   const isMembersDialogOpen = membersDialogGroupId !== null;
+  const assignedHiveIds = useMemo(() => {
+    return new Set(
+      membersDialogGroup?.members
+        .map((member) => member.hiveId)
+        .filter((hiveId): hiveId is string => Boolean(hiveId)) ?? [],
+    );
+  }, [membersDialogGroup]);
+
+  const toggleHiveSelection = (hiveId: string) => {
+    if (assignedHiveIds.has(hiveId)) {
+      return;
+    }
+
+    setSelectedHives((prev) => {
+      if (prev.includes(hiveId)) {
+        return prev.filter((value) => value !== hiveId);
+      }
+      return [...prev, hiveId];
+    });
+  };
 
   const sortedUserHives = useMemo(() => {
     return [...userHives].sort((a, b) => a.label.localeCompare(b.label));
   }, [userHives]);
 
-  const isAllSelected = selectedHives.includes(ALL_HIVES_VALUE);
-  const canAddMember = Boolean(memberToAdd) && (isAllSelected || selectedHives.length > 0);
+  const canAddMember = Boolean(memberToAdd && selectedHives.length > 0);
 
   useEffect(() => {
     setSelectedHives([]);
@@ -283,9 +285,9 @@ export default function AdminGroups() {
     if (!memberToAdd || !membersDialogGroup || addMemberMutation.isPending) return;
     if (!canAddMember) return;
 
-    const hiveIds = isAllSelected ? [undefined] : selectedHives;
+    const hiveIds = [...selectedHives];
 
-    if (!isAllSelected && hiveIds.length === 0) {
+    if (hiveIds.length === 0) {
       return;
     }
 
@@ -300,9 +302,7 @@ export default function AdminGroups() {
 
       toast({
         title: "Vartotojas pridėtas į grupę",
-        description: isAllSelected
-          ? "Vartotojas priskirtas visiems aviliams."
-          : `Vartotojas priskirtas ${hiveIds.length} aviliui.`,
+      description: `Vartotojas priskirtas ${hiveIds.length} aviliui.`,
       });
       invalidateGroups();
       invalidateUsers();
@@ -681,39 +681,41 @@ export default function AdminGroups() {
                               </Button>
                             </div>
                             <div className="rounded-md border border-border/70 p-3">
-                              <label className="flex items-center gap-2 text-sm">
-                                <input
-                                  type="checkbox"
-                                  checked={isAllSelected}
-                                  onChange={toggleAllHives}
-                                />
-                                <span>Visi aviliai</span>
-                              </label>
                               <div className="mt-2 max-h-[40vh] overflow-y-auto space-y-2">
                                 {userHivesLoading ? (
                                   <p className="text-sm text-muted-foreground">Kraunama...</p>
                                 ) : sortedUserHives.length > 0 ? (
-                                  sortedUserHives.map((hive) => (
-                                    <label
-                                      key={hive.id}
-                                      className="flex items-center justify-between gap-2 rounded-md bg-muted/5 px-3 py-2 text-sm"
-                                    >
-                                      <div className="flex items-center gap-2">
-                                        <input
-                                          type="checkbox"
-                                          checked={selectedHives.includes(hive.id)}
-                                          onChange={() => toggleHiveSelection(hive.id)}
-                                          disabled={isAllSelected}
-                                        />
-                                        <div className="flex flex-col">
-                                          <span className="font-medium">{hive.label}</span>
-                                          <span className="text-xs text-muted-foreground">
-                                            {hive.location ?? "Lokacija nenustatyta"}
-                                          </span>
+                                  sortedUserHives.map((hive) => {
+                                    const isAssigned = assignedHiveIds.has(hive.id);
+                                    return (
+                                      <label
+                                        key={hive.id}
+                                        className={`flex items-center justify-between gap-2 rounded-md bg-muted/5 px-3 py-2 text-sm ${
+                                          isAssigned ? 'opacity-60' : ''
+                                        }`}
+                                      >
+                                        <div className="flex items-center gap-2">
+                                          <input
+                                            type="checkbox"
+                                            checked={selectedHives.includes(hive.id)}
+                                            onChange={() => toggleHiveSelection(hive.id)}
+                                            disabled={isAssigned}
+                                          />
+                                          <div className="flex flex-col">
+                                            <span className="font-medium">{hive.label}</span>
+                                            <span className="text-xs text-muted-foreground">
+                                              {hive.location ?? "Lokacija nenustatyta"}
+                                            </span>
+                                          </div>
                                         </div>
-                                      </div>
-                                    </label>
-                                  ))
+                                        {isAssigned ? (
+                                          <span className="text-xs text-muted-foreground">
+                                            Jau priskirtas
+                                          </span>
+                                        ) : null}
+                                      </label>
+                                    );
+                                  })
                                 ) : (
                                   <p className="text-sm text-muted-foreground">
                                     Vartotojas neturi avilių

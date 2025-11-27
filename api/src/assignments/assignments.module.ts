@@ -19,6 +19,9 @@ import { AssignmentsScheduler } from './assignments.scheduler';
 import { Notification } from '../notifications/notification.entity';
 import { HiveEventsModule } from '../hives/hive-events.module';
 import { EmailModule } from '../email/email.module';
+import { AssignmentStepMedia } from './assignment-step-media.entity';
+import { AssignmentStepMediaService } from './assignment-step-media.service';
+import { AssignmentStepMediaController } from './assignment-step-media.controller';
 
 @Module({
   imports: [
@@ -33,6 +36,7 @@ import { EmailModule } from '../email/email.module';
       Template,
       TemplateStep,
       Notification,
+      AssignmentStepMedia,
     ]),
     ActivityLogModule,
     NotificationsModule,
@@ -40,8 +44,8 @@ import { EmailModule } from '../email/email.module';
     EmailModule,
     forwardRef(() => HivesModule),
   ],
-  providers: [AssignmentsService, AssignmentsScheduler],
-  controllers: [AssignmentsController],
+  providers: [AssignmentsService, AssignmentsScheduler, AssignmentStepMediaService],
+  controllers: [AssignmentsController, AssignmentStepMediaController],
   exports: [AssignmentsService],
 })
 export class AssignmentsModule {}

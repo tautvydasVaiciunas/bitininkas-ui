@@ -193,6 +193,16 @@ export class GroupsService {
       hiveId = hive.id;
     }
 
+    if (hiveId) {
+      const existingHive = await this.membersRepository.findOne({
+        where: { groupId, hiveId },
+      });
+
+      if (existingHive) {
+        throw new ConflictException('Hive already assigned to group');
+      }
+    }
+
     const existing = await this.membersRepository.findOne({
       where: hiveId
         ? { groupId, userId: dto.userId, hiveId }

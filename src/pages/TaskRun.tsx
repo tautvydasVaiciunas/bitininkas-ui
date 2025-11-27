@@ -1,4 +1,4 @@
-﻿import { useEffect, useMemo, useRef, useState } from 'react';
+﻿import { ChangeEvent, useEffect, useMemo, useRef, useState } from 'react';
 import { useNavigate, useParams } from 'react-router-dom';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { MainLayout } from '@/components/Layout/MainLayout';
@@ -11,7 +11,11 @@ import { Progress } from '@/components/ui/progress';
 import { Skeleton } from '@/components/ui/skeleton';
 import { AssignmentStatusBadge } from '@/components/AssignmentStatusBadge';
 import { Badge } from '@/components/ui/badge';
-import api, { type HttpError, type SubmitAssignmentRatingPayload } from '@/lib/api';
+import api, {
+  type AssignmentStepMediaResponse,
+  type HttpError,
+  type SubmitAssignmentRatingPayload,
+} from '@/lib/api';
 import {
   mapAssignmentDetailsFromApi,
   mapAssignmentFromApi,
@@ -48,7 +52,9 @@ export default function TaskRun() {
   const [currentStepIndex, setCurrentStepIndex] = useState(0);
   const [ratingValue, setRatingValue] = useState<number | null>(null);
   const [ratingComment, setRatingComment] = useState('');
-  const [videoError, setVideoError] = useState(false);
+  const [selectedMediaFile, setSelectedMediaFile] = useState<File | null>(null);
+  const [mediaError, setMediaError] = useState<string | null>(null);
+  const mediaInputRef = useRef<HTMLInputElement | null>(null);
 
   const {
     data,
@@ -87,6 +93,9 @@ export default function TaskRun() {
   const currentProgress = currentStep ? progressMap.get(currentStep.id) : undefined;
   const currentMediaUrl = resolveMediaUrl(currentStep?.mediaUrl ?? null);
   const currentMediaType = inferMediaType(currentStep?.mediaType ?? null, currentMediaUrl);
+  const existingMedia = currentProgress?.media ?? [];
+  const requiresUserMedia = currentStep?.requireUserMedia ?? false;
+  const hasUploadedMedia = existingMedia.length > 0;
 
   const lastCompletedStepIndex = useMemo(() => {
     for (let index = steps.length - 1; index >= 0; index -= 1) {
@@ -102,7 +111,8 @@ export default function TaskRun() {
   const isRatingStep = currentStepIndex >= steps.length;
 
   useEffect(() => {
-    setVideoError(false);
+    setSelectedMediaFile(null);
+    setMediaError(null);
   }, [currentStep?.id]);
 
   useEffect(() => {
@@ -122,6 +132,41 @@ export default function TaskRun() {
     queryFn: () => api.hives.details(hiveId ?? '').then(mapHiveFromApi),
     enabled: Boolean(hiveId),
   });
+
+  const uploadMediaMutation = useMutation<
+    AssignmentStepMediaResponse,
+    HttpError | Error,
+    { stepId: string; file: File }
+  >({
+    mutationFn: ({ stepId, file }) => {
+      const formData = new FormData();
+      formData.append('file', file);
+      return api.assignments.uploadStepMedia(id!, stepId, formData);
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['assignments', id, 'details'] });
+      queryClient.invalidateQueries({ queryKey: ['assignments', id, 'run'] });
+      toast.success('Failas įkeltas');
+      setSelectedMediaFile(null);
+      setMediaError(null);
+    },
+    onError: (error) => {
+      setMediaError(getErrorMessage(error));
+    },
+  });
+
+  const handleMediaFileChange = (event: ChangeEvent<HTMLInputElement>) => {
+    const file = event.target.files?.[0];
+    if (!file || !currentStep?.id) {
+      event.target.value = '';
+      return;
+    }
+
+    setSelectedMediaFile(file);
+    setMediaError(null);
+    uploadMediaMutation.mutate({ stepId: currentStep.id, file });
+    event.target.value = '';
+  };
 
   const updateAssignmentStatusMutation = useMutation({
     mutationFn: (status: AssignmentStatus) => api.assignments.update(id!, { status }).then(mapAssignmentFromApi),
@@ -478,10 +523,85 @@ export default function TaskRun() {
                         </div>
                       </div>
                     ) : null}
-                    {currentStep?.requireUserMedia ? (
-                      <Badge variant="outline" className="border-amber-500/40 bg-amber-50 text-amber-700">
-                        Šiam žingsniui reikalinga jūsų nuotrauka arba vaizdo įrašas
-                      </Badge>
+                    {requiresUserMedia ? (
+                      <>
+                        <Badge variant="outline" className="border-amber-500/40 bg-amber-50 text-amber-700">
+                          Šiam žingsniui reikalinga jūsų nuotrauka arba vaizdo įrašas
+                        </Badge>
+                        <div className="space-y-4 rounded-2xl border border-amber-200/80 bg-amber-50/80 p-4">
+                          <div className="flex flex-wrap items-center gap-3">
+                            <Button
+                              type="button"
+                              variant="outline"
+                              onClick={() => mediaInputRef.current?.click()}
+                              disabled={uploadMediaMutation.isPending}
+                            >
+                              Įkelti nuotrauką / vaizdo įrašą
+                            </Button>
+                            <input
+                              ref={mediaInputRef}
+                              type="file"
+                              accept="image/*,video/*"
+                              capture="environment"
+                              className="hidden"
+                              onChange={handleMediaFileChange}
+                            />
+                            <div className="flex items-center gap-1 text-sm text-muted-foreground">
+                              {uploadMediaMutation.isPending ? (
+                                <>
+                                  <Loader2 className="h-4 w-4 animate-spin" />
+                                  Įkeliama...
+                                </>
+                              ) : selectedMediaFile ? (
+                                <>Pasirinkta: {selectedMediaFile.name}</>
+                              ) : hasUploadedMedia ? (
+                                <>
+                                  {existingMedia.length === 1
+                                    ? '1 failas įkeltas'
+                                    : `${existingMedia.length} failai įkelti`}
+                                </>
+                              ) : (
+                                'Pasirinkite failą, kad galėtumėte pažymėti žingsnį'
+                              )}
+                            </div>
+                          </div>
+                          {mediaError ? (
+                            <p className="text-sm text-destructive" role="alert">
+                              {mediaError}
+                            </p>
+                          ) : null}
+                          {hasUploadedMedia ? (
+                            <div className="space-y-3">
+                              <p className="text-sm font-semibold text-foreground">Įkelti failai</p>
+                              <div className="grid gap-3 md:grid-cols-2">
+                                {existingMedia.map((item) => {
+                                  const uploadedAt = new Date(item.createdAt);
+                                  const timeLabel = Number.isNaN(uploadedAt.getTime())
+                                    ? ''
+                                    : uploadedAt.toLocaleTimeString('lt-LT', {
+                                        hour: '2-digit',
+                                        minute: '2-digit',
+                                      });
+                                  return (
+                                    <div key={item.id} className="space-y-1">
+                                      <ResponsiveMedia
+                                        url={item.url}
+                                        type={item.kind === 'video' ? 'video' : 'image'}
+                                        title={currentStep?.title ?? 'Žingsnis'}
+                                        className="h-36 w-full rounded-lg bg-muted"
+                                      />
+                                      <p className="text-xs text-muted-foreground">
+                                        Įkelta {formatDate(item.createdAt)}
+                                        {timeLabel ? `, ${timeLabel}` : ''}
+                                      </p>
+                                    </div>
+                                  );
+                                })}
+                              </div>
+                            </div>
+                          ) : null}
+                        </div>
+                      </>
                     ) : null}
                   </>
                 )}
@@ -512,13 +632,13 @@ export default function TaskRun() {
                   ) : null}
                 </div>
               ) : (
-                <div className="flex gap-3">
-                  {hasCurrentStepCompleted ? (
-                    <Button
-                      variant="outline"
-                      onClick={handleStepUncomplete}
-                      disabled={!canUncompleteCurrentStep || toggleStepMutation.isPending}
-                    >
+                  <div className="flex gap-3">
+                    {hasCurrentStepCompleted ? (
+                      <Button
+                        variant="outline"
+                        onClick={handleStepUncomplete}
+                        disabled={!canUncompleteCurrentStep || toggleStepMutation.isPending}
+                      >
                       {toggleStepMutation.isPending ? (
                         <>
                           <Loader2 className="mr-2 h-4 w-4 animate-spin" />
@@ -532,7 +652,17 @@ export default function TaskRun() {
                       )}
                     </Button>
                   ) : (
-                    <Button onClick={handleStepComplete} disabled={toggleStepMutation.isPending}>
+                    <Button
+                      onClick={handleStepComplete}
+                      disabled={
+                        toggleStepMutation.isPending || (requiresUserMedia && !hasUploadedMedia)
+                      }
+                      title={
+                        requiresUserMedia && !hasUploadedMedia
+                          ? 'Įkelkite nuotrauką arba vaizdo įrašą, kad galėtumėte pažymėti žingsnį'
+                          : undefined
+                      }
+                    >
                       <CheckCircle2 className="mr-2 h-4 w-4" />
                       {toggleStepMutation.isPending ? 'Žymima...' : 'Pažymėti kaip atliktą'}
                     </Button>

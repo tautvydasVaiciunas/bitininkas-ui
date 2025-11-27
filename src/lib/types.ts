@@ -239,6 +239,12 @@ export const mapStepProgressFromApi = (progress: ApiStepProgressResponse): StepP
   completedAt: mapOptionalString(progress.completedAt),
   notes: mapOptionalString(progress.notes),
   evidenceUrl: mapOptionalString(progress.evidenceUrl),
+  media: Array.isArray(progress.media)
+    ? progress.media.map((item) => ({
+        ...item,
+        url: resolveMediaUrl(item.url),
+      }))
+    : [],
 });
 
 export const mapStepToggleResponseFromApi = (

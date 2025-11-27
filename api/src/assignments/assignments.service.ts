@@ -44,6 +44,17 @@ import { HiveEventsService } from "../hives/hive-events.service";
 import { HiveEventType } from "../hives/hive-event.entity";
 import { EmailService } from "../email/email.service";
 import { ReviewAssignmentDto } from "./dto/review-assignment.dto";
+import { AssignmentStepMediaService } from "./assignment-step-media.service";
+
+export interface AssignmentStepMediaDto {
+  id: string;
+  url: string;
+  mimeType: string;
+  kind: string;
+  sizeBytes: number;
+  createdAt: string;
+  userId: string;
+}
 @Injectable()
 export class AssignmentsService {
   private readonly logger = new Logger(AssignmentsService.name);
@@ -71,6 +82,7 @@ export class AssignmentsService {
     private readonly pagination: PaginationService,
     private readonly hiveEvents: HiveEventsService,
     private readonly emailService: EmailService,
+    private readonly stepMediaService: AssignmentStepMediaService,
   ) {
     this.appBaseUrl = this.normalizeBaseUrl(
       this.configService.get<string>("APP_URL") ??
@@ -1117,6 +1129,26 @@ export class AssignmentsService {
     return this.ensureUserCanAccessHive(assignment.hiveId, userId);
   }
 
+  async ensureUserCanAccessAssignment(assignmentId: string, user) {
+    const assignment = await this.assignmentsRepository.findOne({
+      where: { id: assignmentId },
+      relations: { hive: { members: true } },
+    });
+
+    if (!assignment) {
+      throw new NotFoundException('Assignment not found');
+    }
+
+    if (![UserRole.ADMIN, UserRole.MANAGER].includes(user.role)) {
+      const allowed = await this.userHasHiveAccess(assignment, user.id);
+      if (!allowed) {
+        throw new ForbiddenException('Neleidžiama');
+      }
+    }
+
+    return assignment;
+  }
+
   async getDetails(
     id: string,
     user,
@@ -1184,7 +1216,28 @@ export class AssignmentsService {
       }
     }
 
-    return { assignment, task: { ...task, steps }, progress, completion };
+    const stepMediaEntries = await this.stepMediaService.findByAssignment(assignment.id);
+    const mediaByStepId = new Map<string, AssignmentStepMediaDto[]>();
+    for (const entry of stepMediaEntries) {
+      const list = mediaByStepId.get(entry.stepId) ?? [];
+      list.push({
+        id: entry.id,
+        url: entry.url,
+        mimeType: entry.mimeType,
+        kind: entry.kind,
+        sizeBytes: entry.sizeBytes,
+        createdAt: entry.createdAt.toISOString(),
+        userId: entry.userId,
+      });
+      mediaByStepId.set(entry.stepId, list);
+    }
+
+    const enrichedProgress = progress.map((entry) => ({
+      ...entry,
+      media: mediaByStepId.get(entry.taskStepId) ?? [],
+    }));
+
+    return { assignment, task: { ...task, steps }, progress: enrichedProgress, completion };
   }
 
   async getForRun(id: string, user) {

@@ -534,6 +534,20 @@ export interface AssignmentAnalyticsRow {
   uniqueUsers: number;
 }
 
+export interface AssignmentUserSummaryRow {
+  userId: string;
+  userName: string;
+  userEmail: string;
+  totalAssignments: number;
+  completedCount: number;
+  activeCount: number;
+  waitingCount: number;
+  overdueCount: number;
+  avgRating: number | null;
+  avgDelayDays: number | null;
+  lastCompletedAt: string | null;
+}
+
 export interface AssignmentAnalyticsSummary {
   total: number;
   completed: number;
@@ -1306,6 +1320,19 @@ export const api = {
       get<AssignmentAnalyticsResponse>('/reports/assignments/analytics', {
         query: params,
       }),
+    userSummary: (params: {
+      year: string;
+      groupId?: string;
+      userId?: string;
+      status?: AssignmentAnalyticsStatus;
+    }) => get<AssignmentUserSummaryRow[]>('/reports/users', { query: params }),
+    userAssignments: (params: {
+      year: string;
+      groupId?: string;
+      userId?: string;
+      taskId?: string;
+      status?: AssignmentAnalyticsStatus;
+    }) => get<AssignmentReportRow[]>('/reports/users/assignments', { query: params }),
   },
   progress: {
     completeStep: (payload: CompleteStepPayload) =>

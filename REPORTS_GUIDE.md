@@ -156,3 +156,107 @@ Labai svarbu:
    - API: `cd api && npm run typecheck` ir `cd api && npm run build`
 6. Jei kažką refaktoriuoji – daryk tai lokaliai, tik ataskaitų zonai, be globalių UI temų ar layout’ų perrašymo.
 
+
+
+## 6. Užduočių kalendorius (BONUS)
+
+Ši dalis yra papildoma, bet jei daroma – privalo laikytis šių taisyklių.
+
+Tikslas – matyti, KADA per mėnesį yra daugiausiai užduočių: kada jos startuoja, iki kada turi būti įvykdytos, kada vėluoja.
+
+### 6.1. Maršrutas ir vieta
+
+- Naujas vaizdas, pvz. `/reports/calendar`.
+- Kairiajame meniu po „Užduočių analizė“ gali atsirasti trečias įrašas:
+  - „Kalendorius“ → `/reports/calendar`.
+- Nepanaikinti kitų ataskaitų skilties įrašų.
+
+### 6.2. Filtrai
+
+Virš kalendoriaus:
+
+- Grupė (Visos grupės + konkrečios).
+- Užduotis (Visos užduotys + konkrečios).
+- Būsena (Visos / Laukiama / Vykdoma / Vėluoja / Užbaigta).
+- (optional) Laikotarpis – mėnesio arba datos pasirinkimas (gali būti „Mėnuo“ su perjungimu pirmyn/atgal).
+
+### 6.3. Kalendoriaus logika
+
+- Rodomas **mėnesio** vaizdas (dienos langeliai).
+- Kiekvienoje dienoje rodomi bent du skaičiai (piktogramos ar „ženkliukai“):
+  - kiek užduočių **prasidėjo** tą dieną (pagal `startDate`).
+  - kiek užduočių **baigiasi** (due) tą dieną (pagal `endDate`).
+- Vizualiai galima skirti spalvomis (pvz. kairė/įėjimas, dešinė/išėjimas; naudoti jau naudojamas spalvas).
+
+### 6.4. „Drill-down“
+
+- Paspaudus ant dienos:
+  - atidaryti šoninį panelį **arba** lentelę po kalendoriumi,
+  - joje rodyti sąrašą užduočių tą dieną (per avilius), su laukais:
+    - Užduotis
+    - Avilys
+    - Vartotojas
+    - Būsena
+    - Žingsniai / progresas
+    - Veiksmai → `Peržiūrėti` (veda į esamą `/tasks/:assignmentId`).
+- Jei įmanoma – naudoti tą patį duomenų šaltinį kaip „Avilių užduotys“ vaizde, tik filtrą pagal pasirinktą datą.
+
+### 6.5. Apribojimai
+
+- Nekeisti DB schemos.
+- Neliesti email/notifications logikos.
+- Jei reikia naujo API metodo – jis turi tik skaityti Assignment duomenis ir remtis esamais laukais (`startDate`, `endDate`, `status` ir pan.).
+
+---
+
+## 7. Vartotojo metinė suvestinė (BONUS)
+
+Tikslas – matyti, kaip konkrečiam vartotojui sekasi per pasirinktus metus: kiek užduočių jam buvo priskirta, kiek baigta, vėlavimai, vidutinis įvertinimas.
+
+### 7.1. Maršrutas ir vieta
+
+- Naujas vaizdas, pvz. `/reports/users`.
+- Kairiajame meniu po „Kalendorius“ (arba po „Užduočių analizė“, jei kalendoriaus nėra) galima pridėti:
+  - „Vartotojų suvestinė“ → `/reports/users`.
+
+### 7.2. Filtrai
+
+Viršuje:
+
+- Metai (dropdown: pvz. 2024, 2025, ...).
+- Grupė (Visos grupės + konkrečios).
+- Vartotojas (Visi vartotojai + konkretus).
+- Būsena (Visos / Laukiama / Vykdoma / Vėluoja / Užbaigta) – gali riboti skaičiavimus.
+
+### 7.3. Lentelė – per vartotojus
+
+Eilutė = vienas vartotojas.
+
+Stulpeliai (minimaliai):
+
+- Vartotojas (vardas + el. paštas).
+- Viso užduočių (priskirta).
+- Užbaigta.
+- Vykdoma.
+- Vėluoja.
+- Vidutinis įvertinimas (1–5).
+- Vidutinis vėlavimas (pvz. dienomis; jei nėra duomenų – „—“).
+- Paskutinė užbaigta užduotis (data).
+- Veiksmai → `Peržiūrėti`.
+
+### 7.4. Drill-down per vartotoją
+
+Paspaudus `Peržiūrėti`:
+
+- Atidaromas šoninis panelis **arba** naujas vaizdas, kuriame rodomos **to vartotojo užduotys** per pasirinktus metus:
+  - panaši lentelė kaip „Avilių užduotys“, tik filtruota pagal vartotoją.
+- Jokių naujų veiksmų (kol kas tik peržiūra).
+
+### 7.5. Duomenys ir apribojimai
+
+- Reikia naudoti egzistuojančius Assignment / Progress / Rating duomenis.
+- Jei kuriamas naujas API endpoint’as:
+  - jis turi tik agreguoti ir skaičiuoti (COUNT, AVG ir pan.).
+  - jokio schemos keitimo.
+- Neperrašyti esamos `/admin/users` logikos – tai atskiras „reporting“ vaizdas, ne vartotojų valdymas.
+

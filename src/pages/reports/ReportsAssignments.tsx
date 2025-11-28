@@ -24,6 +24,7 @@ import type {
   Task,
 } from "@/lib/types";
 import { useAuth } from "@/contexts/AuthContext";
+import { ReportsTabs } from "@/components/reports/ReportsTabs";
 
 const analyticsStatusOptions: { label: string; value: AssignmentAnalyticsStatus }[] = [
   { value: "all", label: "Visos" },
@@ -151,6 +152,7 @@ export default function ReportsAssignments() {
     <MainLayout>
       {canView ? (
         <div className="space-y-6">
+          <ReportsTabs />
           <Card className="shadow-custom">
             <CardHeader>
               <CardTitle>Užduočių analizė</CardTitle>

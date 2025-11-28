@@ -20,6 +20,8 @@ import Notifications from "./pages/Notifications";
 import Profile from "./pages/Profile";
 import ReportsHives from "./pages/reports/ReportsHives";
 import ReportsAssignments from "./pages/reports/ReportsAssignments";
+import ReportsCalendar from "./pages/reports/ReportsCalendar";
+import ReportsUsers from "./pages/reports/ReportsUsers";
 import AdminUsers from "./pages/admin/Users";
 import AdminGroups from "./pages/admin/Groups";
 import AdminSteps from "./pages/admin/Steps";
@@ -96,6 +98,8 @@ const App = () => (
                 <Route path="/reports" element={<Navigate to="/reports/hives" replace />} />
                 <Route path="/reports/hives" element={<ReportsHives />} />
                 <Route path="/reports/assignments" element={<ReportsAssignments />} />
+                <Route path="/reports/calendar" element={<ReportsCalendar />} />
+                <Route path="/reports/users" element={<ReportsUsers />} />
                 <Route
                   element={
                     <ProtectedRoute allowedRoles={["admin", "manager"]} redirectTo="/" />

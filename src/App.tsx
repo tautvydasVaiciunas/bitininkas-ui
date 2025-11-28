@@ -18,7 +18,8 @@ import TaskRun from "./pages/TaskRun";
 import TaskPreview from "./pages/TaskPreview";
 import Notifications from "./pages/Notifications";
 import Profile from "./pages/Profile";
-import Reports from "./pages/Reports";
+import ReportsHives from "./pages/reports/ReportsHives";
+import ReportsAssignments from "./pages/reports/ReportsAssignments";
 import AdminUsers from "./pages/admin/Users";
 import AdminGroups from "./pages/admin/Groups";
 import AdminSteps from "./pages/admin/Steps";
@@ -92,7 +93,9 @@ const App = () => (
                 <Route path="/profile" element={<Profile />} />
                 <Route path="/support" element={<SupportChat />} />
                 <Route path="/duk" element={<HelpFaq />} />
-                <Route path="/reports" element={<Reports />} />
+                <Route path="/reports" element={<Navigate to="/reports/hives" replace />} />
+                <Route path="/reports/hives" element={<ReportsHives />} />
+                <Route path="/reports/assignments" element={<ReportsAssignments />} />
                 <Route
                   element={
                     <ProtectedRoute allowedRoles={["admin", "manager"]} redirectTo="/" />

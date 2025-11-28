@@ -9,24 +9,15 @@ import {
 } from '../assignments/assignment.entity';
 import { Hive } from '../hives/hive.entity';
 import { Task } from '../tasks/task.entity';
+import { AssignmentProgressStatus } from '../progress/assignment-progress.entity';
 import { UserRole } from '../users/user.entity';
 import {
   AssignmentAnalyticsQueryDto,
   AssignmentAnalyticsStatus,
 } from './dto/assignment-analytics-query.dto';
+import { GroupAssignmentQueryDto } from './dto/group-assignment-query.dto';
 
 export interface AssignmentReportRow {
-  userId: string;
-  userName: string;
-  assignmentId: string | null;
-  status: AssignmentStatus | null;
-  completedSteps: number;
-  totalSteps: number;
-  overdue: boolean;
-  dueDate: string | null;
-}
-
-export interface AssignmentAnalyticsRow {
   assignmentId: string;
   taskId: string;
   taskTitle: string;
@@ -35,12 +26,26 @@ export interface AssignmentAnalyticsRow {
   userId: string | null;
   userName: string;
   status: AssignmentStatus;
-  overdue: boolean;
-  rating: number | null;
-  ratingComment: string | null;
-  completedAt: string | null;
-  dueDate: string | null;
+  assignedAt: string | null;
   startDate: string | null;
+  dueDate: string | null;
+  lastActivity: string | null;
+  completedSteps: number;
+  totalSteps: number;
+  overdue: boolean;
+}
+
+export interface AssignmentAnalyticsRow {
+  taskId: string;
+  taskTitle: string;
+  assignedCount: number;
+  completedCount: number;
+  activeCount: number;
+  waitingCount: number;
+  overdueCount: number;
+  avgRating: number | null;
+  completedUsers: number;
+  uniqueUsers: number;
 }
 
 export interface AssignmentAnalyticsSummary {
@@ -65,8 +70,6 @@ export class ReportsService {
     private readonly groupsService: GroupsService,
     @InjectRepository(Assignment)
     private readonly assignmentsRepository: Repository<Assignment>,
-    @InjectRepository(GroupMember)
-    private readonly membersRepository: Repository<GroupMember>,
     @InjectRepository(Task)
     private readonly tasksRepository: Repository<Task>,
   ) {}
@@ -78,122 +81,135 @@ export class ReportsService {
   }
 
   async groupAssignmentProgress(
-    groupId: string | undefined,
-    taskId: string | undefined,
+    query: GroupAssignmentQueryDto,
     actor: { role: UserRole },
   ): Promise<AssignmentReportRow[]> {
     this.ensureManager(actor.role);
-
-    if (!groupId) {
-      throw new BadRequestException('groupId query param is required');
-    }
-
-    const group = await this.groupsService.findOne(groupId);
-    const memberIds = (group.members ?? []).map((member) => member.userId);
-
-    if (memberIds.length === 0) {
+    const group = await this.groupsService.findOne(query.groupId);
+    if ((group.members ?? []).length === 0) {
       return [];
     }
 
-    if (taskId) {
-      const taskExists = await this.tasksRepository.exist({ where: { id: taskId } });
-      if (!taskExists) {
-        return group.members.map((member) => ({
-          userId: member.userId,
-          userName: member.user?.name || member.user?.email || 'Nežinomas vartotojas',
-          assignmentId: null,
-          status: null,
-          completedSteps: 0,
-          totalSteps: 0,
-          overdue: false,
-          dueDate: null,
-        }));
-      }
-    }
-
-    const qb = this.membersRepository
-      .createQueryBuilder('membership')
-      .innerJoin('membership.user', 'memberUser')
-      .leftJoin(Hive, 'hive', 'hive.ownerUserId = membership.userId AND hive.deletedAt IS NULL')
-      .leftJoin(
-        Assignment,
-        'assignment',
-        `assignment.hiveId = hive.id${taskId ? ' AND assignment.taskId = :taskId' : ''}`,
+    const qb = this.assignmentsRepository
+      .createQueryBuilder('assignment')
+      .innerJoin('assignment.hive', 'hive')
+      .innerJoin(
+        GroupMember,
+        'groupMember',
+        'groupMember.user_id = hive.owner_user_id AND groupMember.group_id = :groupId',
+        { groupId: query.groupId },
       )
-      .leftJoin('assignment.progress', 'progress')
+      .leftJoin('hive.owner', 'owner')
       .leftJoin('assignment.task', 'task')
       .leftJoin('task.steps', 'taskStep')
-      .where('membership.groupId = :groupId', { groupId })
-      .select('memberUser.id', 'userId')
-      .addSelect('memberUser.name', 'userName')
-      .addSelect('memberUser.email', 'userEmail')
-      .addSelect('assignment.id', 'assignmentId')
+      .leftJoin('assignment.progress', 'progress')
+      .select('assignment.id', 'assignmentId')
+      .addSelect('task.id', 'taskId')
+      .addSelect('task.title', 'taskTitle')
+      .addSelect('hive.id', 'hiveId')
+      .addSelect('hive.label', 'hiveLabel')
+      .addSelect('hive.owner_user_id', 'ownerUserId')
+      .addSelect('COALESCE(owner.name, owner.email, \'Nežinomas vartotojas\')', 'userName')
       .addSelect('assignment.status', 'status')
-      .addSelect('assignment.dueDate', 'dueDate')
-      .addSelect('COUNT(DISTINCT progress.id)', 'completedSteps')
+      .addSelect('assignment.created_at', 'assignedAt')
+      .addSelect('assignment.start_date', 'startDate')
+      .addSelect('assignment.due_date', 'dueDate')
+      .addSelect('MAX(progress.updated_at)', 'lastActivity')
       .addSelect('COUNT(DISTINCT taskStep.id)', 'totalSteps')
       .addSelect(
-        `CASE WHEN assignment.id IS NOT NULL AND assignment.status != :doneStatus AND assignment.dueDate < CURRENT_DATE THEN true ELSE false END`,
+        `COUNT(DISTINCT CASE WHEN progress.status = :completedStatus THEN progress.task_step_id ELSE NULL END)`,
+        'completedSteps',
+      )
+      .addSelect(
+        `CASE WHEN assignment.status != :doneStatus AND assignment.due_date < CURRENT_DATE THEN true ELSE false END`,
         'overdue',
       )
-      .groupBy('membership.id')
-      .addGroupBy('memberUser.id')
-      .addGroupBy('memberUser.name')
-      .addGroupBy('memberUser.email')
-      .addGroupBy('assignment.id')
+      .groupBy('assignment.id')
+      .addGroupBy('task.id')
+      .addGroupBy('task.title')
+      .addGroupBy('hive.id')
+      .addGroupBy('hive.label')
+      .addGroupBy('hive.owner_user_id')
+      .addGroupBy('owner.name')
+      .addGroupBy('owner.email')
       .addGroupBy('assignment.status')
-      .addGroupBy('assignment.dueDate')
-      .orderBy('memberUser.name', 'ASC')
-      .addOrderBy('memberUser.email', 'ASC')
-      .addOrderBy('assignment.dueDate', 'ASC')
-      .setParameter('doneStatus', AssignmentStatus.DONE);
+      .addGroupBy('assignment.created_at')
+      .addGroupBy('assignment.start_date')
+      .addGroupBy('assignment.due_date')
+      .setParameter('groupId', query.groupId)
+      .setParameter('completedStatus', AssignmentProgressStatus.COMPLETED)
+      .setParameter('doneStatus', AssignmentStatus.DONE)
+      .orderBy('assignment.created_at', 'DESC');
 
-    if (taskId) {
-      qb.setParameter('taskId', taskId);
-    }
+    this.applyGroupAssignmentFilters(qb, query);
 
-    const rawRows = await qb.getRawMany();
+    const rows = await qb.getRawMany();
+    const toIso = (value: string | Date | null | undefined) =>
+      value ? new Date(value).toISOString() : null;
 
-    const mapped = rawRows.map<AssignmentReportRow>((row) => {
-      const assignmentId = row.assignmentId ?? row.assignmentid ?? null;
-      const completedSteps = Number(row.completedSteps ?? row.completedsteps ?? 0);
-      const totalSteps = Number(row.totalSteps ?? row.totalsteps ?? 0);
-      const overdueRaw = row.overdue;
-      const userName = (row.userName ?? row.username ?? '').trim();
-      const userEmail = (row.userEmail ?? row.useremail ?? '').trim();
-
-      return {
-        userId: row.userId ?? row.userid,
-        userName: userName.length > 0 ? userName : userEmail || 'Nežinomas vartotojas',
-        assignmentId,
-        status: assignmentId ? ((row.status as AssignmentStatus) ?? null) : null,
-        completedSteps,
-        totalSteps,
-        overdue: assignmentId
-          ? overdueRaw === true || overdueRaw === 'true' || overdueRaw === 't'
+    return rows.map((row) => ({
+      assignmentId: row.assignmentId,
+      taskId: row.taskId,
+      taskTitle: row.taskTitle ?? 'Užduotis',
+      hiveId: row.hiveId ?? null,
+      hiveLabel: row.hiveLabel ?? '—',
+      userId: row.ownerUserId ?? null,
+      userName: (row.userName ?? 'Nežinomas vartotojas').trim(),
+      status: (row.status as AssignmentStatus) ?? AssignmentStatus.NOT_STARTED,
+      assignedAt: toIso(row.assignedAt),
+      startDate: toIso(row.startDate),
+      dueDate: toIso(row.dueDate),
+      lastActivity: toIso(row.lastActivity),
+      completedSteps: Number(row.completedSteps ?? 0),
+      totalSteps: Number(row.totalSteps ?? 0),
+      overdue:
+        row.overdue === true || row.overdue === 'true' || row.overdue === 't'
+          ? true
           : false,
-        dueDate: assignmentId ? row.dueDate ?? row.duedate ?? null : null,
-      };
-    });
+    }));
+  }
 
-    const seen = new Set(mapped.map((row) => row.userId));
-
-    for (const member of group.members ?? []) {
-      if (!seen.has(member.userId)) {
-        mapped.push({
-          userId: member.userId,
-          userName: member.user?.name || member.user?.email || 'Nežinomas vartotojas',
-          assignmentId: null,
-          status: null,
-          completedSteps: 0,
-          totalSteps: 0,
-          overdue: false,
-          dueDate: null,
-        });
-      }
+  private applyGroupAssignmentFilters(
+    qb: SelectQueryBuilder<Assignment>,
+    query: GroupAssignmentQueryDto,
+  ) {
+    if (query.taskId) {
+      qb.andWhere('assignment.task_id = :taskId', { taskId: query.taskId });
     }
 
-    return mapped.sort((a, b) => a.userName.localeCompare(b.userName));
+    if (query.hiveId) {
+      qb.andWhere('assignment.hive_id = :hiveId', { hiveId: query.hiveId });
+    }
+
+    if (query.userId) {
+      qb.andWhere('hive.owner_user_id = :userId', { userId: query.userId });
+    }
+
+    if (query.dateFrom) {
+      qb.andWhere('assignment.created_at::date >= :dateFrom', { dateFrom: query.dateFrom });
+    }
+
+    if (query.dateTo) {
+      qb.andWhere('assignment.created_at::date <= :dateTo', { dateTo: query.dateTo });
+    }
+
+    const status = query.status ?? 'all';
+    const doneStatus = AssignmentStatus.DONE;
+
+    if (status === 'waiting') {
+      qb.andWhere('assignment.status = :notStarted', {
+        notStarted: AssignmentStatus.NOT_STARTED,
+      });
+    } else if (status === 'active') {
+      qb.andWhere('assignment.status = :inProgress', {
+        inProgress: AssignmentStatus.IN_PROGRESS,
+      });
+    } else if (status === 'overdue') {
+      qb.andWhere('assignment.status != :doneStatus', { doneStatus });
+      qb.andWhere('assignment.due_date IS NOT NULL AND assignment.due_date < CURRENT_DATE');
+    } else if (status === 'completed') {
+      qb.andWhere('assignment.status = :doneStatus', { doneStatus });
+    }
   }
 
   async assignmentAnalytics(
@@ -205,14 +221,14 @@ export class ReportsService {
     const page = Math.max(1, filters.page ?? 1);
     const limit = Math.min(100, filters.limit ?? 20);
 
-    const dataQuery = this.createAnalyticsBaseQuery(filters)
-      .orderBy('assignment.createdAt', 'DESC')
+    const dataQuery = this.createAnalyticsAggregationDataQuery(filters)
+      .orderBy('task.title', 'ASC')
       .skip((page - 1) * limit)
       .take(limit);
 
-    const [assignments, countResult, summaryResult] = await Promise.all([
-      dataQuery.getMany(),
-      this.buildAnalyticsCountQuery(filters).getRawOne<{ total: string | number }>(),
+    const [rowsRaw, countResult, summaryResult] = await Promise.all([
+      dataQuery.getRawMany(),
+      this.buildAnalyticsTaskCountQuery(filters).getRawOne<{ total: string | number }>(),
       this.buildAnalyticsSummaryQuery(filters).getRawOne<{
         completed: string | number;
         avgRating: string | null;
@@ -230,7 +246,18 @@ export class ReportsService {
       completedUsers: Number(summaryResult?.completedUsers ?? 0),
     };
 
-    const rows = assignments.map((assignment) => this.mapAssignmentToAnalyticsRow(assignment));
+    const rows = rowsRaw.map((row) => ({
+      taskId: row.taskId,
+      taskTitle: row.taskTitle ?? 'Užduotis',
+      assignedCount: Number(row.assignedCount ?? 0),
+      completedCount: Number(row.completedCount ?? 0),
+      activeCount: Number(row.activeCount ?? 0),
+      waitingCount: Number(row.waitingCount ?? 0),
+      overdueCount: Number(row.overdueCount ?? 0),
+      avgRating: row.avgRating ? Number(row.avgRating) : null,
+      completedUsers: Number(row.completedUsers ?? 0),
+      uniqueUsers: Number(row.uniqueUsers ?? 0),
+    }));
 
     return {
       summary,
@@ -241,43 +268,55 @@ export class ReportsService {
     };
   }
 
-  private mapAssignmentToAnalyticsRow(assignment: Assignment): AssignmentAnalyticsRow {
-    const hiveLabel = assignment.hive?.label ?? '—';
-    const user =
-      assignment.hive?.owner?.name?.trim() ||
-      assignment.hive?.owner?.email ||
-      'Nežinomas vartotojas';
-    const overdue =
-      assignment.status !== AssignmentStatus.DONE &&
-      Boolean(assignment.dueDate && new Date(assignment.dueDate) < new Date());
-
-    return {
-      assignmentId: assignment.id,
-      taskId: assignment.taskId,
-      taskTitle: assignment.task?.title ?? 'Užduotis',
-      hiveId: assignment.hiveId ?? null,
-      hiveLabel,
-      userId: assignment.hive?.ownerUserId ?? null,
-      userName: user,
-      status: assignment.status,
-      overdue,
-      rating: assignment.rating ?? null,
-      ratingComment: assignment.ratingComment ?? null,
-      completedAt: assignment.completedAt ? assignment.completedAt.toISOString() : null,
-      dueDate: assignment.dueDate ?? null,
-      startDate: assignment.startDate ?? null,
-    };
-  }
-
-  private createAnalyticsBaseQuery(filters: AssignmentAnalyticsQueryDto): SelectQueryBuilder<Assignment> {
+  private createAnalyticsAggregationBaseQuery(filters: AssignmentAnalyticsQueryDto) {
     const qb = this.assignmentsRepository
       .createQueryBuilder('assignment')
-      .leftJoinAndSelect('assignment.task', 'task')
-      .leftJoinAndSelect('assignment.hive', 'hive');
+      .innerJoin('assignment.task', 'task')
+      .innerJoin('assignment.hive', 'hive')
+      .leftJoin('hive.owner', 'owner');
 
-    qb.leftJoin('hive.owner', 'owner');
+    qb.setParameter('doneStatus', AssignmentStatus.DONE);
+    qb.setParameter('inProgressStatus', AssignmentStatus.IN_PROGRESS);
+    qb.setParameter('notStartedStatus', AssignmentStatus.NOT_STARTED);
+    qb.setParameter('completedStatus', AssignmentProgressStatus.COMPLETED);
+
     this.applyAnalyticsFilters(qb, filters);
     return qb;
+  }
+
+  private createAnalyticsAggregationDataQuery(filters: AssignmentAnalyticsQueryDto) {
+    return this.createAnalyticsAggregationBaseQuery(filters)
+      .select('task.id', 'taskId')
+      .addSelect('task.title', 'taskTitle')
+      .addSelect('COUNT(assignment.id)', 'assignedCount')
+      .addSelect(
+        'SUM(CASE WHEN assignment.status = :doneStatus THEN 1 ELSE 0 END)',
+        'completedCount',
+      )
+      .addSelect(
+        'SUM(CASE WHEN assignment.status = :inProgressStatus THEN 1 ELSE 0 END)',
+        'activeCount',
+      )
+      .addSelect(
+        'SUM(CASE WHEN assignment.status = :notStartedStatus THEN 1 ELSE 0 END)',
+        'waitingCount',
+      )
+      .addSelect(
+        'SUM(CASE WHEN assignment.status != :doneStatus AND assignment.due_date IS NOT NULL AND assignment.due_date < CURRENT_DATE THEN 1 ELSE 0 END)',
+        'overdueCount',
+      )
+      .addSelect('AVG(assignment.rating)', 'avgRating')
+      .addSelect('COUNT(DISTINCT hive.owner_user_id)', 'uniqueUsers')
+      .addSelect(
+        'COUNT(DISTINCT CASE WHEN assignment.status = :doneStatus THEN hive.owner_user_id ELSE NULL END)',
+        'completedUsers',
+      )
+      .groupBy('task.id')
+      .addGroupBy('task.title');
+  }
+
+  private buildAnalyticsTaskCountQuery(filters: AssignmentAnalyticsQueryDto) {
+    return this.createAnalyticsAggregationBaseQuery(filters).select('COUNT(DISTINCT task.id)', 'total');
   }
 
   private applyAnalyticsFilters(qb: SelectQueryBuilder<Assignment>, filters: AssignmentAnalyticsQueryDto) {
@@ -305,8 +344,10 @@ export class ReportsService {
       );
     }
 
-    if (status === 'active') {
-      qb.andWhere('assignment.status != :doneStatus', { doneStatus: AssignmentStatus.DONE });
+    if (status === 'waiting') {
+      qb.andWhere('assignment.status = :notStarted', { notStarted: AssignmentStatus.NOT_STARTED });
+    } else if (status === 'active') {
+      qb.andWhere('assignment.status = :inProgress', { inProgress: AssignmentStatus.IN_PROGRESS });
     } else if (status === 'completed') {
       qb.andWhere('assignment.status = :doneStatus', { doneStatus: AssignmentStatus.DONE });
     } else if (status === 'overdue') {
@@ -315,12 +356,8 @@ export class ReportsService {
     }
   }
 
-  private buildAnalyticsCountQuery(filters: AssignmentAnalyticsQueryDto) {
-    return this.createAnalyticsBaseQuery(filters).select('COUNT(assignment.id)', 'total');
-  }
-
   private buildAnalyticsSummaryQuery(filters: AssignmentAnalyticsQueryDto) {
-    return this.createAnalyticsBaseQuery(filters).select([
+    return this.createAnalyticsAggregationBaseQuery(filters).select([
       'COUNT(assignment.id) AS total',
       `SUM(CASE WHEN assignment.status = :doneStatus THEN 1 ELSE 0 END) AS completed`,
       'AVG(assignment.rating) AS "avgRating"',

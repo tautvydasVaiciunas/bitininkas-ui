@@ -1,6 +1,6 @@
 import { IsEnum, IsInt, IsISO8601, IsOptional, IsString, Max, Min } from 'class-validator';
 
-export type AssignmentAnalyticsStatus = 'all' | 'active' | 'completed' | 'overdue';
+export type AssignmentAnalyticsStatus = 'all' | 'waiting' | 'active' | 'completed' | 'overdue';
 
 export class AssignmentAnalyticsQueryDto {
   @IsOptional()
@@ -16,7 +16,7 @@ export class AssignmentAnalyticsQueryDto {
   taskId?: string;
 
   @IsOptional()
-  @IsEnum(['all', 'active', 'completed', 'overdue'])
+  @IsEnum(['all', 'waiting', 'active', 'completed', 'overdue'])
   status?: AssignmentAnalyticsStatus;
 
   @IsOptional()

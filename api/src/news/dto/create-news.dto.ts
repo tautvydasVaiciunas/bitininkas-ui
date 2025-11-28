@@ -5,6 +5,7 @@ import {
   IsString,
   IsUUID,
   MaxLength,
+  ValidateIf,
 } from 'class-validator';
 import { IsDateOnlyString } from '../../common/validators/is-date-only-string.decorator';
 
@@ -17,12 +18,14 @@ export class CreateNewsDto {
   @IsBoolean({ message: 'Netinkamas pasirinkimas' })
   createAssignment?: boolean;
 
+  @ValidateIf((dto) => dto.createNews !== false)
   @IsString({ message: 'Pavadinimas privalomas' })
   @MaxLength(255, { message: 'Pavadinimas per ilgas' })
-  title!: string;
+  title?: string;
 
+  @ValidateIf((dto) => dto.createNews !== false)
   @IsString({ message: 'Tekstas privalomas' })
-  body!: string;
+  body?: string;
 
   @IsOptional()
   @IsString({ message: 'Netinkamas paveikslėlio adresas' })

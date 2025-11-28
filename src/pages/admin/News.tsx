@@ -755,14 +755,17 @@ const AdminNews = () => {
 function buildPayload(state: NewsFormState) {
   const imageUrl = state.imageUrl.trim();
   const payload: Record<string, unknown> = {
-    title: state.title.trim(),
-    body: state.body.trim(),
     targetAll: state.targetAll,
-    imageUrl: imageUrl.length ? imageUrl : null,
     groupIds: state.targetAll ? undefined : state.groupIds,
     createNews: state.createNews,
     createAssignment: state.createAssignment,
   };
+
+  if (state.createNews) {
+    payload.title = state.title.trim();
+    payload.body = state.body.trim();
+    payload.imageUrl = imageUrl.length ? imageUrl : null;
+  }
 
   if (!state.createAssignment) {
     return payload;

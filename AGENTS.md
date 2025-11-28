@@ -98,3 +98,120 @@ sandbox_workspace_write.network_access=true
 – Typecheck and build pass
 – You are not touching deployment secrets / env / CI.
 Otherwise, ask.“
+
+---------------
+
+# STARTER PACK – SYSTEM OVERVIEW 
+
+Šis skyrius skirtas tam, kad bet kuris naujas agentas ar Codex iškart suprastų projektą, funkcionalumą, duomenų logiką ir ribas, kad galėtų tęsti darbus saugiai ir nuosekliai.
+
+---
+
+## 1. Projekto paskirtis (visos sistemos kontekstas)
+„Bus medaus“ – tai SaaS platforma bitininkams ir bitininkystės paslaugų tiekėjams.
+
+Sistema turi dvi pagrindines vartotojų grupes:
+
+### **1) Administratorius / Manageriai**
+Jie:
+- administruoja vartotojus, grupes, avilius;
+- kuria naujienas, šablonus, užduotis;
+- mato visus avilius, progresą, ataskaitas;
+- valdo parduotuvę ir mato užsakymus.
+
+### **2) Vartotojas – bitininkas**
+Jis:
+- mato jam priskirtus avilius,
+- vykdo jam priskirtas užduotis,
+- gauna naujienas,
+- gali rašyti žinutes adminams,
+- gali naudotis parduotuve.
+
+Abi rolės turi atskirus meniu, skirtingus permissionus ir skirtingus landing pages.
+
+---
+
+## 2. Svarbiausi moduliai (funkciniai blokai)
+
+### ✔ **Aviliai**
+- Kiekvienas avilys priklauso vienam ar keliems vartotojams.
+- Admin gali priskirti avilius grupėms.
+
+### ✔ **Grupės**
+- Grupės sujungia vartotojus ir leidžia vienu veiksmu priskirti užduotis / naujienas daugeliui avilių.
+
+### ✔ **Žingsniai**
+- Mažiausia darbo dalis (pvz. „Apžiūrėti perus“).
+- Atlieka vartotojas vykdydamas užduotį.
+
+### ✔ **Šablonai**
+- Nustato žingsnių seką (pvz. „Pavasarinė apžiūra – 9 žingsniai“).
+- Nenaudojami tiesiogiai, tik kaip bazė kuriant užduotis.
+
+### ✔ **Užduotys**
+Sudarytos iš:
+- pavadinimo,
+- šablono kopijos,
+- žingsnių,
+- datų.
+
+Admin jas priskiria aviliams automatiškai, kai:
+- sukuria naujieną **su užduotimi**, arba
+- kuria užduotį be naujienos.
+
+### ✔ **Assignment’ai**
+- Užduoties kopijos kiekvienam aviliui.
+- Vartotojo progresas, žingsnių statusai, media įkelti failai – VISKAS saugoma Assignment lygyje.
+
+### ✔ **Naujienos**
+- Tekstinis pranešimas.
+- Gali turėti arba neturėti užduoties.
+- Matomos tik tam tikroms grupėms arba visiems.
+
+### ✔ **Žinutės**
+- Support chat tarp vartotojo ir admin.
+
+### ✔ **Parduotuvė**
+- Prekės
+- Krepšelis
+- Užsakymo procesas
+- Notifikacijos adminui apie naujus užsakymus
+
+---
+
+## 3. UI / UX principai
+
+- Visi tekstai turi būti **lietuvių kalba**.
+- Dizainas – shadcn + Tailwind, minimalistinis, tvarkingas.
+- Nieko skeletinio nepakeisti globaliai – tik modifikuoti vietoje.
+
+---
+
+## 4. Ką draudžiama liesti (kritinė informacija)
+
+- Autentifikacijos logikos (JWT, roles, user model).
+- Deployment failų: Cloudflare, Koyeb, build scripts.
+- Env failų.
+- DB schema be migracijos.
+- Roles / RLS / Guard struktūros.
+
+---
+
+## 5. API / DB architektūra (santrauka)
+
+### Lentelės (aukšto lygio)
+- `users`
+- `hives`
+- `groups`, `group_members`, `group_hive_members`
+- `news`
+- `tasks`, `task_steps`
+- `assignments`, `assignment_steps`, `assignment_step_media`
+- `products`, `orders`, `order_items`
+- `messages`, `message_threads`
+
+### Principai:
+- Kainos saugomos centais.
+- Media failai laikomi `/uploads`.
+- Užduoties žingsniai kopijuojami į Assignmentą, kad nebūtų dependency po pakeitimų.
+
+---

@@ -30,6 +30,8 @@ type NavItem = {
   icon: NavIcon;
 };
 
+type AdminNavEntry = NavItem | { label: string; icon: NavIcon; children: NavItem[] };
+
 const profileNav: NavItem = { to: "/profile", label: "Profilis", icon: User };
 const publicStoreNav: NavItem = { to: "/parduotuve", label: "Parduotuvė", icon: ShopBeeIcon };
 const supportNav: NavItem = { to: "/support", label: "Žinutės", icon: Bell };
@@ -43,7 +45,12 @@ const userNavItems: NavItem[] = [
   publicStoreNav,
 ];
 
-const adminNavSections: NavItem[][] = [
+const reportsNavItems: NavItem[] = [
+  { to: "/reports/hives", label: "Avilių užduotys", icon: BarChart3 },
+  { to: "/reports/assignments", label: "Užduočių analizė", icon: BarChart3 },
+];
+
+const adminNavSections: AdminNavEntry[][] = [
   [
     { to: "/admin/users", label: "Vartotojai", icon: UserBeeIcon },
     { to: "/admin/groups", label: "Grupės", icon: GroupBeeIcon },
@@ -55,17 +62,23 @@ const adminNavSections: NavItem[][] = [
     { to: "/admin/steps", label: "Žingsniai", icon: ListChecks },
     { to: "/admin/templates", label: "Šablonai", icon: FileStack },
     { to: "/admin/tasks", label: "Užduotys", icon: ClipboardList },
-    { to: "/reports", label: "Ataskaitos", icon: BarChart3 },
+    {
+      label: "Ataskaitos",
+      icon: BarChart3,
+      children: reportsNavItems,
+    },
   ],
   [{ to: "/admin/store/products", label: "Parduotuvė", icon: ShopBeeIcon }],
 ];
 
-const adminDesktopNavItems = adminNavSections.flat();
+const adminDesktopNavItems = adminNavSections.flatMap((section) =>
+  section.flatMap((entry) => ("children" in entry ? entry.children : [entry])),
+);
 const adminMobileMainNav: NavItem[] = [
   { to: "/admin/users", label: "Vartotojai", icon: UserBeeIcon },
   { to: "/notifications", label: "Pranešimai", icon: Bell },
   { to: "/admin/news", label: "Naujienos", icon: Newspaper },
-  { to: "/reports", label: "Ataskaitos", icon: BarChart3 },
+  ...reportsNavItems,
   publicStoreNav,
 ];
 
@@ -221,40 +234,68 @@ export const Sidebar = () => {
             </div>
             {adminNavSections.map((section, index) => (
               <div key={index} className="space-y-1">
-                {section.map((item) => (
-                  <NavLink
-                    key={item.to}
-                    to={item.to}
-                    className={({ isActive }) =>
-                      cn(
-                        "flex items-center gap-3 rounded-lg px-3 py-2.5 text-sm font-medium transition-colors",
-                        isActive
-                          ? "bg-sidebar-accent text-sidebar-primary"
-                          : "text-sidebar-foreground hover:bg-sidebar-accent/50",
-                      )
-                    }
-                  >
-                    <item.icon className="h-5 w-5" />
-                    <div className="flex items-center gap-2">
-                      <span>{item.label}</span>
-                      {item.to === "/admin/store/products" && pendingOrdersCount > 0 ? (
-                        <Badge className="text-[0.6rem] px-2 py-0.5" variant="destructive">
-                          {pendingOrdersCount}
-                        </Badge>
-                      ) : null}
+                {section.map((item) =>
+                  "children" in item ? (
+                    <div key={item.label} className="space-y-1 px-3">
+                      <div className="flex items-center gap-2 px-2 text-xs font-semibold uppercase tracking-wider text-muted-foreground">
+                        <item.icon className="h-4 w-4" />
+                        <span>{item.label}</span>
+                      </div>
+                      <div className="space-y-1">
+                        {item.children.map((child) => (
+                          <NavLink
+                            key={child.to}
+                            to={child.to}
+                            className={({ isActive }) =>
+                              cn(
+                                "flex items-center gap-3 rounded-lg px-3 py-2 text-sm font-medium transition-colors",
+                                isActive
+                                  ? "bg-sidebar-accent text-sidebar-primary"
+                                  : "text-sidebar-foreground hover:bg-sidebar-accent/50",
+                              )
+                            }
+                          >
+                            <child.icon className="h-5 w-5" />
+                            <span>{child.label}</span>
+                          </NavLink>
+                        ))}
+                      </div>
                     </div>
-                    {item.to === messagesNav.to && adminUnreadCount > 0 ? (
-                      <span className="ml-2 inline-flex items-center justify-center rounded-full bg-destructive px-2 py-0.5 text-[0.6rem] font-semibold text-white">
-                        {adminUnreadCount}
-                      </span>
-                    ) : null}
-                    {item.to === '/admin/tasks' && pendingReviewCount > 0 ? (
-                      <span className="ml-2 inline-flex h-5 min-w-[1.25rem] items-center justify-center rounded-full bg-destructive px-2 py-0.5 text-[0.6rem] font-semibold text-white">
-                        {pendingReviewCount}
-                      </span>
-                    ) : null}
-                  </NavLink>
-                ))}
+                  ) : (
+                    <NavLink
+                      key={item.to}
+                      to={item.to}
+                      className={({ isActive }) =>
+                        cn(
+                          "flex items-center gap-3 rounded-lg px-3 py-2.5 text-sm font-medium transition-colors",
+                          isActive
+                            ? "bg-sidebar-accent text-sidebar-primary"
+                            : "text-sidebar-foreground hover:bg-sidebar-accent/50",
+                        )
+                      }
+                    >
+                      <item.icon className="h-5 w-5" />
+                      <div className="flex items-center gap-2">
+                        <span>{item.label}</span>
+                        {item.to === "/admin/store/products" && pendingOrdersCount > 0 ? (
+                          <Badge className="text-[0.6rem] px-2 py-0.5" variant="destructive">
+                            {pendingOrdersCount}
+                          </Badge>
+                        ) : null}
+                      </div>
+                      {item.to === messagesNav.to && adminUnreadCount > 0 ? (
+                        <span className="ml-2 inline-flex items-center justify-center rounded-full bg-destructive px-2 py-0.5 text-[0.6rem] font-semibold text-white">
+                          {adminUnreadCount}
+                        </span>
+                      ) : null}
+                      {item.to === '/admin/tasks' && pendingReviewCount > 0 ? (
+                        <span className="ml-2 inline-flex h-5 min-w-[1.25rem] items-center justify-center rounded-full bg-destructive px-2 py-0.5 text-[0.6rem] font-semibold text-white">
+                          {pendingReviewCount}
+                        </span>
+                      ) : null}
+                    </NavLink>
+                  ),
+                )}
                 {index < adminNavSections.length - 1 && (
                   <div className="my-2 border-t border-sidebar-border"></div>
                 )}

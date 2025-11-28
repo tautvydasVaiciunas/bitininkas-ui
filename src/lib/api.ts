@@ -519,23 +519,19 @@ export interface AssignmentReviewQueueResponse {
   counts: Record<AssignmentReviewStatus, number>;
 }
 
-export type AssignmentAnalyticsStatus = 'all' | 'active' | 'completed' | 'overdue';
+export type AssignmentAnalyticsStatus = 'all' | 'waiting' | 'active' | 'completed' | 'overdue';
 
 export interface AssignmentAnalyticsRow {
-  assignmentId: string;
   taskId: string;
   taskTitle: string;
-  hiveId: string | null;
-  hiveLabel: string;
-  userId: string | null;
-  userName: string;
-  status: AssignmentStatus;
-  overdue: boolean;
-  rating: number | null;
-  ratingComment: string | null;
-  completedAt: string | null;
-  dueDate: string | null;
-  startDate: string | null;
+  assignedCount: number;
+  completedCount: number;
+  activeCount: number;
+  waitingCount: number;
+  overdueCount: number;
+  avgRating: number | null;
+  completedUsers: number;
+  uniqueUsers: number;
 }
 
 export interface AssignmentAnalyticsSummary {
@@ -593,15 +589,24 @@ export interface AddGroupMemberPayload {
   role?: string | null;
 }
 
+export type GroupAssignmentStatus = 'all' | 'waiting' | 'active' | 'overdue' | 'completed';
+
 export interface AssignmentReportRow {
-  userId: string;
+  assignmentId: string;
+  taskId: string;
+  taskTitle: string;
+  hiveId: string | null;
+  hiveLabel: string;
+  userId: string | null;
   userName: string;
-  assignmentId: string | null;
-  status: AssignmentStatus | null;
+  status: AssignmentStatus;
+  assignedAt: string | null;
+  startDate: string | null;
+  dueDate: string | null;
+  lastActivity: string | null;
   completedSteps: number;
   totalSteps: number;
   overdue: boolean;
-  dueDate: string | null;
 }
 
 export interface ProfileResponse {
@@ -1280,8 +1285,15 @@ export const api = {
     },
   },
   reports: {
-    assignments: (params: { groupId: string; taskId?: string }) =>
-      get<AssignmentReportRow[]>('/reports/assignments', { query: params }),
+    assignments: (params: {
+      groupId: string;
+      taskId?: string;
+      hiveId?: string;
+      status?: GroupAssignmentStatus;
+      userId?: string;
+      dateFrom?: string;
+      dateTo?: string;
+    }) => get<AssignmentReportRow[]>('/reports/assignments', { query: params }),
     assignmentAnalytics: (params?: {
       dateFrom?: string;
       dateTo?: string;

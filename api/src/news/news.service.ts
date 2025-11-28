@@ -546,11 +546,12 @@ export class NewsService {
     dto: CreateNewsDto,
     actor: { id: string; role: UserRole },
   ): Promise<NewsPostResponse | null> {
-    const title = this.sanitizeTitle(dto.title);
-    const body = this.sanitizeBody(dto.body);
+    const createNews = dto.createNews !== false;
+    const title = createNews ? this.sanitizeTitle(dto.title ?? '') : '';
+    const body = createNews ? this.sanitizeBody(dto.body ?? '') : '';
     const targetAll = dto.targetAll !== undefined ? dto.targetAll : true;
 
-    const imageUrl = this.sanitizeImageUrl(dto.imageUrl);
+    const imageUrl = createNews ? this.sanitizeImageUrl(dto.imageUrl) : undefined;
 
     let groups: Group[] = [];
 
@@ -563,7 +564,6 @@ export class NewsService {
     }
 
     const attachTask = dto.attachTask === true;
-    const createNews = dto.createNews !== false;
     const createAssignment = (dto.createAssignment ?? attachTask) === true;
 
     if (!createNews && !createAssignment) {

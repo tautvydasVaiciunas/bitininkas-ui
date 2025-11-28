@@ -5,6 +5,7 @@ import type {
   AssignmentReportRow,
 } from './reports.service';
 import { AssignmentAnalyticsQueryDto } from './dto/assignment-analytics-query.dto';
+import { GroupAssignmentQueryDto } from './dto/group-assignment-query.dto';
 import { Roles } from '../common/decorators/roles.decorator';
 import { UserRole } from '../users/user.entity';
 
@@ -15,11 +16,10 @@ export class ReportsController {
 
   @Get('assignments')
   async assignmentProgress(
-    @Query('groupId') groupId: string | undefined,
-    @Query('taskId') taskId: string | undefined,
+    @Query() query: GroupAssignmentQueryDto,
     @Request() req,
   ): Promise<AssignmentReportRow[]> {
-    return this.reportsService.groupAssignmentProgress(groupId, taskId, req.user);
+    return this.reportsService.groupAssignmentProgress(query, req.user);
   }
 
   @Get('assignments/analytics')

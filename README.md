@@ -126,7 +126,15 @@ Before starting the UI, ensure the API is reachable and `VITE_API_BASE_URL` is c
 | `DELETE /progress/:id` | Supports the “uncomplete” action by removing step progress without reloading the page. |
 | `POST /auth/request-reset` | Persists a one-hour password reset token and returns it in non-production responses for easier QA. |
 
-## Additional Documentation
+## Papildoma dokumentacija
 
-- [`docs/INTEGRATION_SUMMARY.md`](docs/INTEGRATION_SUMMARY.md) – Deep dive into architecture, environment variables, API endpoints, tokens, seeding, and deployment paths.
-- [`docs/QA_TEST_SCRIPT.md`](docs/QA_TEST_SCRIPT.md) – Copy/paste-able curl/PowerShell snippets for regression testing auth, hives, tasks, notifications, and reports.
+- `AGENTS.md` – Nustato Codex darbo taisykles (LT tekstai, saugumas, migracijos ir užduočių škema).
+- `SYSTEM_OVERVIEW.md` – Aprašo architektūrą, pagrindines domeno sritis (hives, tasks, news, reports, parduotuvė) ir autentifikacijos bei įkėlimo srautus.
+- `DATA_MODEL.md` – Sudaro lentelių, stulpelių ir enum'ų santrauką, įskaitant cascade taisykles ir tipinius scenarijus.
+- `FRONTEND_STRUCTURE.md` – Nurodo vartotojų/admin maršrutus, bendrus komponentus, hooks/utilitus ir React Query naudojimą.
+- `KNOWN_FLOWS.md` – Aprašo pagrindinius srautus (aviliai, užduotys, naujienos, užsakymai) ir kur jie tradiciškai vykdomi.
+- `REPORTS_GUIDE.md` – Pateikia ataskaitų zonos filtrus, lenteles, drill-down logiką ir primena paleisti `npm run typecheck` + `npm run build`.
+- `API_ENDPOINTS.md` – Kataloguoja autentifikacijos, vartotojų, grupių, užduočių, žingsnių, naujienų, ataskaitų ir parduotuvės maršrutus.
+- `EMAIL_AND_NOTIFICATIONS.md` – Paaiškina bendrą el. pašto maketą, gautus trigerius ir notifikacijų srautą.
+- `docs/INTEGRATION_SUMMARY.md` – Gilina į architektūrą, aplinkos kintamuosius, sesijų / refresh logiką, vaidmenis, seed'us ir deployment kelio instrukcijas.
+- `docs/QA_TEST_SCRIPT.md` – Duoda curl/PowerShell komandas autentifikacijai, aviliams, užduotims, pranešimams ir ataskaitoms greitai patikrinti.

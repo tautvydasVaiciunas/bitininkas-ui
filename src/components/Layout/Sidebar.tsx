@@ -45,10 +45,7 @@ const userNavItems: NavItem[] = [
   publicStoreNav,
 ];
 
-const reportsNavItems: NavItem[] = [
-  { to: "/reports/hives", label: "Avilių užduotys", icon: BarChart3 },
-  { to: "/reports/assignments", label: "Užduočių analizė", icon: BarChart3 },
-];
+const reportsNavItem: NavItem = { to: "/reports/hives", label: "Ataskaitos", icon: BarChart3 };
 
 const adminNavSections: AdminNavEntry[][] = [
   [
@@ -62,11 +59,7 @@ const adminNavSections: AdminNavEntry[][] = [
     { to: "/admin/steps", label: "Žingsniai", icon: ListChecks },
     { to: "/admin/templates", label: "Šablonai", icon: FileStack },
     { to: "/admin/tasks", label: "Užduotys", icon: ClipboardList },
-    {
-      label: "Ataskaitos",
-      icon: BarChart3,
-      children: reportsNavItems,
-    },
+    reportsNavItem,
   ],
   [{ to: "/admin/store/products", label: "Parduotuvė", icon: ShopBeeIcon }],
 ];
@@ -78,7 +71,7 @@ const adminMobileMainNav: NavItem[] = [
   { to: "/admin/users", label: "Vartotojai", icon: UserBeeIcon },
   { to: "/notifications", label: "Pranešimai", icon: Bell },
   { to: "/admin/news", label: "Naujienos", icon: Newspaper },
-  ...reportsNavItems,
+  reportsNavItem,
   publicStoreNav,
 ];
 

@@ -28,6 +28,7 @@ import {
 } from "@/lib/types";
 import { AssignmentStatusBadge } from "@/components/AssignmentStatusBadge";
 import { useAuth } from "@/contexts/AuthContext";
+import { ReportsTabs } from "@/components/reports/ReportsTabs";
 
 type HiveFilters = {
   groupId: string;
@@ -252,6 +253,7 @@ export default function ReportsHives() {
 
   return (
     <MainLayout>
+      <ReportsTabs />
       {canView ? (
         <div className="space-y-6">
           <Card className="shadow-custom">

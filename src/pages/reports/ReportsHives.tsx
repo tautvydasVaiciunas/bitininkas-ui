@@ -268,12 +268,11 @@ export default function ReportsHives() {
                     Grupė
                   </label>
                   <Select
-                    id="report-group-select"
                     value={filters.groupId}
                     onValueChange={(value) => setFilters((prev) => ({ ...prev, groupId: value }))}
                     disabled={groupsLoading || groupsError}
                   >
-                    <SelectTrigger>
+                    <SelectTrigger id="report-group-select">
                       <SelectValue placeholder="Pasirinkite grupę" />
                     </SelectTrigger>
                     <SelectContent>
@@ -290,12 +289,11 @@ export default function ReportsHives() {
                     Avilys
                   </label>
                   <Select
-                    id="report-hive-select"
                     value={filters.hiveId}
                     onValueChange={(value) => setFilters((prev) => ({ ...prev, hiveId: value }))}
                     disabled={hivesLoading || hivesError}
                   >
-                    <SelectTrigger>
+                    <SelectTrigger id="report-hive-select">
                       <SelectValue placeholder="Visi aviliai" />
                     </SelectTrigger>
                     <SelectContent>
@@ -312,12 +310,11 @@ export default function ReportsHives() {
                     Užduotis
                   </label>
                   <Select
-                    id="report-task-select"
                     value={filters.taskId}
                     onValueChange={(value) => setFilters((prev) => ({ ...prev, taskId: value }))}
                     disabled={tasksLoading || tasksError}
                   >
-                    <SelectTrigger>
+                    <SelectTrigger id="report-task-select">
                       <SelectValue placeholder="Visos užduotys" />
                     </SelectTrigger>
                     <SelectContent>
@@ -337,13 +334,12 @@ export default function ReportsHives() {
                     Būsena
                   </label>
                   <Select
-                    id="report-status-select"
                     value={filters.status}
                     onValueChange={(value) =>
                       setFilters((prev) => ({ ...prev, status: value as GroupAssignmentStatus }))
                     }
                   >
-                    <SelectTrigger>
+                    <SelectTrigger id="report-status-select">
                       <SelectValue placeholder="Visos" />
                     </SelectTrigger>
                     <SelectContent>

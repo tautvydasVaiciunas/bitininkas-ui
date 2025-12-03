@@ -167,8 +167,8 @@ function HiveCard({
       : undefined;
 
   return (
-    <div className="h-full flex flex-col">
-      <Card className="shadow-custom hover:shadow-custom-md transition-all group h-full flex flex-col overflow-hidden">
+    <div className="flex flex-col">
+      <Card className="shadow-custom hover:shadow-custom-md transition-all group flex flex-col overflow-hidden">
         <div className="h-56 w-full overflow-hidden rounded-t-lg bg-white">
           <Link
             to={`/hives/${hive.id}`}

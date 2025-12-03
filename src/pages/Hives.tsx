@@ -799,17 +799,34 @@ export default function Hives() {
             ))}
             {!isPrivileged ? (
               <Link to="/parduotuve" className="group">
-                <Card className="shadow-custom hover:shadow-custom-md transition-all group h-full min-h-[560px] flex flex-col overflow-hidden border border-dashed border-muted-foreground/60 bg-muted/10 text-muted-foreground">
-                  <div className="h-56 w-full flex items-center justify-center rounded-t-lg bg-muted-foreground/20 text-muted-foreground">
-                    <Plus className="h-16 w-16" />
+                <Card className="shadow-custom hover:shadow-custom-md transition-all group flex flex-col overflow-hidden">
+                  <div className="h-56 w-full overflow-hidden rounded-t-lg bg-white">
+                    <div className="flex h-full w-full items-center justify-center">
+                      <img
+                        src={HIVE_CARD_IMAGE_SRC}
+                        alt="Parduotuvės iliustracija"
+                        className="max-h-full max-w-full object-contain"
+                      />
+                    </div>
                   </div>
-                  <CardContent className="flex flex-1 flex-col items-center justify-center gap-3 px-6 text-center">
-                    <p className="text-xl font-semibold text-foreground">
-                      Papildyti avilių kiekį
-                    </p>
-                    <p className="text-sm text-muted-foreground/80">
-                      Aplankykite parduotuvę ir papildykite atsargas įrankiais bei korpusais.
-                    </p>
+                  <CardContent className="flex flex-1 flex-col gap-4">
+                    <div>
+                      <p className="text-xl font-semibold text-foreground">Parduotuvė</p>
+                      <p className="text-sm text-muted-foreground">
+                        Papildykite savo avilių atsargas įrankiais ir korpusais.
+                      </p>
+                    </div>
+                    <div className="flex flex-col gap-2">
+                      <Button asChild variant="outline" className="flex-1">
+                        <Link
+                          to="/parduotuve"
+                          className="flex items-center justify-center gap-2 text-sm font-medium"
+                        >
+                          Aplankyti parduotuvę
+                          <ChevronRight className="w-4 h-4" />
+                        </Link>
+                      </Button>
+                    </div>
                   </CardContent>
                 </Card>
               </Link>

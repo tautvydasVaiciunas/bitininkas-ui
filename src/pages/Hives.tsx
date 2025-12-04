@@ -388,17 +388,16 @@ export default function Hives() {
     members: [],
     tagId: null,
   });
-
-    const canManageHives = user?.role === "admin" || user?.role === "manager";
-    const canManageMembers = user?.role === "admin" || user?.role === "manager";
-    const isPrivileged = canManageHives;
-    const [searchEmail, setSearchEmail] = useState("");
-  const [statusFilter, setStatusFilter] = useState<HiveListStatusFilter>("active");
-  const subscriptionColorClass = SUBSCRIPTION_COLORS[subscriptionStatus.tone];
   const subscriptionStatus = useMemo(
     () => getSubscriptionStatus(user?.subscriptionValidUntil),
     [user?.subscriptionValidUntil],
   );
+  const subscriptionColorClass = SUBSCRIPTION_COLORS[subscriptionStatus.tone];
+  const canManageHives = user?.role === "admin" || user?.role === "manager";
+  const canManageMembers = user?.role === "admin" || user?.role === "manager";
+  const isPrivileged = canManageHives;
+  const [searchEmail, setSearchEmail] = useState("");
+  const [statusFilter, setStatusFilter] = useState<HiveListStatusFilter>("active");
 
   const { data: users = [] } = useQuery<AdminUserResponse[]>({
     queryKey: ["users", "all"],

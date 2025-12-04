@@ -119,6 +119,51 @@ const formatMonthYear = (value?: string | null) => {
   });
 };
 
+type SubscriptionTone = "inactive" | "active" | "expiring";
+
+const SUBSCRIPTION_COLORS: Record<SubscriptionTone, string> = {
+  inactive: "text-destructive",
+  expiring: "text-amber-500",
+  active: "text-emerald-500",
+};
+
+const MS_PER_DAY = 1000 * 60 * 60 * 24;
+
+const formatLithuanianDate = (value: string) =>
+  new Date(value).toLocaleDateString("lt-LT", {
+    year: "numeric",
+    month: "long",
+    day: "numeric",
+  });
+
+const getSubscriptionStatus = (value?: string | null) => {
+  if (!value) {
+    return { text: "Neaktyvi", tone: "inactive" as SubscriptionTone };
+  }
+
+  const parsed = new Date(value);
+  if (Number.isNaN(parsed.getTime())) {
+    return { text: "Neaktyvi", tone: "inactive" as SubscriptionTone };
+  }
+
+  const endOfDay = new Date(parsed);
+  endOfDay.setHours(23, 59, 59, 999);
+  const diffDays = Math.ceil((endOfDay.getTime() - Date.now()) / MS_PER_DAY);
+
+  if (diffDays <= 0) {
+    return { text: "Neaktyvi", tone: "inactive" as SubscriptionTone };
+  }
+
+  const formatted = formatLithuanianDate(value);
+  const label = `Aktyvi iki ${formatted}`;
+
+  if (diffDays <= 30) {
+    return { text: label, tone: "expiring" as SubscriptionTone };
+  }
+
+  return { text: label, tone: "active" as SubscriptionTone };
+};
+
 const HIVE_CARD_IMAGE_SRC = "/assets/bus_medaus_avilys_ikona.png";
 
 function HiveCard({
@@ -348,7 +393,12 @@ export default function Hives() {
     const canManageMembers = user?.role === "admin" || user?.role === "manager";
     const isPrivileged = canManageHives;
     const [searchEmail, setSearchEmail] = useState("");
-    const [statusFilter, setStatusFilter] = useState<HiveListStatusFilter>("active");
+  const [statusFilter, setStatusFilter] = useState<HiveListStatusFilter>("active");
+  const subscriptionColorClass = SUBSCRIPTION_COLORS[subscriptionStatus.tone];
+  const subscriptionStatus = useMemo(
+    () => getSubscriptionStatus(user?.subscriptionValidUntil),
+    [user?.subscriptionValidUntil],
+  );
 
   const { data: users = [] } = useQuery<AdminUserResponse[]>({
     queryKey: ["users", "all"],
@@ -597,6 +647,12 @@ export default function Hives() {
               <p className="text-muted-foreground mt-1">Valdykite savo avilius</p>
             </div>
             <div className="flex flex-col gap-3 sm:flex-row sm:items-end">
+              <div className="flex items-center gap-2 text-sm font-medium">
+                <span className="text-muted-foreground">Prenumerata:</span>
+                <span className={`${subscriptionColorClass} whitespace-nowrap`}>
+                  {subscriptionStatus.text}
+                </span>
+              </div>
               {isPrivileged ? (
                 <div className="w-full max-w-xs">
                   <Input
@@ -799,15 +855,15 @@ export default function Hives() {
             ))}
             {!isPrivileged ? (
               <Link to="/parduotuve" className="group">
-                <Card className="shadow-custom hover:shadow-custom-md transition-all group h-full min-h-[560px] flex flex-col overflow-hidden border border-dashed border-muted-foreground/60 bg-muted/10 text-muted-foreground">
+                <Card className="shadow-custom hover:shadow-custom-md transition-all group h-full flex flex-col overflow-hidden border border-dashed border-muted-foreground/60 bg-muted/10 text-muted-foreground">
                   <div className="h-56 w-full flex items-center justify-center rounded-t-lg bg-muted-foreground/20 text-muted-foreground">
                     <Plus className="h-16 w-16" />
                   </div>
-                  <CardContent className="flex flex-1 flex-col items-center justify-center gap-3 px-6 text-center">
+                  <CardContent className="flex flex-1 flex-col items-center justify-center gap-1 px-4 text-center">
                     <p className="text-xl font-semibold text-foreground">
                       Papildyti avilių kiekį
                     </p>
-                    <p className="text-sm text-muted-foreground/80">
+                    <p className="text-sm text-muted-foreground/80 line-clamp-2">
                       Aplankykite parduotuvę ir papildykite atsargas įrankiais bei korpusais.
                     </p>
                   </CardContent>

@@ -57,6 +57,39 @@ const ROLE_OPTIONS: { value: UserRole; label: string }[] = [
   { value: 'user', label: 'Vartotojas' },
 ];
 
+type SubscriptionSeason = {
+  label: string;
+  validUntil: string;
+};
+
+const SUBSCRIPTION_SEASONS: SubscriptionSeason[] = [
+  { label: '2025–2026', validUntil: '2026-06-30' },
+  { label: '2026–2027', validUntil: '2027-06-30' },
+  { label: '2027–2028', validUntil: '2028-06-30' },
+  { label: '2028–2029', validUntil: '2029-06-30' },
+  { label: '2029–2030', validUntil: '2030-06-30' },
+];
+
+const SUBSCRIPTION_OPTIONS = [
+  { value: 'inactive', label: 'Neaktyvi' },
+  ...SUBSCRIPTION_SEASONS.map((season) => ({
+    value: season.validUntil,
+    label: `${season.label} sezonas (iki ${season.validUntil})`,
+  })),
+];
+
+const formatSubscriptionLabel = (value?: string | null) => {
+  if (!value) {
+    return 'Neaktyvi';
+  }
+
+  const season = SUBSCRIPTION_SEASONS.find((option) => option.validUntil === value);
+  if (season) {
+    return `${season.label} (iki ${season.validUntil})`;
+  }
+
+  return `Aktyvi iki ${value.slice(0, 10)}`;
+};
 type MutationError = HttpError | Error;
 
 type UserFormState = {
@@ -74,6 +107,7 @@ const defaultFormValues: UserFormState = {
 export default function AdminUsers() {
   const { user } = useAuth();
   const isAdmin = user?.role === 'admin';
+  const isManager = user?.role === 'manager';
   const [searchQuery, setSearchQuery] = useState('');
   const [userToDelete, setUserToDelete] = useState<string | null>(null);
   const [isCreateOpen, setIsCreateOpen] = useState(false);
@@ -81,6 +115,9 @@ export default function AdminUsers() {
   const [formValues, setFormValues] = useState<UserFormState>(defaultFormValues);
   const [formError, setFormError] = useState<string | null>(null);
   const queryClient = useQueryClient();
+  const canEditSubscriptions = isAdmin || isManager;
+  const [subscriptionEditor, setSubscriptionEditor] = useState<AdminUserResponse | null>(null);
+  const [subscriptionSelection, setSubscriptionSelection] = useState<string>('inactive');
 
   const queryParams = useMemo(() => {
     const normalized = searchQuery.trim().slice(0, 255);
@@ -275,6 +312,43 @@ export default function AdminUsers() {
     }
   };
 
+  useEffect(() => {
+    if (!subscriptionEditor) {
+      return;
+    }
+
+    setSubscriptionSelection(subscriptionEditor.subscriptionValidUntil ?? 'inactive');
+  }, [subscriptionEditor]);
+
+  const openSubscriptionEditor = (target: AdminUserResponse) => {
+    setSubscriptionSelection(target.subscriptionValidUntil ?? 'inactive');
+    setSubscriptionEditor(target);
+  };
+
+  const closeSubscriptionEditor = () => {
+    setSubscriptionEditor(null);
+  };
+
+  const handleSubscriptionSave = async () => {
+    if (!subscriptionEditor) {
+      return;
+    }
+
+    const payload: UpdateUserPayload = {
+      subscriptionValidUntil:
+        subscriptionSelection === 'inactive' ? null : subscriptionSelection,
+    };
+
+    try {
+      await updateMutation.mutateAsync({ id: subscriptionEditor.id, payload });
+      toast.success('Prenumerata atnaujinta');
+      void queryClient.invalidateQueries({ queryKey: ['users'] });
+      closeSubscriptionEditor();
+    } catch (error) {
+      toast.error(resolveErrorMessage(error as MutationError));
+    }
+  };
+
   const renderLastLogin = (iso?: string | null) => {
     if (!iso) {
       return (
@@ -312,6 +386,25 @@ export default function AdminUsers() {
 
     return (
       <span className="text-sm text-foreground">{lastLogin.toLocaleString('lt-LT')}</span>
+    );
+  };
+
+  const renderSubscriptionCell = (target: AdminUserResponse) => {
+    const label = formatSubscriptionLabel(target.subscriptionValidUntil);
+
+    if (!canEditSubscriptions) {
+      return <span>{label}</span>;
+    }
+
+    return (
+      <Button
+        variant="ghost"
+        size="sm"
+        className="px-0 text-sm font-medium"
+        onClick={() => openSubscriptionEditor(target)}
+      >
+        {label}
+      </Button>
     );
   };
 
@@ -357,17 +450,18 @@ export default function AdminUsers() {
                       <TableHead>El. paštas</TableHead>
                       <TableHead>Rolė</TableHead>
                       <TableHead>Grupės</TableHead>
+                      <TableHead>Prenumerata</TableHead>
                       <TableHead>Paskutinį kartą prisijungęs</TableHead>
                       <TableHead className="text-right">Veiksmai</TableHead>
                     </TableRow>
                   </TableHeader>
                   <TableBody>
                     {users.length === 0 ? (
-                      <TableRow>
-                        <TableCell colSpan={5} className="py-8 text-center text-muted-foreground">
-                          Nerasta vartotojų
-                        </TableCell>
-                      </TableRow>
+                    <TableRow>
+                      <TableCell colSpan={7} className="py-8 text-center text-muted-foreground">
+                        Nerasta vartotojų
+                      </TableCell>
+                    </TableRow>
                     ) : (
                       users.map((user) => (
                         <TableRow key={user.id}>
@@ -375,6 +469,7 @@ export default function AdminUsers() {
                           <TableCell className="min-w-[14rem] break-words">{user.email}</TableCell>
                           <TableCell>{getRoleBadge(user.role)}</TableCell>
                           <TableCell>{renderUserGroups(user.groups)}</TableCell>
+                          <TableCell>{renderSubscriptionCell(user)}</TableCell>
                           <TableCell>
                             {renderLastLogin(user.lastLoginAt ?? null)}
                           </TableCell>
@@ -496,6 +591,51 @@ export default function AdminUsers() {
           </DialogContent>
         </Dialog>
         )}
+
+        <Dialog
+          open={Boolean(subscriptionEditor)}
+          onOpenChange={(open) => {
+            if (!open) {
+              closeSubscriptionEditor();
+            }
+          }}
+        >
+          <DialogContent className="max-w-sm">
+            <DialogHeader>
+              <DialogTitle>Prenumerata</DialogTitle>
+              <DialogDescription>Pasirinkite vartotojo sezono galiojimo datą.</DialogDescription>
+            </DialogHeader>
+            <div className="space-y-4">
+              <Select
+                value={subscriptionSelection}
+                onValueChange={(value) => setSubscriptionSelection(value)}
+              >
+                <SelectTrigger id="subscription-select">
+                  <SelectValue placeholder="Pasirinkite prenumeratą" />
+                </SelectTrigger>
+                <SelectContent>
+                  {SUBSCRIPTION_OPTIONS.map((option) => (
+                    <SelectItem key={option.value} value={option.value}>
+                      {option.label}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
+            <DialogFooter className="gap-2 sm:gap-0">
+              <Button
+                variant="outline"
+                onClick={closeSubscriptionEditor}
+                disabled={updateMutation.isPending}
+              >
+                Atšaukti
+              </Button>
+              <Button onClick={handleSubscriptionSave} disabled={updateMutation.isPending}>
+                {updateMutation.isPending ? 'Saugoma...' : 'Išsaugoti'}
+              </Button>
+            </DialogFooter>
+          </DialogContent>
+        </Dialog>
       </div>
     </MainLayout>
   );

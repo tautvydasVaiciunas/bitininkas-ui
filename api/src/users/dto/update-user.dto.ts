@@ -1,6 +1,7 @@
 import { OmitType, PartialType } from '@nestjs/mapped-types';
 import {
   IsBoolean,
+  IsDateString,
   IsOptional,
   IsString,
   MaxLength,
@@ -31,6 +32,10 @@ export class UpdateUserDto extends PartialType(
   @IsString({ message: 'Adresas turi būti tekstas' })
   @MaxLength(255, { message: 'Adresas per ilgas' })
   address?: string;
+
+  @IsOptional()
+  @IsDateString({}, { message: 'Prenumeratos galiojimo data turi būti ISO formato eilutė' })
+  subscriptionValidUntil?: string | null;
 
   @IsOptional()
   @IsBoolean({ message: 'Ištrynimo statusas turi būti loginė reikšmė' })

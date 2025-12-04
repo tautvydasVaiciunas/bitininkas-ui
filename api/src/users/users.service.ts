@@ -40,6 +40,7 @@ type UserWithGroups = {
   role: UserRole;
   phone: string | null;
   address: string | null;
+  subscriptionValidUntil: Date | null;
   createdAt: Date;
   updatedAt: Date;
   deletedAt?: Date;
@@ -170,6 +171,7 @@ export class UsersService {
       role: user.role,
       phone: user.phone ?? null,
       address: user.address ?? null,
+      subscriptionValidUntil: user.subscriptionValidUntil ?? null,
       createdAt: user.createdAt,
       updatedAt: user.updatedAt,
       deletedAt: user.deletedAt,
@@ -275,6 +277,12 @@ export class UsersService {
 
     if (updateUserDto.address !== undefined) {
       user.address = this.normalizeNullableString(updateUserDto.address);
+    }
+
+    if (updateUserDto.subscriptionValidUntil !== undefined) {
+      user.subscriptionValidUntil = updateUserDto.subscriptionValidUntil
+        ? new Date(updateUserDto.subscriptionValidUntil)
+        : null;
     }
 
     const saved = await this.usersRepository.save(user);

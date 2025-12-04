@@ -76,6 +76,7 @@ export class AuthController {
       email: user.email,
       role: user.role,
       name: user.name,
+      subscriptionValidUntil: user.subscriptionValidUntil ?? null,
     };
   }
 }

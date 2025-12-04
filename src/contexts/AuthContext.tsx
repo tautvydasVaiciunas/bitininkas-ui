@@ -46,6 +46,8 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
       role: (data.role as UserRole) ?? 'user',
       phone: 'phone' in data ? data.phone ?? null : undefined,
       address: 'address' in data ? data.address ?? null : undefined,
+      subscriptionValidUntil:
+        'subscriptionValidUntil' in data ? data.subscriptionValidUntil ?? null : null,
       createdAt: 'createdAt' in data && data.createdAt ? data.createdAt : fallbackCreatedAt,
     };
   }, []);

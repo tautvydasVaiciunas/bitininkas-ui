@@ -39,6 +39,7 @@ export interface AuthenticatedUser {
   email: string;
   role: UserRole;
   name?: string | null;
+  subscriptionValidUntil?: string | null;
 }
 
 export interface AuthResponse {
@@ -685,6 +686,7 @@ export interface AdminUserResponse {
   updatedAt?: string;
   lastLoginAt?: string | null;
   groups: AdminUserGroup[];
+  subscriptionValidUntil?: string | null;
 }
 
 export interface CreateUserPayload {
@@ -698,6 +700,7 @@ export interface UpdateUserPayload {
   name?: string | null;
   email?: string;
   password?: string;
+  subscriptionValidUntil?: string | null;
 }
 
 export interface UpdateUserRolePayload {

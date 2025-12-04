@@ -54,6 +54,14 @@ export class User {
   @Column({ name: 'last_login_at', type: 'timestamptz', nullable: true })
   lastLoginAt!: Date | null;
 
+  @Column({
+    name: 'subscription_valid_until',
+    type: 'timestamptz',
+    nullable: true,
+    default: null,
+  })
+  subscriptionValidUntil!: Date | null;
+
   @CreateDateColumn({ name: 'created_at' })
   createdAt: Date;
 

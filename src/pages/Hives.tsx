@@ -55,7 +55,6 @@ import {
   type UpdateHivePayload,
 } from "@/lib/types";
 import {
-  Box,
   Calendar,
   ChevronRight,
   Loader2,
@@ -213,7 +212,11 @@ function HiveCard({
 
   return (
     <div className="flex flex-col">
-      <Card className="shadow-custom hover:shadow-custom-md transition-all group flex flex-col overflow-hidden">
+      <Card
+        className={`shadow-custom hover:shadow-custom-md transition-all group flex flex-col overflow-hidden ${
+          canManage ? "min-h-[28rem]" : ""
+        }`}
+      >
         <div className="h-56 w-full overflow-hidden rounded-t-lg bg-white">
           <Link
             to={`/hives/${hive.id}`}
@@ -646,12 +649,14 @@ export default function Hives() {
               <p className="text-muted-foreground mt-1">Valdykite savo avilius</p>
             </div>
             <div className="flex flex-col gap-3 sm:flex-row sm:items-end">
-              <div className="flex items-center gap-2 text-sm font-medium">
-                <span className="text-muted-foreground">Prenumerata:</span>
-                <span className={`${subscriptionColorClass} whitespace-nowrap`}>
-                  {subscriptionStatus.text}
-                </span>
-              </div>
+              {!isPrivileged ? (
+                <div className="flex items-center gap-2 text-sm font-medium">
+                  <span className="text-muted-foreground">Prenumerata:</span>
+                  <span className={`${subscriptionColorClass} whitespace-nowrap`}>
+                    {subscriptionStatus.text}
+                  </span>
+                </div>
+              ) : null}
               {isPrivileged ? (
                 <div className="w-full max-w-xs">
                   <Input
@@ -812,22 +817,6 @@ export default function Hives() {
               </Card>
             ))}
           </div>
-        ) : filteredHives.length === 0 ? (
-          <Card className="shadow-custom">
-            <CardContent className="p-12 text-center">
-              <Box className="w-12 h-12 mx-auto mb-4 text-muted-foreground" />
-              <h3 className="text-lg font-semibold mb-2">Nerasta avilių</h3>
-              <p className="text-muted-foreground mb-6">
-                Pradėkite pridėdami savo pirmą avilį
-              </p>
-              {canManageHives && (
-                <Button onClick={() => setIsCreateDialogOpen(true)}>
-                  <Plus className="mr-2 w-4 h-4" />
-                  Pridėti avilį
-                </Button>
-              )}
-            </CardContent>
-          </Card>
         ) : (
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
             {filteredHives.map((hive) => (

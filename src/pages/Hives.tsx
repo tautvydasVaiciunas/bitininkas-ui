@@ -850,20 +850,21 @@ export default function Hives() {
             {!isPrivileged ? (
               <div className={cn(isEmptyState ? "mx-auto w-full max-w-sm" : "w-full")}>
                 <Link to="/parduotuve" className="group">
-                <Card className="shadow-custom hover:shadow-custom-md transition-all group h-full flex flex-col overflow-hidden border border-dashed border-muted-foreground/60 bg-muted/10 text-muted-foreground">
-                  <div className="h-56 w-full flex items-center justify-center rounded-t-lg bg-muted-foreground/20 text-muted-foreground">
-                    <Plus className="h-16 w-16" />
-                  </div>
-                  <CardContent className="flex flex-1 flex-col items-center justify-center gap-1 px-4 text-center">
-                    <p className="text-xl font-semibold text-foreground">
-                      Papildyti avilių kiekį
-                    </p>
-                    <p className="text-sm text-muted-foreground/80 line-clamp-2">
-                      Aplankykite parduotuvę ir papildykite atsargas įrankiais bei korpusais.
-                    </p>
-                  </CardContent>
-                </Card>
-              </Link>
+                  <Card className="shadow-custom hover:shadow-custom-md transition-all group h-full flex flex-col overflow-hidden border border-dashed border-muted-foreground/60 bg-muted/10 text-muted-foreground">
+                    <div className="h-56 w-full flex items-center justify-center rounded-t-lg bg-muted-foreground/20 text-muted-foreground">
+                      <Plus className="h-16 w-16" />
+                    </div>
+                    <CardContent className="flex flex-1 flex-col items-center justify-center gap-1 px-4 text-center">
+                      <p className="text-xl font-semibold text-foreground">
+                        Papildyti avilių kiekį
+                      </p>
+                      <p className="text-sm text-muted-foreground/80 line-clamp-2">
+                        Aplankykite parduotuvę ir papildykite atsargas įrankiais bei korpusais.
+                      </p>
+                    </CardContent>
+                  </Card>
+                </Link>
+              </div>
             ) : null}
           </div>
         )}

@@ -112,12 +112,8 @@ export class AssignmentsService {
     const accessible = await this.hiveRepository
       .createQueryBuilder('hive')
       .leftJoin('hive_members', 'hm', 'hm.hive_id = hive.id')
-      .leftJoin('group_members', 'gm', 'gm.hive_id = hive.id')
       .where('hive.id = :hiveId', { hiveId })
-      .andWhere(
-        'hive.ownerUserId = :userId OR hm.user_id = :userId OR gm.user_id = :userId',
-        { userId },
-      )
+      .andWhere('hive.ownerUserId = :userId OR hm.user_id = :userId', { userId })
       .getOne();
 
     return Boolean(accessible);

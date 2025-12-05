@@ -594,6 +594,7 @@ export default function Hives() {
 
     return list;
   }, [accessibleHives, isPrivileged, searchEmail, statusFilter]);
+  const isEmptyState = filteredHives.length === 0;
 
   const handleCreateSubmit = async (
     event: React.FormEvent<HTMLFormElement>,
@@ -847,7 +848,8 @@ export default function Hives() {
               />
             ))}
             {!isPrivileged ? (
-              <Link to="/parduotuve" className="group">
+              <div className={cn(isEmptyState ? "mx-auto w-full max-w-sm" : "w-full")}>
+                <Link to="/parduotuve" className="group">
                 <Card className="shadow-custom hover:shadow-custom-md transition-all group h-full flex flex-col overflow-hidden border border-dashed border-muted-foreground/60 bg-muted/10 text-muted-foreground">
                   <div className="h-56 w-full flex items-center justify-center rounded-t-lg bg-muted-foreground/20 text-muted-foreground">
                     <Plus className="h-16 w-16" />

@@ -227,6 +227,7 @@ export class GroupsService {
     });
 
     if (result?.user && result?.hive) {
+      await this.addHiveMember(result.hive.id, result.user.id);
       await this.notifyHiveMemberChange(result.user, result.hive, true, false);
     }
 
@@ -257,6 +258,7 @@ export class GroupsService {
     await this.membersRepository.remove(memberships);
     for (const membership of hiveMembers) {
       if (membership.user && membership.hive) {
+        await this.removeHiveMember(membership.hive.id, membership.user.id);
         await this.notifyHiveMemberChange(membership.user, membership.hive, false, false);
       }
     }
@@ -319,5 +321,24 @@ export class GroupsService {
         error instanceof Error ? error.stack : undefined,
       );
     }
+  }
+
+  private async addHiveMember(hiveId: string, userId: string) {
+    await this.hivesRepository.manager
+      .createQueryBuilder()
+      .insert()
+      .into('hive_members')
+      .values({ hive_id: hiveId, user_id: userId })
+      .orIgnore()
+      .execute();
+  }
+
+  private async removeHiveMember(hiveId: string, userId: string) {
+    await this.hivesRepository.manager
+      .createQueryBuilder()
+      .delete()
+      .from('hive_members')
+      .where('hive_id = :hiveId AND user_id = :userId', { hiveId, userId })
+      .execute();
   }
 }

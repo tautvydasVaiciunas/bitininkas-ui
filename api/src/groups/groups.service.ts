@@ -227,7 +227,7 @@ export class GroupsService {
     });
 
     if (result?.user && result?.hive) {
-      await this.notifyHiveMemberChange(result.user, result.hive, true);
+      await this.notifyHiveMemberChange(result.user, result.hive, true, false);
     }
 
     return result;
@@ -257,14 +257,23 @@ export class GroupsService {
     await this.membersRepository.remove(memberships);
     for (const membership of hiveMembers) {
       if (membership.user && membership.hive) {
-        await this.notifyHiveMemberChange(membership.user, membership.hive, false);
+        await this.notifyHiveMemberChange(membership.user, membership.hive, false, false);
       }
     }
     return { success: true };
   }
 
-  private async notifyHiveMemberChange(user: User | null, hive: Hive | null, added: boolean) {
+  private async notifyHiveMemberChange(
+    user: User | null,
+    hive: Hive | null,
+    added: boolean,
+    sendNotifications = true,
+  ) {
     if (!user || !hive) {
+      return;
+    }
+
+    if (!sendNotifications) {
       return;
     }
 

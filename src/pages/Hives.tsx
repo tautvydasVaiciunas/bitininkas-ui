@@ -31,6 +31,7 @@ import {
   DropdownMenuSeparator,
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
+import { cn } from "@/lib/utils";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import {
@@ -209,6 +210,10 @@ function HiveCard({
     activeAssignmentsCount > 0 && summary?.primaryAssignmentId
       ? `/tasks/${summary.primaryAssignmentId}/run`
       : undefined;
+  const summaryWrapperClass = cn(
+    "min-h-[6rem]",
+    canManage ? "min-h-[7rem]" : undefined,
+  );
 
   return (
     <div className="flex flex-col">
@@ -262,7 +267,7 @@ function HiveCard({
                 <span>{formatMonthYear(hive.createdAt)}</span>
               </div>
 
-              <div>
+              <div className={summaryWrapperClass}>
                 {summaryLoading ? (
                   <Skeleton className="h-16 w-full rounded-lg" />
                 ) : summary ? (

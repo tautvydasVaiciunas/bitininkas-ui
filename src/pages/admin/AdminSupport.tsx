@@ -387,9 +387,9 @@ const AdminSupport = () => {
               </div>
             </div>
           </div>
-          <div className="space-y-2">
-            <div className="flex items-center gap-2">
-              <label className="cursor-pointer rounded-lg border border-dashed border-border px-3 py-2 text-xs font-medium text-muted-foreground">
+          <div className="w-full space-y-2 lg:col-start-2">
+            <div className="flex w-full items-end gap-3">
+              <label className="flex-none cursor-pointer rounded-lg border border-dashed border-border px-3 py-2 text-xs font-medium text-muted-foreground">
                 <input
                   ref={fileInputRef}
                   type="file"
@@ -407,10 +407,15 @@ const AdminSupport = () => {
                 value={text}
                 onChange={(event) => setText(event.target.value)}
                 disabled={sending}
-                className="flex-1 resize-none"
+                className="min-w-0 flex-1 resize-none"
                 rows={3}
               />
-              <Button type="button" onClick={handleSend} disabled={sending || (!text.trim() && attachments.length === 0)}>
+              <Button
+                type="button"
+                onClick={handleSend}
+                disabled={sending || (!text.trim() && attachments.length === 0)}
+                className="flex-none"
+              >
                 {sending ? <Loader2 className="h-4 w-4 animate-spin" /> : <Send className="h-4 w-4" />}
               </Button>
             </div>

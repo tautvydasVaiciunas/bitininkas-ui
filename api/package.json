@@ -3,7 +3,7 @@
   "version": "1.0.0",
   "description": "Busmedaus API built with NestJS and TypeORM",
   "scripts": {
-    "app:boot": "npm run migration:run && (npm run seed:prod || true) && npm run start:prod",
+    "app:boot": "npm run migration:run && node -e \"if (process.env.RUN_SEEDS === 'true') { require('child_process').execSync('npm run seed:prod', { stdio: 'inherit', shell: true }); } else { console.log('Skipping seeds (RUN_SEEDS not true)'); }\" && npm run start:prod",
     "build": "npm run clean && tsc -p tsconfig.build.json",
     "clean": "rimraf dist",
     "format": "prettier --write \"src/**/*.ts\"",

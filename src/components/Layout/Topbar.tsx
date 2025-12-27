@@ -38,6 +38,7 @@ export const Topbar = () => {
     queryKey: ['notifications', 'unread-count'],
     queryFn: () => api.notifications.unreadCount(),
     enabled: !!user,
+    refetchInterval: 15_000,
   });
 
   const unreadCount = unreadCountData?.count ?? 0;
@@ -56,6 +57,7 @@ export const Topbar = () => {
         .filter((item) => !user || item.userId === user?.id);
     },
     enabled: !!user,
+    refetchInterval: 15_000,
   });
 
   const formatRelative = useCallback((dateStr: string) => {
@@ -221,7 +223,13 @@ export const Topbar = () => {
           )}
         </Button>
 
-          <DropdownMenu>
+          <DropdownMenu
+            onOpenChange={(open) => {
+              if (open && unreadCount > 0 && !markAllMutation.isLoading) {
+                markAllMutation.mutate();
+              }
+            }}
+          >
             <DropdownMenuTrigger asChild>
               <Button variant="ghost" size="icon" className="rounded-full relative">
                 <Bell className="w-5 h-5" />

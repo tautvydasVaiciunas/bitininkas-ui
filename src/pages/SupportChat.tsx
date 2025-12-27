@@ -59,11 +59,11 @@ const SupportChat = () => {
   }, []);
 
   const loadMessages = useCallback(
-    async (cursor?: string, appendOlder = false) => {
+    async (cursor?: string, appendOlder = false, refresh = false) => {
       if (!thread) return;
       if (appendOlder) {
         setLoadingMore(true);
-      } else {
+      } else if (!refresh) {
         setMessagesLoading(true);
         setMessagesError(null);
       }
@@ -77,21 +77,33 @@ const SupportChat = () => {
         }
         const page = await api.support.myThreadMessages(params);
         const normalized = [...page].reverse();
-        setHasMore(page.length === MESSAGE_PAGE_LIMIT);
+        setHasMore((prev) => prev || page.length === MESSAGE_PAGE_LIMIT);
         if (appendOlder) {
           setMessages((prev) => [...normalized, ...prev]);
+          setOlderCursor(page.at(-1)?.createdAt ?? null);
+        } else if (refresh) {
+          setMessages((prev) => {
+            const merged = new Map(prev.map((item) => [item.id, item]));
+            normalized.forEach((item) => {
+              merged.set(item.id, item);
+            });
+            return Array.from(merged.values()).sort(
+              (a, b) => new Date(a.createdAt).getTime() - new Date(b.createdAt).getTime(),
+            );
+          });
+          setOlderCursor((prev) => prev ?? page.at(-1)?.createdAt ?? null);
         } else {
           setMessages(normalized);
+          setOlderCursor(page.at(-1)?.createdAt ?? null);
         }
-        setOlderCursor(page.at(-1)?.createdAt ?? null);
       } catch {
-        if (!appendOlder) {
-          setMessagesError('Nepavyko įkelti žinučių.');
+        if (!appendOlder && !refresh) {
+          setMessagesError('Nepavyko ?kelti ?inu?i?.');
         }
       } finally {
         if (appendOlder) {
           setLoadingMore(false);
-        } else {
+        } else if (!refresh) {
           setMessagesLoading(false);
         }
       }
@@ -112,6 +124,23 @@ const SupportChat = () => {
     }
   }, [thread?.id, loadMessages]);
 
+  useEffect(() => {
+    if (!thread?.id) {
+      return;
+    }
+
+    const intervalId = window.setInterval(() => {
+      if (loadingMore || messagesLoading) {
+        return;
+      }
+      void loadMessages(undefined, false, true);
+    }, 10_000);
+
+    return () => {
+      window.clearInterval(intervalId);
+    };
+  }, [thread?.id, loadMessages, loadingMore, messagesLoading]);
+
   const handleLoadMore = () => {
     if (!hasMore || loadingMore || !olderCursor) return;
     void loadMessages(olderCursor, true);
@@ -124,10 +153,27 @@ const SupportChat = () => {
       return;
     }
 
+    const getMaxBytesForFile = (file: File) => {
+      if (file.type.startsWith('image/')) {
+        return 10 * 1024 * 1024;
+      }
+      if (file.type.startsWith('video/')) {
+        return 30 * 1024 * 1024;
+      }
+      return 0;
+    };
+
     const uploaded: SupportAttachmentPayload[] = [];
     let uploadError = false;
+    let sizeTooLarge = false;
 
     for (const file of files) {
+      const maxBytes = getMaxBytesForFile(file);
+      if (maxBytes > 0 && file.size > maxBytes) {
+        uploadError = true;
+        sizeTooLarge = true;
+        continue;
+      }
       const form = new FormData();
       form.append('file', file);
       try {
@@ -143,7 +189,9 @@ const SupportChat = () => {
       }
     }
 
-    if (uploadError) {
+    if (sizeTooLarge) {
+      setSendError('Failas per didelis. Maksimalus dydis: 10 MB nuotraukai, 30 MB vaizdo įrašui.');
+    } else if (uploadError) {
       setSendError('Nepavyko įkelti failo.');
     }
 
@@ -293,31 +341,37 @@ const SupportChat = () => {
             {sendError ? (
               <div className="text-xs text-destructive">{sendError}</div>
             ) : null}
-            <div className="flex items-center gap-2">
-              <label className="cursor-pointer rounded-lg border border-dashed border-border px-3 py-2 text-xs font-medium text-muted-foreground">
-                <input
-                  ref={fileInputRef}
-                  type="file"
-                  className="hidden"
-                  onChange={handleFileChange}
-                  accept="image/*,video/mp4"
-                />
-                <div className="flex items-center gap-1">
-                  <Paperclip className="h-4 w-4" />
-                  Įkelti failą
-                </div>
-              </label>
+            <div className="flex flex-col gap-2">
               <Textarea
                 placeholder="Parašykite žinutę..."
                 value={text}
                 onChange={(event) => setText(event.target.value)}
                 disabled={sending}
-                className="flex-1 resize-none"
+                className="w-full resize-none"
                 rows={3}
               />
-              <Button type="button" onClick={handleSend} disabled={sending || (!text.trim() && attachments.length === 0)}>
-                {sending ? <Loader2 className="h-4 w-4 animate-spin" /> : <Send className="h-4 w-4" />}
-              </Button>
+              <div className="flex items-center justify-between">
+                <label className="cursor-pointer rounded-lg border border-dashed border-border px-3 py-2 text-xs font-medium text-muted-foreground">
+                  <input
+                    ref={fileInputRef}
+                    type="file"
+                    className="hidden"
+                    onChange={handleFileChange}
+                    accept="image/*,video/mp4"
+                  />
+                  <div className="flex items-center gap-1">
+                    <Paperclip className="h-4 w-4" />
+                    Įkelti failą
+                  </div>
+                </label>
+                <Button
+                  type="button"
+                  onClick={handleSend}
+                  disabled={sending || (!text.trim() && attachments.length === 0)}
+                >
+                  {sending ? <Loader2 className="h-4 w-4 animate-spin" /> : <Send className="h-4 w-4" />}
+                </Button>
+              </div>
             </div>
           </div>
         </div>

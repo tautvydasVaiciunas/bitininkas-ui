@@ -365,9 +365,18 @@ export class AssignmentsService {
 
         const startLabel = assignment.startDate ?? 'nenurodyta';
         const dueLabel = assignment.dueDate ?? 'nenurodytas';
-        const body = `Jums priskirta užduotis „${taskTitle}“ nuo ${startLabel} iki ${dueLabel}.`;
-        const link = this.buildAssignmentLink(assignment.id);
-        const emailCtaUrl = this.buildAssignmentEmailLink(assignment.id);
+        const body = [
+          `Jums priskirta užduotis „${taskTitle}“.`,
+          `Užduoties pradžia: ${startLabel}.`,
+          `Užduoties atlikimo terminas: ${dueLabel}.`,
+        ].join('\n');
+        const isActive = this.isAssignmentActive(assignment);
+        const link = isActive
+          ? this.buildAssignmentLink(assignment.id)
+          : this.buildAssignmentPreviewLink(assignment.id);
+        const emailCtaUrl = isActive
+          ? this.buildAssignmentEmailLink(assignment.id)
+          : this.buildAssignmentPreviewEmailLink(assignment.id);
 
         await Promise.all(
           uniqueParticipantIds.map((participantId) =>
@@ -455,6 +464,22 @@ export class AssignmentsService {
     }
 
     return `/tasks/${assignmentId}`;
+  }
+
+  private buildAssignmentPreviewLink(assignmentId: string) {
+    if (this.appBaseUrl) {
+      return `${this.appBaseUrl}/tasks/${assignmentId}/preview`;
+    }
+
+    return `/tasks/${assignmentId}/preview`;
+  }
+
+  private buildAssignmentPreviewEmailLink(assignmentId: string) {
+    if (this.appBaseUrl) {
+      return `${this.appBaseUrl}/tasks/${assignmentId}/preview`;
+    }
+
+    return `/tasks/${assignmentId}/preview`;
   }
 
   private normalizeBaseUrl(value: string | null) {
@@ -1127,6 +1152,21 @@ export class AssignmentsService {
       return false;
     }
     return this.ensureUserCanAccessHive(assignment.hiveId, userId);
+  }
+
+  async collectParticipantIds(assignments: Assignment[]): Promise<string[]> {
+    const participantIds = new Set<string>();
+
+    for (const assignment of assignments) {
+      const ids = await this.getAssignmentParticipantIds(assignment);
+      ids.forEach((id) => {
+        if (id) {
+          participantIds.add(id);
+        }
+      });
+    }
+
+    return Array.from(participantIds);
   }
 
   async ensureUserCanAccessAssignment(assignmentId: string, user) {

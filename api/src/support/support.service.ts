@@ -47,7 +47,7 @@ const STAFF_ROLES: SupportSenderRole[] = ['admin', 'manager'];
 @Injectable()
 export class SupportService {
   private readonly logger = new Logger(SupportService.name);
-  private readonly EMAIL_COOLDOWN_MS = 5 * 60 * 1000;
+  private readonly EMAIL_COOLDOWN_MS = 15 * 60 * 1000;
   private readonly MESSAGE_LINK = '/messages';
   constructor(
     @InjectRepository(SupportThread)

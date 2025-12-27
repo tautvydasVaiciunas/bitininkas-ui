@@ -50,10 +50,15 @@ const AdminSupport = () => {
     }
   }, []);
 
-  const loadThreadMessages = useCallback(async (threadId: string, cursor?: string, appendOlder = false) => {
+  const loadThreadMessages = useCallback(async (
+    threadId: string,
+    cursor?: string,
+    appendOlder = false,
+    refresh = false,
+  ) => {
     if (appendOlder) {
       setLoadingMore(true);
-    } else {
+    } else if (!refresh) {
       setMessagesLoading(true);
       setMessagesError(null);
     }
@@ -66,21 +71,33 @@ const AdminSupport = () => {
       }
       const page = await api.support.admin.threadMessages(threadId, params);
       const normalized = [...page].reverse();
-      setHasMore(page.length === MESSAGE_PAGE_LIMIT);
+      setHasMore((prev) => prev || page.length === MESSAGE_PAGE_LIMIT);
       if (appendOlder) {
         setMessages((prev) => [...normalized, ...prev]);
+        setOlderCursor(page.at(-1)?.createdAt ?? null);
+      } else if (refresh) {
+        setMessages((prev) => {
+          const merged = new Map(prev.map((item) => [item.id, item]));
+          normalized.forEach((item) => {
+            merged.set(item.id, item);
+          });
+          return Array.from(merged.values()).sort(
+            (a, b) => new Date(a.createdAt).getTime() - new Date(b.createdAt).getTime(),
+          );
+        });
+        setOlderCursor((prev) => prev ?? page.at(-1)?.createdAt ?? null);
       } else {
         setMessages(normalized);
+        setOlderCursor(page.at(-1)?.createdAt ?? null);
       }
-      setOlderCursor(page.at(-1)?.createdAt ?? null);
     } catch {
-      if (!appendOlder) {
-        setMessagesError('Nepavyko įkelti žinučių.');
+      if (!appendOlder && !refresh) {
+        setMessagesError('Nepavyko ?kelti ?inu?i?.');
       }
     } finally {
       if (appendOlder) {
         setLoadingMore(false);
-      } else {
+      } else if (!refresh) {
         setMessagesLoading(false);
       }
     }
@@ -156,6 +173,22 @@ const AdminSupport = () => {
     void loadThreadMessages(activeThread.id);
   }, [activeThread, loadThreadMessages]);
 
+  useEffect(() => {
+    const intervalId = window.setInterval(() => {
+      if (!threadsLoading) {
+        void loadThreads();
+      }
+
+      if (activeThread && !loadingMore && !messagesLoading) {
+        void loadThreadMessages(activeThread.id, undefined, false, true);
+      }
+    }, 10_000);
+
+    return () => {
+      window.clearInterval(intervalId);
+    };
+  }, [activeThread, loadThreadMessages, loadThreads, loadingMore, messagesLoading, threadsLoading]);
+
   const handleLoadMore = () => {
     if (!activeThread || !hasMore || loadingMore || !olderCursor) return;
     void loadThreadMessages(activeThread.id, olderCursor, true);
@@ -168,10 +201,27 @@ const AdminSupport = () => {
       return;
     }
 
+    const getMaxBytesForFile = (file: File) => {
+      if (file.type.startsWith('image/')) {
+        return 10 * 1024 * 1024;
+      }
+      if (file.type.startsWith('video/')) {
+        return 30 * 1024 * 1024;
+      }
+      return 0;
+    };
+
     const uploaded: SupportAttachmentPayload[] = [];
     let uploadError = false;
+    let sizeTooLarge = false;
 
     for (const file of files) {
+      const maxBytes = getMaxBytesForFile(file);
+      if (maxBytes > 0 && file.size > maxBytes) {
+        uploadError = true;
+        sizeTooLarge = true;
+        continue;
+      }
       const form = new FormData();
       form.append('file', file);
       try {
@@ -187,7 +237,9 @@ const AdminSupport = () => {
       }
     }
 
-    if (uploadError) {
+    if (sizeTooLarge) {
+      setSendError('Failas per didelis. Maksimalus dydis: 10 MB nuotraukai, 30 MB vaizdo įrašui.');
+    } else if (uploadError) {
       setSendError('Nepavyko įkelti failo.');
     }
 

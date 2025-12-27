@@ -11,6 +11,7 @@ import { mapNotificationFromApi, type Notification, type NotificationType } from
 import { Bell, CheckCheck, Megaphone, MessageCircle, ShoppingBag } from 'lucide-react';
 import { toast } from 'sonner';
 import { useNavigate } from 'react-router-dom';
+import { useEffect } from 'react';
 
 export default function Notifications() {
   const { user } = useAuth();
@@ -112,6 +113,17 @@ export default function Notifications() {
       toast.error('Nepavyko pažymėti visų pranešimų');
     },
   });
+
+  useEffect(() => {
+    if (!notifications.length) {
+      return;
+    }
+
+    const hasUnread = notifications.some((item) => !item.isRead);
+    if (hasUnread && !markAllMutation.isPending) {
+      markAllMutation.mutate();
+    }
+  }, [notifications, markAllMutation]);
 
   const getTypeIcon = (type: NotificationType) => {
     const icons: Record<NotificationType, JSX.Element> = {

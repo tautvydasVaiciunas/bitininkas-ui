@@ -1,4 +1,6 @@
 const LOGO_CID = 'busmedaus-logo';
+const FACEBOOK_CID = 'busmedaus-facebook';
+const INSTAGRAM_CID = 'busmedaus-instagram';
 
 export interface NotificationEmailContent {
   subject: string;
@@ -62,8 +64,14 @@ export function renderEmailLayout({
                 <p style="margin: 0 0 8px 0;">+370 610 69 676</p>
                 <p style="margin: 0; font-size: 14px;">
                   Sekite mus:
-                  <a href="https://www.facebook.com/busmedaus.lt" style="margin-left: 8px; color: #111827; text-decoration: underline;">Facebook</a>
-                  <a href="https://www.instagram.com/busmedaus_lt/" style="margin-left: 8px; color: #111827; text-decoration: underline;">Instagram</a>
+                  <a href="https://www.facebook.com/busmedaus.lt" style="margin-left: 8px; color: #111827; text-decoration: none; display: inline-flex; align-items: center;">
+                    <img src="cid:${FACEBOOK_CID}" alt="Facebook" width="16" height="16" style="display: inline-block; margin-right: 6px; border: 0; outline: none; text-decoration: none;" />
+                    Facebook
+                  </a>
+                  <a href="https://www.instagram.com/busmedaus_lt/" style="margin-left: 12px; color: #111827; text-decoration: none; display: inline-flex; align-items: center;">
+                    <img src="cid:${INSTAGRAM_CID}" alt="Instagram" width="16" height="16" style="display: inline-block; margin-right: 6px; border: 0; outline: none; text-decoration: none;" />
+                    Instagram
+                  </a>
                 </p>
               </td>
             </tr>

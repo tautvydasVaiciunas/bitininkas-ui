@@ -29,7 +29,7 @@ import {
   type StepProgressToggleResult,
 } from '@/lib/types';
 import { inferMediaType, resolveMediaUrl } from '@/lib/media';
-import { Calendar, CheckCircle2, ChevronLeft, Loader2, RotateCcw, Star } from 'lucide-react';
+import { Calendar, CheckCircle2, ChevronLeft, ChevronRight, Loader2, RotateCcw, Star } from 'lucide-react';
 import { toast } from 'sonner';
 
 const formatDate = (value?: string | null) => {
@@ -155,9 +155,27 @@ export default function TaskRun() {
     },
   });
 
+  const getMaxBytesForFile = (file: File) => {
+    if (file.type.startsWith('image/')) {
+      return 10 * 1024 * 1024;
+    }
+    if (file.type.startsWith('video/')) {
+      return 30 * 1024 * 1024;
+    }
+    return 0;
+  };
+
   const handleMediaFileChange = (event: ChangeEvent<HTMLInputElement>) => {
     const file = event.target.files?.[0];
     if (!file || !currentStep?.id) {
+      event.target.value = '';
+      return;
+    }
+
+    const maxBytes = getMaxBytesForFile(file);
+    if (maxBytes > 0 && file.size > maxBytes) {
+      setMediaError('Failas per didelis. Maksimalus dydis: 10 MB nuotraukai, 30 MB vaizdo įrašui.');
+      setSelectedMediaFile(null);
       event.target.value = '';
       return;
     }
@@ -333,9 +351,15 @@ export default function TaskRun() {
   }
 
   const progressPercent = data.completion ?? 0;
+  const totalStepsCount = steps.length + 1;
+  const currentStepNumber = Math.min(currentStepIndex + 1, totalStepsCount);
 
   const handlePrevStep = () => {
     setCurrentStepIndex((index) => Math.max(0, index - 1));
+  };
+
+  const handleNextStep = () => {
+    setCurrentStepIndex((index) => Math.min(steps.length, index + 1));
   };
 
   const handleStepComplete = () => {
@@ -468,7 +492,8 @@ export default function TaskRun() {
                 {isRatingStep ? (
                   <div className="space-y-6">
                     <p className="text-foreground">
-                      Praėję žingsnius, pasirinkite 1–5 žvaigždutes ir palikite komentarą, jei norite.
+                      Mums svarbi jūsų nuomonė – ar užduotis buvo aiški? Ką galėtume aprašyti geriau?
+                      Įvertinkite ir padėkite mums tobulėti.
                     </p>
                     <div className="flex items-center gap-1">
                       {Array.from({ length: 5 }).map((_, index) => {
@@ -542,7 +567,6 @@ export default function TaskRun() {
                               ref={mediaInputRef}
                               type="file"
                               accept="image/*,video/*"
-                              capture="environment"
                               className="hidden"
                               onChange={handleMediaFileChange}
                             />
@@ -608,14 +632,38 @@ export default function TaskRun() {
               </CardContent>
             </Card>
 
-            <div className="flex flex-col gap-3 sm:flex-row sm:items-end sm:justify-between">
-              <Button variant="outline" onClick={handlePrevStep} disabled={currentStepIndex === 0}>
-                <ChevronLeft className="mr-2 h-4 w-4" /> Atgal
-              </Button>
+            <div className="space-y-3">
+              <div className="relative">
+                <div className="flex w-full overflow-hidden rounded-lg border bg-background">
+                  <button
+                    type="button"
+                    onClick={handlePrevStep}
+                    disabled={currentStepIndex === 0}
+                    className="flex flex-1 items-center justify-start gap-2 px-4 py-3 text-sm font-medium transition-colors hover:bg-muted disabled:pointer-events-none disabled:opacity-50"
+                  >
+                    <ChevronLeft className="h-4 w-4" />
+                    Atgal
+                  </button>
+                  <div className="w-px bg-border" />
+                  <button
+                    type="button"
+                    onClick={handleNextStep}
+                    disabled={currentStepIndex >= steps.length}
+                    className="flex flex-1 items-center justify-end gap-2 px-4 py-3 text-sm font-medium transition-colors hover:bg-muted disabled:pointer-events-none disabled:opacity-50"
+                  >
+                    Toliau
+                    <ChevronRight className="h-4 w-4" />
+                  </button>
+                </div>
+                <div className="pointer-events-none absolute inset-0 flex items-center justify-center text-sm font-semibold text-muted-foreground">
+                  {currentStepNumber} iš {totalStepsCount}
+                </div>
+              </div>
 
               {isRatingStep ? (
-                <div className="flex flex-col items-end gap-2">
+                <div className="space-y-2">
                   <Button
+                    className="w-full"
                     onClick={handleSubmitRating}
                     disabled={!canSubmitRating || ratingMutation.isPending}
                   >
@@ -626,19 +674,20 @@ export default function TaskRun() {
                       : 'Siųsti vertinimą'}
                   </Button>
                   {assignment?.rating ? (
-                    <p className="text-sm text-muted-foreground">
+                    <p className="text-center text-sm text-muted-foreground">
                       Jūsų paskutinis įvertinimas: {assignment.rating} / 5
                     </p>
                   ) : null}
                 </div>
               ) : (
-                  <div className="flex gap-3">
-                    {hasCurrentStepCompleted ? (
-                      <Button
-                        variant="outline"
-                        onClick={handleStepUncomplete}
-                        disabled={!canUncompleteCurrentStep || toggleStepMutation.isPending}
-                      >
+                <div>
+                  {hasCurrentStepCompleted ? (
+                    <Button
+                      className="w-full"
+                      variant="outline"
+                      onClick={handleStepUncomplete}
+                      disabled={!canUncompleteCurrentStep || toggleStepMutation.isPending}
+                    >
                       {toggleStepMutation.isPending ? (
                         <>
                           <Loader2 className="mr-2 h-4 w-4 animate-spin" />
@@ -653,6 +702,7 @@ export default function TaskRun() {
                     </Button>
                   ) : (
                     <Button
+                      className="w-full"
                       onClick={handleStepComplete}
                       disabled={
                         toggleStepMutation.isPending || (requiresUserMedia && !hasUploadedMedia)
@@ -664,7 +714,7 @@ export default function TaskRun() {
                       }
                     >
                       <CheckCircle2 className="mr-2 h-4 w-4" />
-                      {toggleStepMutation.isPending ? 'Žymima...' : 'Pažymėti kaip atliktą'}
+                      {toggleStepMutation.isPending ? 'Žymima...' : 'Atlikta'}
                     </Button>
                   )}
                 </div>

@@ -8,6 +8,10 @@ import { EmailLayoutOptions, renderEmailLayout } from './email-template';
 
 const LOGO_FILENAME = 'bus-medaus-logo.png';
 const LOGO_CID = 'busmedaus-logo';
+const FACEBOOK_FILENAME = 'facebook-logo.png';
+const FACEBOOK_CID = 'busmedaus-facebook';
+const INSTAGRAM_FILENAME = 'instagram-logo.png';
+const INSTAGRAM_CID = 'busmedaus-instagram';
 
 export interface EmailPayload {
   to: string;
@@ -25,6 +29,8 @@ export class EmailService {
   private readonly client: SESClient | null;
   private readonly from: string | null;
   private readonly logoBuffer: Buffer | null;
+  private readonly facebookBuffer: Buffer | null;
+  private readonly instagramBuffer: Buffer | null;
 
   constructor(private readonly configService: ConfigService) {
     const region = this.normalize(this.configService.get<string>('AWS_SES_REGION'));
@@ -51,7 +57,9 @@ export class EmailService {
       );
     }
 
-    this.logoBuffer = this.loadLogoBuffer();
+    this.logoBuffer = this.loadAssetBuffer(LOGO_FILENAME, 'logotipo');
+    this.facebookBuffer = this.loadAssetBuffer(FACEBOOK_FILENAME, 'Facebook logotipo');
+    this.instagramBuffer = this.loadAssetBuffer(INSTAGRAM_FILENAME, 'Instagram logotipo');
   }
 
   async sendMail(payload: EmailPayload): Promise<void> {
@@ -117,6 +125,10 @@ export class EmailService {
     const includesHtml = Boolean(payload.html);
     const includeLogo =
       includesHtml && payload.html?.includes(`cid:${LOGO_CID}`) && this.logoBuffer;
+    const includeFacebook =
+      includesHtml && payload.html?.includes(`cid:${FACEBOOK_CID}`) && this.facebookBuffer;
+    const includeInstagram =
+      includesHtml && payload.html?.includes(`cid:${INSTAGRAM_CID}`) && this.instagramBuffer;
 
     const lines: string[] = [
       `From: ${payload.from}`,
@@ -146,16 +158,52 @@ export class EmailService {
     lines.push(`--${alternativeBoundary}--`, '');
 
     if (includeLogo) {
-      lines.push(`--${relatedBoundary}`);
-      lines.push(`Content-Type: image/png; name="${LOGO_FILENAME}"`);
-      lines.push(`Content-ID: <${LOGO_CID}>`);
-      lines.push(`Content-Disposition: inline; filename="${LOGO_FILENAME}"`);
-      lines.push('Content-Transfer-Encoding: base64', '', this.encodeBase64Lines(this.logoBuffer as Buffer), '');
+      this.appendInlineImage(
+        lines,
+        relatedBoundary,
+        LOGO_FILENAME,
+        LOGO_CID,
+        this.logoBuffer as Buffer,
+      );
+    }
+
+    if (includeFacebook) {
+      this.appendInlineImage(
+        lines,
+        relatedBoundary,
+        FACEBOOK_FILENAME,
+        FACEBOOK_CID,
+        this.facebookBuffer as Buffer,
+      );
+    }
+
+    if (includeInstagram) {
+      this.appendInlineImage(
+        lines,
+        relatedBoundary,
+        INSTAGRAM_FILENAME,
+        INSTAGRAM_CID,
+        this.instagramBuffer as Buffer,
+      );
     }
 
     lines.push(`--${relatedBoundary}--`);
 
     return lines.join('\r\n');
+  }
+
+  private appendInlineImage(
+    lines: string[],
+    boundary: string,
+    filename: string,
+    cid: string,
+    buffer: Buffer,
+  ) {
+    lines.push(`--${boundary}`);
+    lines.push(`Content-Type: image/png; name="${filename}"`);
+    lines.push(`Content-ID: <${cid}>`);
+    lines.push(`Content-Disposition: inline; filename="${filename}"`);
+    lines.push('Content-Transfer-Encoding: base64', '', this.encodeBase64Lines(buffer), '');
   }
 
   private encodeBase64Lines(value: string | Buffer): string {
@@ -173,13 +221,13 @@ export class EmailService {
     return `=?UTF-8?B?${base64}?=`;
   }
 
-  private loadLogoBuffer(): Buffer | null {
-    const logoPath = join(process.cwd(), 'public', 'assets', LOGO_FILENAME);
+  private loadAssetBuffer(filename: string, label: string): Buffer | null {
+    const assetPath = join(process.cwd(), 'public', 'assets', filename);
     try {
-      return readFileSync(logoPath);
+      return readFileSync(assetPath);
     } catch (error) {
       const details = error instanceof Error ? error.message : String(error);
-      this.logger.warn(`Nepavyko nuskaityti el. pasto logotipo failo: ${details}`);
+      this.logger.warn(`Nepavyko nuskaityti el. pasto ${label} failo: ${details}`);
       return null;
     }
   }

@@ -15,6 +15,8 @@ import { Group } from '../groups/group.entity';
 import { GroupMember } from '../groups/group-member.entity';
 import { User, UserRole } from '../users/user.entity';
 import { NotificationsService } from '../notifications/notifications.service';
+import { EmailService } from '../email/email.service';
+import { renderNotificationEmailHtml } from '../email/email-template';
 import { CreateNewsDto } from './dto/create-news.dto';
 import { UpdateNewsDto } from './dto/update-news.dto';
 import { ListNewsQueryDto } from './dto/list-news-query.dto';
@@ -24,6 +26,7 @@ import {
   PaginatedResult,
 } from '../common/pagination/pagination.service';
 import { AssignmentsService } from '../assignments/assignments.service';
+import { Assignment } from '../assignments/assignment.entity';
 import { TasksService } from '../tasks/tasks.service';
 import { CreateTaskDto } from '../tasks/dto/create-task.dto';
 import { Task } from '../tasks/task.entity';
@@ -75,6 +78,7 @@ export class NewsService {
     @InjectRepository(Template)
     private readonly templateRepository: Repository<Template>,
     private readonly notifications: NotificationsService,
+    private readonly emailService: EmailService,
     private readonly configService: ConfigService,
     private readonly pagination: PaginationService,
     private readonly assignmentsService: AssignmentsService,
@@ -578,6 +582,11 @@ export class NewsService {
     const sendNotifications = dto.sendNotifications !== false;
 
     let full: NewsPost | null = null;
+    let createdAssignments: Assignment[] = [];
+    let assignmentParticipantIds: string[] = [];
+    let assignmentTaskTitle: string | null = null;
+    let assignmentStartLabel: string | null = null;
+    let assignmentDueLabel: string | null = null;
     if (createNews) {
       const post = this.newsRepository.create({
         title,
@@ -639,11 +648,14 @@ export class NewsService {
       };
 
       const createdTask = await this.tasksService.create(taskPayload, actor);
+      assignmentTaskTitle = createdTask.title;
 
       const startDate = normalizedStartDate ?? this.getTodayDateString();
       const dueDate =
         normalizedDueDate ??
         this.addDays(startDate, createdTask.defaultDueDays ?? 7);
+      assignmentStartLabel = startDate;
+      assignmentDueLabel = dueDate;
 
       const hiveIds = await this.collectAssignmentHives(groups.map((group) => group.id));
 
@@ -655,7 +667,8 @@ export class NewsService {
       }
 
       try {
-        await Promise.all(
+        const notifyAssignmentByEmail = !createNews && sendNotifications;
+        createdAssignments = await Promise.all(
           hiveIds.map((hiveId) =>
             this.assignmentsService.create(
               {
@@ -665,7 +678,7 @@ export class NewsService {
                 dueDate,
               },
               actor,
-              { notify: sendNotifications },
+              { notify: notifyAssignmentByEmail },
             ),
           ),
         );
@@ -674,6 +687,12 @@ export class NewsService {
           await this.newsRepository.delete(newsId);
         }
         throw error;
+      }
+
+      if (createNews && createdAssignments.length) {
+        assignmentParticipantIds = await this.assignmentsService.collectParticipantIds(
+          createdAssignments,
+        );
       }
 
       if (full) {
@@ -698,15 +717,45 @@ export class NewsService {
 
       const link = this.buildNewsLink(full.id);
       const emailCtaUrl = this.buildNewsListLink();
+      const combinedRecipientIds = new Set<string>();
+
+      if (createAssignment && assignmentParticipantIds.length) {
+        const assignmentRecipients = new Set(
+          assignmentParticipantIds.filter((recipientId) => recipientId !== actor.id),
+        );
+        uniqueRecipients.forEach((recipientId) => {
+          if (assignmentRecipients.has(recipientId)) {
+            combinedRecipientIds.add(recipientId);
+          }
+        });
+      }
+
+      if (
+        combinedRecipientIds.size &&
+        assignmentTaskTitle &&
+        assignmentStartLabel &&
+        assignmentDueLabel
+      ) {
+        await this.sendCombinedNewsAssignmentEmails({
+          recipientIds: Array.from(combinedRecipientIds),
+          newsTitle: title,
+          newsBody: body,
+          taskTitle: assignmentTaskTitle,
+          startDate: assignmentStartLabel,
+          dueDate: assignmentDueLabel,
+          newsLink: link,
+          assignmentLink: this.buildTasksLink(),
+        });
+      }
 
       for (const recipientId of uniqueRecipients) {
         try {
           await this.notifications.createNotification(recipientId, {
             type: 'news',
-            title: `Nauja naujiena: ${title}`,
+            title: `Paskelbta naujiena: ${title}`,
             body,
             link,
-            sendEmail: true,
+            sendEmail: !combinedRecipientIds.has(recipientId),
             emailSubject: 'Nauja naujiena',
             emailBody: `Paskelbta nauja naujiena "${title}"
 
@@ -798,6 +847,106 @@ ${body}`,
     return { success: true };
   }
 
+  private async sendCombinedNewsAssignmentEmails(params: {
+    recipientIds: string[];
+    newsTitle: string;
+    newsBody: string;
+    taskTitle: string;
+    startDate: string;
+    dueDate: string;
+    newsLink: string;
+    assignmentLink: string;
+  }) {
+    if (!params.recipientIds.length) {
+      return;
+    }
+
+    const users = await this.usersRepository.find({
+      where: { id: In(params.recipientIds) },
+    });
+
+    if (!users.length) {
+      return;
+    }
+
+    const subject = 'Nauja naujiena ir užduotis';
+    const message = this.buildCombinedEmailMessage(params);
+    const html = `${renderNotificationEmailHtml({ subject, message, ctaUrl: null })}${this.buildCombinedButtonsHtml(
+      params.newsLink,
+      params.assignmentLink,
+    )}`;
+    const text = this.buildCombinedEmailText(message, params.newsLink, params.assignmentLink);
+
+    await Promise.all(
+      users.map(async (user) => {
+        if (!user.email || user.role === UserRole.ADMIN) {
+          return;
+        }
+
+        try {
+          await this.emailService.sendMail({
+            to: user.email,
+            subject,
+            mainHtml: html,
+            text,
+          });
+        } catch (error) {
+          this.logger.warn(
+            `Nepavyko išsiųsti sujungto naujienos el. laiško vartotojui ${user.id}: ${
+              error instanceof Error ? error.message : String(error)
+            }`,
+          );
+        }
+      }),
+    );
+  }
+
+  private buildCombinedEmailMessage(params: {
+    newsTitle: string;
+    newsBody: string;
+    taskTitle: string;
+    startDate: string;
+    dueDate: string;
+  }) {
+    const parts = [
+      `Paskelbta nauja naujiena „${params.newsTitle}“.`,
+      params.newsBody?.trim(),
+      `Jums priskirta užduotis „${params.taskTitle}“.`,
+      `Užduoties pradžia: ${params.startDate}.`,
+      `Užduoties atlikimo terminas: ${params.dueDate}.`,
+    ].filter((line) => line && line.length > 0);
+
+    return parts.join('\n\n');
+  }
+
+  private buildCombinedButtonsHtml(newsLink: string, assignmentLink: string) {
+    const buttonStyle =
+      'background-color: #0acb8b; color: #ffffff; text-decoration: none; padding: 12px 32px; border-radius: 9999px; font-weight: 600; font-size: 15px; display: inline-block;';
+
+    return `
+      <table role="presentation" width="100%" cellspacing="0" cellpadding="0">
+        <tr>
+          <td align="center" style="padding: 16px 0 8px 0;">
+            <a href="${this.escapeAttribute(newsLink)}" style="${buttonStyle}">Skaityti naujieną</a>
+          </td>
+        </tr>
+        <tr>
+          <td align="center" style="padding: 8px 0 0 0;">
+            <a href="${this.escapeAttribute(assignmentLink)}" style="${buttonStyle}">Atidaryti užduotį</a>
+          </td>
+        </tr>
+      </table>
+    `;
+  }
+
+  private buildCombinedEmailText(message: string, newsLink: string, assignmentLink: string) {
+    return [message, '', `Naujiena: ${newsLink}`, `Užduotis: ${assignmentLink}`].join('\n');
+  }
+
+  private escapeAttribute(value: string) {
+    return value.replace(/"/g, '%22');
+  }
+
   private buildNewsLink(newsId: string) {
     if (this.appBaseUrl) {
       return `${this.appBaseUrl}/news/${newsId}`;
@@ -812,6 +961,14 @@ ${body}`,
     }
 
     return `/news`;
+  }
+
+  private buildTasksLink() {
+    if (this.appBaseUrl) {
+      return `${this.appBaseUrl}/tasks`;
+    }
+
+    return `/tasks`;
   }
 
   private normalizeBaseUrl(value: string | null) {

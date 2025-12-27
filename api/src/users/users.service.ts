@@ -112,7 +112,39 @@ export class UsersService {
     });
 
     if (existing) {
-      throw new ConflictException('Email already registered');
+      if (!existing.deletedAt) {
+        throw new ConflictException('Email already registered');
+      }
+
+      await this.usersRepository.restore(existing.id);
+      existing.passwordHash = await bcrypt.hash(
+        typeof createUserDto.password === 'string' && createUserDto.password.trim().length >= 6
+          ? createUserDto.password.trim()
+          : randomBytes(12).toString('hex'),
+        10,
+      );
+      existing.role = createUserDto.role || UserRole.USER;
+      existing.name = this.normalizeNullableString(createUserDto.name);
+      existing.phone = this.normalizeNullableString(createUserDto.phone);
+      existing.address = this.normalizeNullableString(createUserDto.address);
+
+      const restored = await this.usersRepository.save(existing);
+      await this.activityLog.log('user_restored', restored.id, 'user', restored.id);
+
+      try {
+        await this.passwordResetService.createTokenForUser(restored, {
+          template: 'invite',
+          enforceCooldown: false,
+        });
+      } catch (error) {
+        this.logger.warn(
+          `Nepavyko siųsti kvietimo vartotojui ${restored.email}: ${
+            error instanceof Error ? error.message : String(error)
+          }`,
+        );
+      }
+
+      return restored;
     }
 
     const rawPassword =

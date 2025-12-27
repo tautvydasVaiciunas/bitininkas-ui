@@ -4,6 +4,7 @@ import { ArrowLeft, Loader2 } from 'lucide-react';
 import { useMutation } from '@tanstack/react-query';
 
 import api, { HttpError } from '@/lib/api';
+import { useAuth } from '@/contexts/AuthContext';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
@@ -12,6 +13,7 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/com
 export default function ResetPassword() {
   const [searchParams] = useSearchParams();
   const navigate = useNavigate();
+  const { isAuthenticated } = useAuth();
   const token = useMemo(() => searchParams.get('token') ?? '', [searchParams]);
   const tokenMissing = token.length === 0;
   const [password, setPassword] = useState('');
@@ -44,9 +46,10 @@ export default function ResetPassword() {
       return;
     }
 
-    const timer = setTimeout(() => navigate('/auth/login'), 1500);
+    const nextPath = isAuthenticated ? '/' : '/auth/login';
+    const timer = setTimeout(() => navigate(nextPath), 1500);
     return () => clearTimeout(timer);
-  }, [done, navigate]);
+  }, [done, isAuthenticated, navigate]);
 
   const handleSubmit = (event: FormEvent<HTMLFormElement>) => {
     event.preventDefault();
@@ -70,10 +73,14 @@ export default function ResetPassword() {
     mutation.mutate({ token, newPassword: password });
   };
 
+  const redirectPath = isAuthenticated ? '/' : '/auth/login';
+  const redirectLabel = isAuthenticated ? 'Grįžti į sistemą' : 'Grįžti į prisijungimą';
   const description = tokenError
     ? tokenError
     : done
-    ? 'Slaptažodis atnaujintas. Tuoj būsite nukreipti į prisijungimą.'
+    ? isAuthenticated
+      ? 'Slaptažodis atnaujintas. Tuoj būsite nukreipti į sistemą.'
+      : 'Slaptažodis atnaujintas. Tuoj būsite nukreipti į prisijungimą.'
     : 'Įveskite naują slaptažodį ir dar kartą patvirtinkite.';
 
   return (
@@ -90,8 +97,8 @@ export default function ResetPassword() {
                 <p>Slaptažodis atnaujintas. Jei nepavyksta prisijungti, bandykite dar kartą.</p>
               </div>
               <Button asChild variant="outline" className="w-full">
-                <Link to="/auth/login">
-                  <ArrowLeft className="mr-2 w-4 h-4" /> Grįžti į prisijungimą
+                <Link to={redirectPath}>
+                  <ArrowLeft className="mr-2 w-4 h-4" /> {redirectLabel}
                 </Link>
               </Button>
             </div>
@@ -101,8 +108,8 @@ export default function ResetPassword() {
                 <p>{tokenError}</p>
               </div>
               <Button asChild variant="outline" className="w-full">
-                <Link to="/auth/login">
-                  <ArrowLeft className="mr-2 w-4 h-4" /> Grįžti į prisijungimą
+                <Link to={redirectPath}>
+                  <ArrowLeft className="mr-2 w-4 h-4" /> {redirectLabel}
                 </Link>
               </Button>
             </div>

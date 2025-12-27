@@ -181,7 +181,7 @@ export class UsersService {
   }
 
   async findAll(
-    options: PaginationOptions & { q?: string } = {},
+    options: PaginationOptions & { q?: string; includeDeleted?: boolean } = {},
   ): Promise<PaginatedResult<UserWithGroups>> {
     const { page, limit } = this.pagination.getPagination({
       page: options.page,
@@ -191,12 +191,15 @@ export class UsersService {
     const normalizedQuery = options.q?.trim().toLowerCase();
     const qb = this.usersRepository
       .createQueryBuilder('user')
-      .withDeleted()
       .leftJoinAndSelect('user.groupMemberships', 'membership')
       .leftJoinAndSelect('membership.group', 'group')
       .orderBy('user.createdAt', 'DESC')
       .take(limit)
       .skip((page - 1) * limit);
+
+    if (options.includeDeleted) {
+      qb.withDeleted();
+    }
 
     if (normalizedQuery) {
       const escaped = normalizedQuery.replace(/[%_]/g, '\\$&');

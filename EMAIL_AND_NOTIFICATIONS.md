@@ -1,8 +1,9 @@
 # EMAIL AND NOTIFICATIONS
 
 ## Email Layout
-- enderEmailLayout (api/src/email/email-template.ts) renders a yellow header with Bus Medaus logo, optional green CTA button, and yellow footer with contact info/social icons.
-- EmailService ensures every transactional mail (news, assignments, support, password reset, invite, orders) passes HTML through the shared layout. The service adds subject, main HTML body, optional primaryButtonLabel/primaryButtonUrl.
+- 
+enderEmailLayout (api/src/email/email-template.ts) renders a yellow header with Bus Medaus logo, optional green CTA button, and yellow footer with contact info/social icons.
+- EmailService ensures every transactional mail (news, assignments, support, password reset, invite, orders) passes HTML through the shared layout. The service adds subject, main HTML body, optional primaryButtonLabel/primaryButtonUrl and sends the logo as inline CID via raw MIME (no remote images).
 - Emails sent via SES adapter (email.service.ts calling AWS SES client). Api exposes /admin/email/test for manual testing.
 
 ## Notification Service
@@ -21,7 +22,8 @@ ews used for in-app feed.
 - **Support reply**: new messages trigger message type notifications with link to /support.
 
 ## Flow
-1. Backend events (creating news/assignments, releasing emails, new orders) call EmailService, which uses enderEmailLayout to produce full HTML.
+1. Backend events (creating news/assignments, releasing emails, new orders) call EmailService, which uses 
+enderEmailLayout to produce full HTML.
 2. NotificationsService creates entries when assignments change state or messages arrive.
 3. Frontend Topbar subscribes to pi.notifications.list and 
 otifications.unreadCount to keep UI updated.

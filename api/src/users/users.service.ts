@@ -309,10 +309,14 @@ export class UsersService {
   }
 
   async remove(id: string, actor: { id: string; role: UserRole }) {
-    const user = await this.usersRepository.findOne({ where: { id } });
+    const user = await this.usersRepository.findOne({ where: { id }, withDeleted: true });
 
     if (!user) {
       throw new NotFoundException('User not found');
+    }
+
+    if (user.deletedAt) {
+      return { success: true };
     }
 
     await this.usersRepository.softDelete(id);

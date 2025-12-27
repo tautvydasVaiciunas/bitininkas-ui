@@ -117,6 +117,7 @@ export class UsersService {
       }
 
       await this.usersRepository.restore(existing.id);
+      existing.deletedAt = undefined;
       existing.passwordHash = await bcrypt.hash(
         typeof createUserDto.password === 'string' && createUserDto.password.trim().length >= 6
           ? createUserDto.password.trim()

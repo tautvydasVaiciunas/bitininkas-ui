@@ -250,18 +250,18 @@ const AdminSupport = () => {
 
   return (
     <MainLayout>
-      <div className="mx-auto flex w-full max-w-6xl flex-col gap-6 px-4 py-10">
-        <div className="grid gap-6 lg:grid-cols-[minmax(0,320px)_1fr]">
-          <aside className="flex flex-col gap-4 rounded-2xl border border-border bg-background/60 p-4 shadow-sm shadow-black/5">
-            <div>
+      <div className="mx-auto flex w-full max-w-6xl flex-1 flex-col gap-6 px-4 py-10 min-h-[calc(100vh-12rem)] lg:min-h-[calc(100vh-9rem)]">
+        <div className="flex min-h-0 flex-1 flex-col gap-6 lg:flex-row">
+          <aside className="flex min-h-0 flex-col gap-4 rounded-2xl border border-border bg-background/60 p-4 shadow-sm shadow-black/5 lg:w-80 lg:flex-none">
+            <div className="min-h-0 flex-1 overflow-y-auto">
+              <div className="sticky top-0 z-10 bg-background/95 pb-3 pt-1">
               <h2 className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">
                 Pokalbiai
               </h2>
               <p className="text-xs text-muted-foreground">
                 Raskite vartotoją arba pasirinkite esamą temą.
               </p>
-            </div>
-            <div className="relative">
+              <div className="relative">
               <Input
                 placeholder="Ieškoti vartotojo..."
                 value={userQuery}
@@ -292,7 +292,8 @@ const AdminSupport = () => {
                 </div>
               ) : null}
             </div>
-            <div className="flex-1 overflow-auto">
+              </div>
+              <div className="pb-1">
               {threadsLoading ? (
                 <p className="text-sm text-muted-foreground">Kraunama...</p>
               ) : threadsError ? (
@@ -322,10 +323,12 @@ const AdminSupport = () => {
                 </div>
               )}
             </div>
+            </div>
           </aside>
 
-          <div className="flex flex-1 flex-col gap-4 rounded-2xl border border-border bg-background/80 p-4 shadow-sm shadow-black/5">
-            <header className="space-y-1">
+          <div className="flex min-h-0 flex-1 flex-col gap-4">
+            <div className="flex flex-1 min-h-0 flex-col gap-4 rounded-2xl border border-border bg-background/80 p-4 shadow-sm shadow-black/5">
+              <header className="space-y-1">
               <h1 className="text-xl font-semibold">Žinutės</h1>
               <p className="text-xs text-muted-foreground">Atsakykite į vartotojų klausimus</p>
             </header>
@@ -386,38 +389,40 @@ const AdminSupport = () => {
             )}
               </div>
             </div>
-          </div>
-          <div className="w-full space-y-2 lg:col-start-2">
-            <div className="flex w-full items-end gap-3">
-              <label className="flex-none cursor-pointer rounded-lg border border-dashed border-border px-3 py-2 text-xs font-medium text-muted-foreground">
-                <input
-                  ref={fileInputRef}
-                  type="file"
-                  className="hidden"
-                  onChange={handleFileChange}
-                  accept="image/*,video/mp4"
-                />
-                <div className="flex items-center gap-1">
-                  <Paperclip className="h-4 w-4" />
-                  Įkelti failą
-                </div>
-              </label>
+            </div>
+          <div className="w-full space-y-2">
+            <div className="flex w-full flex-col gap-2 md:flex-row md:items-end">
               <Textarea
                 placeholder="Parašykite žinutę..."
                 value={text}
                 onChange={(event) => setText(event.target.value)}
                 disabled={sending}
-                className="min-w-0 flex-1 resize-none"
+                className="w-full resize-none md:min-w-0 md:flex-1"
                 rows={3}
               />
-              <Button
-                type="button"
-                onClick={handleSend}
-                disabled={sending || (!text.trim() && attachments.length === 0)}
-                className="flex-none"
-              >
-                {sending ? <Loader2 className="h-4 w-4 animate-spin" /> : <Send className="h-4 w-4" />}
-              </Button>
+              <div className="flex w-full items-center justify-between md:w-auto md:gap-3">
+                <label className="flex-none cursor-pointer rounded-lg border border-dashed border-border px-3 py-2 text-xs font-medium text-muted-foreground">
+                  <input
+                    ref={fileInputRef}
+                    type="file"
+                    className="hidden"
+                    onChange={handleFileChange}
+                    accept="image/*,video/mp4"
+                  />
+                  <div className="flex items-center gap-1">
+                    <Paperclip className="h-4 w-4" />
+                    Įkelti failą
+                  </div>
+                </label>
+                <Button
+                  type="button"
+                  onClick={handleSend}
+                  disabled={sending || (!text.trim() && attachments.length === 0)}
+                  className="flex-none"
+                >
+                  {sending ? <Loader2 className="h-4 w-4 animate-spin" /> : <Send className="h-4 w-4" />}
+                </Button>
+              </div>
             </div>
             {attachments.length ? (
               <div className="flex flex-wrap gap-2 text-xs text-muted-foreground">
@@ -429,6 +434,7 @@ const AdminSupport = () => {
               </div>
             ) : null}
             {sendError ? <p className="text-xs text-destructive">{sendError}</p> : null}
+          </div>
           </div>
         </div>
       </div>

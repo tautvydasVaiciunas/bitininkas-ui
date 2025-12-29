@@ -645,7 +645,7 @@ export default function Tasks() {
                           {isUpcoming ? (
                             <Badge variant="outline" className="flex items-center gap-1 text-xs">
                               <Lock className="h-3 w-3" />
-                              U?rakinta
+                              Užrakinta
                             </Badge>
                           ) : null}
                           <AssignmentStatusBadge status={assignment.status} dueDate={assignment.dueDate} />

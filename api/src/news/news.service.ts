@@ -594,7 +594,6 @@ export class NewsService {
 
     let full: NewsPost | null = null;
     let createdAssignments: Assignment[] = [];
-    let assignmentParticipantIds: string[] = [];
     let assignmentTaskTitle: string | null = null;
     let assignmentStartLabel: string | null = null;
     let assignmentDueLabel: string | null = null;
@@ -700,12 +699,6 @@ export class NewsService {
         throw error;
       }
 
-      if (createNews && createdAssignments.length) {
-        assignmentParticipantIds = await this.assignmentsService.collectParticipantIds(
-          createdAssignments,
-        );
-      }
-
       if (full) {
         full.attachedTaskId = createdTask.id;
         full.assignmentStartDate = normalizedStartDate ?? null;
@@ -730,13 +723,44 @@ export class NewsService {
       const emailCtaUrl = this.buildNewsListLink();
       const emailSnippet = this.buildEmailSnippet(body);
       const combinedRecipientIds = new Set<string>();
+      const assignmentLinkByRecipient: Record<string, string> = {};
 
-      if (createAssignment && assignmentParticipantIds.length) {
-        const assignmentRecipients = new Set(
-          assignmentParticipantIds.filter((recipientId) => recipientId !== actor.id),
-        );
+      if (createAssignment && createdAssignments.length) {
+        const hiveIds = Array.from(new Set(createdAssignments.map((assignment) => assignment.hiveId)));
+        const hives = await this.hiveRepository.find({
+          where: { id: In(hiveIds) },
+          relations: { members: true },
+        });
+        const hiveById = new Map(hives.map((hive) => [hive.id, hive]));
+
+        for (const assignment of createdAssignments) {
+          const hive = hiveById.get(assignment.hiveId);
+          if (!hive) {
+            continue;
+          }
+          const participants = new Set<string>();
+          if (hive.ownerUserId) {
+            participants.add(hive.ownerUserId);
+          }
+          for (const member of hive.members ?? []) {
+            if (member.id) {
+              participants.add(member.id);
+            }
+          }
+          participants.forEach((participantId) => {
+            if (!participantId || participantId === actor.id) {
+              return;
+            }
+            if (!assignmentLinkByRecipient[participantId]) {
+              assignmentLinkByRecipient[participantId] = assignment.id;
+            }
+          });
+        }
+      }
+
+      if (createAssignment && Object.keys(assignmentLinkByRecipient).length) {
         uniqueRecipients.forEach((recipientId) => {
-          if (assignmentRecipients.has(recipientId)) {
+          if (assignmentLinkByRecipient[recipientId]) {
             combinedRecipientIds.add(recipientId);
           }
         });
@@ -756,7 +780,7 @@ export class NewsService {
           startDate: assignmentStartLabel,
           dueDate: assignmentDueLabel,
           newsLink: link,
-          assignmentLink: this.buildTasksLink(),
+          assignmentLinksByRecipient: assignmentLinkByRecipient,
         });
       }
 
@@ -867,7 +891,7 @@ ${emailSnippet}`,
     startDate: string;
     dueDate: string;
     newsLink: string;
-    assignmentLink: string;
+    assignmentLinksByRecipient: Record<string, string>;
   }) {
     if (!params.recipientIds.length) {
       return;
@@ -881,20 +905,26 @@ ${emailSnippet}`,
       return;
     }
 
-    const subject = 'Nauja naujiena ir užduotis';
-    const html = this.buildCombinedEmailHtml(
-      params,
-      subject,
-      params.newsLink,
-      params.assignmentLink,
-    );
-    const text = this.buildCombinedEmailText(params, params.newsLink, params.assignmentLink);
+    const subject = 'At?jo naujienos ?ra?as ir u?duotis';
+    const heading = 'Naujiena ir u?duotis';
 
     await Promise.all(
       users.map(async (user) => {
         if (!user.email || user.role === UserRole.ADMIN) {
           return;
         }
+
+        const assignmentId = params.assignmentLinksByRecipient[user.id];
+        const assignmentLink = assignmentId
+          ? this.buildAssignmentLink(assignmentId)
+          : this.buildTasksLink();
+        const html = this.buildCombinedEmailHtml(
+          params,
+          heading,
+          params.newsLink,
+          assignmentLink,
+        );
+        const text = this.buildCombinedEmailText(params, params.newsLink, assignmentLink);
 
         try {
           await this.emailService.sendMail({
@@ -905,7 +935,7 @@ ${emailSnippet}`,
           });
         } catch (error) {
           this.logger.warn(
-            `Nepavyko išsiųsti sujungto naujienos el. laiško vartotojui ${user.id}: ${
+            `Nepavyko i?si?sti sujungto naujienos el. lai?ko vartotojui ${user.id}: ${
               error instanceof Error ? error.message : String(error)
             }`,
           );
@@ -922,7 +952,7 @@ ${emailSnippet}`,
     dueDate: string;
   }) {
     const newsLines = [
-      `Paskelbta nauja naujiena "${params.newsTitle}".`,
+      `Paskelbtas naujienos ?ra?as "${params.newsTitle}".`,
       this.buildEmailSnippet(params.newsBody),
     ].filter((line) => line && line.length > 0);
 
@@ -943,7 +973,7 @@ ${emailSnippet}`,
       startDate: string;
       dueDate: string;
     },
-    subject: string,
+    heading: string,
     newsLink: string,
     assignmentLink: string,
   ) {
@@ -957,7 +987,7 @@ ${emailSnippet}`,
       'background-color: #0acb8b; color: #ffffff; text-decoration: none; padding: 12px 32px; border-radius: 9999px; font-weight: 600; font-size: 15px; display: inline-block;';
 
     return `<h1 style="font-size: 24px; line-height: 32px; margin: 0 0 24px 0; color: #111827;">${this.escapeHtml(
-      subject,
+      heading,
     )}</h1>${renderLines(newsLines)}
       <div style="padding: 8px 0 4px 0; text-align: center;">
         <a href="${this.escapeAttribute(newsLink)}" style="${buttonStyle}">Skaityti naujieną</a>
@@ -1029,30 +1059,31 @@ ${emailSnippet}`,
   }
 
   private buildNewsLink(newsId: string) {
-    if (this.appBaseUrl) {
-      return `${this.appBaseUrl}/news/${newsId}`;
-    }
-
-    return `/news/${newsId}`;
+    const baseUrl = this.getFrontendBaseUrl();
+    return `${baseUrl}/news/${newsId}`;
   }
 
   private buildNewsListLink() {
-    if (this.appBaseUrl) {
-      return `${this.appBaseUrl}/news`;
-    }
-
-    return `/news`;
+    const baseUrl = this.getFrontendBaseUrl();
+    return `${baseUrl}/news`;
   }
 
   private buildTasksLink() {
-    if (this.appBaseUrl) {
-      return `${this.appBaseUrl}/tasks`;
-    }
+    const baseUrl = this.getFrontendBaseUrl();
+    return `${baseUrl}/tasks`;
+  }
 
-    return `/tasks`;
+  private buildAssignmentLink(assignmentId: string) {
+    const baseUrl = this.getFrontendBaseUrl();
+    return `${baseUrl}/tasks/${assignmentId}`;
+  }
+
+  private getFrontendBaseUrl() {
+    return (this.appBaseUrl ?? 'https://app.busmedaus.lt').replace(/\/$/, '');
   }
 
   private normalizeBaseUrl(value: string | null) {
+
     if (!value) {
       return null;
     }

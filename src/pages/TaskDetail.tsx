@@ -88,7 +88,11 @@ export default function TaskDetail() {
   }
 
   const { assignment, task, completion } = data;
-  const completedStepIds = new Set(data.progress.map((item) => item.taskStepId));
+  const completedStepIds = new Set(
+    data.progress
+      .filter((item) => item.status === 'completed')
+      .map((item) => item.taskStepId),
+  );
   const todayIso = new Date().toISOString().slice(0, 10);
   const isUpcoming = Boolean(assignment.startDate && assignment.startDate > todayIso);
 

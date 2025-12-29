@@ -62,8 +62,8 @@ export default function TaskPreview() {
       <MainLayout>
         <Card>
           <CardContent>
-            <CardTitle>Užduotis nerasta</CardTitle>
-            <p>Neleidžiama peržiūrėti šios užduoties.</p>
+            <CardTitle>{'U\u017eduotis nerasta'}</CardTitle>
+            <p>{'Neleid\u017eiama per\u017ei\u016br\u0117ti \u0161ios u\u017eduoties.'}</p>
           </CardContent>
         </Card>
       </MainLayout>
@@ -75,8 +75,8 @@ export default function TaskPreview() {
       <MainLayout>
         <Card>
           <CardContent>
-            <CardTitle>Užduotis nerasta</CardTitle>
-            <p>Ši užduotis šiuo metu nepasiekiama.</p>
+            <CardTitle>{'U\u017eduotis nerasta'}</CardTitle>
+            <p>{'\u0160i u\u017eduotis \u0161iuo metu nepasiekiama.'}</p>
           </CardContent>
         </Card>
       </MainLayout>
@@ -95,7 +95,7 @@ export default function TaskPreview() {
               <div className="flex items-center gap-2 text-sm text-muted-foreground">
                 <Calendar className="h-4 w-4" />
                 <span>
-                  Pradžia: {formatDate(assignment.assignment.startDate)}
+                  {'Prad\u017eia:'} {formatDate(assignment.assignment.startDate)}
                 </span>
               </div>
               <div className="flex items-center gap-2 text-sm text-muted-foreground">
@@ -108,10 +108,10 @@ export default function TaskPreview() {
 
         <Card>
           <CardHeader>
-            <CardTitle>Žingsniai</CardTitle>
+            <CardTitle>{'\u017dingsniai'}</CardTitle>
           </CardHeader>
           <CardContent className="space-y-3">
-            {steps.length === 0 && <p>Nėra žingsnių.</p>}
+            {steps.length === 0 && <p>{'N\u0117ra \u017eingsni\u0173.'}</p>}
             {steps.map((step, index) => (
               <div key={step.id} className="rounded border p-3">
                 <p className="text-sm font-medium">{index + 1}. {step.title}</p>
@@ -135,12 +135,12 @@ export default function TaskPreview() {
                     className="w-full justify-center sm:w-auto"
                     onClick={() => navigate(`/tasks/${assignment.assignment.id}/run`)}
                   >
-                    Vykdyti užduotį
+                    {'Vykdyti u\u017eduot\u012f'}
                   </Button>
                 </div>
               ) : (
                 <p className="text-sm text-muted-foreground">
-                  Ši užduotis dar neprasidėjo. Pradžios data: {formatDate(assignment.assignment.startDate)}.
+                  {'\u0160i u\u017eduotis dar neprasid\u0117jo. Prad\u017eios data:'} {formatDate(assignment.assignment.startDate)}.
                 </p>
               )}
             </div>

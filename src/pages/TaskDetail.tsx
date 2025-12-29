@@ -12,9 +12,9 @@ import { mapAssignmentDetailsFromApi, type AssignmentDetails } from '@/lib/types
 import { Calendar, CalendarClock, ChevronLeft, ClipboardList, Loader2, Lock } from 'lucide-react';
 
 const formatDate = (dateStr?: string | null) => {
-  if (!dateStr) return '—';
+  if (!dateStr) return '\u2014';
   const date = new Date(dateStr);
-  if (Number.isNaN(date.getTime())) return '—';
+  if (Number.isNaN(date.getTime())) return '\u2014';
   return date.toLocaleDateString('lt-LT', { year: 'numeric', month: 'long', day: 'numeric' });
 };
 
@@ -43,7 +43,7 @@ export default function TaskDetail() {
       <MainLayout>
         <Card className="shadow-custom">
           <CardContent className="p-12 text-center text-muted-foreground">
-            Užduoties ID nerastas.
+            {'U\u017eduoties ID nerastas.'}
           </CardContent>
         </Card>
       </MainLayout>
@@ -55,7 +55,7 @@ export default function TaskDetail() {
       <MainLayout>
         <div className="space-y-6">
           <Button variant="ghost" onClick={() => navigate(-1)} className="pl-0">
-            <ChevronLeft className="mr-2 h-4 w-4" /> Grįžti
+            <ChevronLeft className="mr-2 h-4 w-4" /> {'Gr\u012f\u017eti'}
           </Button>
           <Card className="shadow-custom">
             <CardContent className="p-6 space-y-4">
@@ -74,12 +74,12 @@ export default function TaskDetail() {
       <MainLayout>
         <div className="space-y-6">
           <Button variant="ghost" onClick={() => navigate(-1)} className="pl-0">
-            <ChevronLeft className="mr-2 h-4 w-4" /> Grįžti
+            <ChevronLeft className="mr-2 h-4 w-4" /> {'Gr\u012f\u017eti'}
           </Button>
           <Card className="shadow-custom">
             <CardContent className="p-12 text-center">
               <Loader2 className="mx-auto mb-4 h-10 w-10 animate-spin text-muted-foreground" />
-              <p className="text-muted-foreground">{error instanceof Error ? error.message : 'Nepavyko įkelti užduoties.'}</p>
+              <p className="text-muted-foreground">{error instanceof Error ? error.message : 'Nepavyko \u012fkelti u\u017eduoties.'}</p>
             </CardContent>
           </Card>
         </div>
@@ -100,7 +100,7 @@ export default function TaskDetail() {
     <MainLayout>
       <div className="space-y-6">
         <Button variant="ghost" onClick={() => navigate(-1)} className="pl-0 w-fit">
-          <ChevronLeft className="mr-2 h-4 w-4" /> Grįžti
+          <ChevronLeft className="mr-2 h-4 w-4" /> {'Gr\u012f\u017eti'}
         </Button>
 
         <Card className="shadow-custom">
@@ -108,7 +108,7 @@ export default function TaskDetail() {
             <div className="flex items-start justify-between gap-4">
               <div className="space-y-1">
                 <CardTitle className="text-2xl">{task.title}</CardTitle>
-                <p className="text-muted-foreground">Avilio užduotis</p>
+                <p className="text-muted-foreground">{'Avilio u\u017eduotis'}</p>
               </div>
               <AssignmentStatusBadge status={assignment.status} dueDate={assignment.dueDate} />
             </div>
@@ -118,7 +118,7 @@ export default function TaskDetail() {
               {assignment.startDate ? (
                 <div className="flex items-center gap-2">
                   <CalendarClock className="h-4 w-4" />
-                  Prad?ia: <span className="text-foreground">{formatDate(assignment.startDate)}</span>
+                  {'Prad\u017eia:'} <span className="text-foreground">{formatDate(assignment.startDate)}</span>
                 </div>
               ) : null}
               <div className="flex items-center gap-2">
@@ -128,7 +128,7 @@ export default function TaskDetail() {
               {isUpcoming ? (
                 <Badge variant="outline" className="flex items-center gap-1">
                   <Lock className="h-3 w-3" />
-                  U?duotis dar neprasid?jo
+                  {'U\u017eduotis dar neprasid\u0117jo'}
                 </Badge>
               ) : null}
               <Badge variant="outline">Progresas: {completion}%</Badge>
@@ -137,7 +137,7 @@ export default function TaskDetail() {
             <div className="space-y-3">
               <div className="flex items-center gap-2">
                 <ClipboardList className="h-5 w-5 text-muted-foreground" />
-                <h3 className="text-lg font-semibold">Žingsniai</h3>
+                <h3 className="text-lg font-semibold">{'\u017dingsniai'}</h3>
               </div>
               <div className="space-y-2">
                 {steps.map((step, index) => {
@@ -165,11 +165,11 @@ export default function TaskDetail() {
             <div className="flex flex-wrap gap-3">
               {isUpcoming ? (
                 <p className="text-sm text-muted-foreground">
-                  U?duotis dar neprasid?jo. Vykdyti bus galima nuo {formatDate(assignment.startDate)}.
+                  {'U\u017eduotis dar neprasid\u0117jo. Vykdyti bus galima nuo'} {formatDate(assignment.startDate)}.
                 </p>
               ) : (
                 <Button asChild>
-                  <Link to={`/tasks/${assignment.id}/run`}>Vykdyti u?duot?</Link>
+                  <Link to={`/tasks/${assignment.id}/run`}>{'Vykdyti u\u017eduot\u012f'}</Link>
                 </Button>
               )}
             </div>

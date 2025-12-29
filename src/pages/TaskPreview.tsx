@@ -76,7 +76,7 @@ export default function TaskPreview() {
         <Card>
           <CardContent>
             <CardTitle>Užduotis nerasta</CardTitle>
-            <p>?i u?duotis ?iuo metu nepasiekiama.</p>
+            <p>Ši užduotis šiuo metu nepasiekiama.</p>
           </CardContent>
         </Card>
       </MainLayout>

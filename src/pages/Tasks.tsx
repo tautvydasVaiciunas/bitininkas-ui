@@ -40,6 +40,7 @@ import {
   ListTodo,
   Loader2,
   Trash2,
+  Lock,
 } from 'lucide-react';
 import {
   Dialog,
@@ -64,7 +65,7 @@ export default function Tasks() {
   const { toast } = useToast();
   const [searchQuery, setSearchQuery] = useState('');
   const [statusFilter, setStatusFilter] = useState<string>('all');
-  const [onlyAvailableNow, setOnlyAvailableNow] = useState(true);
+  const [onlyAvailableNow, setOnlyAvailableNow] = useState(false);
   const [isCreateDialogOpen, setIsCreateDialogOpen] = useState(false);
   const [createDialogTab, setCreateDialogTab] = useState<'manual' | 'template'>('manual');
 
@@ -625,7 +626,13 @@ export default function Tasks() {
           </Card>
         ) : (
           <div className="space-y-4">
-            {filteredAssignments.map(({ assignment, hive, task, completion }) => (
+            {filteredAssignments.map(({ assignment, hive, task, completion }) => {
+              const isUpcoming = isAssignmentUpcoming(assignment);
+              const previewLink = isUpcoming
+                ? `/tasks/${assignment.id}/preview`
+                : `/tasks/${assignment.id}`;
+
+              return (
               <Card key={assignment.id} className="shadow-custom hover:shadow-custom-md transition-all group">
                 <CardContent className="p-6">
                   <div className="flex flex-col gap-6 lg:flex-row lg:items-start lg:justify-between">
@@ -634,7 +641,13 @@ export default function Tasks() {
                         <div className="flex-1">
                           <h3 className="mb-1 text-lg font-semibold">{task?.title ?? 'Nežinoma užduotis'}</h3>
                         </div>
-                        <div className="flex items-start justify-start sm:justify-end">
+                        <div className="flex items-center gap-2 sm:justify-end">
+                          {isUpcoming ? (
+                            <Badge variant="outline" className="flex items-center gap-1 text-xs">
+                              <Lock className="h-3 w-3" />
+                              U?rakinta
+                            </Badge>
+                          ) : null}
                           <AssignmentStatusBadge status={assignment.status} dueDate={assignment.dueDate} />
                         </div>
                       </div>
@@ -694,7 +707,8 @@ export default function Tasks() {
                   </div>
                 </CardContent>
               </Card>
-            ))}
+            );
+            })}
           </div>
         )}
       </div>

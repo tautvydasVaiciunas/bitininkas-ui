@@ -149,6 +149,120 @@ describe('Hives & Tasks E2E', () => {
       .send({ role: 'manager' })
       .expect(200);
   });
+
+  it('allows preview for scheduled assignments and blocks completion before start', async () => {
+    const userRepository = dataSource.getRepository(User);
+    const hiveRepository = dataSource.getRepository(Hive);
+    const taskRepository = dataSource.getRepository(Task);
+    const stepRepository = dataSource.getRepository(TaskStep);
+    const assignmentRepository = dataSource.getRepository(Assignment);
+
+    const passwordHash = await bcrypt.hash('password', 10);
+    const upcomingUser = await userRepository.save(
+      userRepository.create({
+        email: 'upcoming@example.com',
+        passwordHash,
+        role: UserRole.USER,
+        name: 'Upcoming User',
+      }),
+    );
+    const otherUser = await userRepository.save(
+      userRepository.create({
+        email: 'other@example.com',
+        passwordHash,
+        role: UserRole.USER,
+        name: 'Other User',
+      }),
+    );
+
+    const hive = await hiveRepository.save(
+      hiveRepository.create({
+        label: 'Upcoming Hive',
+        ownerUserId: upcomingUser.id,
+        status: HiveStatus.ACTIVE,
+      }),
+    );
+
+    const task = await taskRepository.save(
+      taskRepository.create({
+        title: 'Upcoming Task',
+        description: 'Upcoming task description',
+        category: 'general',
+        seasonMonths: [5],
+        frequency: TaskFrequency.ONCE,
+        defaultDueDays: 7,
+        createdByUserId: adminUser.id,
+      }),
+    );
+
+    const step = await stepRepository.save(
+      stepRepository.create({
+        taskId: task.id,
+        orderIndex: 0,
+        title: 'Step 1',
+        contentText: 'Step 1 details',
+        requireUserMedia: false,
+      }),
+    );
+
+    const today = new Date();
+    const startDate = new Date(today);
+    startDate.setUTCDate(startDate.getUTCDate() + 3);
+    const dueDate = new Date(today);
+    dueDate.setUTCDate(dueDate.getUTCDate() + 7);
+
+    const assignment = await assignmentRepository.save(
+      assignmentRepository.create({
+        hiveId: hive.id,
+        taskId: task.id,
+        createdByUserId: adminUser.id,
+        startDate: startDate.toISOString().slice(0, 10),
+        dueDate: dueDate.toISOString().slice(0, 10),
+        status: 'not_started',
+      }),
+    );
+
+    const upcomingLogin = await server
+      .post('/auth/login')
+      .send({ email: upcomingUser.email, password: 'password' })
+      .expect(201);
+
+    const upcomingToken = upcomingLogin.body.accessToken;
+
+    const otherLogin = await server
+      .post('/auth/login')
+      .send({ email: otherUser.email, password: 'password' })
+      .expect(201);
+
+    const otherToken = otherLogin.body.accessToken;
+
+    await server
+      .get(`/assignments/${assignment.id}/preview`)
+      .set('Authorization', `Bearer ${upcomingToken}`)
+      .expect(200);
+
+    await server
+      .get(`/assignments/${assignment.id}/preview`)
+      .set('Authorization', `Bearer ${otherToken}`)
+      .expect(403);
+
+    const listResponse = await server
+      .get('/assignments')
+      .set('Authorization', `Bearer ${upcomingToken}`)
+      .expect(200);
+
+    const listedIds = listResponse.body.data?.map((item: Assignment) => item.id) ?? [];
+    expect(listedIds).toContain(assignment.id);
+
+    await server
+      .post('/progress/step-complete')
+      .set('Authorization', `Bearer ${upcomingToken}`)
+      .send({
+        assignmentId: assignment.id,
+        taskStepId: step.id,
+      })
+      .expect(403);
+  });
 });
 
 async function resetDatabase(dataSource: DataSource) {

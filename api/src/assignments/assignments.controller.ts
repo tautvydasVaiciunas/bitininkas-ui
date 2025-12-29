@@ -60,7 +60,9 @@ export class AssignmentsController {
 
   @Get(':id/details')
   details(@Param('id') id: string, @Request() req, @Query('userId') userId?: string) {
-    return this.assignmentsService.getDetails(id, req.user, userId);
+    return this.assignmentsService.getDetails(id, req.user, userId, {
+      skipAvailabilityCheck: true,
+    });
   }
 
   @Get(':id/preview')

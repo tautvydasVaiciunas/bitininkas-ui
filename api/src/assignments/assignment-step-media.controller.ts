@@ -1,6 +1,7 @@
 ﻿import {
   BadRequestException,
   Controller,
+  ForbiddenException,
   Param,
   Post,
   UploadedFile,
@@ -93,6 +94,11 @@ export class AssignmentStepMediaController {
       assignmentId,
       req.user,
     );
+
+    const today = new Date().toISOString().slice(0, 10);
+    if (assignment.startDate && assignment.startDate > today) {
+      throw new ForbiddenException('Užduotis dar neprasidėjo.');
+    }
 
     const mimeType = file.mimetype ?? 'application/octet-stream';
     const kind = mimeType.startsWith('image/') ? 'image' : mimeType.startsWith('video/') ? 'video' : 'other';

@@ -37,6 +37,14 @@ export class ProgressService {
     return trimmed && trimmed.length > 0 ? trimmed : null;
   }
 
+  private getTodayDateString() {
+    const now = new Date();
+    const year = now.getUTCFullYear();
+    const month = String(now.getUTCMonth() + 1).padStart(2, '0');
+    const day = String(now.getUTCDate()).padStart(2, '0');
+    return `${year}-${month}-${day}`;
+  }
+
   private async ensureAssignmentAccess(assignmentId: string, user) {
     const assignment = await this.assignmentsRepository.findOne({ where: { id: assignmentId } });
 
@@ -168,6 +176,10 @@ export class ProgressService {
 
     if (step.taskId !== assignment.taskId) {
       throw new ForbiddenException('Step does not belong to assignment task');
+    }
+
+    if (assignment.startDate && assignment.startDate > this.getTodayDateString()) {
+      throw new ForbiddenException('Užduotis dar neprasidėjo.');
     }
 
     const participantIds = await this.getAssignmentParticipantIds(assignment);

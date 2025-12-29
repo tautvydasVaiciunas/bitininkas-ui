@@ -9,7 +9,7 @@ import { Skeleton } from '@/components/ui/skeleton';
 import { AssignmentStatusBadge } from '@/components/AssignmentStatusBadge';
 import api from '@/lib/api';
 import { mapAssignmentDetailsFromApi, type AssignmentDetails } from '@/lib/types';
-import { Calendar, ChevronLeft, ClipboardList, Loader2 } from 'lucide-react';
+import { Calendar, CalendarClock, ChevronLeft, ClipboardList, Loader2, Lock } from 'lucide-react';
 
 const formatDate = (dateStr?: string | null) => {
   if (!dateStr) return '—';
@@ -89,6 +89,8 @@ export default function TaskDetail() {
 
   const { assignment, task, completion } = data;
   const completedStepIds = new Set(data.progress.map((item) => item.taskStepId));
+  const todayIso = new Date().toISOString().slice(0, 10);
+  const isUpcoming = Boolean(assignment.startDate && assignment.startDate > todayIso);
 
   return (
     <MainLayout>
@@ -109,10 +111,22 @@ export default function TaskDetail() {
           </CardHeader>
           <CardContent className="space-y-4">
             <div className="flex flex-wrap items-center gap-3 text-sm text-muted-foreground">
+              {assignment.startDate ? (
+                <div className="flex items-center gap-2">
+                  <CalendarClock className="h-4 w-4" />
+                  Prad?ia: <span className="text-foreground">{formatDate(assignment.startDate)}</span>
+                </div>
+              ) : null}
               <div className="flex items-center gap-2">
                 <Calendar className="h-4 w-4" />
                 Terminas: <span className="text-foreground">{formatDate(assignment.dueDate)}</span>
               </div>
+              {isUpcoming ? (
+                <Badge variant="outline" className="flex items-center gap-1">
+                  <Lock className="h-3 w-3" />
+                  U?duotis dar neprasid?jo
+                </Badge>
+              ) : null}
               <Badge variant="outline">Progresas: {completion}%</Badge>
             </div>
 
@@ -145,9 +159,15 @@ export default function TaskDetail() {
             </div>
 
             <div className="flex flex-wrap gap-3">
-              <Button asChild>
-                <Link to={`/tasks/${assignment.id}/run`}>Vykdyti užduotį</Link>
-              </Button>
+              {isUpcoming ? (
+                <p className="text-sm text-muted-foreground">
+                  U?duotis dar neprasid?jo. Vykdyti bus galima nuo {formatDate(assignment.startDate)}.
+                </p>
+              ) : (
+                <Button asChild>
+                  <Link to={`/tasks/${assignment.id}/run`}>Vykdyti u?duot?</Link>
+                </Button>
+              )}
             </div>
           </CardContent>
         </Card>

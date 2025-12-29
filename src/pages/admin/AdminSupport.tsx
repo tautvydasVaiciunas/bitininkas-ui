@@ -36,6 +36,7 @@ const AdminSupport = () => {
   const [userSearchResults, setUserSearchResults] = useState<AdminUserResponse[]>([]);
   const [searchLoading, setSearchLoading] = useState(false);
   const [searchError, setSearchError] = useState<string | null>(null);
+  const previousThreadIdRef = useRef<string | null>(null);
 
   const loadThreads = useCallback(async () => {
     setThreadsLoading(true);
@@ -161,17 +162,24 @@ const AdminSupport = () => {
   }, [threads, selectedThreadId]);
 
   useEffect(() => {
-    if (!activeThread) {
+    if (!selectedThreadId) {
       setMessages([]);
       setOlderCursor(null);
       setHasMore(false);
+      previousThreadIdRef.current = null;
       return;
     }
+
+    if (previousThreadIdRef.current === selectedThreadId) {
+      return;
+    }
+
+    previousThreadIdRef.current = selectedThreadId;
     setMessages([]);
     setOlderCursor(null);
     setHasMore(false);
-    void loadThreadMessages(activeThread.id);
-  }, [activeThread, loadThreadMessages]);
+    void loadThreadMessages(selectedThreadId);
+  }, [selectedThreadId, loadThreadMessages]);
 
   useEffect(() => {
     const intervalId = window.setInterval(() => {
@@ -179,15 +187,15 @@ const AdminSupport = () => {
         void loadThreads();
       }
 
-      if (activeThread && !loadingMore && !messagesLoading) {
-        void loadThreadMessages(activeThread.id, undefined, false, true);
+      if (selectedThreadId && !loadingMore && !messagesLoading) {
+        void loadThreadMessages(selectedThreadId, undefined, false, true);
       }
     }, 10_000);
 
     return () => {
       window.clearInterval(intervalId);
     };
-  }, [activeThread, loadThreadMessages, loadThreads, loadingMore, messagesLoading, threadsLoading]);
+  }, [loadThreadMessages, loadThreads, loadingMore, messagesLoading, selectedThreadId, threadsLoading]);
 
   const handleLoadMore = () => {
     if (!activeThread || !hasMore || loadingMore || !olderCursor) return;

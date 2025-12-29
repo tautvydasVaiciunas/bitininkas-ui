@@ -16,7 +16,6 @@ import { GroupMember } from '../groups/group-member.entity';
 import { User, UserRole } from '../users/user.entity';
 import { NotificationsService } from '../notifications/notifications.service';
 import { EmailService } from '../email/email.service';
-import { renderNotificationEmailHtml } from '../email/email-template';
 import { CreateNewsDto } from './dto/create-news.dto';
 import { UpdateNewsDto } from './dto/update-news.dto';
 import { ListNewsQueryDto } from './dto/list-news-query.dto';
@@ -206,6 +205,18 @@ export class NewsService {
 
     const trimmed = value.trim();
     return trimmed.length ? trimmed : null;
+  }
+
+  private buildEmailSnippet(value: string | null | undefined, limit = 180) {
+    if (!value) {
+      return '';
+    }
+    const normalized = value.trim();
+    if (normalized.length <= limit) {
+      return normalized;
+    }
+    const truncated = normalized.slice(0, limit).trimEnd();
+    return `${truncated} (...)`;
   }
 
   private buildStepsFromTemplate(template: Template): CreateTaskDto['steps'] {
@@ -717,6 +728,7 @@ export class NewsService {
 
       const link = this.buildNewsLink(full.id);
       const emailCtaUrl = this.buildNewsListLink();
+      const emailSnippet = this.buildEmailSnippet(body);
       const combinedRecipientIds = new Set<string>();
 
       if (createAssignment && assignmentParticipantIds.length) {
@@ -759,7 +771,7 @@ export class NewsService {
             emailSubject: 'Nauja naujiena',
             emailBody: `Paskelbta nauja naujiena "${title}"
 
-${body}`,
+${emailSnippet}`,
             emailCtaUrl,
           });
         } catch (error) {
@@ -870,12 +882,13 @@ ${body}`,
     }
 
     const subject = 'Nauja naujiena ir užduotis';
-    const message = this.buildCombinedEmailMessage(params);
-    const html = `${renderNotificationEmailHtml({ subject, message, ctaUrl: null })}${this.buildCombinedButtonsHtml(
+    const html = this.buildCombinedEmailHtml(
+      params,
+      subject,
       params.newsLink,
       params.assignmentLink,
-    )}`;
-    const text = this.buildCombinedEmailText(message, params.newsLink, params.assignmentLink);
+    );
+    const text = this.buildCombinedEmailText(params, params.newsLink, params.assignmentLink);
 
     await Promise.all(
       users.map(async (user) => {
@@ -901,22 +914,59 @@ ${body}`,
     );
   }
 
-  private buildCombinedEmailMessage(params: {
+  private buildCombinedEmailSections(params: {
     newsTitle: string;
     newsBody: string;
     taskTitle: string;
     startDate: string;
     dueDate: string;
   }) {
-    const parts = [
-      `Paskelbta nauja naujiena „${params.newsTitle}“.`,
-      params.newsBody?.trim(),
-      `Jums priskirta užduotis „${params.taskTitle}“.`,
+    const newsLines = [
+      `Paskelbta nauja naujiena "${params.newsTitle}".`,
+      this.buildEmailSnippet(params.newsBody),
+    ].filter((line) => line && line.length > 0);
+
+    const taskLines = [
+      `Jums priskirta užduotis "${params.taskTitle}".`,
       `Užduoties pradžia: ${params.startDate}.`,
       `Užduoties atlikimo terminas: ${params.dueDate}.`,
     ].filter((line) => line && line.length > 0);
 
-    return parts.join('\n\n');
+    return { newsLines, taskLines };
+  }
+
+  private buildCombinedEmailHtml(
+    params: {
+      newsTitle: string;
+      newsBody: string;
+      taskTitle: string;
+      startDate: string;
+      dueDate: string;
+    },
+    subject: string,
+    newsLink: string,
+    assignmentLink: string,
+  ) {
+    const { newsLines, taskLines } = this.buildCombinedEmailSections(params);
+    const paragraph = (line: string) =>
+      `<p style="margin: 0 0 16px 0; font-size: 16px; line-height: 24px; color: #1f2933;">${this.escapeHtml(
+        line,
+      )}</p>`;
+    const renderLines = (lines: string[]) => lines.map(paragraph).join('');
+    const buttonStyle =
+      'background-color: #0acb8b; color: #ffffff; text-decoration: none; padding: 12px 32px; border-radius: 9999px; font-weight: 600; font-size: 15px; display: inline-block;';
+
+    return `<h1 style="font-size: 24px; line-height: 32px; margin: 0 0 24px 0; color: #111827;">${this.escapeHtml(
+      subject,
+    )}</h1>${renderLines(newsLines)}
+      <div style="padding: 8px 0 4px 0; text-align: center;">
+        <a href="${this.escapeAttribute(newsLink)}" style="${buttonStyle}">Skaityti naujieną</a>
+      </div>
+      <div style="border-top: 1px solid #e5e7eb; margin: 24px 0;"></div>
+      ${renderLines(taskLines)}
+      <div style="padding: 8px 0 0 0; text-align: center;">
+        <a href="${this.escapeAttribute(assignmentLink)}" style="${buttonStyle}">Atidaryti užduotį</a>
+      </div>`;
   }
 
   private buildCombinedButtonsHtml(newsLink: string, assignmentLink: string) {
@@ -939,11 +989,42 @@ ${body}`,
     `;
   }
 
-  private buildCombinedEmailText(message: string, newsLink: string, assignmentLink: string) {
-    return [message, '', `Naujiena: ${newsLink}`, `Užduotis: ${assignmentLink}`].join('\n');
+  private buildCombinedEmailText(
+    params: {
+      newsTitle: string;
+      newsBody: string;
+      taskTitle: string;
+      startDate: string;
+      dueDate: string;
+    },
+    newsLink: string,
+    assignmentLink: string,
+  ) {
+    const { newsLines, taskLines } = this.buildCombinedEmailSections(params);
+    return [
+      ...newsLines,
+      '',
+      `Naujiena: ${newsLink}`,
+      '',
+      '----',
+      '',
+      ...taskLines,
+      '',
+      `Užduotis: ${assignmentLink}`,
+    ].join('\n');
+  }
+
+  private escapeHtml(value: string) {
+    return value
+      .replace(/&/g, '&amp;')
+      .replace(/</g, '&lt;')
+      .replace(/>/g, '&gt;')
+      .replace(/"/g, '&quot;')
+      .replace(/'/g, '&#39;');
   }
 
   private escapeAttribute(value: string) {
+
     return value.replace(/"/g, '%22');
   }
 

@@ -797,8 +797,7 @@ export class AssignmentsService {
       qb.andWhere('assignment.status = :status', { status: filter.status });
     }
 
-    const shouldFilterByAvailability =
-      user.role === UserRole.USER || Boolean(filter.availableNow);
+    const shouldFilterByAvailability = Boolean(filter.availableNow);
 
     if (shouldFilterByAvailability) {
       const today = this.getTodayDateString();
@@ -1195,7 +1194,7 @@ export class AssignmentsService {
     requestedUserId?: string,
     options: { skipAvailabilityCheck?: boolean } = {},
   ) {
-    const assignment = await this.findOne(id, user);
+    const assignment = await this.findOne(id, user, options);
     const task = await this.taskRepository.findOne({
       where: { id: assignment.taskId },
       relations: ['steps'],

@@ -45,6 +45,20 @@ const reviewStatusOptions: { value: AssignmentReviewStatus | 'all'; label: strin
   { value: 'all', label: 'Visos' },
 ];
 
+const reviewStatusLabels: Record<AssignmentReviewStatus, string> = {
+  pending: 'Laukiama',
+  approved: 'Patvirtinta',
+  rejected: 'Neįvertinta',
+};
+
+type ReviewBadgeVariant = 'outline' | 'secondary' | 'destructive' | 'success';
+
+const reviewStatusBadgeVariant: Record<AssignmentReviewStatus, ReviewBadgeVariant> = {
+  pending: 'outline',
+  approved: 'success',
+  rejected: 'destructive',
+};
+
 const formatShortDate = (value?: string | null) =>
   value ? new Date(value).toLocaleDateString('lt-LT') : '—';
 
@@ -371,7 +385,7 @@ export default function AdminTasks() {
                         <th className="px-3 py-2 text-left">Vartotojas</th>
                         <th className="px-3 py-2 text-left">Avilys</th>
                         <th className="px-3 py-2 text-left">Įvertinimas</th>
-                        <th className="px-3 py-2 text-left">Žemėlapis</th>
+                    <th className="px-3 py-2 text-left">Būsena</th>
                         <th className="px-3 py-2 text-left">Užbaigta</th>
                         <th className="px-3 py-2 text-left">Veiksmai</th>
                       </tr>
@@ -383,7 +397,7 @@ export default function AdminTasks() {
                           className="border-t border-border"
                         >
                           <td className="px-3 py-3">{item.taskTitle}</td>
-                          <td className="px-3 py-3">{item.userName}</td>
+                          <td className="px-3 py-3">{item.userName || '—'}</td>
                           <td className="px-3 py-3">{item.hiveLabel}</td>
                           <td className="px-3 py-3">
                             <div className="flex items-center gap-1">
@@ -392,8 +406,8 @@ export default function AdminTasks() {
                             </div>
                           </td>
                           <td className="px-3 py-3">
-                            <Badge variant="outline">
-                              {item.reviewStatus}
+                            <Badge variant={reviewStatusBadgeVariant[item.reviewStatus]}>
+                              {reviewStatusLabels[item.reviewStatus]}
                             </Badge>
                           </td>
                           <td className="px-3 py-3">{formatShortDate(item.completedAt)}</td>

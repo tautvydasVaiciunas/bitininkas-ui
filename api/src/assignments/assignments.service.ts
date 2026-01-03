@@ -1745,7 +1745,35 @@ export class AssignmentsService {
       return;
     }
 
+    const taskTitle = assignment.task?.title ?? 'Užduotis';
+    const dueDate = this.formatDateForEmail(assignment.dueDate);
+    const link = this.buildAssignmentEmailLink(assignment.id);
+    const bodyLines = [
+      `Užduotį „${taskTitle}“ galite vykdyti jau dabar.`,
+      `Atlikite ją iki ${dueDate}.`,
+      `Vykdyti: ${link}`,
+    ];
+    const body = bodyLines.join('\n');
+    const html = bodyLines
+      .map((line) => `<p>${this.escapeHtmlForEmail(line)}</p>`)
+      .join('');
 
+    await Promise.all(
+      Array.from(recipients.values()).map(async (email) => {
+        try {
+          await this.emailService.sendMail({
+            to: email,
+            subject: 'Jau galite vykdyti užduotį',
+            text: body,
+            html,
+          });
+        } catch (error) {
+          const details = error instanceof Error ? error.message : String(error);
+          this.logger.warn(`Nepavyko išsiųsti aktyvacijos laiško ${email}: ${details}`);
+        }
+      }),
+    );
+  }
 
   private async sendDueSoonEmail(assignment: Assignment) {
     const hive = await this.hiveRepository.findOne({

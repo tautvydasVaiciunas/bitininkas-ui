@@ -8,7 +8,7 @@
 - /support: support chat.
 - /parduotuve*: storefront (product list, detail, cart, checkout, success, order history).
 - /admin/*: admin sections (users, groups, steps, tasks, templates, news, support, email test, store management).
-- /reports/*: reports views (ReportsHives, ReportsAssignments, ReportsCalendar, ReportsUsers).
+- /reports/hives and /reports/assignments: the only reports views currently rendered in the SPA.
 - Auth: /auth/login, /auth/forgot, /auth/reset.
 
 ## Components
@@ -16,7 +16,7 @@
 - UI primitives: reused shadcn Card, Button, Input, Select, Alert, Badge, Table, Dialog, Tabs.
 - Shared icons: custom BeekeepingIcons wrapping PNG assets for nav.
 - Notifications: Topbar dropdown fetches notifications; Sidebar badge shows unread messages.
-- Reports: ReportsTabs renders nav pills; each report page builds filters and tables.
+- Reports: ReportsTabs renders nav pills; the SPA only renders ReportsHives.tsx and ReportsAssignments.tsx, each building filters and tables.
 
 ## Hooks & Providers
 - AuthContext: manages user state, bootstrapping from tokens, login/logout, stored in localStorage.

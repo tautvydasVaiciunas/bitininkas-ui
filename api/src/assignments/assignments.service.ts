@@ -451,19 +451,13 @@ export class AssignmentsService {
   }
 
   private buildAssignmentLink(assignmentId: string) {
-    if (this.appBaseUrl) {
-      return `${this.appBaseUrl}/tasks/${assignmentId}/run`;
-    }
-
-    return `/tasks/${assignmentId}/run`;
+    const baseUrl = (this.appBaseUrl ?? 'https://app.busmedaus.lt').replace(/\/$/, '');
+    return `${baseUrl}/tasks/${assignmentId}/run`;
   }
 
   private buildAssignmentEmailLink(assignmentId: string) {
-    if (this.appBaseUrl) {
-      return `${this.appBaseUrl}/tasks/${assignmentId}`;
-    }
-
-    return `/tasks/${assignmentId}`;
+    const baseUrl = (this.appBaseUrl ?? 'https://app.busmedaus.lt').replace(/\/$/, '');
+    return `${baseUrl}/tasks/${assignmentId}`;
   }
 
   private buildAssignmentPreviewLink(assignmentId: string) {
@@ -1751,38 +1745,7 @@ export class AssignmentsService {
       return;
     }
 
-    const taskTitle = assignment.task?.title ?? 'Užduotis';
-    const dueDate = this.formatDateForEmail(assignment.dueDate);
-    const link = this.buildAssignmentEmailLink(assignment.id);
-    const body = [
-      `Užduotį „${taskTitle}“ galite vykdyti jau dabar.`,
-      `Atlikite ją iki ${dueDate}.`,
-      `Vykdyti: ${link}`,
-    ].join('\n');
-    const html = body
-      .split('\n')
-      .map((line) => `<p>${line}</p>`)
-      .join('');
 
-    await Promise.all(
-      Array.from(recipients.values()).map(async (email) => {
-        try {
-        await this.emailService.sendMail({
-          to: email,
-          subject: 'Jau galite vykdyti užduotį',
-          text: body,
-          html,
-        });
-        } catch (error) {
-          this.logger.warn(
-            `Nepavyko išsiųsti starto laiško ${email}: ${
-              error instanceof Error ? error.message : String(error)
-            }`,
-          );
-        }
-      }),
-    );
-  }
 
   private async sendDueSoonEmail(assignment: Assignment) {
     const hive = await this.hiveRepository.findOne({
@@ -1792,49 +1755,59 @@ export class AssignmentsService {
     if (!hive) {
       return;
     }
-
-    const recipients = new Map<string, string>();
-    const addRecipient = (user?: User | null) => {
-      if (!user?.email) return;
-      if (user.role !== UserRole.USER) return;
-      recipients.set(user.id, user.email);
-    };
-
-    addRecipient(hive.owner);
-    for (const member of hive.members ?? []) {
-      addRecipient(member);
-    }
-
-    if (!recipients.size) {
-      return;
-    }
-
+
+    const recipients = new Map<string, string>();
+    const addRecipient = (user?: User | null) => {
+      if (!user?.email) {
+        return;
+      }
+      if (user.role !== UserRole.USER) {
+        return;
+      }
+      recipients.set(user.id, user.email);
+    };
+
+    addRecipient(hive.owner);
+    for (const member of hive.members ?? []) {
+      addRecipient(member);
+    }
+
+    if (!recipients.size) {
+      return;
+    }
+
     const dueDate = this.formatDateForEmail(assignment.dueDate);
     const link = this.buildAssignmentEmailLink(assignment.id);
     const taskTitle = assignment.task?.title ?? 'Užduotis';
-    const subject = 'Primename apie užduotį';
-    const bodyLines = [
-      `Primename, kad užduotį „${taskTitle}“ reikia atlikti iki ${dueDate}.`,
-      `Vykdyti: ${link}`,
-    ];
+    const subject = 'Primename apie neįvykdytą užduotį. Liko 3 dienos įvykdyti';
+    const text = `Primename, kad užduotį „${taskTitle}“ reikia atlikti iki ${dueDate}, liko 3 dienos.`;
+    const mainHtml = `<p>Primename, kad užduotį „${this.escapeHtmlForEmail(taskTitle)}“ reikia atlikti iki ${dueDate}, liko <strong>3</strong> dienos.</p>`;
 
-    const body = bodyLines.join('\n');
-    const html = bodyLines.map((line) => `<p>${line}</p>`).join('');
-
-    await Promise.all(
-      Array.from(recipients.values()).map(async (email) => {
-        try {
-          await this.emailService.sendMail({
-            to: email,
-            subject,
-            text: body,
-            html,
-          });
-        } catch (error) {
-          const details = error instanceof Error ? error.message : String(error);
-          this.logger.warn(`Nepavyko išsiųsti priminimo laiško ${email}: ${details}`);
-        }
-      }),
-    );
+    await Promise.all(
+      Array.from(recipients.values()).map(async (email) => {
+        try {
+          await this.emailService.sendMail({
+            to: email,
+            subject,
+            text,
+            mainHtml,
+            primaryButtonLabel: 'Vykdyti užduotį',
+            primaryButtonUrl: link,
+          });
+        } catch (error) {
+          const details = error instanceof Error ? error.message : String(error);
+          this.logger.warn(`Nepavyko išsiųsti priminimo laiško ${email}: ${details}`);
+        }
+      }),
+    );
+  }
+
+  private escapeHtmlForEmail(value: string) {
+    return value
+      .replace(/&/g, '&amp;')
+      .replace(/</g, '&lt;')
+      .replace(/>/g, '&gt;')
+      .replace(/"/g, '&quot;')
+      .replace(/'/g, '&#39;');
   }
 }

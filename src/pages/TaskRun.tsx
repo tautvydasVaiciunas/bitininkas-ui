@@ -2,15 +2,10 @@
 import { useNavigate, useParams } from 'react-router-dom';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { MainLayout } from '@/components/Layout/MainLayout';
-import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
-import { ResponsiveMedia } from '@/components/media/ResponsiveMedia';
+import { Card, CardContent } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
-import { Textarea } from '@/components/ui/textarea';
-import { Label } from '@/components/ui/label';
-import { Progress } from '@/components/ui/progress';
 import { Skeleton } from '@/components/ui/skeleton';
-import { AssignmentStatusBadge } from '@/components/AssignmentStatusBadge';
-import { Badge } from '@/components/ui/badge';
+import { TaskExecutionLayout } from '@/components/tasks/TaskExecutionLayout';
 import api, {
   type AssignmentStepMediaResponse,
   type HttpError,
@@ -29,7 +24,7 @@ import {
   type StepProgressToggleResult,
 } from '@/lib/types';
 import { inferMediaType, resolveMediaUrl } from '@/lib/media';
-import { Calendar, CheckCircle2, ChevronLeft, ChevronRight, Loader2, RotateCcw, Star } from 'lucide-react';
+import { ChevronLeft } from 'lucide-react';
 import { toast } from 'sonner';
 
 const formatDate = (value?: string | null) => {
@@ -86,7 +81,6 @@ export default function TaskRun() {
     );
   }, [data]);
 
-  const allStepsCompleted = steps.length === 0 || steps.every((step) => completedStepIds.has(step.id));
   const currentStep = currentStepIndex < steps.length ? steps[currentStepIndex] : undefined;
   const assignment = data?.assignment;
   const hiveId = assignment?.hiveId;
@@ -394,335 +388,50 @@ export default function TaskRun() {
 
   return (
     <MainLayout>
-      <div className="space-y-6">
-        {/* Header */}
-        <div className="flex flex-col gap-3 md:flex-row md:items-center md:justify-between">
-          <div>
-            <h1 className="text-3xl font-bold">{data.task.title}</h1>
-            <p className="text-muted-foreground mt-1 flex items-center gap-3 text-sm md:text-base">
-              <span>Avilys: {hive?.label ?? assignment.hiveId}</span>
-              <span className="hidden md:inline">—</span>
-              <span>Terminas: {formatDate(assignment.dueDate)}</span>
-            </p>
-          </div>
-          <AssignmentStatusBadge status={assignment.status} dueDate={assignment.dueDate} />
-        </div>
-
-        {/* Progress Bar */}
-        <Card className="shadow-custom">
-          <CardContent className="p-6">
-            <div className="space-y-2">
-              <div className="flex items-center justify-between text-sm">
-                <span className="text-muted-foreground">Bendras progresas</span>
-                <span className="font-semibold">{progressPercent}%</span>
-              </div>
-              <Progress value={progressPercent} className="h-3" />
-            </div>
-          </CardContent>
-        </Card>
-
-        <div className="grid grid-cols-1 gap-6 lg:grid-cols-4">
-          {/* Steps Sidebar */}
-          <Card className="shadow-custom h-fit lg:col-span-1">
-            <CardHeader>
-              <CardTitle className="text-lg">Žingsniai</CardTitle>
-            </CardHeader>
-            <CardContent className="space-y-2">
-              {steps.map((step, index) => {
-                const isCompleted = completedStepIds.has(step.id);
-                const isActive = index === currentStepIndex;
-                const maxSelectable = Math.min(steps.length - 1, lastCompletedStepIndex + 1);
-                const isSelectable = index <= maxSelectable;
-
-                return (
-                  <button
-                    key={step.id}
-                    type="button"
-                    onClick={() => {
-                      if (isSelectable) {
-                        setCurrentStepIndex(index);
-                      }
-                    }}
-                    disabled={!isSelectable}
-                    className={`w-full rounded-lg p-3 text-left transition-colors ${
-                      isActive
-                        ? 'bg-primary text-primary-foreground'
-                        : isCompleted
-                        ? 'bg-success/10 text-success'
-                        : 'bg-muted hover:bg-muted/80'
-                    } ${!isSelectable ? 'cursor-not-allowed opacity-60' : ''}`}
-                  >
-                    <div className="flex items-center gap-2">
-                      {isCompleted ? (
-                        <CheckCircle2 className="h-4 w-4 flex-shrink-0" />
-                      ) : (
-                        <div className="flex h-5 w-5 flex-shrink-0 items-center justify-center rounded-full border-2 text-xs">
-                          {index + 1}
-                        </div>
-                      )}
-                      <span className="text-sm font-medium line-clamp-2">{step.title}</span>
-                    </div>
-                  </button>
-                );
-              })}
-            </CardContent>
-          </Card>
-
-          {/* Main Content */}
-          <div className="space-y-6 lg:col-span-3">
-            <Card className="shadow-custom">
-              <CardHeader>
-                <div className="flex items-start justify-between">
-                  <div className="flex-1">
-                    <p className="mb-1 text-sm text-muted-foreground">
-                      {isRatingStep
-                        ? 'Paskutinis žingsnis'
-                        : `Žingsnis ${currentStepIndex + 1} iš ${steps.length}`}
-                    </p>
-                    <CardTitle className="text-2xl">
-                      {isRatingStep ? 'Užduoties vertinimas' : currentStep?.title ?? 'Žingsnis nerastas'}
-                    </CardTitle>
-                  </div>
-                  {!isRatingStep && hasCurrentStepCompleted ? (
-                    <CheckCircle2 className="h-6 w-6 text-success" />
-                  ) : null}
-                </div>
-              </CardHeader>
-              <CardContent className="space-y-6">
-                {isRatingStep ? (
-                  <div className="space-y-6">
-                    <p className="text-foreground">
-                      Mums svarbi jūsų nuomonė – ar užduotis buvo aiški? Ką galėtume aprašyti geriau?
-                      Įvertinkite ir padėkite mums tobulėti.
-                    </p>
-                    <div className="flex items-center gap-1">
-                      {Array.from({ length: 5 }).map((_, index) => {
-                        const value = index + 1;
-                        const isActiveStar = ratingValue !== null && ratingValue >= value;
-                        return (
-                          <button
-                            key={value}
-                            type="button"
-                            onClick={() => setRatingValue(value)}
-                            className="focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-primary"
-                            aria-label={`${value} žvaigždutės`}
-                          >
-                            <Star
-                              className={`h-8 w-8 transition-colors ${
-                                isActiveStar ? 'text-amber-500' : 'text-muted-foreground'
-                              }`}
-                            />
-                          </button>
-                        );
-                      })}
-                    </div>
-                    <div className="space-y-2">
-                      <Label htmlFor="ratingComment">Komentaras (neprivaloma)</Label>
-                      <Textarea
-                        id="ratingComment"
-                        value={ratingComment}
-                        placeholder="Palikite savo pastabas apie užduotį..."
-                        rows={4}
-                        onChange={(event) => setRatingComment(event.target.value)}
-                      />
-                    </div>
-                  </div>
-                ) : (
-                  <>
-                    <div>
-                      <h4 className="mb-2 font-semibold">Instrukcijos</h4>
-                      <p className="text-foreground">
-                        {currentStep?.contentText ?? 'Šio žingsnio instrukcijos nepateiktos.'}
-                      </p>
-                    </div>
-                    {currentMediaUrl ? (
-                      <div className="space-y-2">
-                        <h4 className="font-semibold">Prisegtas failas</h4>
-                        <div className="mx-auto w-full max-w-[600px]">
-                          <ResponsiveMedia
-                            url={currentMediaUrl}
-                            type={currentMediaType}
-                            title={currentStep?.title ?? 'Žingsnis'}
-                            className="rounded-lg"
-                          />
-                        </div>
-                      </div>
-                    ) : null}
-                    {requiresUserMedia ? (
-                      <>
-                        <Badge variant="outline" className="border-amber-500/40 bg-amber-50 text-amber-700">
-                          Šiam žingsniui reikalinga jūsų nuotrauka arba vaizdo įrašas
-                        </Badge>
-                        <div className="space-y-4 rounded-2xl border border-amber-200/80 bg-amber-50/80 p-4">
-                          <div className="flex flex-wrap items-center gap-3">
-                            <Button
-                              type="button"
-                              variant="outline"
-                              onClick={() => mediaInputRef.current?.click()}
-                              disabled={uploadMediaMutation.isPending}
-                            >
-                              Įkelti nuotrauką / vaizdo įrašą
-                            </Button>
-                            <input
-                              ref={mediaInputRef}
-                              type="file"
-                              accept="image/*,video/*"
-                              className="hidden"
-                              onChange={handleMediaFileChange}
-                            />
-                            <div className="flex items-center gap-1 text-sm text-muted-foreground">
-                              {uploadMediaMutation.isPending ? (
-                                <>
-                                  <Loader2 className="h-4 w-4 animate-spin" />
-                                  Įkeliama...
-                                </>
-                              ) : selectedMediaFile ? (
-                                <>Pasirinkta: {selectedMediaFile.name}</>
-                              ) : hasUploadedMedia ? (
-                                <>
-                                  {existingMedia.length === 1
-                                    ? '1 failas įkeltas'
-                                    : `${existingMedia.length} failai įkelti`}
-                                </>
-                              ) : (
-                                'Pasirinkite failą, kad galėtumėte pažymėti žingsnį'
-                              )}
-                            </div>
-                          </div>
-                          {mediaError ? (
-                            <p className="text-sm text-destructive" role="alert">
-                              {mediaError}
-                            </p>
-                          ) : null}
-                          {hasUploadedMedia ? (
-                            <div className="space-y-3">
-                              <p className="text-sm font-semibold text-foreground">Įkelti failai</p>
-                              <div className="grid gap-3 md:grid-cols-2">
-                                {existingMedia.map((item) => {
-                                  const uploadedAt = new Date(item.createdAt);
-                                  const timeLabel = Number.isNaN(uploadedAt.getTime())
-                                    ? ''
-                                    : uploadedAt.toLocaleTimeString('lt-LT', {
-                                        hour: '2-digit',
-                                        minute: '2-digit',
-                                      });
-                                  return (
-                                    <div key={item.id} className="space-y-1">
-                                      <ResponsiveMedia
-                                        url={item.url}
-                                        type={item.kind === 'video' ? 'video' : 'image'}
-                                        title={currentStep?.title ?? 'Žingsnis'}
-                                        className="h-36 w-full rounded-lg bg-muted"
-                                      />
-                                      <p className="text-xs text-muted-foreground">
-                                        Įkelta {formatDate(item.createdAt)}
-                                        {timeLabel ? `, ${timeLabel}` : ''}
-                                      </p>
-                                    </div>
-                                  );
-                                })}
-                              </div>
-                            </div>
-                          ) : null}
-                        </div>
-                      </>
-                    ) : null}
-                  </>
-                )}
-              </CardContent>
-            </Card>
-
-            <div className="space-y-3">
-              <div className="relative">
-                <div className="flex w-full overflow-hidden rounded-lg border bg-background">
-                  <button
-                    type="button"
-                    onClick={handlePrevStep}
-                    disabled={currentStepIndex === 0}
-                    className="flex flex-1 items-center justify-start gap-2 px-4 py-3 text-sm font-medium transition-colors hover:bg-muted disabled:pointer-events-none disabled:opacity-50"
-                  >
-                    <ChevronLeft className="h-4 w-4" />
-                    Atgal
-                  </button>
-                  <div className="w-px bg-border" />
-                  <button
-                    type="button"
-                    onClick={handleNextStep}
-                    disabled={currentStepIndex >= steps.length}
-                    className="flex flex-1 items-center justify-end gap-2 px-4 py-3 text-sm font-medium transition-colors hover:bg-muted disabled:pointer-events-none disabled:opacity-50"
-                  >
-                    Toliau
-                    <ChevronRight className="h-4 w-4" />
-                  </button>
-                </div>
-                <div className="pointer-events-none absolute inset-0 flex items-center justify-center text-sm font-semibold text-muted-foreground">
-                  {currentStepNumber} iš {totalStepsCount}
-                </div>
-              </div>
-
-              {isRatingStep ? (
-                <div className="space-y-2">
-                  <Button
-                    className="w-full"
-                    onClick={handleSubmitRating}
-                    disabled={!canSubmitRating || ratingMutation.isPending}
-                  >
-                    {ratingMutation.isPending
-                      ? 'Siunčiama...'
-                      : hasRated
-                      ? 'Vertinimas išsaugotas'
-                      : 'Siųsti vertinimą'}
-                  </Button>
-                  {assignment?.rating ? (
-                    <p className="text-center text-sm text-muted-foreground">
-                      Jūsų paskutinis įvertinimas: {assignment.rating} / 5
-                    </p>
-                  ) : null}
-                </div>
-              ) : (
-                <div>
-                  {hasCurrentStepCompleted ? (
-                    <Button
-                      className="w-full"
-                      variant="outline"
-                      onClick={handleStepUncomplete}
-                      disabled={!canUncompleteCurrentStep || toggleStepMutation.isPending}
-                    >
-                      {toggleStepMutation.isPending ? (
-                        <>
-                          <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-                          Grąžinama...
-                        </>
-                      ) : (
-                        <>
-                          <RotateCcw className="mr-2 h-4 w-4" />
-                          Pažymėti kaip neatliktą
-                        </>
-                      )}
-                    </Button>
-                  ) : (
-                    <Button
-                      className="w-full"
-                      onClick={handleStepComplete}
-                      disabled={
-                        toggleStepMutation.isPending || (requiresUserMedia && !hasUploadedMedia)
-                      }
-                      title={
-                        requiresUserMedia && !hasUploadedMedia
-                          ? 'Įkelkite nuotrauką arba vaizdo įrašą, kad galėtumėte pažymėti žingsnį'
-                          : undefined
-                      }
-                    >
-                      <CheckCircle2 className="mr-2 h-4 w-4" />
-                      {toggleStepMutation.isPending ? 'Žymima...' : 'Atlikta'}
-                    </Button>
-                  )}
-                </div>
-              )}
-            </div>
-          </div>
-        </div>
-      </div>
+      <TaskExecutionLayout
+        title={data.task.title}
+        hiveLabel={hive?.label ?? assignment.hiveId}
+        dueDate={assignment.dueDate}
+        status={assignment.status}
+        progressPercent={progressPercent}
+        steps={steps}
+        currentStepIndex={currentStepIndex}
+        setCurrentStepIndex={setCurrentStepIndex}
+        completedStepIds={completedStepIds}
+        lastCompletedStepIndex={lastCompletedStepIndex}
+        currentStep={currentStep}
+        currentProgress={currentProgress}
+        currentMediaUrl={currentMediaUrl}
+        currentMediaType={currentMediaType}
+        requiresUserMedia={requiresUserMedia}
+        existingMedia={existingMedia}
+        hasUploadedMedia={hasUploadedMedia}
+        mediaError={mediaError}
+        selectedMediaFileName={selectedMediaFile?.name ?? null}
+        uploadPending={uploadMediaMutation.isPending}
+        mediaInputRef={mediaInputRef}
+        onUploadClick={() => mediaInputRef.current?.click()}
+        onFileChange={handleMediaFileChange}
+        isRatingStep={isRatingStep}
+        ratingValue={ratingValue}
+        ratingComment={ratingComment}
+        onRatingChange={setRatingValue}
+        onRatingCommentChange={setRatingComment}
+        canSubmitRating={canSubmitRating}
+        ratingSubmitPending={ratingMutation.isPending}
+        onSubmitRating={handleSubmitRating}
+        hasRated={hasRated}
+        handlePrevStep={handlePrevStep}
+        handleNextStep={handleNextStep}
+        currentStepNumber={currentStepNumber}
+        totalStepsCount={totalStepsCount}
+        hasCurrentStepCompleted={hasCurrentStepCompleted}
+        onStepComplete={handleStepComplete}
+        onStepUncomplete={handleStepUncomplete}
+        toggleStepPending={toggleStepMutation.isPending}
+        canUncompleteCurrentStep={canUncompleteCurrentStep}
+        assignmentRating={assignment.rating ?? null}
+      />
     </MainLayout>
   );
 }

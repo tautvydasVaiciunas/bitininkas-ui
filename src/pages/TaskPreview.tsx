@@ -1,56 +1,108 @@
-import { useMemo } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import { useNavigate, useParams } from 'react-router-dom';
 import { useQuery } from '@tanstack/react-query';
 import { MainLayout } from '@/components/Layout/MainLayout';
-import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
+import { Card, CardContent, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Skeleton } from '@/components/ui/skeleton';
+import { TaskExecutionLayout } from '@/components/tasks/TaskExecutionLayout';
 import api, { type HttpError } from '@/lib/api';
 import { mapAssignmentDetailsFromApi, type AssignmentDetails } from '@/lib/types';
-import { Calendar } from 'lucide-react';
-
-const formatDate = (value?: string | null) => {
-  if (!value) return '-';
-  const date = new Date(value);
-  if (Number.isNaN(date.getTime())) return '-';
-  return date.toLocaleDateString('lt-LT', { year: 'numeric', month: 'long', day: 'numeric' });
-};
+import { inferMediaType, resolveMediaUrl } from '@/lib/media';
 
 export default function TaskPreview() {
   const { assignmentId } = useParams<{ assignmentId: string }>();
   const navigate = useNavigate();
+  const [currentStepIndex, setCurrentStepIndex] = useState(0);
 
-  const query = useQuery<
-    AssignmentDetails & { isActive: boolean },
-    HttpError | Error
-  >({
+  const query = useQuery<AssignmentDetails & { isActive: boolean }, HttpError | Error>({
     queryKey: ['assignments', assignmentId, 'preview'],
-    queryFn: () => api.assignments.preview(assignmentId ?? '').then((response) => response),
+    queryFn: () => api.assignments.preview(assignmentId ?? ''),
     enabled: Boolean(assignmentId),
   });
 
-  const mapped = useMemo(
+  const assignmentDetails = useMemo(
     () => (query.data ? mapAssignmentDetailsFromApi(query.data) : null),
     [query.data],
   );
-
-  const assignment = mapped?.assignment;
+  const assignment = assignmentDetails?.assignment;
   const steps = useMemo(() => {
-    if (!assignment) return [];
-    return [...assignment.task.steps].sort((a, b) => a.orderIndex - b.orderIndex);
-  }, [assignment]);
+    if (!assignmentDetails) return [];
+    return [...assignmentDetails.task.steps].sort((a, b) => a.orderIndex - b.orderIndex);
+  }, [assignmentDetails]);
 
-  const isActive = query.data?.isActive ?? false;
+  const progressEntries = assignmentDetails?.progress ?? [];
+  const progressMap = useMemo(
+    () => new Map(progressEntries.map((entry) => [entry.taskStepId, entry])),
+    [progressEntries],
+  );
+  const completedStepIds = useMemo(
+    () =>
+      new Set(
+        progressEntries
+          .filter((entry) => entry.status === 'completed')
+          .map((entry) => entry.taskStepId),
+      ),
+    [progressEntries],
+  );
+
+  const lastCompletedStepIndex = useMemo(() => {
+    for (let index = steps.length - 1; index >= 0; index -= 1) {
+      if (completedStepIds.has(steps[index].id)) {
+        return index;
+      }
+    }
+    return -1;
+  }, [steps, completedStepIds]);
+
+  const currentStep = steps[currentStepIndex];
+  const currentProgress = currentStep ? progressMap.get(currentStep.id) : undefined;
+  const currentMediaUrl = resolveMediaUrl(currentStep?.mediaUrl ?? null);
+  const currentMediaType = inferMediaType(currentStep?.mediaType ?? null, currentMediaUrl);
+  const requiresUserMedia = currentStep?.requireUserMedia ?? false;
+  const existingMedia = currentProgress?.media ?? [];
+  const hasUploadedMedia = existingMedia.length > 0;
+
+  const isRatingStep = currentStepIndex >= steps.length;
+  const totalStepsCount = steps.length + 1;
+  const currentStepNumber = Math.min(currentStepIndex + 1, totalStepsCount);
+  const progressPercent = assignmentDetails?.completion ?? 0;
+  const hasCurrentStepCompleted = Boolean(currentProgress?.status === 'completed');
+  const canUncompleteCurrentStep =
+    hasCurrentStepCompleted && currentStepIndex === lastCompletedStepIndex;
+
+  const ratingValue = assignment?.rating ?? null;
+  const ratingComment = assignment?.ratingComment ?? '';
+  const hasRated = Boolean(assignment?.ratedAt);
+
+  useEffect(() => {
+    setCurrentStepIndex(0);
+  }, [assignmentId]);
+
+  useEffect(() => {
+    setCurrentStepIndex((index) => Math.min(index, steps.length));
+  }, [steps.length]);
+
+  const handlePrevStep = () => {
+    setCurrentStepIndex((index) => Math.max(0, index - 1));
+  };
+
+  const handleNextStep = () => {
+    setCurrentStepIndex((index) => Math.min(steps.length, index + 1));
+  };
+
+  const handleStepComplete = () => {};
+  const handleStepUncomplete = () => {};
+  const handleSubmitRating = () => {};
 
   if (query.isLoading) {
     return (
       <MainLayout>
-        <Card>
-          <CardContent>
-            <Skeleton className="h-8 w-32 mb-2" />
-            <Skeleton className="h-6 w-48 mb-4" />
-            <Skeleton className="h-4 w-full mb-1" />
-            <Skeleton className="h-4 w-full" />
+        <Card className="shadow-custom">
+          <CardContent className="space-y-3 p-6">
+            <Skeleton className="h-8 w-1/2" />
+            <Skeleton className="h-5 w-3/4" />
+            <Skeleton className="h-48 w-full" />
           </CardContent>
         </Card>
       </MainLayout>
@@ -60,10 +112,13 @@ export default function TaskPreview() {
   if (query.isError) {
     return (
       <MainLayout>
-        <Card>
-          <CardContent>
-            <CardTitle>{'U\u017eduotis nerasta'}</CardTitle>
-            <p>{'Neleid\u017eiama per\u017ei\u016br\u0117ti \u0161ios u\u017eduoties.'}</p>
+        <Card className="shadow-custom">
+          <CardContent className="space-y-4 p-6 text-center">
+            <CardTitle className="text-lg">Užduotis nerasta</CardTitle>
+            <p>Neleidžiama peržiūrėti šios užduoties.</p>
+            <div className="flex justify-center">
+              <Button onClick={() => navigate('/tasks')}>Grįžti į užduotis</Button>
+            </div>
           </CardContent>
         </Card>
       </MainLayout>
@@ -73,10 +128,13 @@ export default function TaskPreview() {
   if (!assignment) {
     return (
       <MainLayout>
-        <Card>
-          <CardContent>
-            <CardTitle>{'U\u017eduotis nerasta'}</CardTitle>
-            <p>{'\u0160i u\u017eduotis \u0161iuo metu nepasiekiama.'}</p>
+        <Card className="shadow-custom">
+          <CardContent className="space-y-4 p-6 text-center">
+            <CardTitle className="text-lg">Užduotis nerasta</CardTitle>
+            <p>Ši užduotis šiuo metu nepasiekiama.</p>
+            <div className="flex justify-center">
+              <Button onClick={() => navigate('/tasks')}>Grįžti į užduotis</Button>
+            </div>
           </CardContent>
         </Card>
       </MainLayout>
@@ -85,68 +143,48 @@ export default function TaskPreview() {
 
   return (
     <MainLayout>
-      <div className="space-y-6">
-        <Card>
-          <CardHeader>
-            <CardTitle>{assignment.task.title}</CardTitle>
-          </CardHeader>
-          <CardContent className="space-y-4">
-            <div className="grid gap-4 sm:grid-cols-2">
-              <div className="flex items-center gap-2 text-sm text-muted-foreground">
-                <Calendar className="h-4 w-4" />
-                <span>
-                  {'Prad\u017eia:'} {formatDate(assignment.assignment.startDate)}
-                </span>
-              </div>
-              <div className="flex items-center gap-2 text-sm text-muted-foreground">
-                <Calendar className="h-4 w-4" />
-                <span>Terminas: {formatDate(assignment.assignment.dueDate)}</span>
-              </div>
-            </div>
-          </CardContent>
-        </Card>
-
-        <Card>
-          <CardHeader>
-            <CardTitle>{'\u017dingsniai'}</CardTitle>
-          </CardHeader>
-          <CardContent className="space-y-3">
-            {steps.length === 0 && <p>{'N\u0117ra \u017eingsni\u0173.'}</p>}
-            {steps.map((step, index) => (
-              <div key={step.id} className="rounded border p-3">
-                <p className="text-sm font-medium">{index + 1}. {step.title}</p>
-                <p className="text-sm text-muted-foreground">{step.description}</p>
-              </div>
-            ))}
-          </CardContent>
-        </Card>
-
-        <Card>
-          <CardHeader>
-            <CardTitle>Vykdymas</CardTitle>
-          </CardHeader>
-          <CardContent className="space-y-3">
-            <div className="flex flex-col gap-2">
-              {isActive ? (
-                <div className="mt-4 flex justify-end">
-                  <Button
-                    size="lg"
-                    variant="default"
-                    className="w-full justify-center sm:w-auto"
-                    onClick={() => navigate(`/tasks/${assignment.assignment.id}/run`)}
-                  >
-                    {'Vykdyti u\u017eduot\u012f'}
-                  </Button>
-                </div>
-              ) : (
-                <p className="text-sm text-muted-foreground">
-                  {'\u0160i u\u017eduotis dar neprasid\u0117jo. Prad\u017eios data:'} {formatDate(assignment.assignment.startDate)}.
-                </p>
-              )}
-            </div>
-          </CardContent>
-        </Card>
-      </div>
+      <TaskExecutionLayout
+        title={assignmentDetails?.task.title ?? 'Užduotis'}
+        hiveLabel={assignment.hiveId}
+        dueDate={assignment.dueDate}
+        status={assignment.status}
+        progressPercent={progressPercent}
+        steps={steps}
+        currentStepIndex={currentStepIndex}
+        setCurrentStepIndex={setCurrentStepIndex}
+        completedStepIds={completedStepIds}
+        lastCompletedStepIndex={lastCompletedStepIndex}
+        currentStep={currentStep}
+        currentProgress={currentProgress}
+        currentMediaUrl={currentMediaUrl}
+        currentMediaType={currentMediaType}
+        requiresUserMedia={requiresUserMedia}
+        existingMedia={existingMedia}
+        hasUploadedMedia={hasUploadedMedia}
+        mediaError={null}
+        selectedMediaFileName={null}
+        uploadPending={false}
+        isRatingStep={isRatingStep}
+        ratingValue={ratingValue}
+        ratingComment={ratingComment}
+        onRatingChange={() => {}}
+        onRatingCommentChange={() => {}}
+        canSubmitRating={false}
+        ratingSubmitPending={false}
+        onSubmitRating={handleSubmitRating}
+        hasRated={hasRated}
+        handlePrevStep={handlePrevStep}
+        handleNextStep={handleNextStep}
+        currentStepNumber={currentStepNumber}
+        totalStepsCount={totalStepsCount}
+        hasCurrentStepCompleted={hasCurrentStepCompleted}
+        onStepComplete={handleStepComplete}
+        onStepUncomplete={handleStepUncomplete}
+        toggleStepPending={false}
+        canUncompleteCurrentStep={canUncompleteCurrentStep}
+        previewMode
+        assignmentRating={ratingValue}
+      />
     </MainLayout>
   );
 }

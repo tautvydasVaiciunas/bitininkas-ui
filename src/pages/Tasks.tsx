@@ -690,19 +690,26 @@ export default function Tasks() {
                     </div>
 
                     <div className="flex flex-col gap-2 sm:flex-row sm:flex-wrap sm:justify-end lg:flex-col lg:items-end lg:gap-3">
-                      <Button asChild variant="outline" size="sm">
-                        <Link to={`/tasks/${assignment.id}`}>
-                          Peržiūrėti
-                        </Link>
-                      </Button>
-                      {assignment.status !== 'done' && !isAssignmentUpcoming(assignment) && (
-                        <Button asChild size="sm" className="sm:w-auto">
-                          <Link to={`/tasks/${assignment.id}/run`}>
-                            Vykdyti
-                            <ChevronRight className="ml-2 w-4 h-4 opacity-0 group-hover:opacity-100 transition-opacity" />
-                          </Link>
-                        </Button>
-                      )}
+                      {(() => {
+                        const isActive = !isUpcoming && assignment.status !== 'done';
+                        const actionPath = isActive ? `/tasks/${assignment.id}/run` : `/tasks/${assignment.id}`;
+                        const actionLabel = isActive ? 'Vykdyti' : 'Peržiūrėti';
+                        const actionVariant = isActive ? 'default' : 'outline';
+                        return (
+                          <Button asChild variant={actionVariant} size="sm" className="w-full sm:w-auto group">
+                            <Link to={actionPath}>
+                              <span className="flex items-center justify-center gap-2">
+                                {actionLabel}
+                                <ChevronRight
+                                  className={`ml-2 w-4 h-4 transition-opacity ${
+                                    isActive ? 'opacity-0 group-hover:opacity-100' : 'opacity-0'
+                                  }`}
+                                />
+                              </span>
+                            </Link>
+                          </Button>
+                        );
+                      })()}
                     </div>
                   </div>
                 </CardContent>

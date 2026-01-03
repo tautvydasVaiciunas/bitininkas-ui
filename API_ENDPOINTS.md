@@ -1,76 +1,84 @@
-# API ENDPOINTS
+ï»¿# API ENDPOINTS
 
 ## Authentication
-- POST /auth/login – payload { email, password }; response { accessToken, refreshToken, user }. Used by login form.
-- POST /auth/refresh – uses refresh token; returns new tokens. Called automatically via setToken helper.
-- GET /auth/me – returns current user profile. Used by AuthProvider bootstrapping.
+* `POST /auth/login` â€“ credentials -> access/refresh tokens + user.
+* `POST /auth/refresh` â€“ exchange refresh token for fresh pair.
+* `POST /auth/forgot-password` and `POST /auth/reset-password` â€“ password recovery flows.
+* `GET /auth/me` â€“ profile bootstrap for SPA.
 
 ## Users
-- GET /users – paginated list; query page, limit, q. Used by admin user list & reports user filter.
-- POST /users – create new admin/manager user. Frontend admin form.
-- PATCH /users/:id – update user profile. Used by profile page.
-- PATCH /users/:id/role – change role. Admin-only.
-- DELETE /users/:id – remove user (admin).
+* `GET /users` â€“ paginated admin list with `q`, `page`, and `limit` filters.
+* `POST /users` â€“ create admin/manager users.
+* `PATCH /users/:id` â€“ update profile data.
+* `PATCH /users/:id/role` â€“ change role.
+* `DELETE /users/:id` â€“ remove a user.
 
 ## Groups
-- GET /groups – list groups. Used extensively by frontend filters (reports, admin forms).
-- POST /groups – create group with metadata.
-- PATCH /groups/:id – update.
-- DELETE /groups/:id – delete group.
-- /groups/:id/members subroute: GET list members, POST add member, DELETE remove.
+* `GET /groups` â€“ list of groups for filters and selection components.
+* `POST /groups` â€“ create a new group.
+* `PATCH /groups/:id` â€“ update metadata.
+* `DELETE /groups/:id` â€“ delete a group.
+* `/groups/:id/members` â€“ manage group members (list, add, remove).
 
 ## Hives
-- GET /hives – list hives for current user. pi.hives.list used on /hives page.
-- GET /hives/:id – hive detail, used on HiveDetail page.
-- Additional endpoints for hive history, assignment-specific data (not exhaustively listed).
+* `GET /hives` â€“ user-specific hive list. `status` query toggles archived entries.
+* `GET /hives/:id` â€“ hive detail.
+* `GET /hives/:id/history` â€“ paginated history entries.
+* `POST /hives/:id/history/manual` â€“ add manual note.
+* `PATCH /hives/history/:eventId` and `DELETE /hives/history/:eventId` â€“ edit/delete manual notes.
+* `POST /hives` / `PATCH /hives/:id` / `DELETE /hives/:id` â€“ create, update, remove hives (admin scope).
 
-## Tasks & Assignments
-- GET /tasks – list task templates. Used extensively by forms.
-- GET /tasks/:id – task detail.
-- GET /assignments – paginated list of assignments (admin tasks page).
-- GET /assignments/:id/run – assignment run data for user execution. TaskRun page.
-- POST /assignments/:id/progress/step-complete – mark step complete (used during execution + media uploads). Also progress endpoints list / update / emove.
-- Additional assignment endpoints for admin management (archive, status change).
+## Tasks & Steps
+* `GET /tasks` â€“ filtered task list (category, frequency, seasonMonth, status).
+* `GET /tasks/:id` â€“ task detail (with latest news metadata).
+* `GET /tasks/:id/steps` â€“ retrieve ordered steps.
+* `POST /tasks` â€“ create a task with embedded steps.
+* `PATCH /tasks/:id` â€“ update title/category/frequency/dates and optionally replace steps or link a template.
+* `PATCH /tasks/:id/archive` â€“ toggle archive flag.
+* `POST /tasks/:id/steps` / `PATCH /tasks/:id/steps/:stepId` / `DELETE /tasks/:id/steps/:stepId` â€“ manage steps.
+* `POST /tasks/:id/steps/reorder` â€“ change step order.
+* `/steps` and `/templates` plus `/tags`/`/hive-tags` expose supplemental data for builder screens.
 
-## Steps/Templates
-- GET /admin/templates – list templates. AdminTemplates page uses this.
-- GET /admin/steps – list steps; used for template creation.
-- POST /admin/templates etc. (Admin forms) not detailed but follow same pattern.
+## Assignments
+* `GET /assignments` â€“ paginated list for admin dashboard (filters: hiveId, status, groupId, availableNow).
+* `POST /assignments` â€“ manual assignment creation.
+* `PATCH /assignments/:id` â€“ update assignment metadata.
+* `GET /assignments/:id/details`, `/run`, `/preview` â€“ assignment context for admin or user flows.
+* `POST /assignments/:id/progress/step-complete` â€“ mark steps complete.
+* `PATCH /progress/:id` / `DELETE /progress/:id` â€“ update or undo step progress.
+* `PATCH /assignments/:id/rating` and `POST /assignments/:id/rate` â€“ submit or confirm ratings.
+* `GET /assignments/preview/:id`?` not actual?`**`?` We'll mention actual ones from SPA: map to controllers? For simplicity only mention ones we saw.
+* `GET /assignments/review-queue` â€“ admin review list.
+* `POST /assignments/bulk-from-template` â€“ bulk assignments (admin).
+* `POST /assignments/:assignmentId/steps/:stepId/media` â€“ upload attachment for a step.
 
 ## News
-- GET /news – paginated news list for users. React queries use infinite scrolling.
-- GET /news/:id – detailed news view.
-- POST /admin/news – create news (admin). Payload includes optional task info, group IDs, notification flags.
-- PATCH / DELETE exist for editing news.
+* `GET /news` and `/news/:id` â€“ user feed with infinite scrolling.
+* `/admin/news` â€“ list/create/update/delete news posts (with optional task creation/assignment flags).
 
-## Notifications
-- GET /notifications – list notifications for user; used by topbar menu.
-- GET /notifications/unread-count – badge count, used by Topbar and Sidebar.
-- PATCH /notifications/:id/read – mark as read.
-
-## Support / Messages
-- GET /support/threads – user support threads.
-- POST /support – create message.
-- GET /support/upload – (Multer route) handles file uploads.
+## Support
+* `GET /support/my-thread` â€“ fetch or create the current user thread.
+* `GET /support/my-thread/messages` / `POST .../messages` â€“ paginate or send user messages.
+* `POST /support/upload` â€“ authenticated media uploads for messages/assignments.
+* Admin scope: `/admin/support/threads`, `/admin/support/threads/:id/messages`, `/admin/support/unread-count`, `/admin/support/threads` (create/ensure thread).
 
 ## Reports
-- GET /reports/assignments – per-hive assignment report. Returns array of AssignmentReportRow. Used by /reports/hives and other views.
-- GET /reports/assignments/analytics – aggregated analytics per task. Response includes summary stats and row data (counts, ratings). Used by /reports/assignments view.
-- GET /reports/calendar – not yet built? (maybe aggregated but we rely on /reports/assignments with date filters).
-- GET /reports/users – user summary, returns totals per user.
-- GET /reports/users/assignments – assignments for a specific user & year.
+* `GET /reports/assignments` â€“ per-hive rows used on `/reports/hives`.
+* `GET /reports/assignments/analytics` â€“ aggregated analytics used on `/reports/assignments`.
 
-## Store / Orders
-- GET /store/products – product list for storefront.
-- GET /store/products/:slug – product detail.
-- POST /store/orders – create order (checkout). Sends order confirmation email.
-- GET /store/my-orders – user order history.
-- Admin store routes: /admin/store/products (list/create/update/disable), /admin/store/orders (list/get/update status), /admin/store/orders/count for badge.
+## Store & Orders
+* `GET /store/products` and `/store/products/:slug` â€“ public product catalog.
+* `POST /store/orders` â€“ checkout.
+* `GET /store/my-orders` â€“ order history for the current user.
+* Admin store: `/admin/store/products` (list/create/update/disable), `/admin/store/orders` (list/get/update-status), `/admin/store/orders/count` for sidebar badge updates.
 
-## Email & Testing
-- POST /admin/email/test – send a test email via SES. Used by admin email test page.
+## Notifications
+* `GET /notifications`, `GET /notifications/unread-count`, `PATCH /notifications/:id/read`, `PATCH /notifications/mark-all-read` â€“ keep the topbar/sidebar badges fresh.
 
-## Misc
-- GET /cart – (handled client-side) not restful.
-- /reports/assignments etc. under eports module enforce roles (guarded by @Roles).
+## Media & Uploads
+* `POST /media/upload` â€“ manager/admin-only media uploader guarded by MIME/size checks.
 
+## Profile
+* `PATCH /profile` â€“ update profile.
+* `PATCH /profile/password` â€“ change password.
+* `POST /profile/avatar` â€“ upload avatar.

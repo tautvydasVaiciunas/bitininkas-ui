@@ -289,7 +289,7 @@ export class AssignmentsScheduler {
         await this.notifyAssignment(
           assignment,
           `Užduotis vėluoja: ${taskTitle}`,
-          'Užduotis vėluoja',
+          'Užduoties vykdymo laikas pasibaigė, atlikite užduotį kuo greičiau!',
         );
       }
     } catch (error) {
@@ -388,19 +388,13 @@ export class AssignmentsScheduler {
   }
 
   private buildAssignmentLink(assignmentId: string) {
-    if (this.appBaseUrl) {
-      return `${this.appBaseUrl}/tasks/${assignmentId}/preview`;
-    }
-
-    return `/tasks/${assignmentId}/preview`;
+    const baseUrl = (this.appBaseUrl ?? 'https://app.busmedaus.lt').replace(/\/$/, '');
+    return `${baseUrl}/tasks/${assignmentId}/preview`;
   }
 
   private buildAssignmentEmailLink(assignmentId: string) {
-    if (this.appBaseUrl) {
-      return `${this.appBaseUrl}/tasks/${assignmentId}`;
-    }
-
-    return `/tasks/${assignmentId}`;
+    const baseUrl = (this.appBaseUrl ?? 'https://app.busmedaus.lt').replace(/\/$/, '');
+    return `${baseUrl}/tasks/${assignmentId}`;
   }
 
   private normalizeBaseUrl(value: string | null) {

@@ -236,8 +236,8 @@ const SupportChat = () => {
 
   return (
     <MainLayout>
-      <div className="mx-auto flex h-full w-full max-w-4xl flex-col gap-4 px-4 py-6">
-        <div className="space-y-1">
+      <div className="mx-auto flex h-full w-full max-w-4xl flex-col gap-3 px-4 py-4">
+        <div>
           <h1 className="text-2xl font-semibold">Žinutės</h1>
           <p className="text-sm text-muted-foreground">
             Čia galite rašyti mūsų komandai. Visi pranešimai atskirai išsaugomi jūsų paskyroje.
@@ -350,8 +350,8 @@ const SupportChat = () => {
                 className="w-full resize-none"
                 rows={3}
               />
-              <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
-                <label className="flex w-full items-center justify-center gap-1 rounded-lg border border-dashed border-border px-3 py-2 text-xs font-medium text-muted-foreground sm:w-auto">
+              <div className="flex flex-wrap gap-2">
+                <label className="flex-1 min-w-0 items-center justify-center gap-1 rounded-lg border border-dashed border-border px-3 py-2 text-xs font-medium text-muted-foreground flex">
                   <input
                     ref={fileInputRef}
                     type="file"
@@ -368,7 +368,7 @@ const SupportChat = () => {
                   type="button"
                   onClick={handleSend}
                   disabled={sending || (!text.trim() && attachments.length === 0)}
-                  className="w-full sm:w-auto"
+                  className="flex-1 min-w-0"
                 >
                   {sending ? <Loader2 className="h-4 w-4 animate-spin" /> : <Send className="h-4 w-4" />}
                 </Button>

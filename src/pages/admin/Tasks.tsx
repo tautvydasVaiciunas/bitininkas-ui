@@ -157,6 +157,7 @@ export default function AdminTasks() {
       toast.success('Peržiūra išsaugota');
       setSelectedReviewAssignment(null);
       refetchReviewQueue();
+      void queryClient.invalidateQueries({ queryKey: ['admin', 'assignments', 'review-count'] });
     },
     onError: (mutationError: HttpError | Error) => {
       toast.error('Nepavyko atnaujinti peržiūros', {

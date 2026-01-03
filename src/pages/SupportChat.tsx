@@ -236,14 +236,14 @@ const SupportChat = () => {
 
   return (
     <MainLayout>
-      <div className="mx-auto flex h-full w-full max-w-4xl flex-col gap-3 px-4 py-4">
+      <div className="mx-auto flex h-full w-full max-w-4xl flex-col gap-3 px-4 pb-4 pt-3 sm:pt-4">
         <div>
           <h1 className="text-2xl font-semibold">Žinutės</h1>
           <p className="text-sm text-muted-foreground">
             Čia galite rašyti mūsų komandai. Visi pranešimai atskirai išsaugomi jūsų paskyroje.
           </p>
         </div>
-        <div className="flex flex-1 flex-col gap-4 rounded-2xl border border-border bg-background/80 p-4 shadow-sm shadow-black/5 min-h-[520px]">
+        <div className="flex flex-1 flex-col gap-4 rounded-2xl border border-border bg-background/80 p-4 shadow-sm shadow-black/5 min-h-[calc(100dvh-6.5rem)]">
           <div
             className="flex flex-1 min-h-0 flex-col gap-4 overflow-y-auto rounded-2xl border border-border/70 bg-white/80 p-3"
             ref={scrollRef}

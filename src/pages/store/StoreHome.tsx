@@ -80,14 +80,16 @@ const StoreHome = () => {
                 {product.imageUrls?.length ? (
                   <Link
                     to={`/parduotuve/produktas/${product.slug}`}
-                    className="block aspect-square w-full bg-muted"
+                    className="block w-full"
                   >
-                    <img
-                      src={product.imageUrls[0]}
-                      alt={product.title}
-                      className="h-full w-full object-cover"
-                      loading="lazy"
-                    />
+                    <div className="aspect-square w-full overflow-hidden bg-muted">
+                      <img
+                        src={product.imageUrls[0]}
+                        alt={product.title}
+                        className="h-full w-full object-cover"
+                        loading="lazy"
+                      />
+                    </div>
                   </Link>
                 ) : (
                   <div className="aspect-square flex w-full items-center justify-center bg-muted text-sm text-muted-foreground">

@@ -80,7 +80,7 @@ const StoreHome = () => {
                 {product.imageUrls?.length ? (
                   <Link
                     to={`/parduotuve/produktas/${product.slug}`}
-                    className="block h-48 w-full bg-muted"
+                    className="block aspect-square w-full bg-muted"
                   >
                     <img
                       src={product.imageUrls[0]}
@@ -90,7 +90,7 @@ const StoreHome = () => {
                     />
                   </Link>
                 ) : (
-                  <div className="h-48 flex w-full items-center justify-center bg-muted text-sm text-muted-foreground">
+                  <div className="aspect-square flex w-full items-center justify-center bg-muted text-sm text-muted-foreground">
                     Nėra nuotraukos
                   </div>
                 )}

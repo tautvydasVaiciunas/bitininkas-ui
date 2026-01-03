@@ -236,16 +236,16 @@ const SupportChat = () => {
 
   return (
     <MainLayout>
-      <div className="mx-auto w-full max-w-4xl space-y-6 px-4 py-10">
+      <div className="mx-auto flex h-full w-full max-w-4xl flex-col gap-4 px-4 py-6">
         <div className="space-y-1">
           <h1 className="text-2xl font-semibold">Žinutės</h1>
           <p className="text-sm text-muted-foreground">
             Čia galite rašyti mūsų komandai. Visi pranešimai atskirai išsaugomi jūsų paskyroje.
           </p>
         </div>
-        <div className="flex flex-col gap-4 rounded-2xl border border-border bg-background/80 p-4 shadow-sm shadow-black/5">
+        <div className="flex flex-1 flex-col gap-4 rounded-2xl border border-border bg-background/80 p-4 shadow-sm shadow-black/5 min-h-[520px]">
           <div
-            className="flex h-96 flex-col gap-4 overflow-y-auto rounded-2xl border border-border/70 bg-white/80 p-3"
+            className="flex flex-1 min-h-0 flex-col gap-4 overflow-y-auto rounded-2xl border border-border/70 bg-white/80 p-3"
             ref={scrollRef}
           >
             {threadLoading ? (
@@ -350,8 +350,8 @@ const SupportChat = () => {
                 className="w-full resize-none"
                 rows={3}
               />
-              <div className="flex items-center justify-between">
-                <label className="cursor-pointer rounded-lg border border-dashed border-border px-3 py-2 text-xs font-medium text-muted-foreground">
+              <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
+                <label className="flex w-full items-center justify-center gap-1 rounded-lg border border-dashed border-border px-3 py-2 text-xs font-medium text-muted-foreground sm:w-auto">
                   <input
                     ref={fileInputRef}
                     type="file"
@@ -368,6 +368,7 @@ const SupportChat = () => {
                   type="button"
                   onClick={handleSend}
                   disabled={sending || (!text.trim() && attachments.length === 0)}
+                  className="w-full sm:w-auto"
                 >
                   {sending ? <Loader2 className="h-4 w-4 animate-spin" /> : <Send className="h-4 w-4" />}
                 </Button>

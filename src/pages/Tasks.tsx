@@ -659,15 +659,20 @@ export default function Tasks() {
                           <span className="font-medium">{hive?.label ?? 'Nežinomas avilys'}</span>
                         </div>
                         {assignment.startDate ? (
-                          <div className="flex items-center gap-1.5">
-                            <CalendarClock className="w-4 h-4 text-muted-foreground" />
-                            <span className="text-muted-foreground">Pradžia:</span>
-                            <span className="font-medium">{formatDate(assignment.startDate)}</span>
+                          <div className="flex flex-col gap-1.5 text-sm sm:flex-row sm:items-center sm:gap-1.5">
                             {isAssignmentUpcoming(assignment) ? (
-                              <Badge variant="outline" className="ml-2">
+                              <Badge
+                                variant="outline"
+                                className="order-first self-start text-xs sm:order-none sm:self-center sm:ml-2"
+                              >
                                 Dar neprasidėjo
                               </Badge>
                             ) : null}
+                            <div className="flex items-center gap-1.5">
+                              <CalendarClock className="w-4 h-4 text-muted-foreground" />
+                              <span className="text-muted-foreground">Pradžia:</span>
+                              <span className="font-medium">{formatDate(assignment.startDate)}</span>
+                            </div>
                           </div>
                         ) : null}
                         <div className="flex items-center gap-1.5">

@@ -30,7 +30,7 @@ export const MainLayout = ({ children, showBreadcrumbs = true }: MainLayoutProps
     <div className="min-h-screen bg-background">
       <Sidebar />
       <Topbar />
-      <main className="min-h-screen pt-24 pb-24 sm:pb-16 lg:pt-24 lg:pb-12 lg:pl-64">
+      <main className="min-h-screen pt-6 pb-24 sm:pt-8 sm:pb-16 lg:pt-24 lg:pb-12 lg:pl-64">
         <div className="px-4 sm:px-6 lg:px-8">
           {showBreadcrumbs && <Breadcrumbs />}
           {children}

@@ -60,29 +60,29 @@ const StoreProductDetail = () => {
           <div className="grid gap-8 lg:grid-cols-[1.2fr_1fr]">
             <div className="space-y-4">
               {activeImage ? (
-                <div className="aspect-video w-full overflow-hidden rounded-lg bg-muted">
+                <div className="aspect-square w-full overflow-hidden rounded-lg bg-muted">
                   <img src={activeImage} alt={data.title} className="h-full w-full object-cover" />
                 </div>
               ) : (
-                <div className="aspect-video flex w-full items-center justify-center rounded-lg bg-muted text-sm text-muted-foreground">
+                <div className="aspect-square flex w-full items-center justify-center rounded-lg bg-muted text-sm text-muted-foreground">
                   Nėra nuotraukos
                 </div>
               )}
               {data.imageUrls?.length ? (
                 <div className="flex flex-wrap gap-3">
                   {data.imageUrls.slice(0, 5).map((url) => (
-                    <button
-                      key={url}
-                      type="button"
-                      onClick={() => setActiveImage(url)}
-                      className={`h-16 w-24 overflow-hidden rounded border ${
-                        activeImage === url ? "border-primary" : "border-transparent"
-                      }`}
-                    >
-                      <img src={url} alt="" className="h-full w-full object-cover" />
-                    </button>
-                  ))}
-                </div>
+                  <button
+                    key={url}
+                    type="button"
+                    onClick={() => setActiveImage(url)}
+                    className={`aspect-square h-16 overflow-hidden rounded border ${
+                      activeImage === url ? "border-primary" : "border-transparent"
+                    }`}
+                  >
+                    <img src={url} alt="" className="h-full w-full object-cover" />
+                  </button>
+                ))}
+              </div>
               ) : null}
             </div>
             <div className="space-y-4 rounded-lg border bg-white p-6 shadow-sm">

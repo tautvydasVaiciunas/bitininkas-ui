@@ -905,8 +905,8 @@ ${emailSnippet}`,
       return;
     }
 
-    const subject = 'At?jo naujienos ?ra?as ir u?duotis';
-    const heading = 'Naujiena ir u?duotis';
+    const subject = 'Atėjo naujienos įrašas ir užduotis';
+    const heading = 'Naujiena ir užduotis';
 
     await Promise.all(
       users.map(async (user) => {
@@ -935,7 +935,7 @@ ${emailSnippet}`,
           });
         } catch (error) {
           this.logger.warn(
-            `Nepavyko i?si?sti sujungto naujienos el. lai?ko vartotojui ${user.id}: ${
+            `Nepavyko išsiųsti sujungto naujienos el. laiško vartotojui ${user.id}: ${
               error instanceof Error ? error.message : String(error)
             }`,
           );
@@ -952,7 +952,7 @@ ${emailSnippet}`,
     dueDate: string;
   }) {
     const newsLines = [
-      `Paskelbtas naujienos ?ra?as "${params.newsTitle}".`,
+          `Paskelbtas naujienos įrašas "${params.newsTitle}".`,
       this.buildEmailSnippet(params.newsBody),
     ].filter((line) => line && line.length > 0);
 

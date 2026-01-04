@@ -31,4 +31,9 @@ export class AdminStoreProductsController {
   deactivate(@Param('id') id: string) {
     return this.productsService.deactivate(id);
   }
+
+  @Delete(':id/permanent')
+  delete(@Param('id') id: string) {
+    return this.productsService.delete(id);
+  }
 }

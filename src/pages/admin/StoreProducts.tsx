@@ -1,9 +1,17 @@
 import type { FormEvent } from "react";
-import { useState } from "react";
+import { useRef, useState } from "react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { format } from "date-fns";
 import lt from "date-fns/locale/lt";
-import { Edit2, Loader2, Plus, ToggleLeft, ToggleRight } from "lucide-react";
+import {
+  Edit2,
+  Image as ImageIcon,
+  Loader2,
+  Plus,
+  ToggleLeft,
+  ToggleRight,
+  Trash2,
+} from "lucide-react";
 import { toast } from "sonner";
 
 import { Button } from "@/components/ui/button";
@@ -16,6 +24,16 @@ import {
   DialogHeader,
   DialogTitle,
 } from "@/components/ui/dialog";
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from "@/components/ui/alert-dialog";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
@@ -54,6 +72,9 @@ const AdminStoreProducts = () => {
   const [isDialogOpen, setIsDialogOpen] = useState(false);
   const [editingProduct, setEditingProduct] = useState<StoreProduct | null>(null);
   const [formState, setFormState] = useState<ProductFormState>(defaultForm);
+  const [isUploadingImage, setIsUploadingImage] = useState(false);
+  const [productToDelete, setProductToDelete] = useState<StoreProduct | null>(null);
+  const fileInputRef = useRef<HTMLInputElement | null>(null);
 
   const {
     data,
@@ -164,6 +185,47 @@ const AdminStoreProducts = () => {
     },
   });
 
+  const deleteMutation = useMutation({
+    mutationFn: (productId: string) => api.admin.store.products.remove(productId),
+    onSuccess: () => {
+      toast.success("Produktas ištrintas");
+      queryClient.invalidateQueries({ queryKey: ["admin-store-products"] });
+      setProductToDelete(null);
+    },
+    onError: (error) => {
+      toast.error(error instanceof Error ? error.message : "Nepavyko ištrinti produkto");
+    },
+  });
+
+  const handleUploadImage = async (file: File) => {
+    const filledCount = formState.imageUrls.filter((url) => url.trim().length > 0).length;
+    if (filledCount >= 5) {
+      toast.error("Galima pridėti ne daugiau nei 5 nuotraukas");
+      return;
+    }
+
+    try {
+      setIsUploadingImage(true);
+      const response = await api.media.upload(file);
+      setFormState((prev) => {
+        const next = [...prev.imageUrls];
+        const emptyIndex = next.findIndex((value) => !value.trim());
+        if (emptyIndex >= 0) {
+          next[emptyIndex] = response.url;
+        } else if (next.length < 5) {
+          next.push(response.url);
+        }
+        return { ...prev, imageUrls: next };
+      });
+      toast.success("Nuotrauka įkelta");
+    } catch (error) {
+      const message = error instanceof Error ? error.message : "Nepavyko įkelti nuotraukos";
+      toast.error(message);
+    } finally {
+      setIsUploadingImage(false);
+    }
+  };
+
   const handleSubmit = (event: FormEvent<HTMLFormElement>) => {
     event.preventDefault();
     const normalizedPrice = Number(formState.price.replace(",", "."));
@@ -257,44 +319,54 @@ const AdminStoreProducts = () => {
                     </tr>
                   ))
                 : products.map((product) => (
-                    <tr key={product.id} className="border-t">
-                      <td className="px-3 py-2">{product.title}</td>
-                      <td className="px-3 py-2">{formatPrice(product.priceCents)}</td>
-                      <td className="px-3 py-2">
-                        {product.isActive ? (
-                          <span className="inline-flex items-center gap-1 text-green-600">
-                            <ToggleRight className="h-4 w-4" />
-                            Taip
-                          </span>
-                        ) : (
-                          <span className="inline-flex items-center gap-1 text-muted-foreground">
-                            <ToggleLeft className="h-4 w-4" />
-                            Ne
-                          </span>
-                        )}
-                      </td>
-                      <td className="px-3 py-2">
-                        {product.createdAt
-                          ? format(new Date(product.createdAt), "yyyy-MM-dd HH:mm", { locale: lt })
-                          : "—"}
-                      </td>
-                      <td className="px-3 py-2 text-right">
-                        <div className="flex flex-wrap justify-end gap-2">
-                          <Button
-                            variant="outline"
-                            size="sm"
-                            onClick={() => toggleMutation.mutate(product)}
-                            disabled={toggleMutation.isLoading}
-                          >
-                            {product.isActive ? "Išjungti" : "Įjungti"}
-                          </Button>
-                          <Button variant="ghost" size="sm" onClick={() => openEditDialog(product)}>
-                            <Edit2 className="mr-1 h-4 w-4" />
-                            Redaguoti
-                          </Button>
-                        </div>
-                      </td>
-                    </tr>
+                      <tr key={product.id} className="border-t">
+                        <td className="px-3 py-2">{product.title}</td>
+                        <td className="px-3 py-2">{formatPrice(product.priceCents)}</td>
+                        <td className="px-3 py-2">
+                          {product.isActive ? (
+                            <span className="inline-flex items-center gap-1 text-green-600">
+                              <ToggleRight className="h-4 w-4" />
+                              Taip
+                            </span>
+                          ) : (
+                            <span className="inline-flex items-center gap-1 text-muted-foreground">
+                              <ToggleLeft className="h-4 w-4" />
+                              Ne
+                            </span>
+                          )}
+                        </td>
+                        <td className="px-3 py-2">
+                          {product.createdAt
+                            ? format(new Date(product.createdAt), "yyyy-MM-dd HH:mm", { locale: lt })
+                            : "—"}
+                        </td>
+                        <td className="px-3 py-2 text-right">
+                          <div className="flex flex-wrap justify-end gap-2">
+                            <Button
+                              variant="outline"
+                              size="sm"
+                              onClick={() => toggleMutation.mutate(product)}
+                              disabled={toggleMutation.isLoading}
+                            >
+                              {product.isActive ? "Išjungti" : "Įjungti"}
+                            </Button>
+                            <Button variant="ghost" size="sm" onClick={() => openEditDialog(product)}>
+                              <Edit2 className="mr-1 h-4 w-4" />
+                              Redaguoti
+                            </Button>
+                            <Button
+                              variant="ghost"
+                              size="sm"
+                              className="text-destructive"
+                              onClick={() => setProductToDelete(product)}
+                              disabled={deleteMutation.isLoading}
+                            >
+                              <Trash2 className="mr-1 h-4 w-4" />
+                              Ištrinti
+                            </Button>
+                          </div>
+                        </td>
+                      </tr>
                   ))}
             </tbody>
           </table>
@@ -349,10 +421,39 @@ const AdminStoreProducts = () => {
               />
             </div>
             <div className="space-y-2">
-              <Label>Nuotraukos (iki 5 URL)</Label>
+              <Label>Nuotraukos (iki 5 nuorodų arba failų)</Label>
               <p className="text-xs text-muted-foreground">
-                Įklijuokite viešas nuotraukų nuorodas. Jos bus rodomos parduotuvėje.
+                Įklijuokite viešas nuotraukų nuorodas arba įkelkite failą, kad nuotrauka būtų priskirta automatiškai.
               </p>
+              <div className="flex flex-wrap items-center gap-2">
+                <input
+                  ref={fileInputRef}
+                  type="file"
+                  accept="image/*"
+                  className="hidden"
+                  onChange={(event) => {
+                    const file = event.target.files?.[0];
+                    if (file) {
+                      void handleUploadImage(file);
+                      event.target.value = "";
+                    }
+                  }}
+                />
+                <Button
+                  type="button"
+                  variant="outline"
+                  disabled={isUploadingImage}
+                  onClick={() => fileInputRef.current?.click()}
+                >
+                  {isUploadingImage ? (
+                    <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                  ) : (
+                    <ImageIcon className="mr-2 h-4 w-4" />
+                  )}
+                  Įkelti failą
+                </Button>
+                <span className="text-xs text-muted-foreground">Failas siunčiamas į serverį ir nuoroda pridedama į sąrašą.</span>
+              </div>
               <div className="space-y-2">
                 {formState.imageUrls.map((url, index) => (
                   <div key={index} className="flex gap-2">
@@ -468,6 +569,36 @@ const AdminStoreProducts = () => {
           </form>
         </DialogContent>
       </Dialog>
+      <AlertDialog
+        open={Boolean(productToDelete)}
+        onOpenChange={(open) => {
+          if (!open) {
+            setProductToDelete(null);
+          }
+        }}
+      >
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Ištrinti produktą?</AlertDialogTitle>
+            <AlertDialogDescription>
+              Ar tikrai norite ištrinti produktą „{productToDelete?.title ?? ""}“? Veiksmas yra neatšaukiamas.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel disabled={deleteMutation.isLoading}>Atšaukti</AlertDialogCancel>
+            <AlertDialogAction
+              onClick={() => {
+                if (productToDelete) {
+                  deleteMutation.mutate(productToDelete.id);
+                }
+              }}
+              disabled={deleteMutation.isLoading}
+            >
+              Ištrinti
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
     </div>
   );
 };

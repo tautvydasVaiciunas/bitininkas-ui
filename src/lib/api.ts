@@ -1360,6 +1360,8 @@ export const api = {
         update: (id: string, payload: Partial<AdminStoreProductPayload>) =>
           patch<StoreProduct>(`/admin/store/products/${id}`, { json: payload }),
         disable: (id: string) => del<{ success: boolean }>(`/admin/store/products/${id}`),
+        remove: (id: string) =>
+          del<{ success: boolean }>(`/admin/store/products/${id}/permanent`),
       },
       orders: {
         list: (params?: { page?: number; limit?: number }) =>

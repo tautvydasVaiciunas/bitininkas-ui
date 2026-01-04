@@ -4,7 +4,7 @@ import {
   NotFoundException,
 } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
-import { In, Repository } from 'typeorm';
+import { DeleteResult, In, Repository } from 'typeorm';
 
 import { StoreProduct } from './entities/product.entity';
 import { CreateProductDto } from './dto/create-product.dto';
@@ -279,6 +279,19 @@ export class StoreProductsService {
 
     product.isActive = false;
     await this.productsRepository.save(product);
+
+    return { success: true };
+  }
+
+  async delete(id: string): Promise<{ success: boolean }> {
+    const result = (await runWithDatabaseErrorHandling(
+      () => this.productsRepository.delete(id),
+      { message: 'Nepavyko ištrinti produkto' },
+    )) as DeleteResult;
+
+    if (result.affected === 0) {
+      throw new NotFoundException('Produktas nerastas');
+    }
 
     return { success: true };
   }

@@ -472,21 +472,22 @@ const AdminStoreProducts = () => {
                         ) : (
                           <span className="text-xs text-muted-foreground">Nuotrauka</span>
                         )}
-                      <button
-                        type="button"
-                        aria-label="Pašalinti nuotrauką"
-                        className="absolute top-1 right-1 inline-flex h-6 w-6 items-center justify-center rounded-full bg-black/60 text-white transition hover:bg-black/80"
-                        onClick={() =>
-                          setFormState((prev) => ({
-                            ...prev,
-                            imageUrls: prev.imageUrls.filter((_, i) => i !== index),
-                          }))
-                        }
-                      >
-                        <X className="h-3.5 w-3.5" />
-                      </button>
-                    </div>
-                  ))}
+                        <button
+                          type="button"
+                          aria-label="Pašalinti nuotrauką"
+                          className="absolute top-1 right-1 inline-flex h-6 w-6 items-center justify-center rounded-full bg-black/60 text-white transition hover:bg-black/80"
+                          onClick={() =>
+                            setFormState((prev) => ({
+                              ...prev,
+                              imageUrls: prev.imageUrls.filter((_, i) => i !== index),
+                            }))
+                          }
+                        >
+                          <X className="h-3.5 w-3.5" />
+                        </button>
+                      </div>
+                    );
+                  })}
                 </div>
               ) : (
                 <p className="text-sm text-muted-foreground">Nuotraukų dar nėra.</p>

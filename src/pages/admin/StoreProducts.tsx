@@ -11,6 +11,7 @@ import {
   ToggleLeft,
   ToggleRight,
   Trash2,
+  X,
 } from "lucide-react";
 import { toast } from "sonner";
 
@@ -61,7 +62,7 @@ const defaultForm: ProductFormState = {
   description: "",
   price: "0.00",
   isActive: true,
-  imageUrls: [""],
+  imageUrls: [],
 };
 
 const AdminStoreProducts = () => {
@@ -121,7 +122,7 @@ const AdminStoreProducts = () => {
       description: product.description,
       price: (product.priceCents / 100).toFixed(2),
       isActive: product.isActive,
-      imageUrls: product.imageUrls?.length ? product.imageUrls.slice(0, 5) : [""],
+      imageUrls: product.imageUrls?.length ? product.imageUrls.slice(0, 5) : [],
     });
     setIsDialogOpen(true);
   };
@@ -198,8 +199,7 @@ const AdminStoreProducts = () => {
   });
 
   const handleUploadImage = async (file: File) => {
-    const filledCount = formState.imageUrls.filter((url) => url.trim().length > 0).length;
-    if (filledCount >= 5) {
+    if (formState.imageUrls.length >= 5) {
       toast.error("Galima pridėti ne daugiau nei 5 nuotraukas");
       return;
     }
@@ -208,13 +208,10 @@ const AdminStoreProducts = () => {
       setIsUploadingImage(true);
       const response = await api.media.upload(file);
       setFormState((prev) => {
-        const next = [...prev.imageUrls];
-        const emptyIndex = next.findIndex((value) => !value.trim());
-        if (emptyIndex >= 0) {
-          next[emptyIndex] = response.url;
-        } else if (next.length < 5) {
-          next.push(response.url);
+        if (prev.imageUrls.includes(response.url)) {
+          return prev;
         }
+        const next = [...prev.imageUrls, response.url].slice(0, 5);
         return { ...prev, imageUrls: next };
       });
       toast.success("Nuotrauka įkelta");
@@ -421,11 +418,11 @@ const AdminStoreProducts = () => {
               />
             </div>
             <div className="space-y-2">
-              <Label>Nuotraukos (iki 5 nuorodų arba failų)</Label>
+              <Label>Nuotraukos (iki 5)</Label>
               <p className="text-xs text-muted-foreground">
-                Įklijuokite viešas nuotraukų nuorodas arba įkelkite failą, kad nuotrauka būtų priskirta automatiškai.
+                Įkelkite nuotrauką iš kompiuterio – ji bus išsaugota serverio „uploads“ kataloge ir rodoma iš karto.
               </p>
-              <div className="flex flex-wrap items-center gap-2">
+              <div className="flex flex-wrap items-center gap-3">
                 <input
                   ref={fileInputRef}
                   type="file"
@@ -442,7 +439,7 @@ const AdminStoreProducts = () => {
                 <Button
                   type="button"
                   variant="outline"
-                  disabled={isUploadingImage}
+                  disabled={isUploadingImage || formState.imageUrls.length >= 5}
                   onClick={() => fileInputRef.current?.click()}
                 >
                   {isUploadingImage ? (
@@ -452,55 +449,41 @@ const AdminStoreProducts = () => {
                   )}
                   Įkelti failą
                 </Button>
-                <span className="text-xs text-muted-foreground">Failas siunčiamas į serverį ir nuoroda pridedama į sąrašą.</span>
+                <span className="text-xs text-muted-foreground">
+                  Įkelta {formState.imageUrls.length} / 5
+                </span>
               </div>
-              <div className="space-y-2">
-                {formState.imageUrls.map((url, index) => (
-                  <div key={index} className="flex gap-2">
-                    <Input
-                      value={url}
-                      onChange={(event) => {
-                        const value = event.target.value;
-                        setFormState((prev) => {
-                          const next = [...prev.imageUrls];
-                          next[index] = value;
-                          return { ...prev, imageUrls: next };
-                        });
-                      }}
-                      placeholder="https://..."
-                    />
-                    <Button
-                      type="button"
-                      variant="ghost"
-                      onClick={() =>
-                        setFormState((prev) => ({
-                          ...prev,
-                          imageUrls:
-                            prev.imageUrls.length === 1
-                              ? [""]
-                              : prev.imageUrls.filter((_, i) => i !== index),
-                        }))
-                      }
+              {formState.imageUrls.length ? (
+                <div className="grid grid-cols-2 gap-2 sm:grid-cols-3">
+                  {formState.imageUrls.map((url, index) => (
+                    <div
+                      key={`${url}-${index}`}
+                      className="relative flex aspect-square items-center justify-center overflow-hidden rounded border border-border bg-muted"
                     >
-                      Pašalinti
-                    </Button>
-                  </div>
-                ))}
-              </div>
-              {formState.imageUrls.length < 5 && (
-                <Button
-                  type="button"
-                  variant="outline"
-                  size="sm"
-                  onClick={() =>
-                    setFormState((prev) => ({
-                      ...prev,
-                      imageUrls: [...prev.imageUrls, ""],
-                    }))
-                  }
-                >
-                  Pridėti nuotraukos nuorodą
-                </Button>
+                      <img
+                        src={url}
+                        alt={`Produktas ${index + 1}`}
+                        className="h-full w-full object-cover"
+                        loading="lazy"
+                      />
+                      <button
+                        type="button"
+                        aria-label="Pašalinti nuotrauką"
+                        className="absolute top-1 right-1 inline-flex h-6 w-6 items-center justify-center rounded-full bg-black/60 text-white transition hover:bg-black/80"
+                        onClick={() =>
+                          setFormState((prev) => ({
+                            ...prev,
+                            imageUrls: prev.imageUrls.filter((_, i) => i !== index),
+                          }))
+                        }
+                      >
+                        <X className="h-3.5 w-3.5" />
+                      </button>
+                    </div>
+                  ))}
+                </div>
+              ) : (
+                <p className="text-sm text-muted-foreground">Nuotraukų dar nėra.</p>
               )}
             </div>
             <div className="space-y-2">

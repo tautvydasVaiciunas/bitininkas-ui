@@ -2,7 +2,7 @@ import { useEffect, useState } from "react";
 import { useQuery } from "@tanstack/react-query";
 import { Link, useParams } from "react-router-dom";
 
-import api, { type StoreProduct } from "@/lib/api";
+import api, { resolveMediaUrl, type StoreProduct } from "@/lib/api";
 import { StoreLayout } from "./StoreLayout";
 import { formatPrice, netToGrossCents } from "./utils";
 import { Button } from "@/components/ui/button";
@@ -48,6 +48,8 @@ const StoreProductDetail = () => {
     setQuantity(Number.isFinite(parsed) && parsed > 0 ? Math.floor(parsed) : 1);
   };
 
+  const resolvedActiveImage = activeImage ? resolveMediaUrl(activeImage) ?? activeImage : undefined;
+
   return (
     <StoreLayout>
       {isLoading && <p>Kraunama...</p>}
@@ -59,9 +61,13 @@ const StoreProductDetail = () => {
           </Link>
           <div className="grid gap-8 lg:grid-cols-[1.2fr_1fr]">
             <div className="space-y-4">
-              {activeImage ? (
+              {resolvedActiveImage ? (
                 <div className="aspect-square w-full overflow-hidden rounded-lg bg-muted">
-                  <img src={activeImage} alt={data.title} className="h-full w-full object-cover" />
+                  <img
+                    src={resolvedActiveImage}
+                    alt={data.title}
+                    className="h-full w-full object-cover"
+                  />
                 </div>
               ) : (
                 <div className="aspect-square flex w-full items-center justify-center rounded-lg bg-muted text-sm text-muted-foreground">
@@ -71,18 +77,22 @@ const StoreProductDetail = () => {
               {data.imageUrls?.length ? (
                 <div className="flex flex-wrap gap-3">
                   {data.imageUrls.slice(0, 5).map((url) => (
-                  <button
-                    key={url}
-                    type="button"
-                    onClick={() => setActiveImage(url)}
-                    className={`aspect-square h-16 overflow-hidden rounded border ${
-                      activeImage === url ? "border-primary" : "border-transparent"
-                    }`}
-                  >
-                    <img src={url} alt="" className="h-full w-full object-cover" />
-                  </button>
-                ))}
-              </div>
+                    <button
+                      key={url}
+                      type="button"
+                      onClick={() => setActiveImage(url)}
+                      className={`aspect-square h-16 overflow-hidden rounded border ${
+                        activeImage === url ? "border-primary" : "border-transparent"
+                      }`}
+                    >
+                      <img
+                        src={resolveMediaUrl(url) ?? url}
+                        alt=""
+                        className="h-full w-full object-cover"
+                      />
+                    </button>
+                  ))}
+                </div>
               ) : null}
             </div>
             <div className="space-y-4 rounded-lg border bg-white p-6 shadow-sm">

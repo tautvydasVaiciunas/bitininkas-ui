@@ -3,6 +3,39 @@ import ltMessages from '@/i18n/messages.lt.json';
 const rawBaseUrl = import.meta.env.VITE_API_BASE_URL ?? '';
 export const API_BASE_URL = rawBaseUrl.replace(/\/$/, '');
 
+const getMediaBaseUrl = () => {
+  if (API_BASE_URL.length > 0) {
+    return API_BASE_URL;
+  }
+
+  if (typeof window !== 'undefined' && window.location.origin) {
+    return window.location.origin;
+  }
+
+  return '';
+};
+
+export const resolveMediaUrl = (value?: string | null): string | undefined => {
+  if (!value) {
+    return undefined;
+  }
+
+  if (/^(https?:)?\/\//i.test(value) || value.startsWith('data:')) {
+    return value;
+  }
+
+  const baseUrl = getMediaBaseUrl();
+  if (!baseUrl) {
+    return value;
+  }
+
+  try {
+    return new URL(value, baseUrl).toString();
+  } catch {
+    return value;
+  }
+};
+
 const ACCESS_TOKEN_KEY = 'bitininkas_access_token';
 const REFRESH_TOKEN_KEY = 'bitininkas_refresh_token';
 const USER_STORAGE_KEY = 'bitininkas_user';

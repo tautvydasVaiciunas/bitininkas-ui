@@ -2,7 +2,7 @@ import { useMemo, useState } from "react";
 import { useQuery } from "@tanstack/react-query";
 import { Link } from "react-router-dom";
 
-import api, { type StoreProduct } from "@/lib/api";
+import api, { resolveMediaUrl, type StoreProduct } from "@/lib/api";
 import { useCart } from "@/contexts/CartContext";
 import { useToast } from "@/components/ui/use-toast";
 import { Button } from "@/components/ui/button";
@@ -78,13 +78,10 @@ const StoreHome = () => {
             {filteredProducts.map((product) => (
               <Card key={product.id} className="flex h-full flex-col overflow-hidden">
                 {product.imageUrls?.length ? (
-                  <Link
-                    to={`/parduotuve/produktas/${product.slug}`}
-                    className="block w-full"
-                  >
+                  <Link to={`/parduotuve/produktas/${product.slug}`} className="block w-full">
                     <div className="aspect-square w-full overflow-hidden bg-muted">
                       <img
-                        src={product.imageUrls[0]}
+                        src={resolveMediaUrl(product.imageUrls[0]) ?? product.imageUrls[0]}
                         alt={product.title}
                         className="h-full w-full object-cover"
                         loading="lazy"
@@ -119,12 +116,28 @@ const StoreHome = () => {
                   {product.shortDescription || "Aprašymas bus pateiktas vėliau."}
                 </p>
               </CardContent>
-              <CardFooter className="mt-auto flex w-full flex-wrap items-end justify-between gap-2">
-                <Button asChild variant="outline" size="sm">
-                  <Link to={`/parduotuve/produktas/${product.slug}`}>Daugiau informacijos</Link>
-                </Button>
-                <Button onClick={() => handleAdd(product)}>Į krepšelį</Button>
-              </CardFooter>
+                <CardFooter className="mt-auto flex w-full flex-wrap gap-2">
+                  <Button
+                    asChild
+                    variant="outline"
+                    size="sm"
+                    className="flex-1 min-w-[140px]"
+                  >
+                    <Link
+                      to={`/parduotuve/produktas/${product.slug}`}
+                      className="flex-1 text-center text-sm font-semibold leading-tight text-foreground transition-colors hover:text-primary"
+                    >
+                      Plačiau
+                    </Link>
+                  </Button>
+                  <Button
+                    size="sm"
+                    className="flex-1 min-w-[140px]"
+                    onClick={() => handleAdd(product)}
+                  >
+                    Į krepšelį
+                  </Button>
+                </CardFooter>
             </Card>
           ))}
         </div>

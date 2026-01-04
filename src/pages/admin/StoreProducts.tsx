@@ -40,7 +40,7 @@ import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 import { Checkbox } from "@/components/ui/checkbox";
 import { Skeleton } from "@/components/ui/skeleton";
-import api, { type StoreProduct } from "@/lib/api";
+import api, { resolveMediaUrl, type StoreProduct } from "@/lib/api";
 import { formatPrice } from "../store/utils";
 
 const PAGE_SIZE = 10;
@@ -455,17 +455,23 @@ const AdminStoreProducts = () => {
               </div>
               {formState.imageUrls.length ? (
                 <div className="grid grid-cols-2 gap-2 sm:grid-cols-3">
-                  {formState.imageUrls.map((url, index) => (
-                    <div
-                      key={`${url}-${index}`}
-                      className="relative flex aspect-square items-center justify-center overflow-hidden rounded border border-border bg-muted"
-                    >
-                      <img
-                        src={url}
-                        alt={`Produktas ${index + 1}`}
-                        className="h-full w-full object-cover"
-                        loading="lazy"
-                      />
+                  {formState.imageUrls.map((url, index) => {
+                    const previewUrl = resolveMediaUrl(url) ?? url;
+                    return (
+                      <div
+                        key={`${url}-${index}`}
+                        className="relative flex aspect-square items-center justify-center overflow-hidden rounded border border-border bg-muted"
+                      >
+                        {previewUrl ? (
+                          <img
+                            src={previewUrl}
+                            alt={`Produktas ${index + 1}`}
+                            className="h-full w-full object-cover"
+                            loading="lazy"
+                          />
+                        ) : (
+                          <span className="text-xs text-muted-foreground">Nuotrauka</span>
+                        )}
                       <button
                         type="button"
                         aria-label="Pašalinti nuotrauką"

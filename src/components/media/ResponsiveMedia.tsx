@@ -12,6 +12,7 @@ type ResponsiveMediaProps = {
   type?: 'image' | 'video' | null;
   title?: string;
   className?: string;
+  fit?: 'cover' | 'contain';
 };
 
 export const ResponsiveMedia = ({
@@ -19,6 +20,7 @@ export const ResponsiveMedia = ({
   type,
   title = 'Medijos peržiūra',
   className,
+  fit = 'cover',
 }: ResponsiveMediaProps) => {
   const [videoError, setVideoError] = useState(false);
   const normalizedUrl = url?.trim() ?? '';
@@ -45,6 +47,8 @@ export const ResponsiveMedia = ({
     className,
   );
 
+  const objectFitClass = fit === 'contain' ? 'object-contain' : 'object-cover';
+
   if (mediaType === 'video') {
     if (videoError) {
       return (
@@ -63,20 +67,20 @@ export const ResponsiveMedia = ({
           src={resolvedUrl}
           controls
           preload="metadata"
-          className="h-full w-full object-cover"
-          crossOrigin="anonymous"
-          onError={() => setVideoError(true)}
-        />
-      </div>
-    );
-  }
+        className={`h-full w-full ${objectFitClass}`}
+        crossOrigin="anonymous"
+        onError={() => setVideoError(true)}
+      />
+    </div>
+  );
+}
 
-  return (
-    <div className={wrapperClass}>
+return (
+  <div className={wrapperClass}>
       <img
         src={resolvedUrl ?? FALLBACK_MEDIA_SRC}
         alt={title}
-        className="h-full w-full object-cover"
+    className={`h-full w-full ${objectFitClass}`}
         loading="lazy"
         crossOrigin="anonymous"
         onError={(event) => applyImageFallback(event.currentTarget)}

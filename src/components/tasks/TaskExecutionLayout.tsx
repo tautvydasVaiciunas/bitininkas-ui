@@ -132,9 +132,9 @@ export function TaskExecutionLayout(props: TaskExecutionLayoutProps) {
 
       <Card className="shadow-custom">
         <CardContent className="p-6">
-          <div className="space-y-2">
-            <div className="flex items-center justify-between text-sm">
-              <span className="text-muted-foreground">Bendras progresas</span>
+            <div className="space-y-2">
+              <div className="flex items-center justify-between text-sm">
+                <span className="text-muted-foreground">Užduoties progresas</span>
               <span className="font-semibold">{progressPercent}%</span>
             </div>
             <Progress value={progressPercent} className="h-3" />
@@ -173,7 +173,7 @@ export function TaskExecutionLayout(props: TaskExecutionLayoutProps) {
                   >
                     <div className="flex items-center gap-2">
                       {isCompleted ? (
-                        <CheckCircle2 className="h-4 w-4 flex-shrink-0" />
+                        <CheckCircle2 className="h-4 w-4 flex-shrink-0 text-success" />
                       ) : (
                         <div className="flex h-5 w-5 flex-shrink-0 items-center justify-center rounded-full border-2 text-xs">
                           {index + 1}
@@ -261,8 +261,6 @@ export function TaskExecutionLayout(props: TaskExecutionLayoutProps) {
                       {currentStep?.contentText ?? 'Šio žingsnio instrukcijos nepateiktos.'}
                     </p>
                   </div>
-                  <div className="space-y-2">
-                    <h4 className="font-semibold">Prisegtas failas</h4>
                     <div className="rounded-2xl border border-muted/40 bg-muted/10 p-4 min-h-[220px]">
                       {currentMediaUrl ? (
                         <div className="flex h-full w-full items-center justify-center">
@@ -350,7 +348,8 @@ export function TaskExecutionLayout(props: TaskExecutionLayoutProps) {
                                       url={item.url}
                                       type={item.kind === 'video' ? 'video' : 'image'}
                                       title={currentStep?.title ?? 'Žingsnis'}
-                                      className="h-36 w-full rounded-lg bg-muted"
+                                      className="h-36 aspect-auto"
+                                      fit="contain"
                                     />
                                     <p className="text-xs text-muted-foreground">
                                       Įkelta {formatDateIsoOr(item.createdAt)}

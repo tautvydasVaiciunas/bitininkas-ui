@@ -187,6 +187,10 @@ export default function TaskRun() {
         if (!oldData) return oldData;
         return { ...oldData, assignment: updatedAssignment };
       });
+      queryClient.setQueryData<AssignmentDetails | undefined>(['assignments', id, 'run'], (oldData) => {
+        if (!oldData) return oldData;
+        return { ...oldData, assignment: updatedAssignment };
+      });
       queryClient.invalidateQueries({ queryKey: ['assignments', 'list'] });
     },
     onError: (mutationError: HttpError | Error) => {
@@ -205,32 +209,45 @@ export default function TaskRun() {
       api.progress.completeStep({ assignmentId: id!, taskStepId: payload.taskStepId }).then(mapStepToggleResponseFromApi),
     onSuccess: (result, variables) => {
       const progressEntry = result.progress;
-      let previousAssignmentStatus: AssignmentStatus | undefined;
-      let previousStepStatus: StepProgress['status'] | undefined;
-      let newCompletion = data?.completion ?? 0;
+      const previousAssignmentStatus = data?.assignment.status;
+      const previousStepStatus = currentProgress?.status;
+      let updatedCompletion = data?.completion ?? 0;
+
+      const mergeProgress = (oldData?: AssignmentDetails) => {
+        if (!oldData) {
+          return null;
+        }
+        const progress = [...oldData.progress];
+        const existingIndex = progress.findIndex((item) => item.id === progressEntry.id);
+        if (existingIndex >= 0) {
+          progress[existingIndex] = progressEntry;
+        } else {
+          progress.push(progressEntry);
+        }
+        const completedCount = progress.filter((item) => item.status === 'completed').length;
+        const totalSteps = oldData.task.steps.length;
+        const completion = totalSteps ? Math.round((completedCount / totalSteps) * 100) : 0;
+        return {
+          data: { ...oldData, progress, completion },
+          completion,
+        };
+      };
+
+      queryClient.setQueryData<AssignmentDetails | undefined>(
+        ['assignments', id, 'run'],
+        (oldData) => {
+          const merged = mergeProgress(oldData);
+          if (!merged) return oldData;
+          updatedCompletion = merged.completion;
+          return merged.data;
+        },
+      );
 
       queryClient.setQueryData<AssignmentDetails | undefined>(
         ['assignments', id, 'details'],
         (oldData) => {
-          if (!oldData) return oldData;
-          previousAssignmentStatus = oldData.assignment.status;
-          previousStepStatus = oldData.progress.find(
-            (item) => item.taskStepId === progressEntry.taskStepId,
-          )?.status;
-
-          const progress = [...oldData.progress];
-          const existingIndex = progress.findIndex((item) => item.id === progressEntry.id);
-          if (existingIndex >= 0) {
-            progress[existingIndex] = progressEntry;
-          } else {
-            progress.push(progressEntry);
-          }
-
-          const completedCount = progress.filter((item) => item.status === 'completed').length;
-          const totalSteps = oldData.task.steps.length;
-          newCompletion = totalSteps ? Math.round((completedCount / totalSteps) * 100) : 0;
-
-          return { ...oldData, progress, completion: newCompletion };
+          const merged = mergeProgress(oldData);
+          return merged ? merged.data : oldData;
         },
       );
 
@@ -238,13 +255,13 @@ export default function TaskRun() {
 
       if (result.status === 'completed') {
         if (previousStepStatus !== 'completed') {
-          toast.success('Žingsnis pažymėtas kaip atliktas');
+          toast.success('Zingsnis pazymetas kaip atliktas');
 
-          if (previousAssignmentStatus === 'not_started' && newCompletion < 100) {
+          if (previousAssignmentStatus === 'not_started' && updatedCompletion < 100) {
             updateAssignmentStatusMutation.mutate('in_progress');
-          } else if (newCompletion === 100) {
+          } else if (updatedCompletion === 100) {
             updateAssignmentStatusMutation.mutate('done');
-            toast.success('Visi žingsniai atlikti – prašome pateikti vertinimą.');
+            toast.success('Visi zingsniai atlikti - prasome pateikti vertinima.');
           }
 
           if (variables?.stepIndex !== undefined) {
@@ -256,11 +273,11 @@ export default function TaskRun() {
 
       if (
         previousAssignmentStatus &&
-        newCompletion === 0 &&
+        updatedCompletion === 0 &&
         previousAssignmentStatus !== 'not_started'
       ) {
         updateAssignmentStatusMutation.mutate('not_started');
-      } else if (previousAssignmentStatus === 'done' && newCompletion < 100) {
+      } else if (previousAssignmentStatus === 'done' && updatedCompletion < 100) {
         updateAssignmentStatusMutation.mutate('in_progress');
       }
 
@@ -268,8 +285,9 @@ export default function TaskRun() {
         setCurrentStepIndex(Math.min(steps.length - 1, Math.max(0, variables.stepIndex)));
       }
 
-      toast.success('Žingsnis grąžintas į neįvykdytą');
+      toast.success('Zingsnis grazintas i neivykdyta');
     },
+
     onError: (stepError: HttpError | Error) => {
       toast.error('Nepavyko atnaujinti žingsnio būsenos', {
         description: getErrorMessage(stepError),

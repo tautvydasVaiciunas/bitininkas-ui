@@ -1697,7 +1697,7 @@ export class AssignmentsService {
       if (dates.startDate !== undefined) {
         update.startDate = dates.startDate;
       }
-      if (dates.dueDate !== undefined) {
+      if (dates.dueDate !== undefined && dates.dueDate !== null) {
         update.dueDate = dates.dueDate;
       }
       return update;

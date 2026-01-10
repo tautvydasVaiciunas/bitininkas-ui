@@ -30,6 +30,7 @@ import {
 } from '@/lib/types';
 import { AssignmentStatusBadge } from '@/components/AssignmentStatusBadge';
 import { assignmentStatusFilterOptions, resolveAssignmentUiStatus } from '@/lib/assignmentStatus';
+import { formatDateIsoOr } from '@/lib/date';
 import {
   Plus,
   Search,
@@ -382,11 +383,6 @@ export default function Tasks() {
     });
   }, [assignmentItems, onlyAvailableNow, searchQuery, statusFilter, todayIso]);
 
-  const formatDate = (dateStr: string) => {
-    const date = new Date(dateStr);
-    return date.toLocaleDateString('lt-LT', { year: 'numeric', month: 'long', day: 'numeric' });
-  };
-
   return (
     <MainLayout>
       <div className="space-y-6">
@@ -671,14 +667,14 @@ export default function Tasks() {
                             <div className="flex items-center gap-1.5">
                               <CalendarClock className="w-4 h-4 text-muted-foreground" />
                               <span className="text-muted-foreground">Pradžia:</span>
-                              <span className="font-medium">{formatDate(assignment.startDate)}</span>
+                              <span className="font-medium">{formatDateIsoOr(assignment.startDate)}</span>
                             </div>
                           </div>
                         ) : null}
                         <div className="flex items-center gap-1.5">
                           <Calendar className="w-4 h-4 text-muted-foreground" />
                           <span className="text-muted-foreground">Terminas:</span>
-                          <span className="font-medium">{formatDate(assignment.dueDate)}</span>
+                          <span className="font-medium">{formatDateIsoOr(assignment.dueDate)}</span>
                           {resolveAssignmentUiStatus(assignment.status, assignment.dueDate) === 'overdue' && (
                             <Badge variant="destructive" className="ml-2">Vėluojama</Badge>
                           )}

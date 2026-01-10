@@ -15,6 +15,7 @@ import {
   TaskStep,
   TaskStepMediaType,
 } from '@/lib/types';
+import { formatDateIsoOr } from '@/lib/date';
 
 export interface TaskExecutionLayoutProps {
   title: string;
@@ -61,13 +62,6 @@ export interface TaskExecutionLayoutProps {
   previewMode?: boolean;
   assignmentRating?: number | null;
 }
-
-const formatDate = (value?: string | null) => {
-  if (!value) return '-';
-  const date = new Date(value);
-  if (Number.isNaN(date.getTime())) return '-';
-  return date.toLocaleDateString('lt-LT', { year: 'numeric', month: 'long', day: 'numeric' });
-};
 
 export function TaskExecutionLayout(props: TaskExecutionLayoutProps) {
   const {
@@ -130,7 +124,7 @@ export function TaskExecutionLayout(props: TaskExecutionLayoutProps) {
           <p className="text-muted-foreground mt-1 flex items-center gap-3 text-sm md:text-base">
             <span>Avilys: {hiveLabel ?? 'Nežinomas'}</span>
             <span className="hidden md:inline">-</span>
-            <span>Terminas: {formatDate(dueDate)}</span>
+            <span>Terminas: {formatDateIsoOr(dueDate)}</span>
           </p>
         </div>
         <AssignmentStatusBadge status={status} dueDate={dueDate} />
@@ -359,7 +353,7 @@ export function TaskExecutionLayout(props: TaskExecutionLayoutProps) {
                                       className="h-36 w-full rounded-lg bg-muted"
                                     />
                                     <p className="text-xs text-muted-foreground">
-                                      Įkelta {formatDate(item.createdAt)}
+                                      Įkelta {formatDateIsoOr(item.createdAt)}
                                       {timeLabel ? `, ${timeLabel}` : ''}
                                     </p>
                                   </div>

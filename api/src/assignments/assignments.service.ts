@@ -1672,6 +1672,40 @@ export class AssignmentsService {
     });
   }
 
+  async updateDatesByTask(
+    taskId: string,
+    dates: { startDate?: string | null; dueDate?: string | null },
+  ) {
+    if (dates.startDate === undefined && dates.dueDate === undefined) {
+      return;
+    }
+
+    const assignments = await this.assignmentsRepository.find({
+      select: ['id'],
+      where: {
+        taskId,
+        status: Not(AssignmentStatus.DONE),
+      },
+    });
+
+    if (!assignments.length) {
+      return;
+    }
+
+    const updates = assignments.map((assignment) => {
+      const update: Partial<Assignment> = { id: assignment.id };
+      if (dates.startDate !== undefined) {
+        update.startDate = dates.startDate;
+      }
+      if (dates.dueDate !== undefined) {
+        update.dueDate = dates.dueDate;
+      }
+      return update;
+    });
+
+    await this.assignmentsRepository.save(updates);
+  }
+
   async archiveByTask(taskId: string, archived: boolean) {
     await this.assignmentsRepository.update({ taskId }, { archived });
   }

@@ -153,7 +153,12 @@ const newsItems = useMemo<NewsPost[]>(
               <Card key={post.id} className="overflow-hidden">
                 <div className="grid gap-0 md:grid-cols-[minmax(0,320px),1fr]">
                   <Link to={newsLink} className="block">
-                    <ResponsiveMedia url={coverUrl} type={coverType} title={post.title} className="md:rounded-none" />
+                    <ResponsiveMedia
+                      url={coverUrl}
+                      type={coverType}
+                      title={post.title}
+                      className="aspect-[16/9]"
+                    />
                   </Link>
                   <div className="flex flex-1 flex-col">
                     <CardHeader className="space-y-3 md:space-y-4">

@@ -12,6 +12,7 @@ import { Bell, CheckCheck, Megaphone, MessageCircle, ShoppingBag } from 'lucide-
 import { toast } from 'sonner';
 import { useNavigate } from 'react-router-dom';
 import { useEffect } from 'react';
+import { formatDateIsoOr } from '@/lib/date';
 
 export default function Notifications() {
   const { user } = useAuth();
@@ -154,7 +155,7 @@ export default function Notifications() {
     } else if (days < 7) {
       return `prieš ${days} d.`;
     }
-    return date.toLocaleDateString('lt-LT');
+    return formatDateIsoOr(dateStr);
   };
 
   const renderNotifications = (filterRead: boolean | null) => {

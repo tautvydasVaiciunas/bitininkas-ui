@@ -10,13 +10,8 @@ import { AssignmentStatusBadge } from '@/components/AssignmentStatusBadge';
 import api from '@/lib/api';
 import { mapAssignmentDetailsFromApi, type AssignmentDetails } from '@/lib/types';
 import { Calendar, CalendarClock, ChevronLeft, ClipboardList, Loader2, Lock } from 'lucide-react';
-
-const formatDate = (dateStr?: string | null) => {
-  if (!dateStr) return '\u2014';
-  const date = new Date(dateStr);
-  if (Number.isNaN(date.getTime())) return '\u2014';
-  return date.toLocaleDateString('lt-LT', { year: 'numeric', month: 'long', day: 'numeric' });
-};
+import { formatDateIsoOr } from '@/lib/date';
+import { formatDateIsoOr } from '@/lib/date';
 
 export default function TaskDetail() {
   const { id } = useParams<{ id: string }>();
@@ -118,12 +113,12 @@ export default function TaskDetail() {
               {assignment.startDate ? (
                 <div className="flex items-center gap-2">
                   <CalendarClock className="h-4 w-4" />
-                  {'Prad\u017eia:'} <span className="text-foreground">{formatDate(assignment.startDate)}</span>
+                  {'Prad\u017eia:'} <span className="text-foreground">{formatDateIsoOr(assignment.startDate)}</span>
                 </div>
               ) : null}
               <div className="flex items-center gap-2">
                 <Calendar className="h-4 w-4" />
-                Terminas: <span className="text-foreground">{formatDate(assignment.dueDate)}</span>
+                Terminas: <span className="text-foreground">{formatDateIsoOr(assignment.dueDate)}</span>
               </div>
               {isUpcoming ? (
                 <Badge variant="outline" className="flex items-center gap-1">
@@ -165,7 +160,7 @@ export default function TaskDetail() {
             <div className="flex flex-wrap gap-3">
               {isUpcoming ? (
                 <p className="text-sm text-muted-foreground">
-                  {'U\u017eduotis dar neprasid\u0117jo. Vykdyti bus galima nuo'} {formatDate(assignment.startDate)}.
+                  {'U\u017eduotis dar neprasid\u0117jo. Vykdyti bus galima nuo'} {formatDateIsoOr(assignment.startDate)}.
                 </p>
               ) : (
                 <Button asChild>

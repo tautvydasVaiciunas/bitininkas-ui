@@ -20,6 +20,7 @@ import {
 } from '@/lib/types';
 import { resolveAssignmentUiStatus } from '@/lib/assignmentStatus';
 import { Box, ListTodo, CheckCircle2, AlertCircle, MapPin, Calendar, ChevronRight } from 'lucide-react';
+import { formatDateIsoOr } from '@/lib/date';
 
 type NormalizedAssignment = {
   assignment: Assignment;
@@ -171,11 +172,6 @@ export default function Dashboard() {
     );
   };
 
-  const formatDate = (dateStr: string) => {
-    const date = new Date(dateStr);
-    return date.toLocaleDateString('lt-LT', { year: 'numeric', month: 'long', day: 'numeric' });
-  };
-
   return (
     <MainLayout showBreadcrumbs={false}>
       <div className="space-y-8">
@@ -300,7 +296,7 @@ export default function Dashboard() {
                         <div className="flex items-center gap-1 text-sm">
                           <Calendar className="w-4 h-4 text-muted-foreground" />
                           <span className="text-muted-foreground">Sukurta:</span>
-                          <span>{formatDate(hive.createdAt ?? new Date().toISOString())}</span>
+                          <span>{formatDateIsoOr(hive.createdAt)}</span>
                         </div>
                         {pendingCount === 0 ? (
                           <div className="rounded-lg bg-success/10 border border-success/20 px-3 py-2 text-sm text-success">
@@ -366,7 +362,7 @@ export default function Dashboard() {
                             )}
                             <div className="flex items-center gap-1">
                               <Calendar className="w-4 h-4 text-muted-foreground" />
-                              <span>Terminas: {formatDate(assignment.dueDate)}</span>
+                              <span>Terminas: {formatDateIsoOr(assignment.dueDate)}</span>
                               {resolveAssignmentUiStatus(assignment.status, assignment.dueDate) === 'overdue' && (
                                 <Badge variant="destructive" className="ml-2">Vėluojama</Badge>
                               )}

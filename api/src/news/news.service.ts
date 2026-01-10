@@ -819,6 +819,9 @@ ${emailSnippet}`,
       throw new NotFoundException('Naujiena nerasta');
     }
 
+    const previousStartDate = post.assignmentStartDate;
+    const previousDueDate = post.assignmentDueDate;
+
     if (dto.title !== undefined) {
       post.title = this.sanitizeTitle(dto.title);
     }
@@ -867,6 +870,20 @@ ${emailSnippet}`,
       () => this.newsRepository.save(post),
       { message: 'Nepavyko atnaujinti naujienos' },
     );
+
+    const startChanged =
+      dto.assignmentStartDate !== undefined &&
+      (previousStartDate ?? null) !== (saved.assignmentStartDate ?? null);
+    const dueChanged =
+      dto.assignmentDueDate !== undefined &&
+      (previousDueDate ?? null) !== (saved.assignmentDueDate ?? null);
+
+    if (saved.attachedTaskId && (startChanged || dueChanged)) {
+      await this.assignmentsService.updateDatesByTask(saved.attachedTaskId, {
+        startDate: startChanged ? saved.assignmentStartDate : undefined,
+        dueDate: dueChanged ? saved.assignmentDueDate : undefined,
+      });
+    }
 
     return this.mapPost(saved);
   }

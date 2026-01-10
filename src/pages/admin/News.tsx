@@ -221,6 +221,9 @@ const AdminNews = () => {
     onSuccess: (post) => {
       toast({ title: "Naujiena atnaujinta", description: `„${post.title}“ duomenys išsaugoti.` });
       invalidateNews();
+      void queryClient.invalidateQueries({ queryKey: ['assignments', 'list'], exact: false });
+      void queryClient.invalidateQueries({ queryKey: ['assignments'], exact: false });
+      void queryClient.invalidateQueries({ queryKey: ['tasks'], exact: false });
       closeDialog();
     },
     onError: (err: unknown) => {

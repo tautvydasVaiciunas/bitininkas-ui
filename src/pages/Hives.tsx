@@ -69,6 +69,7 @@ import {
   type MultiSelectOption,
 } from "@/components/UserMultiSelect";
 import { TagSelect } from "@/components/TagSelect";
+import { formatDateIsoOr } from "@/lib/date";
 
 type UpdateHiveVariables = {
   id: string;
@@ -98,27 +99,6 @@ type CreateHiveFormState = {
 };
 
 
-const formatDate = (value?: string | null) => {
-  if (!value) return "-";
-  const date = new Date(value);
-  if (Number.isNaN(date.getTime())) return "-";
-  return date.toLocaleDateString("lt-LT", {
-    year: "numeric",
-    month: "long",
-    day: "numeric",
-  });
-};
-
-const formatMonthYear = (value?: string | null) => {
-  if (!value) return "-";
-  const date = new Date(value);
-  if (Number.isNaN(date.getTime())) return "-";
-  return date.toLocaleDateString("lt-LT", {
-    year: "numeric",
-    month: "long",
-  });
-};
-
 type SubscriptionTone = "inactive" | "active" | "expiring";
 
 const SUBSCRIPTION_COLORS: Record<SubscriptionTone, string> = {
@@ -128,13 +108,6 @@ const SUBSCRIPTION_COLORS: Record<SubscriptionTone, string> = {
 };
 
 const MS_PER_DAY = 1000 * 60 * 60 * 24;
-
-const formatLithuanianDate = (value: string) =>
-  new Date(value).toLocaleDateString("lt-LT", {
-    year: "numeric",
-    month: "long",
-    day: "numeric",
-  });
 
 const getSubscriptionStatus = (value?: string | null) => {
   if (!value) {
@@ -154,7 +127,7 @@ const getSubscriptionStatus = (value?: string | null) => {
     return { text: "Neaktyvi", tone: "inactive" as SubscriptionTone };
   }
 
-  const formatted = formatLithuanianDate(value);
+  const formatted = formatDateIsoOr(value);
   const label = `Aktyvi iki ${formatted}`;
 
   if (diffDays <= 30) {
@@ -264,7 +237,7 @@ function HiveCard({
                 <span className="text-muted-foreground">
                   Bičių šeimos suleidimas:
                 </span>
-                <span>{formatMonthYear(hive.createdAt)}</span>
+                  <span>{formatDateIsoOr(hive.createdAt)}</span>
               </div>
 
               <div className={summaryWrapperClass}>

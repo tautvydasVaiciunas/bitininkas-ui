@@ -45,8 +45,8 @@ export function renderEmailLayout({
         <td align="center" style="padding: 24px 16px;">
           <table role="presentation" width="600" cellspacing="0" cellpadding="0" style="border-radius: 12px; overflow: hidden;">
             <tr>
-              <td style="background-color: #fed773; padding: 14px 24px; text-align: left;">
-                <div style="display:block;">
+              <td style="background-color: #fed773; padding: 24px 24px 16px 24px; text-align: left;">
+                <div style="display:block; padding-top: 6px;">
                   <img src="cid:${LOGO_CID}" alt="Bus medaus" style="display: block; width: 140px; height: auto; border: 0; outline: none; text-decoration: none;" />
                 </div>
               </td>

@@ -29,6 +29,7 @@ import { useAuth } from '@/contexts/AuthContext';
 import { useToast } from '@/components/ui/use-toast';
 import { UserMultiSelect, type MultiSelectOption } from '@/components/UserMultiSelect';
 import { TagSelect } from '@/components/TagSelect';
+import { formatDateIsoOr } from '@/lib/date';
 
 type EditFormState = {
   label: string;
@@ -263,18 +264,6 @@ export default function HiveDetail() {
     });
   }, [assignments, today]);
 
-const formatDate = (dateStr: string) => {
-  const date = new Date(dateStr);
-  return date.toLocaleDateString('lt-LT', { year: 'numeric', month: 'long', day: 'numeric' });
-};
-
-const formatMonthYear = (value?: string | null) => {
-  if (!value) return '-';
-  const date = new Date(value);
-  if (Number.isNaN(date.getTime())) return '-';
-  return date.toLocaleDateString('lt-LT', { year: 'numeric', month: 'long' });
-};
-
   const friendlyId = hive ? `HIVE-${hive.id.slice(0, 8).toUpperCase()}` : '';
   const showFriendlyId = import.meta.env.MODE === 'development';
 
@@ -402,7 +391,7 @@ const formatMonthYear = (value?: string | null) => {
               )}
               <div className="flex items-center gap-1">
                 <Calendar className="w-4 h-4" />
-                Sukurta: {formatDate(hive.createdAt ?? new Date().toISOString())}
+                Bičių suleidimas: {formatDateIsoOr(hive.createdAt)}
               </div>
             </div>
           </div>
@@ -455,8 +444,8 @@ const formatMonthYear = (value?: string | null) => {
                 </div>
               )}
               <div>
-                <p className="text-sm text-muted-foreground mb-1">Sukurta</p>
-                <p className="font-medium">{formatMonthYear(hive.createdAt ?? null)}</p>
+                <p className="text-sm text-muted-foreground mb-1">Bičių suleidimas</p>
+                <p className="font-medium">{formatDateIsoOr(hive.createdAt)}</p>
               </div>
               <div className="md:col-span-3">
                 <p className="text-sm text-muted-foreground mb-1">Priskirti vartotojai</p>
@@ -509,7 +498,7 @@ const formatMonthYear = (value?: string | null) => {
                               {getStatusBadge(assignment.status, assignment.dueDate)}
                             </div>
                             <div className="flex items-center gap-4 text-sm text-muted-foreground">
-                              <span>Terminas: {formatDate(assignment.dueDate)}</span>
+                              <span>Terminas: {formatDateIsoOr(assignment.dueDate)}</span>
                             </div>
                             <div className="space-y-1">
                               <div className="flex items-center justify-between text-sm">

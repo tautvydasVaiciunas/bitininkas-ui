@@ -101,7 +101,7 @@ const NewsDetail = () => {
             url={coverUrl ?? undefined}
             type={coverMediaType}
             title={data.title}
-            className="rounded-none w-full h-auto mx-auto"
+            className="w-full h-auto mx-auto"
           />
         </div>
         <CardHeader className="space-y-4">

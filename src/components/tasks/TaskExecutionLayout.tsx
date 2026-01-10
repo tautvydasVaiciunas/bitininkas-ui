@@ -132,9 +132,9 @@ export function TaskExecutionLayout(props: TaskExecutionLayoutProps) {
 
       <Card className="shadow-custom">
         <CardContent className="p-6">
-            <div className="space-y-2">
-              <div className="flex items-center justify-between text-sm">
-                <span className="text-muted-foreground">Užduoties progresas</span>
+          <div className="space-y-2">
+            <div className="flex items-center justify-between text-sm">
+              <span className="text-muted-foreground">Užduoties progresas</span>
               <span className="font-semibold">{progressPercent}%</span>
             </div>
             <Progress value={progressPercent} className="h-3" />
@@ -261,7 +261,7 @@ export function TaskExecutionLayout(props: TaskExecutionLayoutProps) {
                       {currentStep?.contentText ?? 'Šio žingsnio instrukcijos nepateiktos.'}
                     </p>
                   </div>
-                    <div className="rounded-2xl border border-muted/40 bg-muted/10 p-4 min-h-[220px]">
+                  <div className="rounded-2xl border border-muted/40 bg-muted/10 p-4 min-h-[220px]">
                       {currentMediaUrl ? (
                         <div className="flex h-full w-full items-center justify-center">
                           <div className="w-full max-w-[640px]">
@@ -280,7 +280,6 @@ export function TaskExecutionLayout(props: TaskExecutionLayoutProps) {
                           </p>
                         </div>
                       )}
-                    </div>
                   </div>
                   {requiresUserMedia ? (
                     <>

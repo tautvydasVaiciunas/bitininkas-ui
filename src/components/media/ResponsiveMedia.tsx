@@ -67,20 +67,20 @@ export const ResponsiveMedia = ({
           src={resolvedUrl}
           controls
           preload="metadata"
-        className={`h-full w-full ${objectFitClass}`}
-        crossOrigin="anonymous"
-        onError={() => setVideoError(true)}
-      />
-    </div>
-  );
-}
+          className={`h-full w-full ${objectFitClass}`}
+          crossOrigin="anonymous"
+          onError={() => setVideoError(true)}
+        />
+      </div>
+    );
+  }
 
-return (
-  <div className={wrapperClass}>
+  return (
+    <div className={wrapperClass}>
       <img
         src={resolvedUrl ?? FALLBACK_MEDIA_SRC}
         alt={title}
-    className={`h-full w-full ${objectFitClass}`}
+        className={`h-full w-full ${objectFitClass}`}
         loading="lazy"
         crossOrigin="anonymous"
         onError={(event) => applyImageFallback(event.currentTarget)}

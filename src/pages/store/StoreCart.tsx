@@ -31,8 +31,8 @@ const StoreCart = () => {
           </Button>
         </div>
       ) : (
-        <div className="space-y-6">
-          <div className="space-y-4 rounded-lg border bg-white p-4 shadow-sm">
+        <div className="space-y-6 lg:grid lg:grid-cols-[minmax(0,1.4fr)_minmax(0,0.7fr)] lg:items-start lg:gap-6">
+          <div className="order-2 space-y-4 rounded-lg border bg-white p-4 shadow-sm lg:order-1">
             {items.map((item) => {
               const grossUnit = netToGrossCents(item.priceCents);
               return (
@@ -68,36 +68,40 @@ const StoreCart = () => {
               );
             })}
           </div>
-          <div className="space-y-3 rounded-lg border bg-white p-4 shadow-sm">
-            <div className="flex flex-col gap-3 text-sm sm:text-base">
-              <div className="flex items-center justify-between">
-                <span className="text-muted-foreground">Tarpinė suma (be PVM)</span>
-                <span className="font-medium">{formatPrice(subtotalNetCents)}</span>
+          <div className="order-1 space-y-3 lg:order-2">
+            <div className="sticky top-6 space-y-3 lg:z-10">
+              <div className="space-y-3 rounded-lg border bg-white p-4 shadow-sm">
+                <div className="flex flex-col gap-3 text-sm sm:text-base">
+                  <div className="flex items-center justify-between">
+                    <span className="text-muted-foreground">Tarpinė suma (be PVM)</span>
+                    <span className="font-medium">{formatPrice(subtotalNetCents)}</span>
+                  </div>
+                  <div className="flex items-center justify-between">
+                    <span className="text-muted-foreground">PVM (21%)</span>
+                    <span className="font-medium">{formatPrice(vatCents)}</span>
+                  </div>
+                </div>
+                <div className="flex items-center justify-between border-t pt-3">
+                  <div>
+                    <p className="text-sm text-muted-foreground">Iš viso (su PVM)</p>
+                    <p className="text-2xl font-bold">{formatPrice(totalGrossCents)}</p>
+                  </div>
+                </div>
               </div>
-              <div className="flex items-center justify-between">
-                <span className="text-muted-foreground">PVM (21%)</span>
-                <span className="font-medium">{formatPrice(vatCents)}</span>
+              <div className="space-y-3 rounded-lg border bg-white p-4 shadow-sm">
+                <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-end">
+                  <Button asChild className="w-full sm:w-auto">
+                    <Link to="/parduotuve/uzsakymas" className="block text-center">
+                      Pereiti prie užsakymo
+                    </Link>
+                  </Button>
+                  <Button asChild variant="outline" className="w-full sm:w-auto">
+                    <Link to="/parduotuve" className="block text-center">
+                      Tęsti apsipirkimą
+                    </Link>
+                  </Button>
+                </div>
               </div>
-            </div>
-            <div className="flex items-center justify-between border-t pt-3">
-              <div>
-                <p className="text-sm text-muted-foreground">Iš viso (su PVM)</p>
-                <p className="text-2xl font-bold">{formatPrice(totalGrossCents)}</p>
-              </div>
-            </div>
-          </div>
-          <div className="space-y-3 rounded-lg border bg-white p-4 shadow-sm">
-            <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-end">
-              <Button asChild className="w-full sm:w-auto">
-                <Link to="/parduotuve/uzsakymas" className="block text-center">
-                  Pereiti prie užsakymo
-                </Link>
-              </Button>
-              <Button asChild variant="outline" className="w-full sm:w-auto">
-                <Link to="/parduotuve" className="block text-center">
-                  Tęsti apsipirkimą
-                </Link>
-              </Button>
             </div>
           </div>
         </div>

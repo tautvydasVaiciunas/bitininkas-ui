@@ -22,6 +22,7 @@ import { EmailModule } from '../email/email.module';
 import { AssignmentStepMedia } from './assignment-step-media.entity';
 import { AssignmentStepMediaService } from './assignment-step-media.service';
 import { AssignmentStepMediaController } from './assignment-step-media.controller';
+import { UploadsModule } from '../uploads/uploads.module';
 
 @Module({
   imports: [
@@ -42,6 +43,7 @@ import { AssignmentStepMediaController } from './assignment-step-media.controlle
     NotificationsModule,
     HiveEventsModule,
     EmailModule,
+    UploadsModule,
     forwardRef(() => HivesModule),
   ],
   providers: [AssignmentsService, AssignmentsScheduler, AssignmentStepMediaService],

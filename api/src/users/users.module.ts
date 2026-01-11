@@ -8,9 +8,10 @@ import { User } from './user.entity';
 import { ActivityLogModule } from '../activity-log/activity-log.module';
 import { PasswordResetModule } from '../auth/password-reset.module';
 import { EmailModule } from '../email/email.module';
+import { UploadsModule } from '../uploads/uploads.module';
 
 @Module({
-  imports: [TypeOrmModule.forFeature([User]), ActivityLogModule, PasswordResetModule, EmailModule],
+  imports: [TypeOrmModule.forFeature([User]), ActivityLogModule, PasswordResetModule, EmailModule, UploadsModule],
   providers: [UsersService],
   controllers: [UsersController, ProfileController],
   exports: [UsersService],

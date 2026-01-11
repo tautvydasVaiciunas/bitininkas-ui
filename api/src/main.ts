@@ -12,10 +12,12 @@ import {
   ensureNewsPlaceholderFile,
   resolvePublicFallback,
   resolveUploadsDir,
+  stripUploadsPrefix,
   uploadsPrefix,
 } from './common/config/storage.config';
 
 import { AppModule } from './app.module';
+import { UploadsService } from './uploads/uploads.service';
 import { HttpExceptionFilter } from './common/filters/http-exception.filter';
 import { RequestLoggingMiddleware } from './common/middleware/request-logging.middleware';
 
@@ -89,10 +91,11 @@ async function bootstrap() {
   const uploadsDir = resolveUploadsDir();
   const ensuredPlaceholder = ensureNewsPlaceholderFile();
   const fallbackPublic = resolvePublicFallback();
+  const uploadsService = app.get(UploadsService);
 
   app.use(
     uploadsPrefix(),
-    (req, res, next) => {
+    async (req, res, next) => {
       res.setHeader('Cross-Origin-Resource-Policy', 'cross-origin');
       res.setHeader('Cache-Control', 'public, max-age=31536000, immutable');
 
@@ -114,6 +117,18 @@ async function bootstrap() {
         req.url = `/${sanitized}${query}`;
         next();
         return;
+      }
+
+      const relativePath =
+        sanitized && sanitized.length ? stripUploadsPrefix(`/${sanitized}`) ?? sanitized : sanitized;
+      if (relativePath) {
+        const stored = await uploadsService.findByRelativePath(relativePath);
+        if (stored) {
+          res.setHeader('Content-Type', stored.mimeType);
+          res.setHeader('Content-Length', String(stored.sizeBytes));
+          res.send(stored.data);
+          return;
+        }
       }
 
       const fallbackCandidate =

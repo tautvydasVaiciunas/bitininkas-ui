@@ -1,10 +1,10 @@
-﻿import {
+import {
   BadRequestException,
   Body,
   Controller,
   Patch,
   Post,
-  Request,
+  Req,
   UploadedFile,
   UseInterceptors,
 } from '@nestjs/common';
@@ -13,6 +13,7 @@ import { diskStorage } from 'multer';
 import { extname } from 'path';
 import { randomUUID } from 'crypto';
 import { promises as fs } from 'fs';
+import { Express, Request } from 'express';
 
 import { UsersService } from './users.service';
 import { UpdateProfileDto } from './dto/update-profile.dto';
@@ -20,8 +21,11 @@ import { UpdatePasswordDto } from './dto/update-password.dto';
 import {
   ensureUploadsSubdir,
   resolveUploadsDir,
+  stripUploadsPrefix,
   uploadsPrefix,
 } from '../common/config/storage.config';
+import { resolveRequestBaseUrl } from '../common/utils/request-base-url';
+import { UploadsService } from '../uploads/uploads.service';
 
 const AVATAR_SUBDIR = 'avatars';
 const MAX_AVATAR_SIZE_BYTES = 5 * 1024 * 1024;
@@ -46,11 +50,14 @@ const deleteFileIfExists = async (filePath?: string) => {
 
 @Controller('profile')
 export class ProfileController {
-  constructor(private readonly usersService: UsersService) {}
+  constructor(
+    private readonly usersService: UsersService,
+    private readonly uploadsService: UploadsService,
+  ) {}
 
   @Patch()
-  update(@Body() dto: UpdateProfileDto, @Request() req) {
-    return this.usersService.updateProfile(req.user.id, dto).then((user) => ({
+  update(@Req() req: Request & { user: { id: string } }, @Body() _dto: UpdateProfileDto) {
+    return this.usersService.updateProfile(req.user.id, _dto).then((user) => ({
       id: user.id,
       email: user.email,
       name: user.name,
@@ -64,7 +71,7 @@ export class ProfileController {
   }
 
   @Patch('password')
-  updatePassword(@Body() dto: UpdatePasswordDto, @Request() req) {
+  updatePassword(@Req() req: Request & { user: { id: string } }, @Body() dto: UpdatePasswordDto) {
     return this.usersService.updatePassword(req.user.id, dto);
   }
 
@@ -88,7 +95,7 @@ export class ProfileController {
       fileFilter: (_req, file, cb) => {
         if (!isAllowedMimeType(file.mimetype)) {
           cb(
-            new BadRequestException('Leidžiami tik PNG, JPEG arba WEBP formato paveikslėliai.'),
+            new BadRequestException('Leidžiami tik PNG, JPEG arba WEBP formato paveiksleliai.'),
             false,
           );
           return;
@@ -98,22 +105,35 @@ export class ProfileController {
       },
     }),
   )
-  async uploadAvatar(@Request() req, @UploadedFile() file: Express.Multer.File | undefined) {
+  async uploadAvatar(
+    @Req() req: Request & { user: { id: string } },
+    @UploadedFile() file: Express.Multer.File | undefined,
+  ) {
     if (!file) {
       throw new BadRequestException('Failas nebuvo pateiktas');
     }
 
     if (file.size > MAX_AVATAR_SIZE_BYTES) {
       await deleteFileIfExists(file.path);
-      throw new BadRequestException('Leidžiamas maksimalus avataro dydis – 5 MB.');
+      throw new BadRequestException('Leidžiamas maksimalus avataro dydis - 5 MB.');
     }
 
     if (!isAllowedMimeType(file.mimetype)) {
       await deleteFileIfExists(file.path);
-      throw new BadRequestException('Leidžiami tik PNG, JPEG arba WEBP formato paveikslėliai.');
+      throw new BadRequestException('Leidžiami tik PNG, JPEG arba WEBP formato paveiksleliai.');
     }
 
-    const avatarUrl = `${uploadsPrefix()}/${AVATAR_SUBDIR}/${file.filename}`;
+    const canonicalPath = `${uploadsPrefix()}/${AVATAR_SUBDIR}/${file.filename}`;
+    const relativePath = stripUploadsPrefix(canonicalPath) ?? `${AVATAR_SUBDIR}/${file.filename}`;
+    await this.uploadsService.storeFromDisk({
+      relativePath,
+      absolutePath: file.path,
+      mimeType: file.mimetype ?? 'image/png',
+      sizeBytes: file.size,
+    });
+
+    const baseUrl = resolveRequestBaseUrl(req);
+    const avatarUrl = baseUrl ? `${baseUrl}${canonicalPath}` : canonicalPath;
     await this.usersService.setAvatar(req.user.id, avatarUrl);
     return { avatarUrl };
   }

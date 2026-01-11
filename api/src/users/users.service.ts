@@ -26,7 +26,12 @@ import {
 import { UpdatePasswordDto } from './dto/update-password.dto';
 import { PasswordResetService } from '../auth/password-reset.service';
 import { EmailService } from '../email/email.service';
-import { resolveUploadsDir, uploadsPrefix } from '../common/config/storage.config';
+import {
+  resolveUploadsDir,
+  stripUploadsPrefix,
+  uploadsPrefix,
+} from '../common/config/storage.config';
+import { UploadsService } from '../uploads/uploads.service';
 
 type UserGroupDto = {
   id: string;
@@ -60,6 +65,7 @@ export class UsersService {
     private readonly pagination: PaginationService,
     private readonly passwordResetService: PasswordResetService,
     private readonly emailService: EmailService,
+    private readonly uploadsService: UploadsService,
   ) {}
 
   private normalizeNullableString(value?: string | null) {
@@ -81,26 +87,25 @@ export class UsersService {
       return;
     }
 
-    const prefix = `${uploadsPrefix()}/${UsersService.AVATAR_SUBDIR}/`;
-    if (!avatarUrl.startsWith(prefix)) {
+    const relativePath = stripUploadsPrefix(avatarUrl);
+    if (!relativePath || !relativePath.startsWith(`${UsersService.AVATAR_SUBDIR}/`)) {
       return;
     }
 
-    const filename = avatarUrl.slice(prefix.length);
-    if (!filename) {
-      return;
-    }
-
-    const filePath = path.join(resolveUploadsDir(), UsersService.AVATAR_SUBDIR, filename);
+    const filePath = path.join(resolveUploadsDir(), relativePath);
     try {
       await fs.unlink(filePath);
     } catch (error) {
       if ((error as NodeJS.ErrnoException).code !== 'ENOENT') {
         this.logger.debug(
-          `Nepavyko pašalinti seno avataro failo ${filename}: ${(error as Error).message}`,
+          `Nepavyko pašalinti seno avataro failo ${relativePath}: ${
+            (error as Error).message
+          }`,
         );
       }
     }
+
+    await this.uploadsService.deleteByRelativePath(relativePath);
   }
 
   async create(createUserDto: CreateUserDto) {

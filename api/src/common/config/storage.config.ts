@@ -38,6 +38,41 @@ export function uploadsPrefix(): string {
   return UPLOADS_PREFIX;
 }
 
+export function stripUploadsPrefix(value?: string | null): string | null {
+  if (!value) {
+    return null;
+  }
+
+  let normalized = value.trim();
+
+  const queryIndex = normalized.indexOf('?');
+  if (queryIndex !== -1) {
+    normalized = normalized.slice(0, queryIndex);
+  }
+
+  const hashIndex = normalized.indexOf('#');
+  if (hashIndex !== -1) {
+    normalized = normalized.slice(0, hashIndex);
+  }
+
+  try {
+    if (/^https?:\/\//i.test(normalized)) {
+      const parsed = new URL(normalized);
+      normalized = parsed.pathname;
+    }
+  } catch {
+    // ignore invalid URLs
+  }
+
+  if (normalized.startsWith(UPLOADS_PREFIX)) {
+    normalized = normalized.slice(UPLOADS_PREFIX.length);
+  }
+
+  normalized = normalized.replace(/^\/+/, '');
+
+  return normalized.length ? normalized : null;
+}
+
 export const NEWS_PLACEHOLDER_URI = `${uploadsPrefix()}/${NEWS_PLACEHOLDER_RELATIVE.replace(/\\/g, '/')}`;
 
 export function ensureUploadsFile(targetRelative: string, sourceAbsolute: string): string | null {

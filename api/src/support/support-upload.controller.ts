@@ -2,6 +2,7 @@ import {
   BadRequestException,
   Controller,
   Post,
+  Req,
   UploadedFile,
   UseFilters,
   UseGuards,
@@ -12,7 +13,7 @@ import { diskStorage } from 'multer';
 import { extname } from 'node:path';
 import { unlink } from 'node:fs/promises';
 import { randomUUID } from 'node:crypto';
-import { Express } from 'express';
+import { Express, Request } from 'express';
 
 import { JwtAuthGuard } from '../common/guards/jwt-auth.guard';
 import { MulterExceptionFilter } from '../common/filters/multer-exception.filter';
@@ -23,7 +24,14 @@ import {
   RATE_LIMIT_TTL_SECONDS,
   UPLOAD_MAX_VIDEO_BYTES,
 } from '../common/config/security.config';
-import { ensureUploadsDir, resolveUploadsDir, uploadsPrefix } from '../common/config/storage.config';
+import {
+  ensureUploadsDir,
+  resolveUploadsDir,
+  stripUploadsPrefix,
+  uploadsPrefix,
+} from '../common/config/storage.config';
+import { resolveRequestBaseUrl } from '../common/utils/request-base-url';
+import { UploadsService } from '../uploads/uploads.service';
 
 const MIME_EXTENSION_MAP: Record<string, string> = {
   'image/jpeg': '.jpg',
@@ -43,6 +51,8 @@ const resolveFileName = (file: Express.Multer.File) => {
 @UseFilters(MulterExceptionFilter)
 @Controller('support')
 export class SupportUploadController {
+  constructor(private readonly uploadsService: UploadsService) {}
+
   @Post('upload')
   @UseInterceptors(
     FileInterceptor('file', {
@@ -80,7 +90,7 @@ export class SupportUploadController {
       },
     }),
   )
-  async upload(@UploadedFile() file?: Express.Multer.File) {
+  async upload(@UploadedFile() file?: Express.Multer.File, @Req() req?: Request) {
     if (!file) {
       throw new BadRequestException('Failas nebuvo pateiktas');
     }
@@ -95,8 +105,21 @@ export class SupportUploadController {
     const kind =
       mimeType.startsWith('image/') ? 'image' : mimeType.startsWith('video/') ? 'video' : 'other';
 
+    const relativePath =
+      stripUploadsPrefix(`${uploadsPrefix()}/${file.filename}`) ?? file.filename;
+    await this.uploadsService.storeFromDisk({
+      relativePath,
+      absolutePath: file.path,
+      mimeType,
+      sizeBytes: file.size,
+    });
+
+    const canonicalPath = `${uploadsPrefix()}/${file.filename}`;
+    const baseUrl = req ? resolveRequestBaseUrl(req) : null;
+    const url = baseUrl ? `${baseUrl}${canonicalPath}` : canonicalPath;
+
     return {
-      url: `${uploadsPrefix()}/${file.filename}`,
+      url,
       mimeType,
       sizeBytes: file.size,
       kind,

@@ -31,6 +31,7 @@ import { StoreModule } from './store/store.module';
 import { DebugModule } from './debug/debug.module';
 import { SupportModule } from './support/support.module';
 import { EmailModule } from './email/email.module';
+import { UploadsModule } from './uploads/uploads.module';
 
 import ormConfig from './typeorm.config';
 
@@ -81,6 +82,7 @@ import ormConfig from './typeorm.config';
     TemplatesModule,
     MediaModule,
     NewsModule,
+    UploadsModule,
     StoreModule,
     EmailModule,
     DebugModule,

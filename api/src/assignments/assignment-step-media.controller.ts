@@ -1,4 +1,4 @@
-﻿import {
+import {
   BadRequestException,
   Controller,
   Delete,
@@ -6,18 +6,18 @@
   NotFoundException,
   Param,
   Post,
+  Req,
   UploadedFile,
   UseFilters,
   UseGuards,
   UseInterceptors,
-  Req,
 } from '@nestjs/common';
 import { FileInterceptor } from '@nestjs/platform-express';
 import { diskStorage } from 'multer';
 import { extname } from 'node:path';
 import { randomUUID } from 'node:crypto';
 import { unlink } from 'node:fs/promises';
-import { Express } from 'express';
+import { Express, Request } from 'express';
 
 import { JwtAuthGuard } from '../common/guards/jwt-auth.guard';
 import { MulterExceptionFilter } from '../common/filters/multer-exception.filter';
@@ -29,8 +29,11 @@ import {
 import {
   ensureUploadsDir,
   resolveUploadsDir,
+  stripUploadsPrefix,
   uploadsPrefix,
 } from '../common/config/storage.config';
+import { resolveRequestBaseUrl } from '../common/utils/request-base-url';
+import { UploadsService } from '../uploads/uploads.service';
 import { UserRole } from '../users/user.entity';
 
 import { AssignmentsService } from './assignments.service';
@@ -55,6 +58,7 @@ export class AssignmentStepMediaController {
   constructor(
     private readonly assignmentsService: AssignmentsService,
     private readonly stepMedia: AssignmentStepMediaService,
+    private readonly uploadsService: UploadsService,
   ) {}
 
   @Post(':assignmentId/steps/:stepId/media')
@@ -88,7 +92,7 @@ export class AssignmentStepMediaController {
     @Param('assignmentId') assignmentId: string,
     @Param('stepId') stepId: string,
     @UploadedFile() file: Express.Multer.File,
-    @Req() req: Express.Request & { user: { id: string; role: string } },
+    @Req() req: Request & { user: { id: string; role: string } },
   ) {
     if (!file) {
       throw new BadRequestException('Failas nebuvo pateiktas');
@@ -101,12 +105,24 @@ export class AssignmentStepMediaController {
 
     const today = new Date().toISOString().slice(0, 10);
     if (assignment.startDate && assignment.startDate > today) {
-      throw new ForbiddenException('Užduotis dar neprasidėjo.');
+      throw new ForbiddenException('Uzduotis dar neprasidejo.');
     }
 
     const mimeType = file.mimetype ?? 'application/octet-stream';
-    const kind = mimeType.startsWith('image/') ? 'image' : mimeType.startsWith('video/') ? 'video' : 'other';
-    const url = `${uploadsPrefix()}/${file.filename}`;
+    const kind =
+      mimeType.startsWith('image/') ? 'image' : mimeType.startsWith('video/') ? 'video' : 'other';
+
+    const canonicalPath = `${uploadsPrefix()}/${file.filename}`;
+    const relativePath = stripUploadsPrefix(canonicalPath) ?? file.filename;
+    await this.uploadsService.storeFromDisk({
+      relativePath,
+      absolutePath: file.path,
+      mimeType,
+      sizeBytes: file.size,
+    });
+
+    const baseUrl = resolveRequestBaseUrl(req);
+    const url = baseUrl ? `${baseUrl}${canonicalPath}` : canonicalPath;
     const entity = await this.stepMedia.create({
       assignmentId: assignment.id,
       stepId,
@@ -132,7 +148,7 @@ export class AssignmentStepMediaController {
     @Param('assignmentId') assignmentId: string,
     @Param('stepId') stepId: string,
     @Param('mediaId') mediaId: string,
-    @Req() req: Express.Request & { user: { id: string; role: string } },
+    @Req() req: Request & { user: { id: string; role: string } },
   ) {
     const assignment = await this.assignmentsService.ensureUserCanAccessAssignment(
       assignmentId,
@@ -145,12 +161,11 @@ export class AssignmentStepMediaController {
     }
 
     if (media.userId !== req.user.id && req.user.role !== UserRole.ADMIN && req.user.role !== UserRole.MANAGER) {
-      throw new ForbiddenException('Jums neleidžiama modifikuoti šio failo');
+      throw new ForbiddenException('Jums neleidziama modifikuoti sio failo');
     }
 
     await this.stepMedia.remove(media);
 
     return { success: true };
   }
-
 }

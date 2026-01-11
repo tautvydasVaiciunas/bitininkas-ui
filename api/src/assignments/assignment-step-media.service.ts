@@ -1,12 +1,15 @@
-﻿import { unlink } from 'node:fs/promises';
+import { unlink } from 'node:fs/promises';
 import * as path from 'node:path';
 import { Injectable } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
 import { Repository } from 'typeorm';
+
 import {
   resolveUploadsDir,
+  stripUploadsPrefix,
   uploadsPrefix,
 } from '../common/config/storage.config';
+import { UploadsService } from '../uploads/uploads.service';
 import { AssignmentStepMedia } from './assignment-step-media.entity';
 
 @Injectable()
@@ -14,6 +17,7 @@ export class AssignmentStepMediaService {
   constructor(
     @InjectRepository(AssignmentStepMedia)
     private readonly repository: Repository<AssignmentStepMedia>,
+    private readonly uploadsService: UploadsService,
   ) {}
 
   async create(params: {
@@ -44,11 +48,9 @@ export class AssignmentStepMediaService {
     await this.repository.remove(media);
 
     const uploadsDir = resolveUploadsDir();
-    const prefix = uploadsPrefix();
-    let relativePath = media.url.startsWith(prefix)
-      ? media.url.slice(prefix.length)
-      : media.url;
-    relativePath = relativePath.replace(/^\/+/,'');
+    const canonicalPath = media.url;
+    const relativePath =
+      stripUploadsPrefix(canonicalPath) ?? canonicalPath.replace(/^\/+/, '');
 
     if (!relativePath) {
       return;
@@ -60,5 +62,7 @@ export class AssignmentStepMediaService {
     } catch {
       // ignore missing files
     }
+
+    await this.uploadsService.deleteByRelativePath(relativePath);
   }
 }

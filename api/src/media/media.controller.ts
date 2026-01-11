@@ -2,6 +2,7 @@ import {
   BadRequestException,
   Controller,
   Post,
+  Req,
   UploadedFile,
   UseFilters,
   UseInterceptors,
@@ -12,7 +13,7 @@ import { diskStorage } from 'multer';
 import { extname } from 'node:path';
 import { unlink } from 'node:fs/promises';
 import { randomUUID } from 'node:crypto';
-import { Express } from 'express';
+import { Express, Request } from 'express';
 
 import { Roles } from '../common/decorators/roles.decorator';
 import { UserRole } from '../users/user.entity';
@@ -24,7 +25,14 @@ import {
   getMaxBytesForMime,
   UPLOAD_MAX_VIDEO_BYTES,
 } from '../common/config/security.config';
-import { ensureUploadsDir, resolveUploadsDir, uploadsPrefix } from '../common/config/storage.config';
+import {
+  ensureUploadsDir,
+  resolveUploadsDir,
+  stripUploadsPrefix,
+  uploadsPrefix,
+} from '../common/config/storage.config';
+import { resolveRequestBaseUrl } from '../common/utils/request-base-url';
+import { UploadsService } from '../uploads/uploads.service';
 
 const MIME_EXTENSION_MAP: Record<string, string> = {
   'image/jpeg': '.jpg',
@@ -42,6 +50,8 @@ const resolveFileName = (file: Express.Multer.File) => {
 @UseFilters(MulterExceptionFilter)
 @Controller('media')
 export class MediaController {
+  constructor(private readonly uploadsService: UploadsService) {}
+
   @Post('upload')
   @Roles(UserRole.MANAGER, UserRole.ADMIN)
   @Throttle({ default: { limit: RATE_LIMIT_MAX, ttl: RATE_LIMIT_TTL_SECONDS * 1000 } })
@@ -74,7 +84,7 @@ export class MediaController {
         const request = req as Express.Request & { [SINGLE_FILE_FLAG]?: boolean };
 
         if (request[SINGLE_FILE_FLAG]) {
-          cb(new BadRequestException('Leidžiama įkelti tik vieną failą'), false);
+          cb(new BadRequestException('Leidžiama kelti tik vieną failą.'), false);
           return;
         }
 
@@ -88,7 +98,7 @@ export class MediaController {
       },
     }),
   )
-  async uploadMedia(@UploadedFile() file?: Express.Multer.File) {
+  async uploadMedia(@UploadedFile() file?: Express.Multer.File, @Req() req?: Request) {
     if (!file) {
       throw new BadRequestException('Failas nebuvo pateiktas');
     }
@@ -99,6 +109,19 @@ export class MediaController {
       throw new BadRequestException('Failas per didelis');
     }
 
-    return { url: `${uploadsPrefix()}/${file.filename}` };
+    const relativePath =
+      stripUploadsPrefix(`${uploadsPrefix()}/${file.filename}`) ?? file.filename;
+    await this.uploadsService.storeFromDisk({
+      relativePath,
+      absolutePath: file.path,
+      mimeType: file.mimetype ?? 'application/octet-stream',
+      sizeBytes: file.size,
+    });
+
+    const canonicalPath = `${uploadsPrefix()}/${file.filename}`;
+    const baseUrl = req ? resolveRequestBaseUrl(req) : null;
+    const url = baseUrl ? `${baseUrl}${canonicalPath}` : canonicalPath;
+
+    return { url };
   }
 }

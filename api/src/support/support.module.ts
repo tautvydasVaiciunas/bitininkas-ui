@@ -10,12 +10,14 @@ import { SupportUploadController } from './support-upload.controller';
 import { NotificationsModule } from '../notifications/notifications.module';
 import { User } from '../users/user.entity';
 import { EmailModule } from '../email/email.module';
+import { UploadsModule } from '../uploads/uploads.module';
 
 @Module({
   imports: [
     TypeOrmModule.forFeature([SupportThread, SupportMessage, SupportAttachment, User]),
     NotificationsModule,
     EmailModule,
+    UploadsModule,
   ],
   providers: [SupportService],
   controllers: [SupportController, SupportAdminController, SupportUploadController],

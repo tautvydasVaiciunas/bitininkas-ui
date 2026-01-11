@@ -426,7 +426,7 @@ const AdminSupport = () => {
                     {message.senderRole === 'user' ? 'Vartotojas' : 'Bus medaus komanda'} •{' '}
                     {new Date(message.createdAt).toLocaleString('lt-LT')}
                   </p>
-                  {message.text ? <p className="mt-2 whitespace-pre-wrap">{message.text}</p> : null}
+                  {message.text ? <p className="mt-2 whitespace-pre-wrap text-black">{message.text}</p> : null}
                   {(() => {
                     const attachments = message.attachments ?? [];
                     if (!attachments.length) {

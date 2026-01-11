@@ -5,6 +5,16 @@ import { MainLayout } from '@/components/Layout/MainLayout';
 import { Card, CardContent } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Skeleton } from '@/components/ui/skeleton';
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from '@/components/ui/alert-dialog';
 import { TaskExecutionLayout } from '@/components/tasks/TaskExecutionLayout';
 import api, {
   type AssignmentStepMediaResponse,
@@ -24,7 +34,7 @@ import {
   type StepProgressToggleResult,
 } from '@/lib/types';
 import { inferMediaType, resolveMediaUrl } from '@/lib/media';
-import { ChevronLeft } from 'lucide-react';
+import { ChevronLeft, Loader2, X } from 'lucide-react';
 import { toast } from 'sonner';
 
 const formatDate = (value?: string | null) => {
@@ -32,6 +42,11 @@ const formatDate = (value?: string | null) => {
   const date = new Date(value);
   if (Number.isNaN(date.getTime())) return '—';
   return date.toLocaleDateString('lt-LT', { year: 'numeric', month: 'long', day: 'numeric' });
+};
+
+type PendingMediaDeletion = {
+  media: AssignmentStepMediaResponse;
+  stepId: string;
 };
 
 const getErrorMessage = (error: unknown) => {
@@ -50,6 +65,9 @@ export default function TaskRun() {
   const [selectedMediaFile, setSelectedMediaFile] = useState<File | null>(null);
   const [mediaError, setMediaError] = useState<string | null>(null);
   const mediaInputRef = useRef<HTMLInputElement | null>(null);
+  const cameraInputRef = useRef<HTMLInputElement | null>(null);
+  const [pendingMediaDeletion, setPendingMediaDeletion] = useState<PendingMediaDeletion | null>(null);
+  const [isRemoveDialogOpen, setIsRemoveDialogOpen] = useState(false);
 
   const {
     data,
@@ -199,6 +217,46 @@ export default function TaskRun() {
       });
     },
   });
+
+  const deleteMediaMutation = useMutation<
+    { success: boolean },
+    HttpError | Error,
+    { stepId: string; media: AssignmentStepMediaResponse }
+  >({
+    mutationFn: ({ stepId, media }) => api.assignments.deleteStepMedia(id!, stepId, media.id),
+    onSuccess: (_, { stepId, media }) => {
+      queryClient.setQueryData<AssignmentDetails | undefined>(
+        ['assignments', id, 'run'],
+        (oldData) => removeMediaFromProgress(oldData, stepId, media.id),
+      );
+      queryClient.setQueryData<AssignmentDetails | undefined>(
+        ['assignments', id, 'details'],
+        (oldData) => removeMediaFromProgress(oldData, stepId, media.id),
+      );
+      toast.success('Failas pašalintas');
+      setPendingMediaDeletion(null);
+      setIsRemoveDialogOpen(false);
+    },
+    onError: (error) => {
+      toast.error('Nepavyko pašalinti failo', {
+        description: getErrorMessage(error),
+      });
+    },
+  });
+
+  const removeMediaFromProgress = (
+    oldData: AssignmentDetails | undefined,
+    stepId: string,
+    mediaId: string,
+  ) => {
+    if (!oldData) return oldData;
+    const progress = oldData.progress.map((entry) =>
+      entry.taskStepId === stepId
+        ? { ...entry, media: entry.media?.filter((item) => item.id !== mediaId) ?? [] }
+        : entry,
+    );
+    return { ...oldData, progress };
+  };
 
   const toggleStepMutation = useMutation<
     StepProgressToggleResult,
@@ -390,6 +448,31 @@ export default function TaskRun() {
     toggleStepMutation.mutate({ taskStepId: currentProgress.taskStepId, stepIndex: currentStepIndex });
   };
 
+  const handleRemoveMediaClick = (media: AssignmentStepMediaResponse) => {
+    if (!currentStep?.id) {
+      return;
+    }
+    setPendingMediaDeletion({ media, stepId: currentStep.id });
+    setIsRemoveDialogOpen(true);
+  };
+
+  const handleRemoveDialogOpenChange = (open: boolean) => {
+    if (!open) {
+      setPendingMediaDeletion(null);
+    }
+    setIsRemoveDialogOpen(open);
+  };
+
+  const handleDeleteConfirm = () => {
+    if (!pendingMediaDeletion || deleteMediaMutation.isPending) {
+      return;
+    }
+    deleteMediaMutation.mutate({
+      stepId: pendingMediaDeletion.stepId,
+      media: pendingMediaDeletion.media,
+    });
+  };
+
   const hasRated = Boolean(assignment?.ratedAt);
   const canSubmitRating =
     isRatingStep && ratingValue !== null && !hasRated;
@@ -449,7 +532,42 @@ export default function TaskRun() {
         toggleStepPending={toggleStepMutation.isPending}
         canUncompleteCurrentStep={canUncompleteCurrentStep}
         assignmentRating={assignment.rating ?? null}
+        cameraInputRef={cameraInputRef}
+        onRemoveMedia={handleRemoveMediaClick}
+        removeMediaPending={deleteMediaMutation.isPending}
       />
+      <AlertDialog
+        open={isRemoveDialogOpen && Boolean(pendingMediaDeletion)}
+        onOpenChange={handleRemoveDialogOpenChange}
+      >
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Ištrinti failą?</AlertDialogTitle>
+            <AlertDialogDescription>
+              Ar tikrai norite ištrinti šį failą?
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel disabled={deleteMediaMutation.isPending}>
+              Atšaukti
+            </AlertDialogCancel>
+            <AlertDialogAction
+              className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
+              onClick={handleDeleteConfirm}
+              disabled={!pendingMediaDeletion || deleteMediaMutation.isPending}
+            >
+              {deleteMediaMutation.isPending ? (
+                <>
+                  <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                  Pašalinama...
+                </>
+              ) : (
+                'Ištrinti'
+              )}
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
     </MainLayout>
   );
 }

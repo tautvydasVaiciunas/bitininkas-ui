@@ -7,7 +7,7 @@ import { Progress } from '@/components/ui/progress';
 import { Label } from '@/components/ui/label';
 import { Textarea } from '@/components/ui/textarea';
 import { AssignmentStatusBadge } from '@/components/AssignmentStatusBadge';
-import { CheckCircle2, ChevronLeft, ChevronRight, Loader2, RotateCcw, Star } from 'lucide-react';
+import { CheckCircle2, ChevronLeft, ChevronRight, Loader2, RotateCcw, Star, X } from 'lucide-react';
 import {
   AssignmentStepMediaResponse,
   AssignmentStatus,
@@ -35,10 +35,13 @@ export interface TaskExecutionLayoutProps {
   requiresUserMedia: boolean;
   existingMedia: AssignmentStepMediaResponse[];
   hasUploadedMedia: boolean;
-  mediaError?: string | null;
+  onRemoveMedia?: (media: AssignmentStepMediaResponse) => void;
+  removeMediaPending?: boolean;
+  mediaError?: string | null; 
   selectedMediaFileName?: string | null;
   uploadPending: boolean;
   mediaInputRef?: RefObject<HTMLInputElement>;
+  cameraInputRef?: RefObject<HTMLInputElement>;
   onUploadClick?: () => void;
   onFileChange?: (event: ChangeEvent<HTMLInputElement>) => void;
   isRatingStep: boolean;
@@ -86,6 +89,9 @@ export function TaskExecutionLayout(props: TaskExecutionLayoutProps) {
     selectedMediaFileName,
     uploadPending,
     mediaInputRef,
+    cameraInputRef,
+    onRemoveMedia,
+    removeMediaPending,
     onUploadClick,
     onFileChange,
     isRatingStep,
@@ -287,24 +293,42 @@ export function TaskExecutionLayout(props: TaskExecutionLayoutProps) {
                         Šiam žingsniui reikalinga jūsų nuotrauka arba vaizdo įrašas
                       </Badge>
                       <div className="space-y-4 rounded-2xl border border-amber-200/80 bg-amber-50/80 p-4">
-                        <div className="flex flex-wrap items-center gap-3">
-                          <Button
-                            type="button"
-                            variant="outline"
-                            onClick={onUploadClick}
-                            disabled={previewMode || uploadPending}
-                          >
-                            Įkelti nuotrauką / vaizdo įrašą
-                          </Button>
-                          {!previewMode && mediaInputRef ? (
-                            <input
-                              ref={mediaInputRef}
-                              type="file"
-                              accept="image/*,video/*"
-                              className="hidden"
-                              onChange={onFileChange}
-                            />
-                          ) : null}
+                      <div className="flex flex-wrap items-center gap-3">
+                        <Button
+                          type="button"
+                          variant="outline"
+                          onClick={onUploadClick}
+                          disabled={previewMode || uploadPending}
+                        >
+                          Įkelti nuotrauką / vaizdo įrašą
+                        </Button>
+                        <Button
+                          type="button"
+                          variant="outline"
+                          onClick={() => cameraInputRef?.current?.click()}
+                          disabled={previewMode || uploadPending}
+                        >
+                          Fotografuoti
+                        </Button>
+                        {!previewMode && mediaInputRef ? (
+                          <input
+                            ref={mediaInputRef}
+                            type="file"
+                            accept="image/*,video/*"
+                            className="hidden"
+                            onChange={onFileChange}
+                          />
+                        ) : null}
+                        {!previewMode ? (
+                          <input
+                            ref={cameraInputRef}
+                            type="file"
+                            accept="image/*"
+                            capture="environment"
+                            className="hidden"
+                            onChange={onFileChange}
+                          />
+                        ) : null}
                           <div className="flex items-center gap-1 text-sm text-muted-foreground">
                             {uploadPending ? (
                               <>
@@ -333,23 +357,35 @@ export function TaskExecutionLayout(props: TaskExecutionLayoutProps) {
                           <div className="space-y-3">
                             <p className="text-sm font-semibold text-foreground">Įkelti failai</p>
                             <div className="grid gap-3 md:grid-cols-2">
-                              {existingMedia.map((item) => {
-                                const uploadedAt = new Date(item.createdAt);
-                                const timeLabel = Number.isNaN(uploadedAt.getTime())
-                                  ? ''
-                                  : uploadedAt.toLocaleTimeString('lt-LT', {
-                                      hour: '2-digit',
-                                      minute: '2-digit',
-                                    });
-                                return (
+                            {existingMedia.map((item) => {
+                              const uploadedAt = new Date(item.createdAt);
+                              const timeLabel = Number.isNaN(uploadedAt.getTime())
+                                ? ''
+                                : uploadedAt.toLocaleTimeString('lt-LT', {
+                                    hour: '2-digit',
+                                    minute: '2-digit',
+                                  });
+                              return (
                                   <div key={item.id} className="space-y-1">
-                                    <ResponsiveMedia
-                                      url={item.url}
-                                      type={item.kind === 'video' ? 'video' : 'image'}
-                                      title={currentStep?.title ?? 'Žingsnis'}
-                                      className="h-36 aspect-auto"
-                                      fit="contain"
-                                    />
+                                    <div className="relative">
+                                      <ResponsiveMedia
+                                        url={item.url}
+                                        type={item.kind === 'video' ? 'video' : 'image'}
+                                        title={currentStep?.title ?? 'Žingsnis'}
+                                        className="h-36 aspect-auto"
+                                        fit="contain"
+                                      />
+                                      {onRemoveMedia ? (
+                                        <button
+                                          type="button"
+                                          onClick={() => onRemoveMedia(item)}
+                                          disabled={removeMediaPending}
+                                          className="absolute top-2 right-2 inline-flex h-7 w-7 items-center justify-center rounded-full bg-background/80 text-destructive transition hover:bg-destructive/10 disabled:cursor-not-allowed disabled:opacity-60"
+                                        >
+                                          <X className="h-3 w-3" />
+                                        </button>
+                                      ) : null}
+                                    </div>
                                     <p className="text-xs text-muted-foreground">
                                       Įkelta {formatDateIsoOr(item.createdAt)}
                                       {timeLabel ? `, ${timeLabel}` : ''}

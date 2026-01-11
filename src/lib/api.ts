@@ -1285,6 +1285,8 @@ export const api = {
       post<AssignmentStepMediaResponse>(`/assignments/${assignmentId}/steps/${stepId}/media`, {
         body: formData,
       }),
+    deleteStepMedia: (assignmentId: string, stepId: string, mediaId: string) =>
+      del<{ success: boolean }>(`/assignments/${assignmentId}/steps/${stepId}/media/${mediaId}`),
     review: (id: string, payload: SubmitAssignmentReviewPayload) =>
       patch<AssignmentResponse>(`/assignments/${id}/review`, { json: payload }),
     bulkFromTemplate: (payload: BulkAssignmentsFromTemplatePayload) =>

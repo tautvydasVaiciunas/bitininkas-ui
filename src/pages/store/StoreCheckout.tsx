@@ -4,6 +4,7 @@ import { useNavigate, Link } from "react-router-dom";
 import { StoreLayout } from "./StoreLayout";
 import { useCart } from "@/contexts/CartContext";
 import { formatPrice, netToGrossCents, VAT_RATE } from "./utils";
+import { resolveMediaUrl } from "@/lib/api";
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
 import { Button } from "@/components/ui/button";
@@ -34,8 +35,9 @@ const StoreCheckout = () => {
         quantity: item.quantity,
         lineNet: item.priceCents * item.quantity,
         lineGross: netToGrossCents(item.priceCents) * item.quantity,
+        imageUrl: item.imageUrl ?? undefined,
       })),
-    [items],
+      [items],
   );
 
   const validate = () => {
@@ -174,26 +176,42 @@ const StoreCheckout = () => {
           </div>
         </form>
 
-        <div className="space-y-4 rounded-lg border bg-white p-6 shadow-sm">
+        <div className="space-y-4 rounded-lg border bg-white p-6 shadow-sm lg:self-start sticky top-6">
           <h2 className="text-lg font-semibold">Krepšelio santrauka</h2>
-          <div className="space-y-2 text-sm text-muted-foreground">
+          <div className="space-y-4 text-sm text-muted-foreground">
             {cartSummary.map((item) => (
-              <div key={item.id} className="flex justify-between">
-                <span>
-                  {item.title} x {item.quantity}
-                </span>
-                <span>{formatPrice(item.lineGross)}</span>
+              <div key={item.id} className="flex items-center gap-3">
+                <div className="h-12 w-12 flex-shrink-0 overflow-hidden rounded-md bg-muted">
+                  {item.imageUrl ? (
+                    <img
+                      src={resolveMediaUrl(item.imageUrl)}
+                      alt={item.title}
+                      className="h-full w-full object-cover"
+                    />
+                  ) : (
+                    <div className="flex h-full w-full items-center justify-center text-[10px] uppercase text-muted-foreground">
+                      Nr
+                    </div>
+                  )}
+                </div>
+                <div className="flex-1 text-sm leading-snug text-foreground">
+                  <p className="font-medium text-foreground">
+                    {item.title}
+                  </p>
+                  <p className="text-xs text-muted-foreground">x {item.quantity}</p>
+                </div>
+                <span className="text-sm font-medium text-right">{formatPrice(item.lineGross)}</span>
               </div>
             ))}
           </div>
           <div className="space-y-2 border-t pt-4 text-sm">
             <div className="flex items-center justify-between">
               <span className="text-muted-foreground">Tarpinė suma (be PVM)</span>
-              <span className="font-medium">{formatPrice(subtotalNetCents)}</span>
+              <span className="font-medium text-right">{formatPrice(subtotalNetCents)}</span>
             </div>
             <div className="flex items-center justify-between">
               <span className="text-muted-foreground">PVM ({Math.round(VAT_RATE * 100)}%)</span>
-              <span className="font-medium">{formatPrice(vatCents)}</span>
+              <span className="font-medium text-right">{formatPrice(vatCents)}</span>
             </div>
             <div className="flex items-center justify-between text-base font-semibold">
               <span>Iš viso (su PVM)</span>

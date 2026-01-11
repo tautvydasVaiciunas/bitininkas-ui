@@ -1,7 +1,9 @@
 ﻿import {
   BadRequestException,
   Controller,
+  Delete,
   ForbiddenException,
+  NotFoundException,
   Param,
   Post,
   UploadedFile,
@@ -29,6 +31,8 @@ import {
   resolveUploadsDir,
   uploadsPrefix,
 } from '../common/config/storage.config';
+import { UserRole } from '../users/user.entity';
+
 import { AssignmentsService } from './assignments.service';
 import { AssignmentStepMediaService } from './assignment-step-media.service';
 
@@ -122,4 +126,31 @@ export class AssignmentStepMediaController {
       createdAt: entity.createdAt,
     };
   }
+
+  @Delete(':assignmentId/steps/:stepId/media/:mediaId')
+  async remove(
+    @Param('assignmentId') assignmentId: string,
+    @Param('stepId') stepId: string,
+    @Param('mediaId') mediaId: string,
+    @Req() req: Express.Request & { user: { id: string; role: string } },
+  ) {
+    const assignment = await this.assignmentsService.ensureUserCanAccessAssignment(
+      assignmentId,
+      req.user,
+    );
+
+    const media = await this.stepMedia.findById(mediaId);
+    if (!media || media.assignmentId !== assignment.id || media.stepId !== stepId) {
+      throw new NotFoundException('Failas nerastas');
+    }
+
+    if (media.userId !== req.user.id && req.user.role !== UserRole.ADMIN && req.user.role !== UserRole.MANAGER) {
+      throw new ForbiddenException('Jums neleidžiama modifikuoti šio failo');
+    }
+
+    await this.stepMedia.remove(media);
+
+    return { success: true };
+  }
+
 }

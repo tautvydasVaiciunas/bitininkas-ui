@@ -8,6 +8,7 @@ export type CartItem = {
   title: string;
   priceCents: number;
   quantity: number;
+  imageUrl?: string | null;
 };
 
 type CartContextValue = {
@@ -78,6 +79,7 @@ export const CartProvider = ({ children }: { children: React.ReactNode }) => {
           title: product.title,
           priceCents: product.priceCents,
           quantity: normalizedQuantity,
+          imageUrl: product.imageUrls?.[0] ?? null,
         },
       ];
     });

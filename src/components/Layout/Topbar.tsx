@@ -27,6 +27,7 @@ import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import api, { type NotificationsUnreadCountResponse } from '@/lib/api';
 import { mapNotificationFromApi, type Notification, type NotificationType } from '@/lib/types';
 import { buildAvatarSrc } from '@/lib/avatar';
+import { appRoutes } from '@/lib/routes';
 
 export const Topbar = () => {
   const [theme, setTheme] = useState<'light' | 'dark'>('light');
@@ -335,11 +336,11 @@ export const Topbar = () => {
               </Button>
             </DropdownMenuTrigger>
               <DropdownMenuContent align="end" className="w-56">
-                <DropdownMenuItem onClick={() => navigate('/profile')}>
+                <DropdownMenuItem onClick={() => navigate(appRoutes.profile)}>
                   <UserIcon className="mr-2 w-4 h-4" />
                   Profilis
                 </DropdownMenuItem>
-                <DropdownMenuItem onClick={() => navigate('/duk')}>
+                <DropdownMenuItem onClick={() => navigate(appRoutes.faq)}>
                 <HelpCircle className="mr-2 w-4 h-4" />
                   DUK
                 </DropdownMenuItem>

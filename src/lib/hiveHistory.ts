@@ -59,12 +59,14 @@ const toPrintableValue = (value: unknown) => {
   return stringValue.length ? stringValue : '—';
 };
 
+import { appRoutes } from '@/lib/routes';
+
 const buildAssignmentLink = (assignmentId?: unknown) => {
   if (typeof assignmentId !== 'string' || !assignmentId) {
     return undefined;
   }
 
-  return `/tasks/${assignmentId}/run`;
+  return appRoutes.taskRun(assignmentId);
 };
 
 export const formatHiveHistoryTimestamp = (value: string) => {

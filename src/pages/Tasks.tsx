@@ -31,6 +31,7 @@ import {
 import { AssignmentStatusBadge } from '@/components/AssignmentStatusBadge';
 import { assignmentStatusFilterOptions, resolveAssignmentUiStatus } from '@/lib/assignmentStatus';
 import { formatDateIsoOr } from '@/lib/date';
+import { appRoutes } from '@/lib/routes';
 import {
   Plus,
   Search,
@@ -625,8 +626,8 @@ export default function Tasks() {
             {filteredAssignments.map(({ assignment, hive, task, completion }) => {
               const isUpcoming = isAssignmentUpcoming(assignment);
               const previewLink = isUpcoming
-                ? `/tasks/${assignment.id}/preview`
-                : `/tasks/${assignment.id}`;
+                ? appRoutes.taskPreview(assignment.id)
+                : appRoutes.taskDetail(assignment.id);
 
               return (
               <Card key={assignment.id} className="shadow-custom hover:shadow-custom-md transition-all group">
@@ -693,7 +694,7 @@ export default function Tasks() {
                     <div className="flex flex-col gap-2 sm:flex-row sm:flex-wrap sm:justify-end lg:flex-col lg:items-end lg:gap-3">
                       {(() => {
                         const isActive = !isUpcoming && assignment.status !== 'done';
-                        const actionPath = isActive ? `/tasks/${assignment.id}/run` : `/tasks/${assignment.id}`;
+                        const actionPath = isActive ? appRoutes.taskRun(assignment.id) : appRoutes.taskDetail(assignment.id);
                         const actionLabel = isActive ? 'Vykdyti' : 'Peržiūrėti';
                         const actionVariant = isActive ? 'default' : 'outline';
                         return (

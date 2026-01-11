@@ -12,6 +12,7 @@ import { useToast } from "@/components/ui/use-toast";
 import { ToastAction } from "@/components/ui/toast";
 import { inferMediaType, resolveMediaUrl } from "@/lib/media";
 import { ResponsiveMedia } from "@/components/media/ResponsiveMedia";
+import { appRoutes } from "@/lib/routes";
 
 const PAGE_SIZE = 6;
 
@@ -147,7 +148,7 @@ const newsItems = useMemo<NewsPost[]>(
             {newsItems.map((post) => {
             const coverUrl = resolveMediaUrl(post.imageUrl);
             const coverType = inferMediaType(null, coverUrl);
-            const newsLink = `/news/${post.id}`;
+            const newsLink = appRoutes.newsDetail(post.id);
 
             return (
               <Card key={post.id} className="overflow-hidden">
@@ -178,7 +179,7 @@ const newsItems = useMemo<NewsPost[]>(
                     </CardContent>
                     <CardFooter className="mt-auto border-t border-border/60 bg-muted/10 p-6">
                       <Button asChild className="w-full sm:w-auto sm:ml-auto">
-                        <Link to={`/news/${post.id}`}>Skaityti</Link>
+                        <Link to={appRoutes.newsDetail(post.id)}>Skaityti</Link>
                       </Button>
                         </CardFooter>
                       </div>

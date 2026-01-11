@@ -10,6 +10,7 @@ import api from "@/lib/api";
 import { mapNewsPostFromApi } from "@/lib/types";
 import { inferMediaType, resolveMediaUrl } from "@/lib/media";
 import { ResponsiveMedia } from "@/components/media/ResponsiveMedia";
+import { appRoutes } from "@/lib/routes";
 
 const formatDateTime = (date: Date) =>
   date.toLocaleString("lt-LT", {
@@ -57,14 +58,14 @@ const NewsDetail = () => {
   }, [data]);
 
   if (!newsId) {
-    return <Navigate to="/news" replace />;
+    return <Navigate to={appRoutes.news} replace />;
   }
 
   return (
     <MainLayout>
       <div className="space-y-6">
         <Button asChild variant="ghost" className="-ml-2 w-fit">
-          <Link to="/news" className="flex items-center gap-2">
+          <Link to={appRoutes.news} className="flex items-center gap-2">
             <ArrowLeft className="h-4 w-4" /> Grįžti į naujienas
           </Link>
         </Button>
@@ -125,7 +126,7 @@ const NewsDetail = () => {
                   size="lg"
                   className="mt-4 w-full sm:w-auto justify-center"
                 >
-                  <Link to="/tasks">Vykdyti užduotį</Link>
+                  <Link to={appRoutes.tasks}>Vykdyti užduotį</Link>
                 </Button>
               </CardFooter>
             ) : null}

@@ -36,6 +36,7 @@ import {
 import { inferMediaType, resolveMediaUrl } from '@/lib/media';
 import { ChevronLeft, Loader2, X } from 'lucide-react';
 import { toast } from 'sonner';
+import { appRoutes } from '@/lib/routes';
 
 const formatDate = (value?: string | null) => {
   if (!value) return '—';
@@ -366,7 +367,7 @@ export default function TaskRun() {
         return { ...oldData, assignment: updatedAssignment };
       });
       toast.success('Ačiū už vertinimą');
-      navigate('/tasks');
+      navigate(appRoutes.tasks);
     },
     onError: (ratingError: HttpError | Error) => {
       toast.error('Nepavyko išsiųsti vertinimo', {
@@ -413,7 +414,7 @@ export default function TaskRun() {
           <CardContent className="p-12 text-center">
             <h3 className="text-lg font-semibold mb-2">Užduotis nerasta</h3>
             <p className="text-muted-foreground mb-6">{getErrorMessage(error)}</p>
-            <Button onClick={() => navigate('/tasks')}>Grįžti į užduotis</Button>
+            <Button onClick={() => navigate(appRoutes.tasks)}>Grįžti į užduotis</Button>
           </CardContent>
         </Card>
       </MainLayout>

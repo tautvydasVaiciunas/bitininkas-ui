@@ -70,6 +70,7 @@ import {
 } from "@/components/UserMultiSelect";
 import { TagSelect } from "@/components/TagSelect";
 import { formatDateIsoOr } from "@/lib/date";
+import { appRoutes } from "@/lib/routes";
 
 type UpdateHiveVariables = {
   id: string;
@@ -181,7 +182,7 @@ function HiveCard({
       : "Ramu";
   const assignmentRunLink =
     activeAssignmentsCount > 0 && summary?.primaryAssignmentId
-      ? `/tasks/${summary.primaryAssignmentId}/run`
+      ? appRoutes.taskRun(summary.primaryAssignmentId)
       : undefined;
   const summaryWrapperClass = cn(
     "min-h-[6rem]",
@@ -197,7 +198,7 @@ function HiveCard({
       >
         <div className="h-56 w-full overflow-hidden rounded-t-lg bg-white">
           <Link
-            to={`/hives/${hive.id}`}
+            to={appRoutes.hiveDetail(hive.id)}
             className="flex h-full w-full items-center justify-center"
             aria-label={`Peržiūrėti ${hive.label}`}
           >
@@ -298,7 +299,7 @@ function HiveCard({
 
             <div className="flex flex-col gap-2 sm:flex-row">
               <Button asChild variant="outline" className="flex-1">
-                <Link to={`/hives/${hive.id}`}>
+                <Link to={appRoutes.hiveDetail(hive.id)}>
                   Peržiūrėti
                   <ChevronRight className="ml-2 w-4 h-4 opacity-0 group-hover:opacity-100 transition-opacity" />
                   </Link>

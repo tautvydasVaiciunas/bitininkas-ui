@@ -22,6 +22,7 @@ import {
   ShopBeeIcon,
   UserBeeIcon,
 } from "@/components/icons/BeekeepingIcons";
+import { appRoutes } from "@/lib/routes";
 
 type NavIcon = ComponentType<{ className?: string }>;
 type NavItem = {
@@ -32,15 +33,15 @@ type NavItem = {
 
 type AdminNavEntry = NavItem | { label: string; icon: NavIcon; children: NavItem[] };
 
-const profileNav: NavItem = { to: "/profile", label: "Profilis", icon: User };
+const profileNav: NavItem = { to: appRoutes.profile, label: "Profilis", icon: User };
 const publicStoreNav: NavItem = { to: "/parduotuve", label: "Parduotuvė", icon: ShopBeeIcon };
-const supportNav: NavItem = { to: "/support", label: "Žinutės", icon: Bell };
+const supportNav: NavItem = { to: appRoutes.support, label: "Žinutės", icon: Bell };
 const messagesNav: NavItem = { to: "/admin/support", label: "Žinutės", icon: Bell };
 
 const userNavItems: NavItem[] = [
-  { to: "/news", label: "Naujienos", icon: Newspaper },
-  { to: "/hives", label: "Aviliai", icon: HiveBeeIcon },
-  { to: "/tasks", label: "Užduotys", icon: ListTodo },
+  { to: appRoutes.news, label: "Naujienos", icon: Newspaper },
+  { to: appRoutes.hives, label: "Aviliai", icon: HiveBeeIcon },
+  { to: appRoutes.tasks, label: "Užduotys", icon: ListTodo },
   supportNav,
   publicStoreNav,
 ];
@@ -52,7 +53,7 @@ const adminNavSections: AdminNavEntry[][] = [
     { to: "/admin/users", label: "Vartotojai", icon: UserBeeIcon },
     { to: "/admin/groups", label: "Grupės", icon: GroupBeeIcon },
     messagesNav,
-    { to: "/hives", label: "Aviliai", icon: HiveBeeIcon },
+    { to: appRoutes.hives, label: "Aviliai", icon: HiveBeeIcon },
   ],
   [
     { to: "/admin/news", label: "Naujienos", icon: Newspaper },
@@ -168,7 +169,7 @@ export const Sidebar = () => {
   return (
     <aside className="fixed inset-x-0 bottom-0 z-40 h-16 border-t border-sidebar-border bg-sidebar shadow-lg shadow-black/5 lg:left-0 lg:top-0 lg:h-screen lg:w-64 lg:border-t-0 lg:border-r lg:shadow-none">
       <div className="hidden border-b border-sidebar-border p-6 lg:block">
-        <NavLink to="/news" className="flex items-center gap-3">
+        <NavLink to={appRoutes.news} className="flex items-center gap-3">
           <div className="flex h-10 w-10 shrink-0 items-center justify-center">
             <img
               src="/assets/og.jpg"
@@ -183,7 +184,7 @@ export const Sidebar = () => {
           </div>
           <div>
             <h1 className="text-lg font-semibold text-sidebar-foreground">Bus medaus</h1>
-            <p className="text-xs text-muted-foreground">Bitininkystės sistema</p>
+            <p className="text-xs text-muted-foreground">Bitininkystės platforma</p>
           </div>
         </NavLink>
       </div>

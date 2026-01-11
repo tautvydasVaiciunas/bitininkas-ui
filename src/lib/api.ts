@@ -40,6 +40,92 @@ const ACCESS_TOKEN_KEY = 'bitininkas_access_token';
 const REFRESH_TOKEN_KEY = 'bitininkas_refresh_token';
 const USER_STORAGE_KEY = 'bitininkas_user';
 
+export type AuthStorageMode = 'local' | 'session';
+
+const isBrowser = typeof window !== 'undefined';
+
+const detectInitialStorageMode = (): AuthStorageMode => {
+  if (!isBrowser) return 'session';
+  const hasLocal =
+    window.localStorage.getItem(ACCESS_TOKEN_KEY) ||
+    window.localStorage.getItem(REFRESH_TOKEN_KEY) ||
+    window.localStorage.getItem(USER_STORAGE_KEY);
+  if (hasLocal) return 'local';
+  const hasSession =
+    window.sessionStorage.getItem(ACCESS_TOKEN_KEY) ||
+    window.sessionStorage.getItem(REFRESH_TOKEN_KEY) ||
+    window.sessionStorage.getItem(USER_STORAGE_KEY);
+  if (hasSession) return 'session';
+  return 'session';
+};
+
+let storageMode: AuthStorageMode = detectInitialStorageMode();
+
+export const setAuthStorageMode = (mode: AuthStorageMode) => {
+  storageMode = mode;
+};
+
+const getCurrentStorage = (): Storage | null => {
+  if (!isBrowser) return null;
+  return storageMode === 'local' ? window.localStorage : window.sessionStorage;
+};
+
+const clearAuthStorageKey = (key: string) => {
+  if (!isBrowser) return;
+  window.localStorage.removeItem(key);
+  window.sessionStorage.removeItem(key);
+};
+
+const setAuthStorageItem = (key: string, value: string | null) => {
+  if (!isBrowser) return;
+  clearAuthStorageKey(key);
+  if (value === null) {
+    return;
+  }
+  const storage = getCurrentStorage();
+  storage?.setItem(key, value);
+};
+
+export const readStoredSession = () => {
+  if (!isBrowser) {
+    return {
+      storageMode: null as AuthStorageMode | null,
+      accessToken: null as string | null,
+      refreshToken: null as string | null,
+      userRaw: null as string | null,
+    };
+  }
+
+  const storageCandidates: {
+    storage: Storage;
+    mode: AuthStorageMode;
+  }[] = [
+    { storage: window.localStorage, mode: 'local' },
+    { storage: window.sessionStorage, mode: 'session' },
+  ];
+
+  for (const candidate of storageCandidates) {
+    const accessToken = candidate.storage.getItem(ACCESS_TOKEN_KEY);
+    const refreshToken = candidate.storage.getItem(REFRESH_TOKEN_KEY);
+    const userRaw = candidate.storage.getItem(USER_STORAGE_KEY);
+    if (accessToken || refreshToken || userRaw) {
+      return {
+        storageMode: candidate.mode,
+        accessToken,
+        refreshToken,
+        userRaw,
+      };
+    }
+  }
+
+  return {
+    storageMode: null as AuthStorageMode | null,
+    accessToken: null,
+    refreshToken: null,
+    userRaw: null,
+  };
+};
+
 export class HttpError<T = unknown> extends Error {
   constructor(
     public readonly status: number,
@@ -806,10 +892,8 @@ export interface UpdateProgressPayload {
   evidenceUrl?: string | null;
 }
 
-const isBrowser = typeof window !== 'undefined';
-
-let accessToken = isBrowser ? window.localStorage.getItem(ACCESS_TOKEN_KEY) : null;
-let refreshTokenValue = isBrowser ? window.localStorage.getItem(REFRESH_TOKEN_KEY) : null;
+let accessToken = getCurrentStorage()?.getItem(ACCESS_TOKEN_KEY) ?? null;
+let refreshTokenValue = getCurrentStorage()?.getItem(REFRESH_TOKEN_KEY) ?? null;
 let refreshPromise: Promise<boolean> | null = null;
 
 const buildUrl = (path: string, query?: Record<string, QueryValue>) => {
@@ -885,42 +969,33 @@ const getErrorMessage = (status: number, data: unknown, fallback?: string) => {
   return fallback ?? ltMessages.errors.unexpected;
 };
 
-const persistUser = (user: AuthenticatedUser | undefined) => {
+export const persistAuthUser = (user: AuthenticatedUser | undefined) => {
   if (!isBrowser) return;
   if (user) {
-    window.localStorage.setItem(USER_STORAGE_KEY, JSON.stringify(user));
+    setAuthStorageItem(USER_STORAGE_KEY, JSON.stringify(user));
   } else {
-    window.localStorage.removeItem(USER_STORAGE_KEY);
+    setAuthStorageItem(USER_STORAGE_KEY, null);
   }
 };
 
 const setRefreshToken = (token: string | null) => {
   refreshTokenValue = token ?? null;
   if (!isBrowser) return;
-  if (token) {
-    window.localStorage.setItem(REFRESH_TOKEN_KEY, token);
-  } else {
-    window.localStorage.removeItem(REFRESH_TOKEN_KEY);
-  }
+  setAuthStorageItem(REFRESH_TOKEN_KEY, token);
 };
 
 const getRefreshToken = () => {
   if (refreshTokenValue) return refreshTokenValue;
-  if (isBrowser) {
-    refreshTokenValue = window.localStorage.getItem(REFRESH_TOKEN_KEY);
+  const storage = getCurrentStorage();
+  if (storage) {
+    refreshTokenValue = storage.getItem(REFRESH_TOKEN_KEY);
   }
   return refreshTokenValue;
 };
 
 export const setToken = (token: string | null, refresh?: string | null) => {
   accessToken = token ?? null;
-  if (isBrowser) {
-    if (token) {
-      window.localStorage.setItem(ACCESS_TOKEN_KEY, token);
-    } else {
-      window.localStorage.removeItem(ACCESS_TOKEN_KEY);
-    }
-  }
+  setAuthStorageItem(ACCESS_TOKEN_KEY, token);
   if (refresh !== undefined) {
     setRefreshToken(refresh);
   } else if (token === null) {
@@ -930,7 +1005,8 @@ export const setToken = (token: string | null, refresh?: string | null) => {
 
 export const clearCredentials = () => {
   setToken(null, null);
-  persistUser(undefined);
+  persistAuthUser(undefined);
+  setAuthStorageMode('session');
 };
 
 const redirectToLogin = () => {
@@ -965,7 +1041,7 @@ const attemptTokenRefresh = async () => {
         }
 
         setToken(data.accessToken, data.refreshToken);
-        persistUser(data.user);
+        persistAuthUser(data.user);
         return true;
       } catch (error) {
         console.error('Failed to refresh token', error);
@@ -1089,7 +1165,7 @@ export const api = {
         skipAuth: true,
       });
       setToken(result.accessToken, result.refreshToken);
-      persistUser(result.user);
+      persistAuthUser(result.user);
       return result;
     },
     refresh: async (refreshToken: string) => {
@@ -1098,7 +1174,7 @@ export const api = {
         skipAuth: true,
       });
       setToken(result.accessToken, result.refreshToken);
-      persistUser(result.user);
+      persistAuthUser(result.user);
       return result;
     },
     me: () => get<AuthenticatedUser>('/auth/me'),

@@ -29,6 +29,7 @@ import {
 import { AssignmentStatusBadge } from "@/components/AssignmentStatusBadge";
 import { useAuth } from "@/contexts/AuthContext";
 import { ReportsTabs } from "@/components/reports/ReportsTabs";
+import { appRoutes } from "@/lib/routes";
 
 type HiveFilters = {
   groupId: string;
@@ -239,7 +240,7 @@ export default function ReportsHives() {
                   <td className="px-3 py-3">{formatDate(row.lastActivity)}</td>
                   <td className="px-3 py-3">
                     <Button size="sm" variant="outline" asChild>
-                      <Link to={`/tasks/${row.assignmentId}`}>Peržiūrėti</Link>
+                      <Link to={appRoutes.taskDetail(row.assignmentId)}>Peržiūrėti</Link>
                     </Button>
                   </td>
                 </tr>

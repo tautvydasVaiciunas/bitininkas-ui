@@ -14,7 +14,7 @@ export class UpdateProfileDto {
   @IsOptional()
   @IsString({ message: 'Vardas turi būti tekstas' })
   @Transform(({ value }) => sanitizeNameInput(value))
-  @MaxLength(60, { message: 'Vardo ilgis negali viršyti 60 simbolių.' })
+  @MaxLength(20, { message: 'Vardo ilgis negali viršyti 20 simbolių.' })
   name?: string;
 
   @IsOptional()

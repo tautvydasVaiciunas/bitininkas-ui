@@ -30,6 +30,7 @@ import { useToast } from '@/components/ui/use-toast';
 import { UserMultiSelect, type MultiSelectOption } from '@/components/UserMultiSelect';
 import { TagSelect } from '@/components/TagSelect';
 import { formatDateIsoOr } from '@/lib/date';
+import { appRoutes } from '@/lib/routes';
 
 type EditFormState = {
   label: string;
@@ -179,7 +180,7 @@ export default function HiveDetail() {
             ? 'Avilys dabar nebeaktyvus.'
             : 'Avilys vėl pasiekiamas sąraše.',
       });
-      navigate('/hives');
+      navigate(appRoutes.hives);
     },
     onError: () => {
       toast({
@@ -357,7 +358,7 @@ export default function HiveDetail() {
             <h3 className="text-lg font-semibold mb-2">Avilys nerastas</h3>
             <p className="text-muted-foreground mb-6">Avilys su šiuo ID neegzistuoja</p>
             <Button asChild>
-              <Link to="/hives">Grįžti į avilius</Link>
+              <Link to={appRoutes.hives}>Grįžti į avilius</Link>
             </Button>
           </CardContent>
         </Card>
@@ -509,7 +510,7 @@ export default function HiveDetail() {
                             </div>
                           </div>
                           <Button asChild size="sm">
-                            <Link to={`/tasks/${assignment.id}/run`}>
+                            <Link to={appRoutes.taskRun(assignment.id)}>
                               Vykdyti
                               <ChevronRight className="ml-2 w-4 h-4" />
                             </Link>

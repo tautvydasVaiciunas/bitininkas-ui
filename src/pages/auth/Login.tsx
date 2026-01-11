@@ -29,7 +29,7 @@ export default function Login() {
     event.preventDefault();
     setLoading(true);
 
-    const result = await login(email, password);
+    const result = await login(email, password, rememberMe);
     setLoading(false);
 
     if (result.success) {

@@ -6,6 +6,7 @@ import { Card, CardContent, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Skeleton } from '@/components/ui/skeleton';
 import { TaskExecutionLayout } from '@/components/tasks/TaskExecutionLayout';
+import { appRoutes } from '@/lib/routes';
 import api, { type HttpError } from '@/lib/api';
 import { mapAssignmentDetailsFromApi, type AssignmentDetails } from '@/lib/types';
 import { inferMediaType, resolveMediaUrl } from '@/lib/media';
@@ -117,7 +118,7 @@ export default function TaskPreview() {
             <CardTitle className="text-lg">Užduotis nerasta</CardTitle>
             <p>Neleidžiama peržiūrėti šios užduoties.</p>
             <div className="flex justify-center">
-              <Button onClick={() => navigate('/tasks')}>Grįžti į užduotis</Button>
+              <Button onClick={() => navigate(appRoutes.tasks)}>Grįžti į užduotis</Button>
             </div>
           </CardContent>
         </Card>
@@ -133,7 +134,7 @@ export default function TaskPreview() {
             <CardTitle className="text-lg">Užduotis nerasta</CardTitle>
             <p>Ši užduotis šiuo metu nepasiekiama.</p>
             <div className="flex justify-center">
-              <Button onClick={() => navigate('/tasks')}>Grįžti į užduotis</Button>
+              <Button onClick={() => navigate(appRoutes.tasks)}>Grįžti į užduotis</Button>
             </div>
           </CardContent>
         </Card>

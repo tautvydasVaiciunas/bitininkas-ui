@@ -7,6 +7,14 @@ import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogFooter,
+  DialogHeader,
+  DialogTitle,
+} from '@/components/ui/dialog';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 import { Badge } from '@/components/ui/badge';
 import { useAuth } from '@/contexts/AuthContext';
@@ -17,7 +25,7 @@ import { User, Mail, Edit2, Lock, Upload } from 'lucide-react';
 import { toast } from 'sonner';
 import ltMessages from '@/i18n/messages.lt.json';
 
-const MAX_NAME_LENGTH = 60;
+const MAX_NAME_LENGTH = 20;
 
 const collapseWhitespace = (value: string) => value.replace(/\s+/g, ' ');
 const normalizeNameForSubmit = (value: string) => collapseWhitespace(value).trim();
@@ -30,11 +38,14 @@ export default function Profile() {
     name: user?.name ? normalizeNameForSubmit(user.name) : '',
     email: user?.email ?? '',
   });
+  const [nameError, setNameError] = useState<string | null>(null);
   const [passwordForm, setPasswordForm] = useState({
     current: '',
     next: '',
     confirm: '',
   });
+  const [passwordDialogOpen, setPasswordDialogOpen] = useState(false);
+  const [passwordError, setPasswordError] = useState<string | null>(null);
   const [avatarUploading, setAvatarUploading] = useState(false);
 
   const updateMutation = useMutation({
@@ -76,10 +87,19 @@ export default function Profile() {
 
   useEffect(() => {
     if (user) {
+      const normalizedName = user.name ? normalizeNameForSubmit(user.name) : '';
+      const truncatedName = normalizedName.slice(0, MAX_NAME_LENGTH);
       setFormValues({
-        name: user.name ? normalizeNameForSubmit(user.name) : '',
+        name: truncatedName,
         email: user.email,
       });
+      setNameError(
+        normalizedName.length > MAX_NAME_LENGTH
+          ? `Vardas negali viršyti ${MAX_NAME_LENGTH} simbolių`
+          : null,
+      );
+    } else {
+      setNameError(null);
     }
   }, [user]);
 
@@ -102,6 +122,11 @@ export default function Profile() {
 
   const handleNameInput = (value: string) => {
     const collapsed = collapseWhitespace(value);
+    if (collapsed.length > MAX_NAME_LENGTH) {
+      setNameError(`Vardas negali viršyti ${MAX_NAME_LENGTH} simbolių`);
+    } else {
+      setNameError(null);
+    }
     const truncated = collapsed.slice(0, MAX_NAME_LENGTH);
     setFormValues((prev) => ({ ...prev, name: truncated }));
   };
@@ -255,7 +280,13 @@ export default function Profile() {
                       maxLength={MAX_NAME_LENGTH}
                       onChange={(event) => handleNameInput(event.target.value)}
                     />
-                    <p className="text-xs text-muted-foreground">Didžiausias ilgis – 60 simbolių.</p>
+                    <p
+                      className={`text-xs ${
+                        nameError ? 'text-destructive' : 'text-muted-foreground'
+                      }`}
+                    >
+                      {nameError ?? `Maksimalus ilgis – ${MAX_NAME_LENGTH} simboliai.`}
+                    </p>
                   </div>
 
                   <div className="space-y-2">

@@ -11,7 +11,7 @@ import api from '@/lib/api';
 import { mapAssignmentDetailsFromApi, type AssignmentDetails } from '@/lib/types';
 import { Calendar, CalendarClock, ChevronLeft, ClipboardList, Loader2, Lock } from 'lucide-react';
 import { formatDateIsoOr } from '@/lib/date';
-import { formatDateIsoOr } from '@/lib/date';
+import { appRoutes } from '@/lib/routes';
 
 export default function TaskDetail() {
   const { id } = useParams<{ id: string }>();
@@ -164,7 +164,7 @@ export default function TaskDetail() {
                 </p>
               ) : (
                 <Button asChild>
-                  <Link to={`/tasks/${assignment.id}/run`}>{'Vykdyti u\u017eduot\u012f'}</Link>
+                  <Link to={appRoutes.taskRun(assignment.id)}>{'Vykdyti u\u017eduot\u012f'}</Link>
                 </Button>
               )}
             </div>

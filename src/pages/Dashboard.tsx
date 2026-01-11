@@ -21,6 +21,7 @@ import {
 import { resolveAssignmentUiStatus } from '@/lib/assignmentStatus';
 import { Box, ListTodo, CheckCircle2, AlertCircle, MapPin, Calendar, ChevronRight } from 'lucide-react';
 import { formatDateIsoOr } from '@/lib/date';
+import { appRoutes } from '@/lib/routes';
 
 type NormalizedAssignment = {
   assignment: Assignment;
@@ -240,7 +241,7 @@ export default function Dashboard() {
           <div className="flex items-center justify-between mb-6">
             <h2 className="text-2xl font-semibold">Mano aviliai</h2>
             <Button asChild variant="outline">
-              <Link to="/hives">
+              <Link to={appRoutes.hives}>
                 Visi aviliai
                 <ChevronRight className="ml-2 w-4 h-4" />
               </Link>
@@ -307,9 +308,9 @@ export default function Dashboard() {
                             {pendingCount} laukiančios užduotys
                           </div>
                         )}
-                        <Button asChild variant="outline" className="w-full">
-                          <Link to={`/hives/${hive.id}`}>Peržiūrėti</Link>
-                        </Button>
+                          <Button asChild variant="outline" className="w-full">
+                            <Link to={appRoutes.hiveDetail(hive.id)}>Peržiūrėti</Link>
+                          </Button>
                       </div>
                     </CardContent>
                   </Card>
@@ -324,7 +325,7 @@ export default function Dashboard() {
           <div className="flex items-center justify-between mb-6">
             <h2 className="text-2xl font-semibold">Artėjančios užduotys</h2>
             <Button asChild variant="outline">
-              <Link to="/tasks">
+              <Link to={appRoutes.tasks}>
                 Visos užduotys
                 <ChevronRight className="ml-2 w-4 h-4" />
               </Link>
@@ -381,7 +382,7 @@ export default function Dashboard() {
                         <div className="flex flex-col items-end gap-3">
                           {getStatusBadge(assignment.status, assignment.dueDate)}
                           <Button asChild size="sm">
-                            <Link to={`/tasks/${assignment.id}/run`}>Vykdyti</Link>
+                            <Link to={appRoutes.taskRun(assignment.id)}>Vykdyti</Link>
                           </Button>
                         </div>
                       </div>

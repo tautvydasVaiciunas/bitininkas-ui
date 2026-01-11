@@ -1,5 +1,12 @@
 import React, { createContext, useContext, useState, useEffect, useCallback } from 'react';
-import api, { HttpError, clearCredentials, setToken } from '@/lib/api';
+import api, {
+  HttpError,
+  clearCredentials,
+  persistAuthUser,
+  setAuthStorageMode,
+  setToken,
+  readStoredSession,
+} from '@/lib/api';
 import type { AuthenticatedUser, UserRole } from '@/lib/types';
 import { mapUserFromApi } from '@/lib/types';
 
@@ -13,7 +20,7 @@ interface AuthContextType {
   user: User | null;
   isAuthenticated: boolean;
   isBootstrapping: boolean;
-  login: (email: string, password: string) => Promise<{ success: boolean; error?: string }>;
+  login: (email: string, password: string, remember?: boolean) => Promise<{ success: boolean; error?: string }>;
   logout: () => void;
   updateUserProfile: (updates: Partial<User>) => void;
 }
@@ -52,26 +59,17 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     };
   }, []);
 
-  const persistUser = useCallback((value: User | null) => {
-    if (typeof window === 'undefined') return;
-    if (value) {
-      window.localStorage.setItem('bitininkas_user', JSON.stringify(value));
-    } else {
-      window.localStorage.removeItem('bitininkas_user');
-    }
-  }, []);
-
   const updateUserProfile = useCallback(
     (updates: Partial<User>) => {
       setUser((previous) => {
         if (!previous) return previous;
         const normalized = normalizeUser({ ...previous, ...updates });
         if (!normalized) return previous;
-        persistUser(normalized);
+        persistAuthUser(normalized);
         return normalized;
       });
     },
-    [normalizeUser, persistUser]
+    [normalizeUser]
   );
 
   const logout = useCallback(() => {
@@ -83,7 +81,11 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
   useEffect(() => {
     if (typeof window === 'undefined') return;
 
-    const savedUserRaw = window.localStorage.getItem('bitininkas_user');
+    const storedSession = readStoredSession();
+    const mode = storedSession.storageMode ?? 'session';
+    setAuthStorageMode(mode);
+
+    const savedUserRaw = storedSession.userRaw;
     if (savedUserRaw) {
       try {
         const parsed = JSON.parse(savedUserRaw) as Partial<User>;
@@ -96,8 +98,8 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
       }
     }
 
-    const storedAccessToken = window.localStorage.getItem('bitininkas_access_token');
-    const storedRefreshToken = window.localStorage.getItem('bitininkas_refresh_token');
+    const storedAccessToken = storedSession.accessToken;
+    const storedRefreshToken = storedSession.refreshToken;
 
     if (!storedAccessToken) {
       setIsBootstrapping(false);
@@ -114,7 +116,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
         const normalizedUser = normalizeUser(mapUserFromApi(profile));
         if (normalizedUser && !cancelled) {
           setUser(normalizedUser);
-          persistUser(normalizedUser);
+          persistAuthUser(normalizedUser);
         }
       } catch (error) {
         if (!cancelled) {
@@ -133,9 +135,13 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     return () => {
       cancelled = true;
     };
-  }, [normalizeUser, logout, persistUser]);
+  }, [normalizeUser, logout]);
 
-  const login = async (email: string, password: string): Promise<{ success: boolean; error?: string }> => {
+  const login = async (
+    email: string,
+    password: string,
+    remember = false,
+  ): Promise<{ success: boolean; error?: string }> => {
     const getErrorMessage = (err: unknown) => {
       if (err instanceof HttpError) {
         const data = err.data as { message?: string } | undefined;
@@ -151,6 +157,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     };
 
     try {
+      setAuthStorageMode(remember ? 'local' : 'session');
       const result = await api.auth.login({ email, password });
       setToken(result.accessToken, result.refreshToken);
 
@@ -158,7 +165,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
       const normalizedUser = normalizeUser(mapUserFromApi(profile));
       if (normalizedUser) {
         setUser(normalizedUser);
-        persistUser(normalizedUser);
+        persistAuthUser(normalizedUser);
       }
 
       return { success: true };

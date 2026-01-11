@@ -237,8 +237,8 @@ const SupportChat = () => {
   return (
     <MainLayout>
       <div className="mx-auto flex h-full w-full max-w-4xl flex-col gap-3 px-4 pb-4 pt-3 sm:pt-4">
-        <div>
-          <h1 className="text-2xl font-semibold">Žinutės</h1>
+        <div className="mb-6 flex flex-col gap-2">
+          <h1 className="text-3xl font-bold">Žinutės</h1>
           <p className="text-sm text-muted-foreground">
             Čia galite rašyti mūsų komandai. Visi pranešimai atskirai išsaugomi jūsų paskyroje.
           </p>

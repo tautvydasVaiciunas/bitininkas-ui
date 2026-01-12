@@ -6,9 +6,11 @@ import { useMutation } from '@tanstack/react-query';
 import api, { HttpError } from '@/lib/api';
 import { useAuth } from '@/contexts/AuthContext';
 import { Button } from '@/components/ui/button';
+import { Checkbox } from '@/components/ui/checkbox';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
+import { TermsModal } from '@/components/TermsModal';
 
 export default function ResetPassword() {
   const [searchParams] = useSearchParams();
@@ -19,6 +21,9 @@ export default function ResetPassword() {
   const [password, setPassword] = useState('');
   const [confirmPassword, setConfirmPassword] = useState('');
   const [formError, setFormError] = useState<string | null>(null);
+  const [termsAccepted, setTermsAccepted] = useState(false);
+  const [termsError, setTermsError] = useState<string | null>(null);
+  const [termsModalOpen, setTermsModalOpen] = useState(false);
   const [tokenError, setTokenError] = useState<string | null>(
     tokenMissing ? 'Nuoroda neteisinga arba nebegalioja.' : null,
   );

@@ -93,13 +93,13 @@ const StoreHome = () => {
                     Nėra nuotraukos
                   </div>
                 )}
-                <CardHeader className="flex flex-col gap-3">
-                  <CardTitle className="flex items-center justify-between gap-4 text-base">
-                    <Link
-                      to={`/parduotuve/produktas/${product.slug}`}
-                      className="text-sm font-semibold leading-tight text-foreground transition-colors hover:text-primary"
-                    >
-                      {product.title}
+                  <CardHeader className="flex flex-col gap-3">
+                    <CardTitle className="flex items-center justify-between gap-4 text-base">
+                      <Link
+                        to={`/parduotuve/produktas/${product.slug}`}
+                        className="text-lg md:text-xl font-semibold leading-tight text-foreground transition-colors hover:text-primary"
+                      >
+                        {product.title}
                     </Link>
                     <div className="text-right">
                       <p className="text-xs uppercase tracking-wide text-muted-foreground">

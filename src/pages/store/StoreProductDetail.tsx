@@ -96,7 +96,7 @@ const StoreProductDetail = () => {
               ) : null}
             </div>
             <div className="space-y-4 rounded-lg border bg-white p-6 shadow-sm">
-              <h1 className="text-3xl font-bold">{data.title}</h1>
+              <h1 className="text-4xl md:text-5xl font-bold">{data.title}</h1>
               <div>
                 <p className="text-sm text-muted-foreground">Kaina su PVM</p>
                 <p className="text-2xl font-semibold text-primary">

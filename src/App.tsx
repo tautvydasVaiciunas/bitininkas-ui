@@ -120,8 +120,10 @@ const App = () => (
                 <Route path="/parduotuve/sekme" element={<StoreSuccess />} />
                 <Route path="/parduotuve/uzsakymai" element={<StoreMyOrders />} />
                 <Route path="/hives" element={<RedirectToHives />} />
+                <Route path="/avilai" element={<RedirectToHives />} />
                 <Route path={appRoutes.hives} element={<Hives />} />
                 <Route path="/hives/:id" element={<RedirectToHivesDetail />} />
+                <Route path="/avilai/:id" element={<RedirectToHivesDetail />} />
                 <Route path={`${appRoutes.hives}/:id`} element={<HiveDetail />} />
                 <Route path="/tasks" element={<RedirectToTasks />} />
                 <Route path={appRoutes.tasks} element={<Tasks />} />

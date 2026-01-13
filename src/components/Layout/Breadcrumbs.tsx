@@ -8,11 +8,18 @@ import type { Assignment, AssignmentDetails, Hive, PaginatedNews, Task } from '@
 const routeLabels: Record<string, string> = {
   '': 'Naujienos',
   news: 'Naujienos',
+  naujienos: 'Naujienos',
   hives: 'Aviliai',
+  aviliai: 'Aviliai',
   tasks: 'Užduotys',
+  uzduotys: 'Užduotys',
   support: 'Žinutės',
+  zinutes: 'Žinutės',
   notifications: 'Pranešimai',
   profile: 'Profilis',
+  profilis: 'Profilis',
+  faq: 'DUK',
+  duk: 'DUK',
   admin: 'Administravimas',
   users: 'Vartotojai',
   groups: 'Grupės',
@@ -21,7 +28,14 @@ const routeLabels: Record<string, string> = {
   run: 'Vykdymas',
 };
 
-const ROOT_SEGMENTS_TO_HIDE = new Set(['support', 'hives', 'tasks']);
+const ROOT_SEGMENTS_TO_HIDE = new Set([
+  'support',
+  'zinutes',
+  'hives',
+  'aviliai',
+  'tasks',
+  'uzduotys',
+]);
 
 const formatIdentifier = (value: string) => `HIVE-${value.slice(0, 8).toUpperCase()}`;
 

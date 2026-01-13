@@ -38,27 +38,44 @@ const StoreCart = () => {
               return (
                 <div
                   key={item.productId}
-                  className="flex flex-col gap-4 border-b pb-4 last:border-b-0 sm:flex-row sm:items-center"
+                  className="flex flex-col gap-4 border-b pb-4 last:border-b-0"
                 >
-                  <div className="flex-1">
-                    <p className="font-semibold">{item.title}</p>
-                    <p className="text-sm text-muted-foreground">
-                      {formatPrice(item.priceCents)} (be PVM) / {formatPrice(grossUnit)} (su PVM)
-                    </p>
-                  </div>
-                  <div className="flex items-center gap-3">
-                    <Input
-                      type="number"
-                      min={1}
-                      className="w-24"
-                      value={item.quantity}
-                      onChange={(event) => handleQuantityChange(item.productId, event.target.value)}
-                    />
-                    <div className="text-right text-sm font-semibold">
-                      <p>{formatPrice(grossUnit * item.quantity)}</p>
-                      <p className="text-xs text-muted-foreground">
-                        ({formatPrice(item.priceCents * item.quantity)} be PVM)
+                  <div className="flex gap-4">
+                    <div className="h-20 w-20 flex-shrink-0 overflow-hidden rounded-lg border border-border bg-muted-foreground/10">
+                      {item.imageUrl ? (
+                        <img
+                          src={item.imageUrl}
+                          alt={item.title}
+                          className="h-full w-full object-cover"
+                        />
+                      ) : (
+                        <div className="flex h-full w-full items-center justify-center text-xs uppercase text-muted-foreground">
+                          be nuotraukos
+                        </div>
+                      )}
+                    </div>
+                    <div className="flex-1">
+                      <p className="font-semibold">{item.title}</p>
+                      <p className="text-sm text-muted-foreground">
+                        {formatPrice(item.priceCents)} (be PVM) / {formatPrice(grossUnit)} (su PVM)
                       </p>
+                    </div>
+                  </div>
+                  <div className="flex flex-col gap-3 text-sm sm:flex-row sm:items-center sm:justify-between">
+                    <div className="flex items-center gap-3">
+                      <Input
+                        type="number"
+                        min={1}
+                        className="w-24"
+                        value={item.quantity}
+                        onChange={(event) => handleQuantityChange(item.productId, event.target.value)}
+                      />
+                      <div className="text-right font-semibold">
+                        <p>{formatPrice(grossUnit * item.quantity)}</p>
+                        <p className="text-xs text-muted-foreground">
+                          ({formatPrice(item.priceCents * item.quantity)} be PVM)
+                        </p>
+                      </div>
                     </div>
                     <Button variant="ghost" onClick={() => removeItem(item.productId)}>
                       Pašalinti

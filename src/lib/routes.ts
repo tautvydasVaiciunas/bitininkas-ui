@@ -3,8 +3,8 @@ export type RouteBuilder = (id: string) => string;
 export const appRoutes = {
   news: '/naujienos',
   newsDetail: (id: string) => `/naujienos/${id}`,
-  hives: '/avilai',
-  hiveDetail: (id: string) => `/avilai/${id}`,
+  hives: '/aviliai',
+  hiveDetail: (id: string) => `/aviliai/${id}`,
   tasks: '/uzduotys',
   taskDetail: (id: string) => `/uzduotys/${id}`,
   taskPreview: (id: string) => `/uzduotys/${id}/preview`,

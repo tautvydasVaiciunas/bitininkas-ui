@@ -388,13 +388,19 @@ export class AssignmentsScheduler {
   }
 
   private buildAssignmentLink(assignmentId: string) {
-    const baseUrl = (this.appBaseUrl ?? 'https://app.busmedaus.lt').replace(/\/$/, '');
-    return `${baseUrl}/tasks/${assignmentId}/preview`;
+    return this.buildFrontendLink(`/uzduotys/${assignmentId}/run`);
   }
 
   private buildAssignmentEmailLink(assignmentId: string) {
-    const baseUrl = (this.appBaseUrl ?? 'https://app.busmedaus.lt').replace(/\/$/, '');
-    return `${baseUrl}/tasks/${assignmentId}`;
+    return this.buildFrontendLink(`/uzduotys/${assignmentId}/run`);
+  }
+
+  private buildFrontendLink(path: string) {
+    if (this.appBaseUrl) {
+      return `${this.appBaseUrl}${path}`;
+    }
+
+    return path;
   }
 
   private normalizeBaseUrl(value: string | null) {

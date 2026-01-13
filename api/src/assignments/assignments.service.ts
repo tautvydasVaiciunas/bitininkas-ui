@@ -371,12 +371,12 @@ export class AssignmentsService {
           `Užduoties atlikimo terminas: ${dueLabel}.`,
         ].join('\n');
         const isActive = this.isAssignmentActive(assignment);
-        const link = isActive
-          ? this.buildAssignmentLink(assignment.id)
-          : this.buildAssignmentPreviewLink(assignment.id);
-        const emailCtaUrl = isActive
-          ? this.buildAssignmentEmailLink(assignment.id)
-          : this.buildAssignmentPreviewEmailLink(assignment.id);
+    const link = isActive
+      ? this.buildAssignmentLink(assignment.id)
+      : this.buildAssignmentPreviewLink(assignment.id);
+    const emailCtaUrl = isActive
+      ? this.buildAssignmentEmailLink(assignment.id)
+      : this.buildAssignmentPreviewEmailLink(assignment.id);
 
         await Promise.all(
           uniqueParticipantIds.map((participantId) =>
@@ -451,29 +451,38 @@ export class AssignmentsService {
   }
 
   private buildAssignmentLink(assignmentId: string) {
-    const baseUrl = (this.appBaseUrl ?? 'https://app.busmedaus.lt').replace(/\/$/, '');
-    return `${baseUrl}/tasks/${assignmentId}/run`;
+    return this.buildFrontendLink(`/uzduotys/${assignmentId}/run`);
   }
 
   private buildAssignmentEmailLink(assignmentId: string) {
-    const baseUrl = (this.appBaseUrl ?? 'https://app.busmedaus.lt').replace(/\/$/, '');
-    return `${baseUrl}/tasks/${assignmentId}`;
+    return this.buildFrontendLink(`/uzduotys/${assignmentId}/run`);
   }
 
   private buildAssignmentPreviewLink(assignmentId: string) {
-    if (this.appBaseUrl) {
-      return `${this.appBaseUrl}/tasks/${assignmentId}/preview`;
-    }
-
-    return `/tasks/${assignmentId}/preview`;
+    return this.buildFrontendLink(`/uzduotys/${assignmentId}/preview`);
   }
 
   private buildAssignmentPreviewEmailLink(assignmentId: string) {
+    return this.buildFrontendLink(`/uzduotys/${assignmentId}/preview`);
+  }
+
+  private buildFrontendLink(path: string) {
     if (this.appBaseUrl) {
-      return `${this.appBaseUrl}/tasks/${assignmentId}/preview`;
+      return `${this.appBaseUrl}${path}`;
     }
 
-    return `/tasks/${assignmentId}/preview`;
+    return path;
+  }
+
+  private isStartDateInFuture(startDate?: string | null) {
+    if (!startDate) {
+      return false;
+    }
+    const trimmed = startDate.trim();
+    if (!trimmed) {
+      return false;
+    }
+    return trimmed > this.getTodayDateString();
   }
 
   private normalizeBaseUrl(value: string | null) {
@@ -878,9 +887,11 @@ export class AssignmentsService {
     });
   }
 
-  private getAssignmentLink(assignmentId: string) {
-    const baseUrl = (this.appBaseUrl ?? 'https://app.busmedaus.lt').replace(/\/$/, '');
-    return `${baseUrl}/tasks/${assignmentId}`;
+  private getAssignmentLink(assignment: Assignment) {
+    const path = this.isStartDateInFuture(assignment.startDate)
+      ? `/uzduotys/${assignment.id}/preview`
+      : `/uzduotys/${assignment.id}/run`;
+    return this.buildFrontendLink(path);
   }
 
   private async sendAssignmentEmails(assignments: Assignment[], taskTitle: string) {
@@ -927,7 +938,7 @@ export class AssignmentsService {
 
         const dueText = this.formatDateForEmail(assignment.dueDate);
 
-        const link = this.getAssignmentLink(assignment.id);
+        const link = this.getAssignmentLink(assignment);
 
         const startDateValue = assignment.startDate
 
@@ -1513,9 +1524,6 @@ export class AssignmentsService {
   private isAssignmentActive(assignment: Assignment) {
     const today = this.getTodayDateString();
     if (assignment.startDate && assignment.startDate > today) {
-      return false;
-    }
-    if (assignment.dueDate && assignment.dueDate < today) {
       return false;
     }
     return true;

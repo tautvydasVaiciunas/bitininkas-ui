@@ -263,6 +263,90 @@ describe('Hives & Tasks E2E', () => {
       })
       .expect(403);
   });
+
+  it('keeps overdue assignments accessible for the assigned user but not others', async () => {
+    const userRepository = dataSource.getRepository(User);
+    const hiveRepository = dataSource.getRepository(Hive);
+    const taskRepository = dataSource.getRepository(Task);
+    const assignmentRepository = dataSource.getRepository(Assignment);
+
+    const passwordHash = await bcrypt.hash('password', 10);
+    const overdueUser = await userRepository.save(
+      userRepository.create({
+        email: 'overdue@example.com',
+        passwordHash,
+        role: UserRole.USER,
+        name: 'Overdue User',
+      }),
+    );
+    const strangerUser = await userRepository.save(
+      userRepository.create({
+        email: 'stranger@example.com',
+        passwordHash,
+        role: UserRole.USER,
+        name: 'Stranger',
+      }),
+    );
+
+    const hive = await hiveRepository.save(
+      hiveRepository.create({
+        label: 'Overdue Hive',
+        ownerUserId: overdueUser.id,
+        status: HiveStatus.ACTIVE,
+      }),
+    );
+
+    const task = await taskRepository.save(
+      taskRepository.create({
+        title: 'Overdue Task',
+        description: 'Overdue task description',
+        category: 'general',
+        seasonMonths: [4],
+        frequency: TaskFrequency.ONCE,
+        defaultDueDays: 7,
+        createdByUserId: adminUser.id,
+      }),
+    );
+
+    const startDate = new Date();
+    startDate.setUTCDate(startDate.getUTCDate() - 10);
+    const dueDate = new Date();
+    dueDate.setUTCDate(dueDate.getUTCDate() - 1);
+
+    const assignment = await assignmentRepository.save(
+      assignmentRepository.create({
+        hiveId: hive.id,
+        taskId: task.id,
+        createdByUserId: adminUser.id,
+        startDate: startDate.toISOString().slice(0, 10),
+        dueDate: dueDate.toISOString().slice(0, 10),
+        status: 'in_progress',
+      }),
+    );
+
+    const overdueLogin = await server
+      .post('/auth/login')
+      .send({ email: overdueUser.email, password: 'password' })
+      .expect(201);
+
+    const strangerLogin = await server
+      .post('/auth/login')
+      .send({ email: strangerUser.email, password: 'password' })
+      .expect(201);
+
+    const overdueToken = overdueLogin.body.accessToken;
+    const strangerToken = strangerLogin.body.accessToken;
+
+    await server
+      .get(`/assignments/${assignment.id}/run`)
+      .set('Authorization', `Bearer ${overdueToken}`)
+      .expect(200);
+
+    await server
+      .get(`/assignments/${assignment.id}/run`)
+      .set('Authorization', `Bearer ${strangerToken}`)
+      .expect(403);
+  });
 });
 
 async function resetDatabase(dataSource: DataSource) {

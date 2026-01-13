@@ -933,7 +933,7 @@ ${emailSnippet}`,
 
         const assignmentId = params.assignmentLinksByRecipient[user.id];
         const assignmentLink = assignmentId
-          ? this.buildAssignmentLink(assignmentId)
+          ? this.buildAssignmentLink(assignmentId, params.startDate)
           : this.buildTasksLink();
         const html = this.buildCombinedEmailHtml(
           params,
@@ -1090,13 +1090,35 @@ ${emailSnippet}`,
     return `${baseUrl}/tasks`;
   }
 
-  private buildAssignmentLink(assignmentId: string) {
+  private buildAssignmentLink(assignmentId: string, startDate?: string | null) {
     const baseUrl = this.getFrontendBaseUrl();
-    return `${baseUrl}/tasks/${assignmentId}`;
+    const assignmentPath = this.isAssignmentUpcoming(startDate)
+      ? `/uzduotys/${assignmentId}/preview`
+      : `/uzduotys/${assignmentId}/run`;
+    return `${baseUrl}${assignmentPath}`;
+  }
+
+  private isAssignmentUpcoming(startDate?: string | null) {
+    if (!startDate) {
+      return false;
+    }
+    const trimmed = startDate.trim();
+    if (!trimmed) {
+      return false;
+    }
+    return trimmed > this.getTodayDateString();
   }
 
   private getFrontendBaseUrl() {
     return (this.appBaseUrl ?? 'https://app.busmedaus.lt').replace(/\/$/, '');
+  }
+
+  private getTodayDateString() {
+    const now = new Date();
+    const year = now.getUTCFullYear();
+    const month = String(now.getUTCMonth() + 1).padStart(2, '0');
+    const day = String(now.getUTCDate()).padStart(2, '0');
+    return `${year}-${month}-${day}`;
   }
 
   private normalizeBaseUrl(value: string | null) {

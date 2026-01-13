@@ -247,14 +247,6 @@ export class NewsService {
     return trimmed.length ? trimmed : null;
   }
 
-  private getTodayDateString() {
-    const now = new Date();
-    const year = now.getUTCFullYear();
-    const month = String(now.getUTCMonth() + 1).padStart(2, '0');
-    const day = String(now.getUTCDate()).padStart(2, '0');
-    return `${year}-${month}-${day}`;
-  }
-
   private addDays(value: string, days: number) {
     const date = new Date(`${value}T00:00:00Z`);
     date.setUTCDate(date.getUTCDate() + days);

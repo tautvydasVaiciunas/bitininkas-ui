@@ -6,11 +6,64 @@ import { useMutation } from '@tanstack/react-query';
 import api, { HttpError } from '@/lib/api';
 import { useAuth } from '@/contexts/AuthContext';
 import { Button } from '@/components/ui/button';
-import { Checkbox } from '@/components/ui/checkbox';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
+import { Checkbox } from '@/components/ui/checkbox';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { TermsModal } from '@/components/TermsModal';
+
+const uppercaseLetterPattern = /[A-ZĄČĘĖĮŠŲŪŽ]/;
+
+const passwordRequirements = [
+  {
+    id: 'length',
+    label: 'Bent 8 simboliai',
+    test: (value: string) => value.length >= 8,
+  },
+  {
+    id: 'uppercase',
+    label: 'Bent viena didzioji raide',
+    test: (value: string) => /[A-ZĄČĘĖĮŠŲŪŽ]/.test(value),
+  },
+  {
+    id: 'number',
+    label: 'Bent vienas skaitmuo',
+    test: (value: string) => /\d/.test(value),
+  },
+];
+
+const getPasswordPolicyError = (value: string) => {
+  if (value.length < 8) {
+    return 'Slaptazodis turi buti bent 8 simboliai.';
+  }
+  if (!/[A-ZĄČĘĖĮŠŲŪŽ]/.test(value)) {
+    return 'Slaptazodyje turi buti bent viena didzioji raide.';
+  }
+  if (!/\d/.test(value)) {
+    return 'Slaptazodyje turi buti bent vienas skaicius.';
+  }
+  return null;
+};
+
+const extractBackendMessage = (error: HttpError) => {
+  const data = error.data;
+  if (data && typeof data === 'object') {
+    const possibleMessage = (data as { message?: unknown }).message;
+    if (typeof possibleMessage === 'string' && possibleMessage.trim()) {
+      return possibleMessage;
+    }
+    if (Array.isArray(possibleMessage)) {
+      const filtered = possibleMessage.filter((item): item is string => typeof item === 'string');
+      if (filtered.length) {
+        return filtered.join('\n');
+      }
+    }
+  }
+  if (typeof data === 'string' && data.trim()) {
+    return data;
+  }
+  return error.message;
+};
 
 export default function ResetPassword() {
   const [searchParams] = useSearchParams();
@@ -21,13 +74,15 @@ export default function ResetPassword() {
   const [password, setPassword] = useState('');
   const [confirmPassword, setConfirmPassword] = useState('');
   const [formError, setFormError] = useState<string | null>(null);
-  const [termsAccepted, setTermsAccepted] = useState(false);
-  const [termsError, setTermsError] = useState<string | null>(null);
-  const [termsModalOpen, setTermsModalOpen] = useState(false);
   const [tokenError, setTokenError] = useState<string | null>(
     tokenMissing ? 'Nuoroda neteisinga arba nebegalioja.' : null,
   );
   const [done, setDone] = useState(false);
+  const [termsAccepted, setTermsAccepted] = useState(false);
+  const [termsError, setTermsError] = useState<string | null>(null);
+  const [termsModalOpen, setTermsModalOpen] = useState(false);
+
+  const passwordPolicyErrorMessage = 'Slaptazodis neatitinka saugumo reikalavimu.';
 
   const mutation = useMutation({
     mutationFn: (payload: Parameters<typeof api.auth.resetPassword>[0]) =>
@@ -38,11 +93,24 @@ export default function ResetPassword() {
       setTokenError(null);
     },
     onError: (error) => {
-      const message =
-        error instanceof HttpError
-          ? error.message
-          : 'Nuoroda neteisinga arba nebegalioja.';
-      setTokenError(message);
+      if (error instanceof HttpError) {
+        if (error.status === 400) {
+          const backendMessage = extractBackendMessage(error);
+          setFormError(backendMessage ?? passwordPolicyErrorMessage);
+          setTokenError(null);
+          return;
+        }
+
+        const backendMessage = extractBackendMessage(error);
+        const resolvedTokenError =
+          error.status === 401
+            ? 'Nuoroda neteisinga arba nebegalioja.'
+            : backendMessage ?? 'Nuoroda neteisinga arba nebegalioja.';
+        setTokenError(resolvedTokenError);
+        return;
+      }
+
+      setTokenError('Nuoroda neteisinga arba nebegalioja.');
     },
   });
 
@@ -73,6 +141,19 @@ export default function ResetPassword() {
       setFormError('Slaptažodžiai nesutampa.');
       return;
     }
+
+    const policyError = getPasswordPolicyError(password);
+    if (policyError) {
+      setFormError(policyError);
+      return;
+    }
+
+    if (!termsAccepted) {
+      setTermsError('Prašome sutikti su naudojimosi taisyklėmis.');
+      return;
+    }
+
+    setTermsError(null);
 
     setFormError(null);
     mutation.mutate({ token, newPassword: password });
@@ -120,19 +201,38 @@ export default function ResetPassword() {
             </div>
           ) : (
             <form onSubmit={handleSubmit} className="space-y-4">
-            <div className="space-y-2">
-              <Label htmlFor="new-password">Naujas slaptažodis</Label>
-              <Input
-                id="new-password"
-                type="password"
-                value={password}
-                onChange={(event) => setPassword(event.target.value)}
-                required
-              />
-              <p className="text-xs text-muted-foreground">
-                Slaptažodis turi būti bent 8 simboliai, turėti bent vieną didžiąją raidę ir skaičių.
-              </p>
-            </div>
+              <div className="space-y-2">
+                <Label htmlFor="new-password">Naujas slaptažodis</Label>
+                <Input
+                  id="new-password"
+                  type="password"
+                  value={password}
+                  onChange={(event) => setPassword(event.target.value)}
+                  required
+                />
+                <ul className="space-y-1 text-xs text-muted-foreground">
+                  {passwordRequirements.map((requirement) => {
+                    const satisfied = requirement.test(password);
+                    return (
+                      <li
+                        key={requirement.id}
+                        className="flex items-center gap-2"
+                        aria-live="polite"
+                      >
+                        <span
+                          className={`block h-2 w-2 flex-shrink-0 rounded-full ${
+                            satisfied ? 'bg-success' : 'bg-muted-foreground/40'
+                          }`}
+                          aria-hidden
+                        />
+                        <span className={satisfied ? 'text-foreground' : undefined}>
+                          {requirement.label}
+                        </span>
+                      </li>
+                    );
+                  })}
+                </ul>
+              </div>
               <div className="space-y-2">
                 <Label htmlFor="confirm-password">Pakartokite naują slaptažodį</Label>
                 <Input
@@ -143,17 +243,46 @@ export default function ResetPassword() {
                   required
                 />
               </div>
+              <div className="flex items-start gap-2">
+                <Checkbox
+                  id="terms-accept"
+                  checked={termsAccepted}
+                  onCheckedChange={(value) => setTermsAccepted(Boolean(value))}
+                />
+                <div className="text-sm">
+                  <label htmlFor="terms-accept" className="font-medium">
+                    Sutinku su{' '}
+                    <button
+                      type="button"
+                      className="text-primary underline-offset-2 underline"
+                      onClick={() => setTermsModalOpen(true)}
+                    >
+                      Naudojimosi taisyklėmis
+                    </button>
+                  </label>
+                  <p className="text-xs text-muted-foreground">
+                    Prieš tęsdami perskaitykite taisykles.
+                  </p>
+                </div>
+              </div>
+              {termsError ? (
+                <p className="text-xs text-destructive">{termsError}</p>
+              ) : null}
               {formError ? (
-                <p className="text-xs text-foreground">{formError}</p>
+                <p className="text-xs text-foreground" role="alert">
+                  {formError}
+                </p>
               ) : null}
               <Button type="submit" className="w-full" disabled={mutation.isPending}>
                 {mutation.isPending && <Loader2 className="mr-2 w-4 h-4 animate-spin" />}
                 Atnaujinti slaptažodį
               </Button>
             </form>
+
           )}
         </CardContent>
       </Card>
+      <TermsModal open={termsModalOpen} onOpenChange={setTermsModalOpen} />
     </div>
   );
 }

@@ -134,7 +134,7 @@ export const Breadcrumbs = () => {
         const previous = pathSegments[index - 1];
         let label = routeLabels[segment];
 
-        if (!label && previous === 'hives') {
+        if (!label && (previous === 'hives' || previous === 'aviliai')) {
           label = getHiveLabel(segment) ?? formatIdentifier(segment);
         }
 

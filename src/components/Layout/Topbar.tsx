@@ -10,6 +10,7 @@ import {
   CheckCheck,
   ShoppingBag,
   HelpCircle,
+  BookOpen,
 } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
 import { useAuth } from '@/contexts/AuthContext';
@@ -28,9 +29,11 @@ import api, { type NotificationsUnreadCountResponse } from '@/lib/api';
 import { mapNotificationFromApi, type Notification, type NotificationType } from '@/lib/types';
 import { buildAvatarSrc } from '@/lib/avatar';
 import { appRoutes } from '@/lib/routes';
+import { TermsModal } from '@/components/TermsModal';
 
 export const Topbar = () => {
   const [theme, setTheme] = useState<'light' | 'dark'>('light');
+  const [termsModalOpen, setTermsModalOpen] = useState(false);
   const { user, logout } = useAuth();
   const navigate = useNavigate();
   const queryClient = useQueryClient();
@@ -209,7 +212,8 @@ export const Topbar = () => {
   };
 
   return (
-    <header className="sticky top-0 z-40 h-16 border-b border-border bg-card/95 backdrop-blur supports-[backdrop-filter]:bg-card/80 lg:fixed lg:left-64 lg:right-0">
+    <>
+      <header className="sticky top-0 z-40 h-16 border-b border-border bg-card/95 backdrop-blur supports-[backdrop-filter]:bg-card/80 lg:fixed lg:left-64 lg:right-0">
       <div className="flex h-full w-full items-center justify-end gap-2 px-4 sm:px-6">
         <Button
           variant="ghost"
@@ -335,23 +339,29 @@ export const Topbar = () => {
                 </div>
               </Button>
             </DropdownMenuTrigger>
-              <DropdownMenuContent align="end" className="w-56">
-                <DropdownMenuItem onClick={() => navigate(appRoutes.profile)}>
-                  <UserIcon className="mr-2 w-4 h-4" />
-                  Profilis
-                </DropdownMenuItem>
-                <DropdownMenuItem onClick={() => navigate(appRoutes.faq)}>
+            <DropdownMenuContent align="end" className="w-56">
+              <DropdownMenuItem onClick={() => navigate(appRoutes.profile)}>
+                <UserIcon className="mr-2 w-4 h-4" />
+                Profilis
+              </DropdownMenuItem>
+              <DropdownMenuItem onClick={() => setTermsModalOpen(true)}>
+                <BookOpen className="mr-2 w-4 h-4" />
+                Naudojimosi taisyklės
+              </DropdownMenuItem>
+              <DropdownMenuItem onClick={() => navigate(appRoutes.faq)}>
                 <HelpCircle className="mr-2 w-4 h-4" />
-                  DUK
-                </DropdownMenuItem>
-                <DropdownMenuSeparator />
-                <DropdownMenuItem onClick={handleLogout}>
-                  <LogOut className="mr-2 w-4 h-4" />
-                  Atsijungti
-                </DropdownMenuItem>
+                DUK
+              </DropdownMenuItem>
+              <DropdownMenuSeparator />
+              <DropdownMenuItem onClick={handleLogout}>
+                <LogOut className="mr-2 w-4 h-4" />
+                Atsijungti
+              </DropdownMenuItem>
             </DropdownMenuContent>
           </DropdownMenu>
         </div>
       </header>
+      <TermsModal open={termsModalOpen} onOpenChange={setTermsModalOpen} />
+    </>
   );
 };

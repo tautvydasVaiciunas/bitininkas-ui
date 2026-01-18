@@ -97,7 +97,7 @@ const StoreHome = () => {
                     <CardTitle className="flex items-center justify-between gap-4 text-base">
                       <Link
                         to={`/parduotuve/produktas/${product.slug}`}
-                        className="text-lg md:text-xl font-semibold leading-tight text-foreground transition-colors hover:text-primary"
+                        className="text-xl md:text-2xl font-semibold leading-tight text-foreground transition-colors hover:text-primary"
                       >
                         {product.title}
                     </Link>

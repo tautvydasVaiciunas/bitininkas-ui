@@ -438,7 +438,6 @@ export class UsersService {
     const body = [
       'Jūsų slaptažodis buvo sėkmingai pakeistas.',
       'Jeigu to nepadarėte, naudokite „Pamiršai slaptažodį?“ nuorodą prisijungimo puslapyje: gausite naują nuorodą be seno slaptažodžio.',
-      'Jei vis tiek jaučiatės nesaugiai, parašykite mums adresu support@busmedaus.lt.',
     ].join('\n');
     const htmlBody = body
       .split('\n')

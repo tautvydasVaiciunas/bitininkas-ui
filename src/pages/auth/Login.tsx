@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import { useNavigate, Link } from 'react-router-dom';
+import { useNavigate, useLocation, Link, type Location } from 'react-router-dom';
 import { toast } from 'sonner';
 import { Box, Eye, EyeOff, Loader2 } from 'lucide-react';
 
@@ -18,10 +18,13 @@ export default function Login() {
   const [loading, setLoading] = useState(false);
   const { login, isAuthenticated } = useAuth();
   const navigate = useNavigate();
+  const location = useLocation();
   const [loginError, setLoginError] = useState<string | null>(null);
 
   if (isAuthenticated) {
-    navigate('/');
+    const from = (location.state as { from?: Location })?.from;
+    const path = from ? `${from.pathname}${from.search ?? ''}` : '/';
+    navigate(path, { replace: true });
     return null;
   }
 
@@ -35,21 +38,13 @@ export default function Login() {
     if (result.success) {
       toast.success('Sėkmingai prisijungta!');
       setLoginError(null);
-      navigate('/');
+      const from = (location.state as { from?: Location })?.from;
+      const path = from ? `${from.pathname}${from.search ?? ''}` : '/';
+      navigate(path, { replace: true });
     } else {
       setLoginError('Neteisingas el. paštas arba slaptažodis.');
     }
   };
-
-  const fillDemo = (demoEmail: string) => {
-    setEmail(demoEmail);
-    setPassword('password');
-  };
-  const demoAccounts = [
-    { label: 'Administratorius', email: 'admin@example.com' },
-    { label: 'Manageris', email: 'manager@example.com' },
-    { label: 'Vartotojas', email: 'jonas@example.com' },
-  ];
 
   return (
     <div className="min-h-screen flex items-center justify-center bg-background p-4">
@@ -124,30 +119,6 @@ export default function Login() {
               Prisijungti
             </Button>
 
-            <div className="relative my-6">
-              <div className="absolute inset-0 flex items-center">
-                <div className="w-full border-t border-border" />
-              </div>
-              <div className="relative flex justify-center text-xs">
-                <span className="bg-card px-2 text-muted-foreground">Demonstraciniai prisijungimai</span>
-              </div>
-            </div>
-
-            <div className="space-y-3 text-center text-sm text-muted-foreground">
-              <p>Pasirinkite demo paskyrą, kad iškart prisijungtumėte</p>
-              <div className="grid gap-2 sm:grid-cols-3">
-                {demoAccounts.map((account) => (
-                  <Button
-                    key={account.email}
-                    type="button"
-                    variant="outline"
-                    onClick={() => fillDemo(account.email)}
-                  >
-                    {account.label}
-                  </Button>
-                ))}
-              </div>
-            </div>
           </form>
         </CardContent>
       </Card>

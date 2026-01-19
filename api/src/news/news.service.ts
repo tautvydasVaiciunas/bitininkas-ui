@@ -1004,7 +1004,7 @@ ${emailSnippet}`,
       <div style="border-top: 1px solid #e5e7eb; margin: 24px 0;"></div>
       ${renderLines(taskLines)}
       <div style="padding: 8px 0 0 0; text-align: center;">
-        <a href="${this.escapeAttribute(assignmentLink)}" style="${buttonStyle}">Atidaryti užduotį</a>
+        <a href="${this.escapeAttribute(assignmentLink)}" style="${buttonStyle}">Atlikti užduotį</a>
       </div>`;
   }
 
@@ -1021,7 +1021,7 @@ ${emailSnippet}`,
         </tr>
         <tr>
           <td align="center" style="padding: 8px 0 0 0;">
-            <a href="${this.escapeAttribute(assignmentLink)}" style="${buttonStyle}">Atidaryti užduotį</a>
+            <a href="${this.escapeAttribute(assignmentLink)}" style="${buttonStyle}">Atlikti užduotį</a>
           </td>
         </tr>
       </table>

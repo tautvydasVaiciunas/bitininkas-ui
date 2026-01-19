@@ -35,6 +35,7 @@ const StoreCart = () => {
           <div className="order-2 space-y-4 rounded-lg border bg-white p-4 shadow-sm lg:order-1">
             {items.map((item) => {
               const grossUnit = netToGrossCents(item.priceCents);
+              const placeholderSvg = `data:image/svg+xml,%3Csvg width='64' height='64' xmlns='http://www.w3.org/2000/svg'%3E%3Crect width='64' height='64' rx='8' fill='%23f8fafc'/%3E%3Ctext x='32' y='37' font-size='24' text-anchor='middle' fill='%2394a3b8'%3E%3F%3C/text%3E%3C/svg%3E`;
               return (
                 <div
                   key={item.productId}
@@ -42,17 +43,17 @@ const StoreCart = () => {
                 >
                   <div className="flex gap-4">
                     <div className="h-20 w-20 flex-shrink-0 overflow-hidden rounded-lg border border-border bg-muted-foreground/10">
-                      {item.imageUrl ? (
-                        <img
-                          src={item.imageUrl}
-                          alt={item.title}
-                          className="h-full w-full object-cover"
-                        />
-                      ) : (
-                        <div className="flex h-full w-full items-center justify-center text-xs uppercase text-muted-foreground">
-                          be nuotraukos
-                        </div>
-                      )}
+                      <img
+                        src={item.imageUrl ?? placeholderSvg}
+                        alt={item.title}
+                        loading="lazy"
+                        className="h-full w-full object-cover"
+                        onError={(event) => {
+                          if (event.currentTarget.src === placeholderSvg) return;
+                          event.currentTarget.onerror = null;
+                          event.currentTarget.src = placeholderSvg;
+                        }}
+                      />
                     </div>
                     <div className="flex-1">
                       <p className="font-semibold">{item.title}</p>
@@ -99,10 +100,8 @@ const StoreCart = () => {
                   </div>
                 </div>
                 <div className="flex items-center justify-between border-t pt-3">
-                  <div>
-                    <p className="text-sm text-muted-foreground">Iš viso (su PVM)</p>
-                    <p className="text-2xl font-bold">{formatPrice(totalGrossCents)}</p>
-                  </div>
+                  <span className="text-sm text-muted-foreground">Iš viso (su PVM)</span>
+                  <span className="text-2xl font-bold text-right">{formatPrice(totalGrossCents)}</span>
                 </div>
               </div>
               <div className="space-y-3 rounded-lg border bg-white p-4 shadow-sm">

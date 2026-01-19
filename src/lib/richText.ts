@@ -3,7 +3,22 @@
 const ALLOWED_TAGS = ['b', 'strong', 'i', 'em', 'u', 'br', 'p', 'div', 'span'];
 
 export function sanitizeNewsBody(value: string) {
-  return DOMPurify.sanitize(value || '', {
+  const input = (value ?? '').replace(/\r\n/g, '\n').trim();
+  if (!input) {
+    return '';
+  }
+
+  const containsHtml = /<[^>]+>/.test(input);
+  const html = containsHtml
+    ? input
+    : input
+        .split(/\n{2,}/)
+        .map((paragraph) => paragraph.trim())
+        .filter(Boolean)
+        .map((paragraph) => `<p>${paragraph.replace(/\n/g, '<br>')}</p>`)
+        .join('');
+
+  return DOMPurify.sanitize(html, {
     ALLOWED_TAGS,
     ALLOWED_ATTR: [],
   });

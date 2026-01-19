@@ -143,7 +143,7 @@ export const Breadcrumbs = () => {
           label = getHiveLabel(segment) ?? formatIdentifier(segment);
         }
 
-        if (!label && previous === 'news') {
+        if (!label && (previous === 'news' || previous === 'naujienos')) {
           label = getNewsLabel(segment) ?? routeLabels.news;
         }
 

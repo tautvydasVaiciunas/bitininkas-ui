@@ -23,11 +23,11 @@ import { Card, CardContent, CardFooter, CardHeader, CardTitle } from "@/componen
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
-import { Textarea } from "@/components/ui/textarea";
 import { Checkbox } from "@/components/ui/checkbox";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Badge } from "@/components/ui/badge";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
+import { RichTextEditor } from "@/components/RichTextEditor";
 import { useToast } from "@/components/ui/use-toast";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Loader2, Plus, Edit2, Trash2, Image as ImageIcon } from "lucide-react";
@@ -42,6 +42,7 @@ import {
   type PaginatedNews,
   type Template,
 } from "@/lib/types";
+import { buildSnippet, extractTextFromHtml, sanitizeNewsBody } from "@/lib/richText";
 
 interface NewsFormState {
   title: string;
@@ -270,13 +271,16 @@ const AdminNews = () => {
       return;
     }
 
-    if (formState.createNews && (!formState.title.trim() || !formState.body.trim())) {
-      toast({
-        title: "Nepavyko išsaugoti",
-        description: "Užpildykite pavadinimą ir turinį.",
-        variant: "destructive",
-      });
-      return;
+    if (formState.createNews) {
+      const bodyText = extractTextFromHtml(formState.body);
+      if (!formState.title.trim() || !bodyText.trim()) {
+        toast({
+          title: "Nepavyko išsaugoti",
+          description: "Užpildykite pavadinimą ir turinį.",
+          variant: "destructive",
+        });
+        return;
+      }
     }
 
     try {
@@ -388,11 +392,11 @@ const AdminNews = () => {
                         : null}
                     </div>
                   </CardHeader>
-                  <CardContent className="flex-1">
-                    <p className="text-sm text-muted-foreground">
-                      {post.body.length > 240 ? `${post.body.slice(0, 240)}…` : post.body}
-                    </p>
-                  </CardContent>
+                    <CardContent className="flex-1">
+                      <p className="text-sm text-muted-foreground">
+                        {buildSnippet(post.body, 240)}
+                      </p>
+                    </CardContent>
                   <CardFooter className="flex items-center justify-end gap-2">
                     <Button variant="outline" size="icon" onClick={() => openEditDialog(post)}>
                       <Edit2 className="h-4 w-4" />
@@ -522,17 +526,12 @@ const AdminNews = () => {
                         required={formState.createNews}
                       />
                     </div>
-                    <div className="space-y-2">
+                                        <div className="space-y-2">
                       <Label htmlFor="news-body">Turinys</Label>
-                      <Textarea
-                        id="news-body"
+                      <RichTextEditor
                         value={formState.body}
-                        onChange={(event) =>
-                          setFormState((prev) => ({ ...prev, body: event.target.value }))
-                        }
-                        placeholder="Įveskite naujienos tekstą"
-                        rows={8}
-                        required={formState.createNews}
+                        onChange={(value) => setFormState((prev) => ({ ...prev, body: value }))}
+                        placeholder="Žrveskite naujienos tekstŽ."
                       />
                     </div>
                     <div className="space-y-2">

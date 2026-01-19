@@ -11,6 +11,7 @@ import { mapNewsPostFromApi } from "@/lib/types";
 import { inferMediaType, resolveMediaUrl } from "@/lib/media";
 import { ResponsiveMedia } from "@/components/media/ResponsiveMedia";
 import { appRoutes } from "@/lib/routes";
+import { sanitizeNewsBody } from "@/lib/richText";
 
 const formatDateTime = (date: Date) =>
   date.toLocaleString("lt-LT", {
@@ -96,41 +97,43 @@ const NewsDetail = () => {
             <p className="mt-2 text-sm">Galbūt ji buvo pašalinta arba neturite prieigos.</p>
           </div>
         ) : (
-        <Card className="overflow-hidden">
-        <div className="w-full max-w-3xl mx-auto px-4">
-          <ResponsiveMedia
-            url={coverUrl ?? undefined}
-            type={coverMediaType}
-            title={data.title}
-            className="w-full h-auto mx-auto"
-          />
-        </div>
-        <CardHeader className="space-y-4">
-              {metaInfo ? (
-                <p className="text-sm text-muted-foreground text-center">
-                  {metaInfo.label}: {formatDateTime(metaInfo.date)}
-                </p>
-              ) : null}
-              <CardTitle className="text-3xl leading-tight">{data.title}</CardTitle>
-            </CardHeader>
-            <CardContent className="space-y-4">
-              <div className="prose max-w-none whitespace-pre-line text-foreground">
-                {data.body}
+          <div className="mx-auto w-full max-w-5xl px-4 sm:px-0">
+            <Card className="overflow-hidden">
+              <div className="w-full max-w-3xl mx-auto px-4">
+                <ResponsiveMedia
+                  url={coverUrl ?? undefined}
+                  type={coverMediaType}
+                  title={data.title}
+                  className="w-full h-auto mx-auto"
+                />
               </div>
-            </CardContent>
-            {data.attachedTaskId ? (
-              <CardFooter className="border-t border-muted/40 bg-muted/5 justify-end">
-                <Button
-                  asChild
-                  variant="default"
-                  size="lg"
-                  className="mt-4 w-full sm:w-auto justify-center"
-                >
-                  <Link to={appRoutes.tasks}>Vykdyti užduotį</Link>
-                </Button>
-              </CardFooter>
-            ) : null}
-          </Card>
+              <CardHeader className="space-y-4">
+                {metaInfo ? (
+                  <p className="text-sm text-muted-foreground text-center">
+                    {metaInfo.label}: {formatDateTime(metaInfo.date)}
+                  </p>
+                ) : null}
+                <CardTitle className="text-3xl leading-tight">{data.title}</CardTitle>
+              </CardHeader>
+              <CardContent className="space-y-4">
+                <div className="prose max-w-none text-foreground">
+                  <div dangerouslySetInnerHTML={{ __html: sanitizeNewsBody(data.body) }} />
+                </div>
+              </CardContent>
+              {data.attachedTaskId ? (
+                <CardFooter className="border-t border-muted/40 bg-muted/5 justify-end">
+                  <Button
+                    asChild
+                    variant="default"
+                    size="lg"
+                    className="mt-4 w-full sm:w-auto justify-center"
+                  >
+                    <Link to={appRoutes.tasks}>Vykdyti užduotį</Link>
+                  </Button>
+                </CardFooter>
+              ) : null}
+            </Card>
+          </div>
         )}
       </div>
     </MainLayout>

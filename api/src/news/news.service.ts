@@ -208,15 +208,30 @@ export class NewsService {
   }
 
   private buildEmailSnippet(value: string | null | undefined, limit = 180) {
-    if (!value) {
+    const paragraphs = this.buildEmailParagraphs(value);
+    if (!paragraphs.length) {
       return '';
     }
-    const normalized = value.trim();
-    if (normalized.length <= limit) {
-      return normalized;
+    const joined = paragraphs.join('\n\n');
+    if (joined.length <= limit) {
+      return joined;
     }
-    const truncated = normalized.slice(0, limit).trimEnd();
+    const truncated = joined.slice(0, limit).trimEnd();
     return `${truncated} (...)`;
+  }
+
+  private buildEmailParagraphs(value: string | null | undefined) {
+    if (!value) {
+      return [];
+    }
+    const cleaned = value.replace(/\r\n/g, '\n').replace(/\n\r/g, '\n').trim();
+    if (!cleaned) {
+      return [];
+    }
+    return cleaned
+      .split(/\n{2,}/)
+      .map((paragraph) => paragraph.replace(/\n+/g, ' ').replace(/\s+/g, ' ').trim())
+      .filter((paragraph) => paragraph.length > 0);
   }
 
   private buildStepsFromTemplate(template: Template): CreateTaskDto['steps'] {
@@ -784,8 +799,8 @@ export class NewsService {
             body,
             link,
             sendEmail: !combinedRecipientIds.has(recipientId),
-            emailSubject: 'Nauja naujiena',
-            emailBody: `Paskelbta nauja naujiena "${title}"
+            emailSubject: 'Paskelbta naujiena',
+            emailBody: `Paskelbta naujiena "${title}"
 
 ${emailSnippet}`,
             emailCtaUrl,
@@ -962,7 +977,7 @@ ${emailSnippet}`,
   }) {
     const newsLines = [
           `Paskelbtas naujienos įrašas "${params.newsTitle}".`,
-      this.buildEmailSnippet(params.newsBody),
+      ...this.buildEmailParagraphs(params.newsBody),
     ].filter((line) => line && line.length > 0);
 
     const taskLines = [

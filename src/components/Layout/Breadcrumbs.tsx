@@ -3,7 +3,7 @@ import { ChevronRight } from 'lucide-react';
 import { Fragment, useCallback, useMemo } from 'react';
 import { useQueryClient } from '@tanstack/react-query';
 import type { InfiniteData } from '@tanstack/react-query';
-import type { Assignment, AssignmentDetails, Hive, PaginatedNews, Task } from '@/lib/types';
+import type { Assignment, AssignmentDetails, Hive, NewsPost, PaginatedNews, Task } from '@/lib/types';
 
 const routeLabels: Record<string, string> = {
   '': 'Naujienos',
@@ -98,6 +98,11 @@ export const Breadcrumbs = () => {
 
   const getNewsLabel = useCallback(
     (segment: string) => {
+      const cachedDetail = queryClient.getQueryData<NewsPost>(['news', segment]);
+      if (cachedDetail?.title) {
+        return cachedDetail.title;
+      }
+
       const cached = queryClient.getQueryData<InfiniteData<PaginatedNews>>([
         'news',
         'list',
@@ -139,7 +144,7 @@ export const Breadcrumbs = () => {
         }
 
         if (!label && previous === 'news') {
-          label = getNewsLabel(segment) ?? 'Naujiena';
+          label = getNewsLabel(segment) ?? routeLabels.news;
         }
 
         if (!label && previous === 'tasks') {

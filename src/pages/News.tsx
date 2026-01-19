@@ -13,6 +13,7 @@ import { ToastAction } from "@/components/ui/toast";
 import { inferMediaType, resolveMediaUrl } from "@/lib/media";
 import { ResponsiveMedia } from "@/components/media/ResponsiveMedia";
 import { appRoutes } from "@/lib/routes";
+import { buildSnippet } from "@/lib/richText";
 
 const PAGE_SIZE = 6;
 
@@ -22,14 +23,6 @@ const formatDate = (date: string) =>
     month: "long",
     day: "numeric",
   });
-
-const buildSnippet = (body: string) => {
-  const normalized = body.replace(/\s+/g, " ").trim();
-  if (normalized.length <= 220) {
-    return normalized;
-  }
-  return `${normalized.slice(0, 220)}…`;
-};
 
 const News = () => {
   const {

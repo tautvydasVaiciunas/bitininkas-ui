@@ -1,4 +1,4 @@
-import { useCallback, useMemo, useState } from 'react';
+import { useCallback, useEffect, useMemo, useState } from 'react';
 import {
   Bell,
   Moon,
@@ -31,8 +31,20 @@ import { buildAvatarSrc } from '@/lib/avatar';
 import { appRoutes } from '@/lib/routes';
 import { TermsModal } from '@/components/TermsModal';
 
+const THEME_STORAGE_KEY = 'busmedaus-theme';
+
+const readPreferredTheme = (): 'light' | 'dark' => {
+  if (typeof window === 'undefined') return 'light';
+  const stored = window.localStorage.getItem(THEME_STORAGE_KEY);
+  if (stored === 'light' || stored === 'dark') {
+    return stored;
+  }
+
+  return window.matchMedia('(prefers-color-scheme: dark)').matches ? 'dark' : 'light';
+};
+
 export const Topbar = () => {
-  const [theme, setTheme] = useState<'light' | 'dark'>('light');
+  const [theme, setTheme] = useState<'light' | 'dark'>(readPreferredTheme);
   const [termsModalOpen, setTermsModalOpen] = useState(false);
   const { user, logout } = useAuth();
   const navigate = useNavigate();
@@ -162,6 +174,16 @@ export const Topbar = () => {
         return;
       }
 
+      try {
+        const targetUrl = new URL(link, window.location.origin);
+        if (targetUrl.origin === window.location.origin) {
+          navigate(`${targetUrl.pathname}${targetUrl.search}${targetUrl.hash}`);
+          return;
+        }
+      } catch {
+        // fall back to client navigation for relative paths
+      }
+
       if (/^https?:\/\//i.test(link)) {
         window.open(link, '_blank', 'noopener,noreferrer');
         return;
@@ -182,10 +204,18 @@ export const Topbar = () => {
     [markNotificationMutation, openNotificationLink],
   );
 
+  useEffect(() => {
+    if (typeof window === 'undefined') return;
+    document.documentElement.classList.toggle('dark', theme === 'dark');
+    try {
+      window.localStorage.setItem(THEME_STORAGE_KEY, theme);
+    } catch (error) {
+      console.error('Unable to persist theme preference', error);
+    }
+  }, [theme]);
+
   const toggleTheme = () => {
-    const newTheme = theme === 'light' ? 'dark' : 'light';
-    setTheme(newTheme);
-    document.documentElement.classList.toggle('dark', newTheme === 'dark');
+    setTheme((prevTheme) => (prevTheme === 'light' ? 'dark' : 'light'));
   };
 
   const handleLogout = () => {

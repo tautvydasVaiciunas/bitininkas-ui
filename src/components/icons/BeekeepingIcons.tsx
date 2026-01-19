@@ -9,6 +9,7 @@ type IconProps = {
 };
 
 const sharedClass = 'h-5 w-5 object-contain';
+const invertedClass = 'filter dark:invert';
 
 export const UserBeeIcon = ({ className }: IconProps) => (
   <img
@@ -22,7 +23,7 @@ export const UserBeeIcon = ({ className }: IconProps) => (
 export const GroupBeeIcon = ({ className }: IconProps) => (
   <img
     src={groupIcon}
-    alt="Grupės"
+    alt="Grupes"
     className={cn(sharedClass, className)}
     decoding="async"
   />
@@ -32,7 +33,7 @@ export const HiveBeeIcon = ({ className }: IconProps) => (
   <img
     src={hiveIcon}
     alt="Aviliai"
-    className={cn(sharedClass, className)}
+    className={cn(sharedClass, invertedClass, className)}
     decoding="async"
   />
 );
@@ -40,8 +41,8 @@ export const HiveBeeIcon = ({ className }: IconProps) => (
 export const ShopBeeIcon = ({ className }: IconProps) => (
   <img
     src={shopIcon}
-    alt="Parduotuvė"
-    className={cn(sharedClass, className)}
+    alt="Parduotuve"
+    className={cn(sharedClass, invertedClass, className)}
     decoding="async"
   />
 );

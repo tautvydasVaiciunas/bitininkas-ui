@@ -4,7 +4,7 @@ import { Plus, Search, Edit, Trash2, AlertTriangle } from 'lucide-react';
 import { toast } from 'sonner';
 
 import { MainLayout } from '@/components/Layout/MainLayout';
-import { Card, CardContent, CardHeader } from '@/components/ui/card';
+import { Card, CardContent, CardFooter, CardHeader } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Badge } from '@/components/ui/badge';
@@ -118,11 +118,13 @@ export default function AdminUsers() {
   const canEditSubscriptions = isAdmin || isManager;
   const [subscriptionEditor, setSubscriptionEditor] = useState<AdminUserResponse | null>(null);
   const [subscriptionSelection, setSubscriptionSelection] = useState<string>('inactive');
+  const [currentPage, setCurrentPage] = useState(1);
+  const limit = 20;
 
   const queryParams = useMemo(() => {
     const normalized = searchQuery.trim().slice(0, 255);
-    return { page: 1, limit: 20, q: normalized } as const;
-  }, [searchQuery]);
+    return { page: currentPage, limit, q: normalized } as const;
+  }, [searchQuery, currentPage, limit]);
 
   const {
     data: usersResponse,
@@ -138,6 +140,20 @@ export default function AdminUsers() {
   });
 
   const users = usersResponse ?? [];
+  const total = usersResponse?.total ?? 0;
+  const responsePage = usersResponse?.page ?? currentPage;
+  const totalPages = Math.max(1, Math.ceil(total / limit));
+  const startIndex = total === 0 ? 0 : (responsePage - 1) * limit + 1;
+  const endIndex = total === 0 ? 0 : Math.min(responsePage * limit, total);
+
+  useEffect(() => {
+    if (!usersResponse) {
+      return;
+    }
+    if (responsePage > totalPages) {
+      setCurrentPage(totalPages);
+    }
+  }, [usersResponse, responsePage, totalPages]);
 
   useEffect(() => {
     if (isCreateOpen) {
@@ -425,17 +441,20 @@ export default function AdminUsers() {
         </div>
 
         <Card className="shadow-custom">
-          <CardHeader>
-            <div className="relative">
-              <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
-              <Input
-                placeholder="Ieškoti vartotojų..."
-                value={searchQuery}
-                onChange={(e) => setSearchQuery(e.target.value)}
-                className="pl-9"
-              />
-            </div>
-          </CardHeader>
+        <CardHeader>
+          <div className="relative">
+            <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
+            <Input
+              placeholder="Ieškoti vartotojų..."
+              value={searchQuery}
+              onChange={(e) => {
+                setSearchQuery(e.target.value);
+                setCurrentPage(1);
+              }}
+              className="pl-9"
+            />
+          </div>
+        </CardHeader>
           <CardContent>
             {isLoading ? (
               <div className="py-12 text-center text-muted-foreground">Kraunama...</div>
@@ -504,6 +523,36 @@ export default function AdminUsers() {
               </div>
             )}
           </CardContent>
+          <CardFooter className="flex flex-col gap-3 border-t border-border/60 bg-muted/10 px-6 py-4 sm:flex-row sm:items-center sm:justify-between">
+            <div className="text-sm text-muted-foreground">
+              {isLoading
+                ? 'Kraunama...'
+                : total === 0
+                ? 'Nerasta vartotojų'
+                : `Rodoma ${startIndex}-${endIndex} iš ${total}`}
+            </div>
+            <div className="flex items-center gap-2">
+              <span className="text-sm text-muted-foreground">
+                Puslapis {responsePage} / {totalPages}
+              </span>
+              <Button
+                variant="outline"
+                size="sm"
+                disabled={isLoading || responsePage <= 1}
+                onClick={() => setCurrentPage((prev) => Math.max(prev - 1, 1))}
+              >
+                Ankstesnis
+              </Button>
+              <Button
+                variant="outline"
+                size="sm"
+                disabled={isLoading || responsePage >= totalPages}
+                onClick={() => setCurrentPage((prev) => Math.min(prev + 1, totalPages))}
+              >
+                Kitas
+              </Button>
+            </div>
+          </CardFooter>
         </Card>
 
         {isAdmin && (

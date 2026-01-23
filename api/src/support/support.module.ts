@@ -7,6 +7,7 @@ import { SupportController } from './support.controller';
 import { SupportService } from './support.service';
 import { SupportAdminController } from './support-admin.controller';
 import { SupportUploadController } from './support-upload.controller';
+import { FeedbackService } from './feedback.service';
 import { NotificationsModule } from '../notifications/notifications.module';
 import { User } from '../users/user.entity';
 import { EmailModule } from '../email/email.module';
@@ -19,7 +20,7 @@ import { UploadsModule } from '../uploads/uploads.module';
     EmailModule,
     UploadsModule,
   ],
-  providers: [SupportService],
+  providers: [SupportService, FeedbackService],
   controllers: [SupportController, SupportAdminController, SupportUploadController],
   exports: [SupportService],
 })

@@ -9,6 +9,10 @@ import { Repository, In } from 'typeorm';
 import { Request } from 'express';
 import { ConfigService } from '@nestjs/config';
 import { resolveFrontendUrl } from '../common/utils/frontend-url';
+import { CreateFeedbackDto } from './dto/create-feedback.dto';
+import { FeedbackService } from './feedback.service';
+import { Throttle } from '@nestjs/throttler';
+import { RATE_LIMIT_MAX, RATE_LIMIT_TTL_SECONDS } from '../common/config/security.config';
 
 @UseGuards(JwtAuthGuard)
 @Controller('support')
@@ -19,6 +23,7 @@ export class SupportController {
     @InjectRepository(User)
     private readonly userRepository: Repository<User>,
     private readonly configService: ConfigService,
+    private readonly feedbackService: FeedbackService,
   ) {}
 
   @Get('my-thread')
@@ -133,5 +138,37 @@ export class SupportController {
     const thread = await this.supportService.findOrCreateThreadForUser(userId);
     const hasUnread = await this.supportService.threadHasUnreadFromStaff(thread.id);
     return { unread: hasUnread };
+  }
+
+  @Post('feedback')
+  @Throttle({
+    default: {
+      limit: RATE_LIMIT_MAX,
+      ttl: RATE_LIMIT_TTL_SECONDS,
+    },
+  })
+  async createFeedback(@Req() request: Request, @Body() body: CreateFeedbackDto) {
+    const user = request.user ?? {};
+    await this.feedbackService.sendFeedback(
+      {
+        message: body.message.trim(),
+        pageUrl: body.pageUrl,
+        pageTitle: body.pageTitle,
+        deviceInfo: body.deviceInfo,
+        attachments: body.attachments,
+        context: body.context,
+      },
+      {
+        userId: user['id'] ?? null,
+        userEmail: user['email'] ?? null,
+        userName: user['name'] ?? null,
+        ip: request.ip ?? null,
+        forwardedIp: (request.headers['x-forwarded-for'] as string | undefined) ?? null,
+        userAgent: request.headers['user-agent'] ?? null,
+        timestamp: new Date().toISOString(),
+      },
+    );
+
+    return { success: true };
   }
 }

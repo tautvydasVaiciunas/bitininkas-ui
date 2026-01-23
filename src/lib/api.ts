@@ -206,6 +206,21 @@ export interface SupportUploadResponse {
   kind: 'image' | 'video' | 'other';
 }
 
+export interface FeedbackAttachmentPayload {
+  url: string;
+  mimeType?: string | null;
+  name?: string | null;
+}
+
+export interface FeedbackRequestPayload {
+  message: string;
+  pageUrl?: string | null;
+  pageTitle?: string | null;
+  deviceInfo?: string | null;
+  context?: string | null;
+  attachments?: FeedbackAttachmentPayload[];
+}
+
 export interface CreateManualNotePayload {
   text: string;
   attachments?: ManualNoteAttachmentPayload[];
@@ -1217,9 +1232,11 @@ export const api = {
     createMessage: (payload: { text?: string; attachments?: SupportAttachmentPayload[] }) =>
       post<SupportMessageResponse>('/support/my-thread/messages', { json: payload }),
     unread: () => get<SupportUnreadResponse>('/support/my-thread/unread'),
+    sendFeedback: (payload: FeedbackRequestPayload) =>
+      post<{ success: true }>('/support/feedback', { json: payload }),
     uploadAttachment: (form: FormData) =>
       post<SupportUploadResponse>('/support/upload', { body: form }),
-      admin: {
+    admin: {
         threads: (params?: { query?: string; status?: string; limit?: number; page?: number }) =>
           get<SupportThreadAdminResponse[]>('/admin/support/threads', { query: params }),
         threadMessages: (id: string, params?: { limit?: number; cursor?: string }) =>

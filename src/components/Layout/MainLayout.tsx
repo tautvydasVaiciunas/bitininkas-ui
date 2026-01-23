@@ -4,6 +4,7 @@ import { useAuth } from '@/contexts/AuthContext';
 import { Sidebar } from './Sidebar';
 import { Topbar } from './Topbar';
 import { Breadcrumbs } from './Breadcrumbs';
+import { FeedbackWidget } from '@/components/Feedback/FeedbackWidget';
 
 interface MainLayoutProps {
   children: React.ReactNode;
@@ -36,6 +37,7 @@ export const MainLayout = ({ children, showBreadcrumbs = true }: MainLayoutProps
           {children}
         </div>
       </main>
+      <FeedbackWidget />
     </div>
   );
 };

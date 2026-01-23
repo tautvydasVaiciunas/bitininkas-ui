@@ -26,6 +26,10 @@ interface UserMultiSelectProps {
   placeholder?: string;
   emptyText?: string;
   disabled?: boolean;
+  loading?: boolean;
+  hasMore?: boolean;
+  onLoadMore?: () => void;
+  onSearch?: (input: string) => void;
 }
 
 export function UserMultiSelect({
@@ -35,6 +39,10 @@ export function UserMultiSelect({
   placeholder = 'Pasirinkite vartotojus',
   emptyText = 'Nėra rezultatų',
   disabled = false,
+  loading = false,
+  hasMore = false,
+  onLoadMore,
+  onSearch,
 }: UserMultiSelectProps) {
   const [open, setOpen] = useState(false);
 
@@ -80,10 +88,13 @@ export function UserMultiSelect({
         </PopoverTrigger>
         <PopoverContent className="w-72 p-0" align="start">
           <Command>
-            <CommandInput placeholder="Ieškoti vartotojų..." />
-            <CommandEmpty>{emptyText}</CommandEmpty>
-            <CommandList>
-              <CommandGroup>
+          <CommandInput
+            placeholder="Ieškoti vartotojų..."
+            onValueChange={(value) => onSearch?.(value)}
+          />
+          <CommandEmpty>{emptyText}</CommandEmpty>
+          <CommandList className="max-h-64 overflow-y-auto">
+            <CommandGroup>
                 {options.map((option) => {
                   const isSelected = value.includes(option.value);
                   return (
@@ -104,11 +115,18 @@ export function UserMultiSelect({
                     </CommandItem>
                   );
                 })}
-              </CommandGroup>
-            </CommandList>
-          </Command>
-        </PopoverContent>
-      </Popover>
+            </CommandGroup>
+          </CommandList>
+          {hasMore ? (
+            <div className="border-t border-border/60 px-3 py-2 text-center">
+              <Button variant="ghost" size="sm" onClick={onLoadMore} disabled={loading}>
+                {loading ? 'Kraunama...' : 'Krauti daugiau'}
+              </Button>
+            </div>
+          ) : null}
+        </Command>
+      </PopoverContent>
+    </Popover>
 
       {selectedOptions.length > 0 ? (
         <div className="flex flex-wrap gap-2">

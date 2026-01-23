@@ -42,6 +42,7 @@ type EditFormState = {
 type HiveTab = 'tasks' | 'history' | 'settings';
 
 const HiveHistoryTabLazy = lazy(() => import('./HiveHistoryTab'));
+const USER_PAGE_LIMIT = 20;
 
 export default function HiveDetail() {
   const { id } = useParams();
@@ -112,6 +113,11 @@ export default function HiveDetail() {
 
   const canManageMembers = user?.role === 'admin' || user?.role === 'manager';
   const canManageHistory = canManageMembers;
+  const [userOptions, setUserOptions] = useState<MultiSelectOption[]>([]);
+  const [userSearchTerm, setUserSearchTerm] = useState('');
+  const [userPage, setUserPage] = useState(1);
+  const [userHasMore, setUserHasMore] = useState(false);
+  const [userLoading, setUserLoading] = useState(false);
 
   const handleTabChange = (value: HiveTab) => {
     if (!canManageMembers && value === 'settings') {
@@ -121,17 +127,69 @@ export default function HiveDetail() {
     setActiveTab(value);
   };
 
+  const handleUserSearch = (value: string) => {
+    setUserSearchTerm(value.trim());
+    setUserPage(1);
+    setUserOptions([]);
+    setUserHasMore(false);
+  };
+
+  const handleLoadMoreUsers = () => {
+    if (userLoading || !userHasMore) return;
+    setUserPage((prev) => prev + 1);
+  };
+
+  useEffect(() => {
+    if (!canManageMembers) {
+      setUserOptions([]);
+      setUserHasMore(false);
+      return;
+    }
+
+    let active = true;
+    setUserLoading(true);
+    setUserHasMore(false);
+
+    api.users
+      .list({ q: userSearchTerm, page: userPage, limit: USER_PAGE_LIMIT })
+      .then((response) => {
+        if (!active) return;
+        const entries = Array.isArray(response) ? response : [];
+        const mapped = entries.map((item) => ({
+          value: item.id,
+          label: item.name || item.email,
+          description: item.name ? item.email : undefined,
+        }));
+        const meta = response as typeof entries & { total?: number };
+        const totalItems =
+          meta.total ?? (userPage - 1) * USER_PAGE_LIMIT + entries.length;
+        const more = totalItems > userPage * USER_PAGE_LIMIT;
+        setUserHasMore(more);
+        setUserOptions((prev) => (userPage === 1 ? mapped : [...prev, ...mapped]));
+      })
+      .catch(() => {
+        if (!active) return;
+        if (userPage === 1) {
+          setUserOptions([]);
+        }
+        setUserHasMore(false);
+      })
+      .finally(() => {
+        if (active) {
+          setUserLoading(false);
+        }
+      });
+
+    return () => {
+      active = false;
+    };
+  }, [canManageMembers, userPage, userSearchTerm]);
+
   useEffect(() => {
     if (!canManageMembers && activeTab === 'settings') {
       setActiveTab('tasks');
     }
   }, [activeTab, canManageMembers]);
-
-  const { data: users = [] } = useQuery<AdminUserResponse[]>({
-    queryKey: ['users', 'all'],
-    queryFn: () => api.users.list(),
-    enabled: canManageMembers,
-  });
 
   const { data: assignedMembers = [] } = useQuery<HiveMemberResponse[]>({
     queryKey: ['hive', id, 'members'],
@@ -191,14 +249,10 @@ export default function HiveDetail() {
     },
   });
 
-  const memberOptions: MultiSelectOption[] = useMemo(() => {
-    if (!users.length) return [];
-    return users.map((item) => ({
-      value: item.id,
-      label: item.name || item.email,
-      description: item.name ? item.email : undefined,
-    }));
-  }, [users]);
+const memberOptions: MultiSelectOption[] = useMemo(() => {
+    if (!userOptions.length) return [];
+    return userOptions;
+  }, [userOptions]);
 
   const memberLabelMap = useMemo(() => {
     const map = new Map<string, string>();
@@ -612,9 +666,14 @@ export default function HiveDetail() {
                     <UserMultiSelect
                       options={memberOptions}
                       value={editForm.members}
-                          onChange={(members) => setEditForm((prev) => ({ ...prev, members }))}
-                          placeholder="Pasirinkite komandos narius"
-                        />
+                      onChange={(members) => setEditForm((prev) => ({ ...prev, members }))}
+                      placeholder="Pasirinkite komandos narius"
+                      loading={userLoading}
+                      hasMore={userHasMore}
+                      onLoadMore={handleLoadMoreUsers}
+                      onSearch={handleUserSearch}
+                      emptyText={userLoading ? 'Kraunama...' : 'Nėra vartotojų'}
+                    />
                       </div>
                     ) : null}
                   </div>

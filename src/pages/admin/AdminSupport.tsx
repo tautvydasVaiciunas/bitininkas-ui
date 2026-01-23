@@ -38,16 +38,23 @@ const AdminSupport = () => {
   const [searchError, setSearchError] = useState<string | null>(null);
   const previousThreadIdRef = useRef<string | null>(null);
 
-  const loadThreads = useCallback(async () => {
-    setThreadsLoading(true);
-    setThreadsError(null);
+  const loadThreads = useCallback(async (options?: { silent?: boolean }) => {
+    const { silent } = options ?? {};
+    if (!silent) {
+      setThreadsLoading(true);
+      setThreadsError(null);
+    }
     try {
       const data = await api.support.admin.threads();
       setThreads(data);
     } catch {
-      setThreadsError('Nepavyko įkelti pokalbių.');
+      if (!silent) {
+        setThreadsError('Nepavyko įkelti pokalbių.');
+      }
     } finally {
-      setThreadsLoading(false);
+      if (!silent) {
+        setThreadsLoading(false);
+      }
     }
   }, []);
 
@@ -183,9 +190,7 @@ const AdminSupport = () => {
 
   useEffect(() => {
     const intervalId = window.setInterval(() => {
-      if (!threadsLoading) {
-        void loadThreads();
-      }
+      void loadThreads({ silent: true });
 
       if (selectedThreadId && !loadingMore && !messagesLoading) {
         void loadThreadMessages(selectedThreadId, undefined, false, true);
@@ -312,77 +317,77 @@ const AdminSupport = () => {
     <MainLayout>
       <div className="mx-auto flex w-full max-w-6xl flex-1 flex-col gap-6 px-4 py-10 min-h-[calc(100vh-12rem)] lg:min-h-[calc(100vh-9rem)]">
         <div className="flex min-h-0 flex-1 flex-col gap-6 lg:flex-row">
-          <aside className="flex min-h-0 flex-col gap-4 rounded-2xl border border-border bg-background/60 p-4 shadow-sm shadow-black/5 lg:w-80 lg:flex-none">
-            <div className="min-h-0 flex-1 overflow-y-auto">
+          <aside className="flex min-h-0 flex-col gap-4 rounded-2xl border border-border bg-background/60 p-4 shadow-sm shadow-black/5 lg:w-80 lg:flex-none lg:h-full lg:max-h-[calc(100vh-9rem)]">
+            <div className="flex h-full flex-1 flex-col gap-4 overflow-hidden">
               <div className="sticky top-0 z-10 bg-background/95 pb-3 pt-1">
-              <h2 className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">
-                Pokalbiai
-              </h2>
-              <p className="text-xs text-muted-foreground">
-                Raskite vartotoją arba pasirinkite esamą temą.
-              </p>
-              <div className="relative">
-              <Input
-                placeholder="Ieškoti vartotojo..."
-                value={userQuery}
-                onChange={(event) => setUserQuery(event.target.value)}
-                className="mb-2"
-              />
-              {userQuery.trim() &&
-              (searchLoading || searchError || userSearchResults.length > 0) ? (
-                <div className="absolute inset-x-0 top-full z-20 mt-1 max-h-52 overflow-y-auto rounded-xl border bg-background shadow-lg">
-                  {searchLoading ? (
-                    <p className="px-3 py-2 text-sm text-muted-foreground">Kraunama...</p>
-                  ) : searchError ? (
-                    <p className="px-3 py-2 text-sm text-destructive">{searchError}</p>
-                  ) : (
-                    userSearchResults.map((user) => (
-                      <button
-                        key={user.id}
-                        type="button"
-                        onMouseDown={(event) => event.preventDefault()}
-                        onClick={() => handleSelectUser(user)}
-                        className="w-full px-3 py-2 text-left text-sm transition hover:bg-primary/10"
-                      >
-                        <p className="font-medium">{user.name ?? user.email}</p>
-                        <p className="text-xs text-muted-foreground">{user.email}</p>
-                      </button>
-                    ))
-                  )}
-                </div>
-              ) : null}
-            </div>
-              </div>
-              <div className="pb-1">
-              {threadsLoading ? (
-                <p className="text-sm text-muted-foreground">Kraunama...</p>
-              ) : threadsError ? (
-                <p className="text-sm text-destructive">{threadsError}</p>
-              ) : (
-                <div className="space-y-2">
-                  {threads.map((thread) => (
-                    <button
-                      key={thread.id}
-                      onClick={() => setSelectedThreadId(thread.id)}
-                      className={cn(
-                        'w-full rounded-2xl border px-3 py-3 text-left text-sm transition-colors',
-                        thread.id === activeThread?.id
-                          ? 'border-primary bg-primary/10 text-primary'
-                          : 'border-border bg-muted/80 hover:border-primary hover:text-foreground',
+                <h2 className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">
+                  Pokalbiai
+                </h2>
+                <p className="text-xs text-muted-foreground">
+                  Raskite vartotoją arba pasirinkite esamą temą.
+                </p>
+                <div className="relative">
+                  <Input
+                    placeholder="Ieškoti vartotojo..."
+                    value={userQuery}
+                    onChange={(event) => setUserQuery(event.target.value)}
+                    className="mb-2"
+                  />
+                  {userQuery.trim() &&
+                  (searchLoading || searchError || userSearchResults.length > 0) ? (
+                    <div className="absolute inset-x-0 top-full z-20 mt-1 max-h-52 overflow-y-auto rounded-xl border bg-background shadow-lg">
+                      {searchLoading ? (
+                        <p className="px-3 py-2 text-sm text-muted-foreground">Kraunama...</p>
+                      ) : searchError ? (
+                        <p className="px-3 py-2 text-sm text-destructive">{searchError}</p>
+                      ) : (
+                        userSearchResults.map((user) => (
+                          <button
+                            key={user.id}
+                            type="button"
+                            onMouseDown={(event) => event.preventDefault()}
+                            onClick={() => handleSelectUser(user)}
+                            className="w-full px-3 py-2 text-left text-sm transition hover:bg-primary/10"
+                          >
+                            <p className="font-medium">{user.name ?? user.email}</p>
+                            <p className="text-xs text-muted-foreground">{user.email}</p>
+                          </button>
+                        ))
                       )}
-                    >
-                      <p className="font-medium">{thread.userName ?? 'Vartotojas'}</p>
-                      {thread.userEmail ? (
-                        <p className="text-xs text-muted-foreground">{thread.userEmail}</p>
-                      ) : null}
-                      <p className="text-xs text-muted-foreground">
-                        {thread.lastMessageText ?? 'Nėra žinučių'} • {thread.unreadFromUser} neperskaitytų
-                      </p>
-                    </button>
-                  ))}
+                    </div>
+                  ) : null}
                 </div>
-              )}
-            </div>
+              </div>
+              <div className="flex-1 overflow-y-auto pb-1">
+                {threadsLoading ? (
+                  <p className="text-sm text-muted-foreground">Kraunama...</p>
+                ) : threadsError ? (
+                  <p className="text-sm text-destructive">{threadsError}</p>
+                ) : (
+                  <div className="space-y-2">
+                    {threads.map((thread) => (
+                      <button
+                        key={thread.id}
+                        onClick={() => setSelectedThreadId(thread.id)}
+                        className={cn(
+                          'w-full rounded-2xl border px-3 py-3 text-left text-sm transition-colors',
+                          thread.id === activeThread?.id
+                            ? 'border-primary bg-primary/10 text-primary'
+                            : 'border-border bg-muted/80 hover:border-primary hover:text-foreground',
+                        )}
+                      >
+                        <p className="font-medium">{thread.userName ?? 'Vartotojas'}</p>
+                        {thread.userEmail ? (
+                          <p className="text-xs text-muted-foreground">{thread.userEmail}</p>
+                        ) : null}
+                        <p className="text-xs text-muted-foreground">
+                          {thread.lastMessageText ?? 'Nėra žinučių'} • {thread.unreadFromUser} neperskaitytų
+                        </p>
+                      </button>
+                    ))}
+                  </div>
+                )}
+              </div>
             </div>
           </aside>
 

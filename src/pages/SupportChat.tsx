@@ -296,11 +296,10 @@ const SupportChat = () => {
                         <div
                           className={cn(
                             'max-w-[85%] rounded-2xl px-4 py-2 text-sm shadow-sm',
-                            isUser ? 'bg-primary text-primary-foreground' : 'bg-muted text-muted-foreground',
-                            'text-black',
+                            isUser ? 'bg-primary text-primary-foreground' : 'bg-muted text-white',
                           )}
                         >
-                          {message.text && <p className="whitespace-pre-wrap text-black">{message.text}</p>}
+                          {message.text && <p className="whitespace-pre-wrap">{message.text}</p>}
                           {(() => {
                             const attachments = message.attachments ?? [];
                             if (!attachments.length) {

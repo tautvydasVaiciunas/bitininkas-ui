@@ -21,6 +21,7 @@ export interface EmailPayload {
   mainHtml?: string;
   primaryButtonLabel?: string | null;
   primaryButtonUrl?: string | null;
+  replyTo?: string | string[] | null;
 }
 
 @Injectable()
@@ -118,6 +119,7 @@ export class EmailService {
     subject: string;
     text: string;
     html?: string;
+    replyTo?: string | string[] | null;
   }): string {
     const boundaryId = randomBytes(12).toString('hex');
     const relatedBoundary = `related_${boundaryId}`;
@@ -135,6 +137,13 @@ export class EmailService {
       `To: ${payload.to}`,
       `Subject: ${this.encodeSubject(payload.subject)}`,
       `Date: ${new Date().toUTCString()}`,
+      ...(payload.replyTo
+        ? [
+            `Reply-To: ${this.sanitizeHeaderValue(
+              Array.isArray(payload.replyTo) ? payload.replyTo.join(', ') : payload.replyTo,
+            )}`,
+          ]
+        : []),
       'MIME-Version: 1.0',
     ];
 
@@ -239,6 +248,14 @@ export class EmailService {
 
     const trimmed = value.trim();
     return trimmed.length ? trimmed : null;
+  }
+
+  private sanitizeHeaderValue(value?: string | null): string {
+    if (!value) {
+      return '';
+    }
+
+    return value.replace(/[\r\n]+/g, ' ').trim();
   }
 
   renderLayout(options: EmailLayoutOptions): string {

@@ -17,6 +17,7 @@ import {
   PaginatedResult,
   PaginationOptions,
 } from '../common/pagination/pagination.service';
+import { ADMIN_NOTIFICATION_EMAIL } from '../common/config/notification.config';
 
 export type NotificationType =
   | 'assignment'
@@ -49,6 +50,7 @@ export class NotificationsService {
     hasReadAtColumn: boolean;
     hasCreatedAtColumn: boolean;
   };
+  private readonly adminNotificationEmail: string;
 
   constructor(
     @InjectRepository(Notification)
@@ -58,7 +60,12 @@ export class NotificationsService {
     private readonly emailService: EmailService,
     private readonly pagination: PaginationService,
     private readonly configService: ConfigService,
-  ) {}
+  ) {
+    const customAdminEmail = this.configService
+      .get<string>('ADMIN_NOTIFICATION_EMAIL')
+      ?.trim();
+    this.adminNotificationEmail = customAdminEmail || ADMIN_NOTIFICATION_EMAIL;
+  }
 
   private async getSchemaCapabilities() {
     if (!this.schemaCapabilities) {
@@ -425,16 +432,12 @@ export class NotificationsService {
     try {
       const user = await this.usersRepository.findOne({ where: { id: userId } });
 
-      if (!user?.email) {
+      const userRole = user?.role ?? UserRole.USER;
+      const isAdminRecipient = userRole !== UserRole.USER;
+
+      if (!isAdminRecipient && !user?.email) {
         this.logger.warn(
           `Nepavyko išsiųsti el. laiško vartotojui ${userId}: nėra el. pašto adreso.`,
-        );
-        return;
-      }
-
-      if (payload.type === 'assignment' && user.role === UserRole.ADMIN) {
-        this.logger.debug(
-          `Praleidžiamas el. laiškas admin vartotojui ${user.email} apie užduotį.`,
         );
         return;
       }
@@ -455,13 +458,19 @@ export class NotificationsService {
         ctaUrl: ctaUrl ?? undefined,
       });
 
+      const toEmail = isAdminRecipient
+        ? this.adminNotificationEmail
+        : user?.email!;
+      const replyToEmail = isAdminRecipient ? this.adminNotificationEmail : undefined;
+
       await this.emailService.sendMail({
-        to: user.email,
+        to: toEmail,
         subject,
         html,
         primaryButtonLabel: ctaUrl ? ctaLabel : null,
         primaryButtonUrl: ctaUrl ?? null,
         text,
+        replyTo: replyToEmail,
       });
     } catch (error) {
       const details = error instanceof Error ? error.message : String(error);

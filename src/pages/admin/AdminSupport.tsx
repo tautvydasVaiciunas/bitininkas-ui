@@ -16,6 +16,14 @@ import { cn } from '@/lib/utils';
 
 const MESSAGE_PAGE_LIMIT = 30;
 
+const sortThreads = (items: SupportThreadAdminResponse[]) => {
+  return [...items].sort((first, second) => {
+    const firstTs = first.lastMessageAt ? new Date(first.lastMessageAt).getTime() : 0;
+    const secondTs = second.lastMessageAt ? new Date(second.lastMessageAt).getTime() : 0;
+    return secondTs - firstTs;
+  });
+};
+
 const AdminSupport = () => {
   const [threads, setThreads] = useState<SupportThreadAdminResponse[]>([]);
   const [threadsLoading, setThreadsLoading] = useState(true);
@@ -46,7 +54,7 @@ const AdminSupport = () => {
     }
     try {
       const data = await api.support.admin.threads();
-      setThreads(data);
+      setThreads(sortThreads(data));
     } catch {
       if (!silent) {
         setThreadsError('Nepavyko įkelti pokalbių.');
@@ -57,6 +65,18 @@ const AdminSupport = () => {
       }
     }
   }, []);
+
+  const updateThreadSummary = useCallback(
+    (threadId: string, updates: Partial<SupportThreadAdminResponse>) => {
+      setThreads((prev) => {
+        const updated = prev.map((thread) =>
+          thread.id === threadId ? { ...thread, ...updates } : thread,
+        );
+        return sortThreads(updated);
+      });
+    },
+    [],
+  );
 
   const loadThreadMessages = useCallback(async (
     threadId: string,
@@ -80,6 +100,14 @@ const AdminSupport = () => {
       const page = await api.support.admin.threadMessages(threadId, params);
       const normalized = [...page].reverse();
       setHasMore((prev) => prev || page.length === MESSAGE_PAGE_LIMIT);
+      if (!appendOlder) {
+        const latestMessage = page.at(0) ?? null;
+        updateThreadSummary(threadId, {
+          lastMessageText: latestMessage?.text ?? null,
+          lastMessageAt: latestMessage?.createdAt ?? null,
+          unreadFromUser: 0,
+        });
+      }
       if (appendOlder) {
         setMessages((prev) => [...normalized, ...prev]);
         setOlderCursor(page.at(-1)?.createdAt ?? null);
@@ -109,7 +137,7 @@ const AdminSupport = () => {
         setMessagesLoading(false);
       }
     }
-  }, []);
+  }, [updateThreadSummary]);
 
   const activeThread = threads.find((thread) => thread.id === selectedThreadId) ?? null;
 
@@ -271,13 +299,9 @@ const AdminSupport = () => {
     setUserSearchResults([]);
     try {
       const thread = await api.support.admin.ensureThread(user.id);
-      setThreads((prev) => {
-        const exists = prev.find((item) => item.id === thread.id);
-        if (exists) {
-          return prev;
-        }
-        return [thread, ...prev];
-      });
+      setThreads((prev) =>
+        sortThreads([thread, ...prev.filter((item) => item.id !== thread.id)]),
+      );
       setSelectedThreadId(thread.id);
     } catch {
       setSearchError('Nepavyko atidaryti pokalbio.');
@@ -304,6 +328,11 @@ const AdminSupport = () => {
       setMessages((prev) => [...prev, response]);
       setText('');
       setAttachments([]);
+      updateThreadSummary(activeThread.id, {
+        lastMessageText: response.text ?? null,
+        lastMessageAt: response.createdAt,
+        unreadFromUser: 0,
+      });
     } catch {
       setSendError('Nepavyko išsiųsti žinutės.');
     } finally {

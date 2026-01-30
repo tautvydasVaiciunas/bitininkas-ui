@@ -1,5 +1,5 @@
 
-import { useCallback, useEffect, useRef, useState } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Textarea } from '@/components/ui/textarea';
@@ -13,21 +13,12 @@ import api, {
   SupportThreadAdminResponse,
 } from '@/lib/api';
 import { cn } from '@/lib/utils';
+import { useInfiniteQuery, useQueryClient } from '@tanstack/react-query';
 
 const MESSAGE_PAGE_LIMIT = 30;
-
-const sortThreads = (items: SupportThreadAdminResponse[]) => {
-  return [...items].sort((first, second) => {
-    const firstTs = first.lastMessageAt ? new Date(first.lastMessageAt).getTime() : 0;
-    const secondTs = second.lastMessageAt ? new Date(second.lastMessageAt).getTime() : 0;
-    return secondTs - firstTs;
-  });
-};
+const THREAD_PAGE_LIMIT = 20;
 
 const AdminSupport = () => {
-  const [threads, setThreads] = useState<SupportThreadAdminResponse[]>([]);
-  const [threadsLoading, setThreadsLoading] = useState(true);
-  const [threadsError, setThreadsError] = useState<string | null>(null);
   const [selectedThreadId, setSelectedThreadId] = useState<string | null>(null);
   const [messages, setMessages] = useState<SupportMessageResponse[]>([]);
   const [messagesLoading, setMessagesLoading] = useState(false);
@@ -45,38 +36,27 @@ const AdminSupport = () => {
   const [searchLoading, setSearchLoading] = useState(false);
   const [searchError, setSearchError] = useState<string | null>(null);
   const previousThreadIdRef = useRef<string | null>(null);
+  const queryClient = useQueryClient();
 
-  const loadThreads = useCallback(async (options?: { silent?: boolean }) => {
-    const { silent } = options ?? {};
-    if (!silent) {
-      setThreadsLoading(true);
-      setThreadsError(null);
-    }
-    try {
-      const data = await api.support.admin.threads();
-      setThreads(sortThreads(data));
-    } catch {
-      if (!silent) {
-        setThreadsError('Nepavyko įkelti pokalbių.');
-      }
-    } finally {
-      if (!silent) {
-        setThreadsLoading(false);
-      }
-    }
-  }, []);
-
-  const updateThreadSummary = useCallback(
-    (threadId: string, updates: Partial<SupportThreadAdminResponse>) => {
-      setThreads((prev) => {
-        const updated = prev.map((thread) =>
-          thread.id === threadId ? { ...thread, ...updates } : thread,
-        );
-        return sortThreads(updated);
-      });
+  const threadsQuery = useInfiniteQuery(
+    ['supportThreads'],
+    ({ pageParam = 1 }) => api.support.admin.threads({ page: pageParam, limit: THREAD_PAGE_LIMIT }),
+    {
+      getNextPageParam: (lastPage, pages) =>
+        lastPage.length === THREAD_PAGE_LIMIT ? pages.length + 1 : undefined,
+      refetchOnWindowFocus: false,
     },
-    [],
   );
+
+  const threadList = useMemo(() => threadsQuery.data?.pages.flat() ?? [], [threadsQuery.data]);
+  const threadsLoading = threadsQuery.isLoading;
+  const threadsError = threadsQuery.isError ? 'Nepavyko įkelti pokalbių.' : null;
+  const hasMoreThreads = Boolean(threadsQuery.hasNextPage);
+  const loadingMoreThreads = threadsQuery.isFetchingNextPage;
+
+  const refreshThreadList = useCallback(() => {
+    queryClient.invalidateQueries({ queryKey: ['supportThreads'] });
+  }, [queryClient]);
 
   const loadThreadMessages = useCallback(async (
     threadId: string,
@@ -100,14 +80,6 @@ const AdminSupport = () => {
       const page = await api.support.admin.threadMessages(threadId, params);
       const normalized = [...page].reverse();
       setHasMore((prev) => prev || page.length === MESSAGE_PAGE_LIMIT);
-      if (!appendOlder) {
-        const latestMessage = page.at(0) ?? null;
-        updateThreadSummary(threadId, {
-          lastMessageText: latestMessage?.text ?? null,
-          lastMessageAt: latestMessage?.createdAt ?? null,
-          unreadFromUser: 0,
-        });
-      }
       if (appendOlder) {
         setMessages((prev) => [...normalized, ...prev]);
         setOlderCursor(page.at(-1)?.createdAt ?? null);
@@ -126,6 +98,9 @@ const AdminSupport = () => {
         setMessages(normalized);
         setOlderCursor(page.at(-1)?.createdAt ?? null);
       }
+      if (!appendOlder) {
+        refreshThreadList();
+      }
     } catch {
       if (!appendOlder && !refresh) {
         setMessagesError('Nepavyko ?kelti ?inu?i?.');
@@ -139,7 +114,7 @@ const AdminSupport = () => {
     }
   }, [updateThreadSummary]);
 
-  const activeThread = threads.find((thread) => thread.id === selectedThreadId) ?? null;
+  const activeThread = threadList.find((thread) => thread.id === selectedThreadId) ?? null;
 
   useEffect(() => {
     const query = userQuery.trim();

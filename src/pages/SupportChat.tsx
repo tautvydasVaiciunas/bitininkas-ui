@@ -296,7 +296,9 @@ const SupportChat = () => {
                         <div
                           className={cn(
                             'max-w-[85%] rounded-2xl px-4 py-2 text-sm shadow-sm',
-                            isUser ? 'bg-primary text-primary-foreground' : 'bg-muted text-white',
+                            isUser
+                              ? 'bg-primary text-primary-foreground text-black'
+                              : 'bg-muted text-white',
                           )}
                         >
                           {message.text && <p className="whitespace-pre-wrap">{message.text}</p>}

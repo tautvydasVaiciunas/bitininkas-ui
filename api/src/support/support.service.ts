@@ -8,6 +8,7 @@ import { EmailService } from '../email/email.service';
 import { User, UserRole } from '../users/user.entity';
 import { ConfigService } from '@nestjs/config';
 import { resolveFrontendUrl } from '../common/utils/frontend-url';
+import { ADMIN_NOTIFICATION_EMAIL } from '../common/config/notification.config';
 
 export type SupportSenderRole = 'user' | 'admin' | 'manager' | 'system';
 
@@ -43,12 +44,14 @@ export interface SupportThreadAdminView {
   unreadFromUser: number;
 }
 const STAFF_ROLES: SupportSenderRole[] = ['admin', 'manager'];
+const ADMIN_SUPPORT_LINK = '/admin/support';
 
 @Injectable()
 export class SupportService {
   private readonly logger = new Logger(SupportService.name);
   private readonly EMAIL_COOLDOWN_MS = 15 * 60 * 1000;
   private readonly MESSAGE_LINK = '/messages';
+  private readonly adminNotificationEmail = ADMIN_NOTIFICATION_EMAIL;
   constructor(
     @InjectRepository(SupportThread)
     private readonly threadRepository: Repository<SupportThread>,
@@ -141,6 +144,9 @@ export class SupportService {
 
     if (STAFF_ROLES.includes(input.senderRole)) {
       await this.sendStaffMessageEmail(threadId);
+    }
+    if (isUserSender) {
+      void this.sendAdminNotificationEmail(threadId, savedMessage);
     }
 
     return savedMessage;
@@ -280,5 +286,59 @@ export class SupportService {
       .getRawMany<{ threadId: string }>();
 
     return rows.length;
+  }
+
+  private async sendAdminNotificationEmail(threadId: string, message: SupportMessage) {
+    if (!this.adminNotificationEmail) {
+      return;
+    }
+
+    const thread = await this.findThreadById(threadId);
+    if (!thread || !thread.user) {
+      return;
+    }
+
+    const threadUser = thread.user;
+    if (threadUser.role !== UserRole.USER) {
+      return;
+    }
+
+    const attachmentsCount = (message.attachments ?? []).length;
+    const trimmedText = message.text?.trim();
+    const messageText = trimmedText && trimmedText.length ? trimmedText : '(be teksto)';
+    const messageLink = resolveFrontendUrl(
+      this.configService,
+      `${ADMIN_SUPPORT_LINK}?threadId=${threadId}`,
+    );
+
+    const bodyLines = [
+      `Vartotojas: ${threadUser.name ?? threadUser.email ?? threadUser.id}`,
+      `El. paštas: ${threadUser.email ?? 'nenurodytas'}`,
+      `Vartotojo ID: ${threadUser.id}`,
+      `Žinutė: ${messageText}`,
+      `Prisegtų failų skaičius: ${attachmentsCount}`,
+      `Pokalbio nuoroda: ${messageLink}`,
+    ];
+
+    const body = bodyLines.join('\n');
+    const html = bodyLines.map((line) => `<p>${line}</p>`).join('');
+
+    try {
+      await this.emailService.sendMail({
+        to: this.adminNotificationEmail,
+        subject: `Nauja pagalbos žinutė iš ${threadUser.name ?? 'vartotojo'}`,
+        text: body,
+        html,
+        replyTo: this.adminNotificationEmail,
+      });
+      this.logger.log(
+        `Support notification email sent to ${this.adminNotificationEmail} for thread ${threadId}`,
+      );
+    } catch (error) {
+      const details = error instanceof Error ? error.message : String(error);
+      this.logger.warn(
+        `Nepavyko išsiųsti administracinio support laiško (${this.adminNotificationEmail}) pokalbiui ${threadId}: ${details}`,
+      );
+    }
   }
 }

@@ -38,15 +38,14 @@ const AdminSupport = () => {
   const previousThreadIdRef = useRef<string | null>(null);
   const queryClient = useQueryClient();
 
-  const threadsQuery = useInfiniteQuery(
-    ['supportThreads'],
-    ({ pageParam = 1 }) => api.support.admin.threads({ page: pageParam, limit: THREAD_PAGE_LIMIT }),
-    {
-      getNextPageParam: (lastPage, pages) =>
-        lastPage.length === THREAD_PAGE_LIMIT ? pages.length + 1 : undefined,
-      refetchOnWindowFocus: false,
-    },
-  );
+  const threadsQuery = useInfiniteQuery({
+    queryKey: ['supportThreads'],
+    queryFn: ({ pageParam = 1 }) =>
+      api.support.admin.threads({ page: pageParam, limit: THREAD_PAGE_LIMIT }),
+    getNextPageParam: (lastPage, pages) =>
+      lastPage.length === THREAD_PAGE_LIMIT ? pages.length + 1 : undefined,
+    refetchOnWindowFocus: false,
+  });
 
   const threadList = useMemo(() => threadsQuery.data?.pages.flat() ?? [], [threadsQuery.data]);
   const threadsLoading = threadsQuery.isLoading;

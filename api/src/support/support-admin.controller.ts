@@ -77,6 +77,16 @@ export class SupportAdminController {
     }));
   }
 
+  @Get('threads/:id')
+  async getThread(@Param('id') id: string) {
+    const threadView = await this.supportService.getThreadViewForAdmin(id);
+    if (!threadView) {
+      throw new NotFoundException('Thread not found');
+    }
+
+    return threadView;
+  }
+
   @Post('threads/:id/messages')
   async createMessage(@Param('id') id: string, @Body() body: CreateMessageDto, @Req() request: Request) {
     const thread = await this.supportService.findThreadById(id);

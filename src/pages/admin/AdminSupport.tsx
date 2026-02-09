@@ -14,6 +14,7 @@ import api, {
 } from '@/lib/api';
 import { cn } from '@/lib/utils';
 import { useInfiniteQuery, useQueryClient, type InfiniteData } from '@tanstack/react-query';
+import { useSearchParams } from 'react-router-dom';
 
 const MESSAGE_PAGE_LIMIT = 30;
 const THREAD_PAGE_LIMIT = 20;
@@ -36,7 +37,9 @@ const AdminSupport = () => {
   const [searchLoading, setSearchLoading] = useState(false);
   const [searchError, setSearchError] = useState<string | null>(null);
   const previousThreadIdRef = useRef<string | null>(null);
+  const appliedThreadParamRef = useRef<string | null>(null);
   const queryClient = useQueryClient();
+  const [searchParams, setSearchParams] = useSearchParams();
 
   const threadsQuery = useInfiniteQuery({
     queryKey: ['supportThreads'],
@@ -109,6 +112,27 @@ const AdminSupport = () => {
   const loadThreads = useCallback(async () => {
     await refetchThreads();
   }, [refetchThreads]);
+
+  useEffect(() => {
+    const threadIdParam = searchParams.get('threadId');
+    if (!threadIdParam || appliedThreadParamRef.current === threadIdParam) {
+      return;
+    }
+
+    appliedThreadParamRef.current = threadIdParam;
+    setSelectedThreadId(threadIdParam);
+
+    if (!threadList.some((thread) => thread.id === threadIdParam)) {
+      api.support.admin
+        .thread(threadIdParam)
+        .then((thread) => {
+          upsertThread(thread);
+        })
+        .catch(() => {
+          setSearchError('Nepavyko atidaryti pokalbio.');
+        });
+    }
+  }, [searchParams, threadList, upsertThread]);
 
   const refreshThreadList = useCallback(() => {
     queryClient.invalidateQueries({ queryKey: ['supportThreads'] });
@@ -340,6 +364,9 @@ const AdminSupport = () => {
       const thread = await api.support.admin.ensureThread(user.id);
       upsertThread(thread);
       setSelectedThreadId(thread.id);
+      const nextParams = new URLSearchParams(searchParams);
+      nextParams.set('threadId', thread.id);
+      setSearchParams(nextParams, { replace: true });
     } catch {
       setSearchError('Nepavyko atidaryti pokalbio.');
     }
@@ -441,7 +468,12 @@ const AdminSupport = () => {
                     {threads.map((thread) => (
                       <button
                         key={thread.id}
-                        onClick={() => setSelectedThreadId(thread.id)}
+                        onClick={() => {
+                          setSelectedThreadId(thread.id);
+                          const nextParams = new URLSearchParams(searchParams);
+                          nextParams.set('threadId', thread.id);
+                          setSearchParams(nextParams, { replace: true });
+                        }}
                         className={cn(
                           'w-full rounded-2xl border px-3 py-3 text-left text-sm transition-colors',
                           thread.id === activeThread?.id

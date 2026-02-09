@@ -1239,6 +1239,8 @@ export const api = {
     admin: {
         threads: (params?: { query?: string; status?: string; limit?: number; page?: number }) =>
           get<SupportThreadAdminResponse[]>('/admin/support/threads', { query: params }),
+        thread: (id: string) =>
+          get<SupportThreadAdminResponse>(`/admin/support/threads/${id}`),
         threadMessages: (id: string, params?: { limit?: number; cursor?: string }) =>
           get<SupportMessageResponse[]>(`/admin/support/threads/${id}/messages`, { query: params }),
         createMessage: (id: string, payload: { text?: string; attachments?: SupportAttachmentPayload[] }) =>

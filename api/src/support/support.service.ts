@@ -205,6 +205,14 @@ export class SupportService {
     return this.buildAdminThreadView(thread);
   }
 
+  async getThreadViewForAdmin(threadId: string) {
+    const thread = await this.findThreadById(threadId);
+    if (!thread) {
+      return null;
+    }
+    return this.buildAdminThreadView(thread);
+  }
+
   private async buildAdminThreadView(thread: SupportThread): Promise<SupportThreadAdminView> {
     const [lastMessage, unreadFromUser] = await Promise.all([
       this.messageRepository.findOne({

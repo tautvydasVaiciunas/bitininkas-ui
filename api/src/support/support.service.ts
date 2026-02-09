@@ -226,7 +226,8 @@ export class SupportService {
       userName: thread.user?.name ?? null,
       userEmail: thread.user?.email ?? null,
       status: thread.status,
-      lastMessageText: lastMessage?.text ?? null,
+      lastMessageText:
+        lastMessage?.text ?? (lastMessage?.hasAttachments ? 'Prisegtas failas' : null),
       lastMessageAt: lastMessage?.createdAt ?? thread.lastMessageAt,
       unreadFromUser,
     };

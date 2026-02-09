@@ -61,12 +61,21 @@ const AdminSupport = () => {
         ['supportThreads'],
         (old) => {
           if (!old) return old;
-          return {
-            ...old,
-            pages: old.pages.map((page) =>
-              page.map((thread) => (thread.id === threadId ? { ...thread, ...updates } : thread)),
-            ),
-          };
+          let updatedThread: SupportThreadAdminResponse | null = null;
+          const pages = old.pages.map((page) =>
+            page.filter((thread) => {
+              if (thread.id !== threadId) {
+                return true;
+              }
+              updatedThread = { ...thread, ...updates };
+              return false;
+            }),
+          );
+          if (!updatedThread) {
+            return old;
+          }
+          pages[0] = [updatedThread, ...pages[0]];
+          return { ...old, pages };
         },
       );
     },
@@ -250,6 +259,11 @@ const AdminSupport = () => {
     void loadThreadMessages(activeThread.id, olderCursor, true);
   };
 
+  const handleLoadMoreThreads = () => {
+    if (!hasMoreThreads || loadingMoreThreads) return;
+    void threadsQuery.fetchNextPage();
+  };
+
   const handleFileChange = async (event: React.ChangeEvent<HTMLInputElement>) => {
     const input = event.currentTarget;
     const files = Array.from(input.files ?? []);
@@ -354,6 +368,7 @@ const AdminSupport = () => {
   };
 
   const showLoadMore = hasMore && !!olderCursor;
+  const showLoadMoreThreads = hasMoreThreads;
 
   return (
     <MainLayout>
@@ -427,6 +442,23 @@ const AdminSupport = () => {
                         </p>
                       </button>
                     ))}
+                    {showLoadMoreThreads ? (
+                      <div className="flex justify-center pt-2">
+                        <Button
+                          type="button"
+                          variant="ghost"
+                          size="sm"
+                          onClick={handleLoadMoreThreads}
+                          disabled={loadingMoreThreads}
+                        >
+                          {loadingMoreThreads ? (
+                            <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                          ) : (
+                            'Rodyti daugiau'
+                          )}
+                        </Button>
+                      </div>
+                    ) : null}
                   </div>
                 )}
               </div>

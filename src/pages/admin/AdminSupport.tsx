@@ -48,7 +48,13 @@ const AdminSupport = () => {
   });
 
   const threadList = useMemo(() => threadsQuery.data?.pages.flat() ?? [], [threadsQuery.data]);
-  const threads = threadList;
+  const threads = useMemo(() => {
+    return [...threadList].sort((a, b) => {
+      const aTime = a.lastMessageAt ? new Date(a.lastMessageAt).getTime() : 0;
+      const bTime = b.lastMessageAt ? new Date(b.lastMessageAt).getTime() : 0;
+      return bTime - aTime;
+    });
+  }, [threadList]);
   const threadsLoading = threadsQuery.isLoading;
   const threadsError = threadsQuery.isError ? 'Nepavyko įkelti pokalbių.' : null;
   const hasMoreThreads = Boolean(threadsQuery.hasNextPage);
@@ -74,7 +80,8 @@ const AdminSupport = () => {
           if (!updatedThread) {
             return old;
           }
-          pages[0] = [updatedThread, ...pages[0]];
+          const firstPage = pages[0] ?? [];
+          pages[0] = [updatedThread, ...firstPage];
           return { ...old, pages };
         },
       );
@@ -129,6 +136,9 @@ const AdminSupport = () => {
       const page = await api.support.admin.threadMessages(threadId, params);
       const normalized = [...page].reverse();
       setHasMore((prev) => prev || page.length === MESSAGE_PAGE_LIMIT);
+      if (!appendOlder) {
+        updateThreadSummary(threadId, { unreadFromUser: 0 });
+      }
       if (appendOlder) {
         setMessages((prev) => [...normalized, ...prev]);
         setOlderCursor(page.at(-1)?.createdAt ?? null);
@@ -336,7 +346,10 @@ const AdminSupport = () => {
   };
 
   const handleSend = async () => {
-    if (!activeThread) return;
+    if (!activeThread) {
+      setSendError('Pasirinkite pokalbį.');
+      return;
+    }
     const trimmedText = text.trim();
     if (!trimmedText && attachments.length === 0) return;
 
@@ -355,8 +368,11 @@ const AdminSupport = () => {
       setMessages((prev) => [...prev, response]);
       setText('');
       setAttachments([]);
+      const messageText =
+        response.text ??
+        (trimmedText ? trimmedText : attachments.length ? 'Prisegtas failas' : null);
       updateThreadSummary(activeThread.id, {
-        lastMessageText: response.text ?? null,
+        lastMessageText: messageText,
         lastMessageAt: response.createdAt,
         unreadFromUser: 0,
       });
@@ -430,6 +446,8 @@ const AdminSupport = () => {
                           'w-full rounded-2xl border px-3 py-3 text-left text-sm transition-colors',
                           thread.id === activeThread?.id
                             ? 'border-primary bg-primary/10 text-primary'
+                            : thread.unreadFromUser > 0
+                            ? 'border-amber-300 bg-amber-50 text-foreground hover:border-amber-400'
                             : 'border-border bg-muted/80 hover:border-primary hover:text-foreground',
                         )}
                       >
@@ -437,7 +455,14 @@ const AdminSupport = () => {
                         {thread.userEmail ? (
                           <p className="text-xs text-muted-foreground">{thread.userEmail}</p>
                         ) : null}
-                        <p className="text-xs text-muted-foreground">
+                        <p
+                          className={cn(
+                            'text-xs',
+                            thread.unreadFromUser > 0
+                              ? 'text-amber-800'
+                              : 'text-muted-foreground',
+                          )}
+                        >
                           {thread.lastMessageText ?? 'Nėra žinučių'} • {thread.unreadFromUser} neperskaitytų
                         </p>
                       </button>

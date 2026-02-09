@@ -13,7 +13,7 @@ import api, {
   SupportThreadAdminResponse,
 } from '@/lib/api';
 import { cn } from '@/lib/utils';
-import { useInfiniteQuery, useQueryClient } from '@tanstack/react-query';
+import { useInfiniteQuery, useQueryClient, type InfiniteData } from '@tanstack/react-query';
 
 const MESSAGE_PAGE_LIMIT = 30;
 const THREAD_PAGE_LIMIT = 20;
@@ -48,10 +48,51 @@ const AdminSupport = () => {
   });
 
   const threadList = useMemo(() => threadsQuery.data?.pages.flat() ?? [], [threadsQuery.data]);
+  const threads = threadList;
   const threadsLoading = threadsQuery.isLoading;
   const threadsError = threadsQuery.isError ? 'Nepavyko įkelti pokalbių.' : null;
   const hasMoreThreads = Boolean(threadsQuery.hasNextPage);
   const loadingMoreThreads = threadsQuery.isFetchingNextPage;
+  const { refetch: refetchThreads } = threadsQuery;
+
+  const updateThreadSummary = useCallback(
+    (threadId: string, updates: Partial<SupportThreadAdminResponse>) => {
+      queryClient.setQueryData<InfiniteData<SupportThreadAdminResponse[]>>(
+        ['supportThreads'],
+        (old) => {
+          if (!old) return old;
+          return {
+            ...old,
+            pages: old.pages.map((page) =>
+              page.map((thread) => (thread.id === threadId ? { ...thread, ...updates } : thread)),
+            ),
+          };
+        },
+      );
+    },
+    [queryClient],
+  );
+
+  const upsertThread = useCallback(
+    (thread: SupportThreadAdminResponse) => {
+      queryClient.setQueryData<InfiniteData<SupportThreadAdminResponse[]>>(
+        ['supportThreads'],
+        (old) => {
+          if (!old) {
+            return { pageParams: [1], pages: [[thread]] };
+          }
+          const pages = old.pages.map((page) => page.filter((item) => item.id !== thread.id));
+          pages[0] = [thread, ...pages[0]];
+          return { ...old, pages };
+        },
+      );
+    },
+    [queryClient],
+  );
+
+  const loadThreads = useCallback(async () => {
+    await refetchThreads();
+  }, [refetchThreads]);
 
   const refreshThreadList = useCallback(() => {
     queryClient.invalidateQueries({ queryKey: ['supportThreads'] });
@@ -111,7 +152,7 @@ const AdminSupport = () => {
         setMessagesLoading(false);
       }
     }
-  }, [updateThreadSummary]);
+  }, [refreshThreadList]);
 
   const activeThread = threadList.find((thread) => thread.id === selectedThreadId) ?? null;
 
@@ -273,9 +314,7 @@ const AdminSupport = () => {
     setUserSearchResults([]);
     try {
       const thread = await api.support.admin.ensureThread(user.id);
-      setThreads((prev) =>
-        sortThreads([thread, ...prev.filter((item) => item.id !== thread.id)]),
-      );
+      upsertThread(thread);
       setSelectedThreadId(thread.id);
     } catch {
       setSearchError('Nepavyko atidaryti pokalbio.');

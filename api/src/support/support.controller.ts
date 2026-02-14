@@ -1,4 +1,15 @@
-﻿import { Body, Controller, Get, Inject, ParseIntPipe, Post, Query, Req, UseGuards } from '@nestjs/common';
+﻿import {
+  Body,
+  Controller,
+  DefaultValuePipe,
+  Get,
+  Inject,
+  ParseIntPipe,
+  Post,
+  Query,
+  Req,
+  UseGuards,
+} from '@nestjs/common';
 import { JwtAuthGuard } from '../common/guards/jwt-auth.guard';
 import { SupportService } from './support.service';
 import { CreateAttachmentDto, CreateMessageDto } from './dto/create-message.dto';
@@ -44,32 +55,36 @@ export class SupportController {
   @Get('my-thread/messages')
   async listMessages(
     @Req() request: Request,
-    @Query('limit', ParseIntPipe) limit = 20,
+    @Query('limit', new DefaultValuePipe(20), ParseIntPipe) limit: number,
     @Query('cursor') cursor?: string,
   ) {
     const userId = request.user?.['id'];
     if (!userId) {
-      return [];
+      return { messages: [], hasMore: false, nextCursor: null };
     }
 
     const thread = await this.supportService.findOrCreateThreadForUser(userId);
     const cursorDate = cursor ? new Date(cursor) : undefined;
-    const messages = await this.supportService.listMessages(thread.id, limit, cursorDate);
+    const page = await this.supportService.listMessagesPage(thread.id, limit, cursorDate);
 
     await this.supportService.markReadByUser(thread.id);
 
-    return messages.map((message) => ({
-      id: message.id,
-      senderRole: message.senderRole,
-      text: message.text,
-      createdAt: message.createdAt,
-      attachments: message.attachments?.map((attachment) => ({
-        url: attachment.url,
-        mimeType: attachment.mimeType,
-        sizeBytes: attachment.sizeBytes,
-        kind: attachment.kind,
+    return {
+      messages: page.messages.map((message) => ({
+        id: message.id,
+        senderRole: message.senderRole,
+        text: message.text,
+        createdAt: message.createdAt,
+        attachments: message.attachments?.map((attachment) => ({
+          url: attachment.url,
+          mimeType: attachment.mimeType,
+          sizeBytes: attachment.sizeBytes,
+          kind: attachment.kind,
+        })),
       })),
-    }));
+      hasMore: page.hasMore,
+      nextCursor: page.nextCursor,
+    };
   }
 
   @Post('my-thread/messages')
@@ -115,8 +130,8 @@ export class SupportController {
         this.notificationsService.createNotification(staff.id, {
           type: 'message',
           title: senderLabel
-            ? `Nauja support žinutė nuo ${senderLabel}`
-            : 'Nauja support žinutė',
+            ? `Žinutė nuo ${senderLabel}`
+            : 'Žinutė nuo vartotojo',
           body: notifBody,
           link: resolveFrontendUrl(this.configService, conversationLink),
         }),
@@ -180,4 +195,5 @@ export class SupportController {
     return { success: true };
   }
 }
+
 

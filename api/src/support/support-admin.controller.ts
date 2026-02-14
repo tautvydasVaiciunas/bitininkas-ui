@@ -1,6 +1,7 @@
 import {
   Body,
   Controller,
+  DefaultValuePipe,
   Get,
   Inject,
   NotFoundException,
@@ -51,7 +52,7 @@ export class SupportAdminController {
   @Get('threads/:id/messages')
   async listMessages(
     @Param('id') id: string,
-    @Query('limit', ParseIntPipe) limit = 20,
+    @Query('limit', new DefaultValuePipe(20), ParseIntPipe) limit: number,
     @Query('cursor') cursor?: string,
   ) {
     const thread = await this.supportService.findThreadById(id);
@@ -60,21 +61,25 @@ export class SupportAdminController {
     }
 
     const cursorDate = cursor ? new Date(cursor) : undefined;
-    const messages = await this.supportService.listMessages(thread.id, limit, cursorDate);
+    const page = await this.supportService.listMessagesPage(thread.id, limit, cursorDate);
     await this.supportService.markReadByStaff(thread.id);
 
-    return messages.map((message) => ({
-      id: message.id,
-      senderRole: message.senderRole,
-      text: message.text,
-      createdAt: message.createdAt,
-      attachments: message.attachments?.map((attachment) => ({
-        url: attachment.url,
-        mimeType: attachment.mimeType,
-        sizeBytes: attachment.sizeBytes,
-        kind: attachment.kind,
+    return {
+      messages: page.messages.map((message) => ({
+        id: message.id,
+        senderRole: message.senderRole,
+        text: message.text,
+        createdAt: message.createdAt,
+        attachments: message.attachments?.map((attachment) => ({
+          url: attachment.url,
+          mimeType: attachment.mimeType,
+          sizeBytes: attachment.sizeBytes,
+          kind: attachment.kind,
+        })),
       })),
-    }));
+      hasMore: page.hasMore,
+      nextCursor: page.nextCursor,
+    };
   }
 
   @Get('threads/:id')

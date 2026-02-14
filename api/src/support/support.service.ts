@@ -33,6 +33,12 @@ export interface ThreadListOptions {
   page?: number;
 }
 
+export interface SupportMessagesPage {
+  messages: SupportMessage[];
+  hasMore: boolean;
+  nextCursor: string | null;
+}
+
 export interface SupportThreadAdminView {
   id: string;
   userId: string;
@@ -86,14 +92,28 @@ export class SupportService {
     limit = 20,
     cursor?: Date,
   ): Promise<SupportMessage[]> {
+    const page = await this.listMessagesPage(threadId, limit, cursor);
+    return page.messages;
+  }
+
+  async listMessagesPage(
+    threadId: string,
+    limit = 20,
+    cursor?: Date,
+  ): Promise<SupportMessagesPage> {
     const thread = await this.threadRepository.findOne({
       where: { id: threadId },
     });
 
     if (!thread) {
-      return [];
+      return {
+        messages: [],
+        hasMore: false,
+        nextCursor: null,
+      };
     }
 
+    const pageLimit = Number.isFinite(limit) && limit > 0 ? Math.min(limit, 100) : 20;
     const where: Record<string, unknown> = {
       threadId: thread.id,
     };
@@ -102,14 +122,24 @@ export class SupportService {
       where.createdAt = LessThan(cursor);
     }
 
-    return this.messageRepository.find({
+    const rows = await this.messageRepository.find({
       where,
       order: { createdAt: 'DESC' },
-      take: limit,
+      take: pageLimit + 1,
       relations: {
         attachments: true,
       },
     });
+
+    const hasMore = rows.length > pageLimit;
+    const messages = hasMore ? rows.slice(0, pageLimit) : rows;
+    const nextCursor = hasMore ? messages[messages.length - 1]?.createdAt?.toISOString() ?? null : null;
+
+    return {
+      messages,
+      hasMore,
+      nextCursor,
+    };
   }
 
   async createMessage(threadId: string, input: CreateMessageInput): Promise<SupportMessage> {

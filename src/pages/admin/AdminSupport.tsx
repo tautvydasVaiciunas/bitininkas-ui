@@ -1,4 +1,3 @@
-
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -16,8 +15,9 @@ import { cn } from '@/lib/utils';
 import { useInfiniteQuery, useQueryClient, type InfiniteData } from '@tanstack/react-query';
 import { useSearchParams } from 'react-router-dom';
 
-const MESSAGE_PAGE_LIMIT = 30;
+const MESSAGE_PAGE_LIMIT = 20;
 const THREAD_PAGE_LIMIT = 20;
+const BOTTOM_PIN_THRESHOLD = 80;
 
 const getThreadSortTime = (thread: SupportThreadAdminResponse) =>
   thread.lastMessageAt ? new Date(thread.lastMessageAt).getTime() : 0;
@@ -25,9 +25,7 @@ const getThreadSortTime = (thread: SupportThreadAdminResponse) =>
 const sortThreadsNewestFirst = (items: SupportThreadAdminResponse[]) =>
   [...items].sort((a, b) => {
     const timeDiff = getThreadSortTime(b) - getThreadSortTime(a);
-    if (timeDiff !== 0) {
-      return timeDiff;
-    }
+    if (timeDiff !== 0) return timeDiff;
     return b.id.localeCompare(a.id);
   });
 
@@ -60,8 +58,24 @@ const AdminSupport = () => {
   const [searchError, setSearchError] = useState<string | null>(null);
   const previousThreadIdRef = useRef<string | null>(null);
   const appliedThreadParamRef = useRef<string | null>(null);
+  const messageScrollRef = useRef<HTMLDivElement | null>(null);
+  const preserveScrollRef = useRef<{ height: number; top: number } | null>(null);
+  const scrollToBottomAfterRenderRef = useRef(false);
   const queryClient = useQueryClient();
   const [searchParams, setSearchParams] = useSearchParams();
+
+  const isNearBottom = useCallback(() => {
+    const container = messageScrollRef.current;
+    if (!container) return true;
+    const gap = container.scrollHeight - container.scrollTop - container.clientHeight;
+    return gap <= BOTTOM_PIN_THRESHOLD;
+  }, []);
+
+  const scrollToBottom = useCallback(() => {
+    const container = messageScrollRef.current;
+    if (!container) return;
+    container.scrollTop = container.scrollHeight;
+  }, []);
 
   const threadsQuery = useInfiniteQuery({
     queryKey: ['supportThreads'],
@@ -92,18 +106,13 @@ const AdminSupport = () => {
           let updatedThread: SupportThreadAdminResponse | null = null;
           const pages = old.pages.map((page) =>
             page.filter((thread) => {
-              if (thread.id !== threadId) {
-                return true;
-              }
+              if (thread.id !== threadId) return true;
               updatedThread = { ...thread, ...updates };
               return false;
             }),
           );
-          if (!updatedThread) {
-            return old;
-          }
-          const firstPage = pages[0] ?? [];
-          pages[0] = [updatedThread, ...firstPage];
+          if (!updatedThread) return old;
+          pages[0] = [updatedThread, ...(pages[0] ?? [])];
           return { ...old, pages };
         },
       );
@@ -137,7 +146,11 @@ const AdminSupport = () => {
     const threadIdParam = searchParams.get('threadId');
     const userIdParam = searchParams.get('userId');
     const targetThreadId = conversationIdParam ?? threadIdParam;
-    const targetParam = targetThreadId ? `thread:${targetThreadId}` : userIdParam ? `user:${userIdParam}` : null;
+    const targetParam = targetThreadId
+      ? `thread:${targetThreadId}`
+      : userIdParam
+        ? `user:${userIdParam}`
+        : null;
 
     if (!targetParam || appliedThreadParamRef.current === targetParam) {
       return;
@@ -152,12 +165,8 @@ const AdminSupport = () => {
     if (targetThreadId && !threadList.some((thread) => thread.id === targetThreadId)) {
       api.support.admin
         .thread(targetThreadId)
-        .then((thread) => {
-          upsertThread(thread);
-        })
-        .catch(() => {
-          setSearchError('Nepavyko atidaryti pokalbio.');
-        });
+        .then((thread) => upsertThread(thread))
+        .catch(() => setSearchError('Nepavyko atidaryti pokalbio.'));
       return;
     }
 
@@ -173,9 +182,7 @@ const AdminSupport = () => {
           nextParams.delete('userId');
           setSearchParams(nextParams, { replace: true });
         })
-        .catch(() => {
-          setSearchError('Nepavyko atidaryti pokalbio.');
-        });
+        .catch(() => setSearchError('Nepavyko atidaryti pokalbio.'));
     }
   }, [searchParams, setSearchParams, threadList, upsertThread]);
 
@@ -183,70 +190,83 @@ const AdminSupport = () => {
     queryClient.invalidateQueries({ queryKey: ['supportThreads'] });
   }, [queryClient]);
 
-  const loadThreadMessages = useCallback(async (
-    threadId: string,
-    cursor?: string,
-    appendOlder = false,
-    refresh = false,
-  ) => {
-    if (appendOlder) {
-      setLoadingMore(true);
-    } else if (!refresh) {
-      setMessagesLoading(true);
-      setMessagesError(null);
-    }
-    try {
-      const params: Parameters<typeof api.support.admin.threadMessages>[1] = {
-        limit: MESSAGE_PAGE_LIMIT,
-      };
-      if (cursor) {
-        params.cursor = cursor;
-      }
-      const page = await api.support.admin.threadMessages(threadId, params);
-      const normalized = [...page].reverse();
-      setHasMore((prev) => prev || page.length === MESSAGE_PAGE_LIMIT);
-      if (!appendOlder && page[0]) {
-        updateThreadSummary(threadId, {
-          unreadFromUser: 0,
-          lastMessageAt: page[0].createdAt,
-          lastMessageText:
-            page[0].text ??
-            ((page[0].attachments?.length ?? 0) > 0 ? 'Prisegtas failas' : null),
-        });
-      }
+  const loadThreadMessages = useCallback(
+    async (threadId: string, cursor?: string, appendOlder = false, refresh = false, initial = false) => {
       if (appendOlder) {
-        setMessages((prev) => [...normalized, ...prev]);
-        setOlderCursor(page.at(-1)?.createdAt ?? null);
-      } else if (refresh) {
-        setMessages((prev) => {
-          const merged = new Map(prev.map((item) => [item.id, item]));
-          normalized.forEach((item) => {
-            merged.set(item.id, item);
-          });
-          return Array.from(merged.values()).sort(
-            (a, b) => new Date(a.createdAt).getTime() - new Date(b.createdAt).getTime(),
-          );
-        });
-        setOlderCursor((prev) => prev ?? page.at(-1)?.createdAt ?? null);
-      } else {
-        setMessages(normalized);
-        setOlderCursor(page.at(-1)?.createdAt ?? null);
-      }
-      if (!appendOlder && !refresh) {
-        refreshThreadList();
-      }
-    } catch {
-      if (!appendOlder && !refresh) {
-        setMessagesError('Nepavyko įkelti žinučių.');
-      }
-    } finally {
-      if (appendOlder) {
-        setLoadingMore(false);
+        setLoadingMore(true);
       } else if (!refresh) {
-        setMessagesLoading(false);
+        setMessagesLoading(true);
+        setMessagesError(null);
       }
-    }
-  }, [refreshThreadList]);
+
+      try {
+        const params: Parameters<typeof api.support.admin.threadMessages>[1] = {
+          limit: MESSAGE_PAGE_LIMIT,
+        };
+        if (cursor) params.cursor = cursor;
+
+        const page = await api.support.admin.threadMessages(threadId, params);
+        const normalized = [...page.messages].reverse();
+
+        setHasMore(page.hasMore);
+        setOlderCursor(page.nextCursor);
+
+        if (page.messages[0]) {
+          updateThreadSummary(threadId, {
+            unreadFromUser: 0,
+            lastMessageAt: page.messages[0].createdAt,
+            lastMessageText:
+              page.messages[0].text ??
+              ((page.messages[0].attachments?.length ?? 0) > 0 ? 'Prisegtas failas' : null),
+          });
+        }
+
+        if (appendOlder) {
+          const container = messageScrollRef.current;
+          if (container) {
+            preserveScrollRef.current = {
+              height: container.scrollHeight,
+              top: container.scrollTop,
+            };
+          }
+          setMessages((prev) => [...normalized, ...prev]);
+          return;
+        }
+
+        if (refresh) {
+          const shouldStick = isNearBottom();
+          setMessages((prev) => {
+            const merged = new Map(prev.map((item) => [item.id, item]));
+            normalized.forEach((item) => merged.set(item.id, item));
+            return Array.from(merged.values()).sort(
+              (a, b) => new Date(a.createdAt).getTime() - new Date(b.createdAt).getTime(),
+            );
+          });
+          if (shouldStick) {
+            scrollToBottomAfterRenderRef.current = true;
+          }
+          return;
+        }
+
+        setMessages(normalized);
+        if (initial) {
+          scrollToBottomAfterRenderRef.current = true;
+        }
+        refreshThreadList();
+      } catch {
+        if (!appendOlder && !refresh) {
+          setMessagesError('Nepavyko įkelti žinučių.');
+        }
+      } finally {
+        if (appendOlder) {
+          setLoadingMore(false);
+        } else if (!refresh) {
+          setMessagesLoading(false);
+        }
+      }
+    },
+    [isNearBottom, refreshThreadList, updateThreadSummary],
+  );
 
   const activeThread = threads.find((thread) => thread.id === selectedThreadId) ?? null;
 
@@ -266,27 +286,21 @@ const AdminSupport = () => {
     api.users
       .list({ q: query, limit: 5 })
       .then((response) => {
-        if (!active) {
-          return;
-        }
+        if (!active) return;
         const results = Array.isArray(response)
           ? response
           : Array.isArray(response?.data)
-          ? response.data
-          : [];
+            ? response.data
+            : [];
         setUserSearchResults(results);
       })
       .catch(() => {
-        if (!active) {
-          return;
-        }
+        if (!active) return;
         setUserSearchResults([]);
         setSearchError('Paieška nepavyko.');
       })
       .finally(() => {
-        if (!active) {
-          return;
-        }
+        if (!active) return;
         setSearchLoading(false);
       });
 
@@ -322,13 +336,12 @@ const AdminSupport = () => {
     setMessages([]);
     setOlderCursor(null);
     setHasMore(false);
-    void loadThreadMessages(selectedThreadId);
+    void loadThreadMessages(selectedThreadId, undefined, false, false, true);
   }, [selectedThreadId, loadThreadMessages]);
 
   useEffect(() => {
     const intervalId = window.setInterval(() => {
       void loadThreads();
-
       if (selectedThreadId && !loadingMore && !messagesLoading) {
         void loadThreadMessages(selectedThreadId, undefined, false, true);
       }
@@ -337,7 +350,25 @@ const AdminSupport = () => {
     return () => {
       window.clearInterval(intervalId);
     };
-  }, [loadThreadMessages, loadThreads, loadingMore, messagesLoading, selectedThreadId, threadsLoading]);
+  }, [loadThreadMessages, loadThreads, loadingMore, messagesLoading, selectedThreadId]);
+
+  useEffect(() => {
+    const container = messageScrollRef.current;
+    if (!container) return;
+
+    const preserve = preserveScrollRef.current;
+    if (preserve) {
+      const delta = container.scrollHeight - preserve.height;
+      container.scrollTop = preserve.top + delta;
+      preserveScrollRef.current = null;
+      return;
+    }
+
+    if (scrollToBottomAfterRenderRef.current) {
+      scrollToBottom();
+      scrollToBottomAfterRenderRef.current = false;
+    }
+  }, [messages, scrollToBottom]);
 
   const handleLoadMore = () => {
     if (!activeThread || !hasMore || loadingMore || !olderCursor) return;
@@ -352,17 +383,11 @@ const AdminSupport = () => {
   const handleFileChange = async (event: React.ChangeEvent<HTMLInputElement>) => {
     const input = event.currentTarget;
     const files = Array.from(input.files ?? []);
-    if (files.length === 0) {
-      return;
-    }
+    if (files.length === 0) return;
 
     const getMaxBytesForFile = (file: File) => {
-      if (file.type.startsWith('image/')) {
-        return 10 * 1024 * 1024;
-      }
-      if (file.type.startsWith('video/')) {
-        return 30 * 1024 * 1024;
-      }
+      if (file.type.startsWith('image/')) return 10 * 1024 * 1024;
+      if (file.type.startsWith('video/')) return 30 * 1024 * 1024;
       return 0;
     };
 
@@ -377,6 +402,7 @@ const AdminSupport = () => {
         sizeTooLarge = true;
         continue;
       }
+
       const form = new FormData();
       form.append('file', file);
       try {
@@ -433,23 +459,22 @@ const AdminSupport = () => {
     if (!trimmedText && attachments.length === 0) return;
 
     const payload: { text?: string; attachments?: SupportAttachmentPayload[] } = {};
-    if (trimmedText) {
-      payload.text = trimmedText;
-    }
-    if (attachments.length) {
-      payload.attachments = attachments;
-    }
+    if (trimmedText) payload.text = trimmedText;
+    if (attachments.length) payload.attachments = attachments;
 
+    const shouldStick = isNearBottom();
     setSending(true);
     setSendError(null);
     try {
       const response = await api.support.admin.createMessage(activeThread.id, payload);
       setMessages((prev) => [...prev, response]);
+      if (shouldStick) {
+        scrollToBottomAfterRenderRef.current = true;
+      }
       setText('');
       setAttachments([]);
       const messageText =
-        response.text ??
-        (trimmedText ? trimmedText : attachments.length ? 'Prisegtas failas' : null);
+        response.text ?? (trimmedText ? trimmedText : attachments.length ? 'Prisegtas failas' : null);
       updateThreadSummary(activeThread.id, {
         lastMessageText: messageText,
         lastMessageAt: response.createdAt,
@@ -467,10 +492,10 @@ const AdminSupport = () => {
 
   return (
     <MainLayout>
-      <div className="mx-auto flex w-full max-w-6xl flex-1 flex-col gap-6 px-4 py-10 min-h-[calc(100vh-12rem)] lg:min-h-[calc(100vh-9rem)]">
+      <div className="mx-auto flex h-[calc(100dvh-6.5rem)] w-full max-w-6xl flex-1 flex-col gap-6 px-4 py-4 sm:h-[calc(100dvh-7rem)] lg:h-[calc(100vh-9rem)]">
         <div className="flex min-h-0 flex-1 flex-col gap-6 lg:flex-row">
-          <aside className="flex min-h-0 flex-col gap-4 rounded-2xl border border-border bg-background/60 p-4 shadow-sm shadow-black/5 lg:w-80 lg:flex-none lg:h-full lg:max-h-[calc(100vh-9rem)]">
-            <div className="flex h-full flex-1 flex-col gap-4 overflow-hidden">
+          <aside className="flex min-h-0 flex-col gap-4 rounded-2xl border border-border bg-background/60 p-4 shadow-sm shadow-black/5 lg:w-80 lg:flex-none">
+            <div className="flex min-h-0 flex-1 flex-col gap-4 overflow-hidden">
               <div className="sticky top-0 z-10 bg-background/95 pb-3 pt-1">
                 <h2 className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">
                   Pokalbiai
@@ -485,8 +510,7 @@ const AdminSupport = () => {
                     onChange={(event) => setUserQuery(event.target.value)}
                     className="mb-2"
                   />
-                  {userQuery.trim() &&
-                  (searchLoading || searchError || userSearchResults.length > 0) ? (
+                  {userQuery.trim() && (searchLoading || searchError || userSearchResults.length > 0) ? (
                     <div className="absolute inset-x-0 top-full z-20 mt-1 max-h-52 overflow-y-auto rounded-xl border bg-background shadow-lg">
                       {searchLoading ? (
                         <p className="px-3 py-2 text-sm text-muted-foreground">Kraunama...</p>
@@ -510,7 +534,7 @@ const AdminSupport = () => {
                   ) : null}
                 </div>
               </div>
-              <div className="flex-1 overflow-y-auto pb-1">
+              <div className="min-h-0 flex-1 overflow-y-auto pb-1">
                 {threadsLoading ? (
                   <p className="text-sm text-muted-foreground">Kraunama...</p>
                 ) : threadsError ? (
@@ -532,8 +556,8 @@ const AdminSupport = () => {
                           thread.id === activeThread?.id
                             ? 'border-primary bg-primary/10 text-primary'
                             : thread.unreadFromUser > 0
-                            ? 'border-amber-300 bg-amber-50 text-foreground hover:border-amber-400'
-                            : 'border-border bg-muted/80 hover:border-primary hover:text-foreground',
+                              ? 'border-amber-300 bg-amber-50 text-foreground hover:border-amber-400'
+                              : 'border-border bg-muted/80 hover:border-primary hover:text-foreground',
                         )}
                       >
                         <p className="font-medium">{thread.userName ?? 'Vartotojas'}</p>
@@ -543,9 +567,7 @@ const AdminSupport = () => {
                         <p
                           className={cn(
                             'text-xs',
-                            thread.unreadFromUser > 0
-                              ? 'text-amber-800'
-                              : 'text-muted-foreground',
+                            thread.unreadFromUser > 0 ? 'text-amber-800' : 'text-muted-foreground',
                           )}
                         >
                           {thread.lastMessageText ?? 'Nėra žinučių'} • {thread.unreadFromUser} neperskaitytų
@@ -576,114 +598,115 @@ const AdminSupport = () => {
           </aside>
 
           <div className="flex min-h-0 flex-1 flex-col gap-4">
-            <div className="flex flex-1 min-h-0 flex-col gap-4 rounded-2xl border border-border bg-background/80 p-4 shadow-sm shadow-black/5">
+            <div className="flex min-h-0 flex-1 flex-col gap-4 rounded-2xl border border-border bg-background/80 p-4 shadow-sm shadow-black/5">
               <header className="space-y-1">
-              <h1 className="text-xl font-semibold">Žinutės</h1>
-              <p className="text-xs text-muted-foreground">Atsakykite į vartotojų klausimus</p>
-            </header>
-            <div className="flex-1 overflow-hidden rounded-xl border border-border/70 bg-white/80 p-3">
-              <div className="flex h-full flex-col gap-4 overflow-y-auto pr-1">
-            {showLoadMore && (
-              <div className="flex justify-center">
-                <Button variant="ghost" size="sm" onClick={handleLoadMore} disabled={loadingMore}>
-                  {loadingMore ? (
-                    <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                <h1 className="text-xl font-semibold">Žinutės</h1>
+                <p className="text-xs text-muted-foreground">Atsakykite į vartotojų klausimus</p>
+              </header>
+              <div className="flex min-h-0 flex-1 flex-col overflow-hidden rounded-xl border border-border/70 bg-white/80 p-3">
+                <div ref={messageScrollRef} className="flex min-h-0 flex-1 flex-col gap-4 overflow-y-auto pr-1">
+                  {showLoadMore && (
+                    <div className="flex justify-center">
+                      <Button variant="ghost" size="sm" onClick={handleLoadMore} disabled={loadingMore}>
+                        {loadingMore ? (
+                          <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                        ) : (
+                          'Rodyti senesnes žinutes'
+                        )}
+                      </Button>
+                    </div>
+                  )}
+                  {messagesLoading ? (
+                    <p className="text-center text-sm text-muted-foreground">Kraunama...</p>
+                  ) : messagesError ? (
+                    <p className="text-center text-sm text-destructive">{messagesError}</p>
+                  ) : messages.length === 0 ? (
+                    <p className="text-center text-sm text-muted-foreground">
+                      Pasirinkite pokalbį arba parašykite pirmą žinutę.
+                    </p>
                   ) : (
-                    'Rodyti senesnes žinutes'
-                  )}
-                </Button>
-              </div>
-            )}
-            {messagesLoading ? (
-              <p className="text-center text-sm text-muted-foreground">Kraunama...</p>
-            ) : messagesError ? (
-              <p className="text-center text-sm text-destructive">{messagesError}</p>
-            ) : messages.length === 0 ? (
-              <p className="text-center text-sm text-muted-foreground">Pasirinkite pokalbį arba parašykite pirmą žinutę.</p>
-            ) : (
-              messages.map((message) => (
-                <div
-                  key={message.id}
-                  className={cn(
-                    'rounded-2xl px-4 py-3 text-sm shadow-sm',
-                    message.senderRole === 'user'
-                      ? 'bg-muted text-muted-foreground'
-                      : 'bg-primary text-primary-foreground',
-                  )}
-                >
-                  <p className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">
-                    {message.senderRole === 'user' ? 'Vartotojas' : 'Bus medaus komanda'} •{' '}
-                    {new Date(message.createdAt).toLocaleString('lt-LT')}
-                  </p>
-                  {message.text ? <p className="mt-2 whitespace-pre-wrap text-black">{message.text}</p> : null}
-                  {(() => {
-                    const attachments = message.attachments ?? [];
-                    if (!attachments.length) {
-                      return null;
-                    }
-                    return (
-                      <div className="mt-3 grid gap-2 sm:grid-cols-2">
-                        {attachments.map((attachment) => (
-                          <SupportAttachmentPreview
-                            key={attachment.url}
-                            attachment={attachment}
-                            showDownloadAction
-                          />
-                        ))}
+                    messages.map((message) => (
+                      <div
+                        key={message.id}
+                        className={cn(
+                          'rounded-2xl px-4 py-3 text-sm shadow-sm',
+                          message.senderRole === 'user'
+                            ? 'bg-muted text-muted-foreground'
+                            : 'bg-primary text-primary-foreground',
+                        )}
+                      >
+                        <p className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">
+                          {message.senderRole === 'user' ? 'Vartotojas' : 'Bus medaus komanda'} •{' '}
+                          {new Date(message.createdAt).toLocaleString('lt-LT')}
+                        </p>
+                        {message.text ? <p className="mt-2 whitespace-pre-wrap text-black">{message.text}</p> : null}
+                        {(() => {
+                          const messageAttachments = message.attachments ?? [];
+                          if (!messageAttachments.length) return null;
+                          return (
+                            <div className="mt-3 grid gap-2 sm:grid-cols-2">
+                              {messageAttachments.map((attachment) => (
+                                <SupportAttachmentPreview
+                                  key={attachment.url}
+                                  attachment={attachment}
+                                  showDownloadAction
+                                />
+                              ))}
+                            </div>
+                          );
+                        })()}
                       </div>
-                    );
-                  })()}
+                    ))
+                  )}
                 </div>
-              ))
-            )}
               </div>
             </div>
-            </div>
-          <div className="w-full space-y-2">
-            <div className="flex w-full flex-col gap-2 md:flex-row md:items-end">
-              <Textarea
-                placeholder="Parašykite žinutę..."
-                value={text}
-                onChange={(event) => setText(event.target.value)}
-                disabled={sending}
-                className="w-full resize-none md:min-w-0 md:flex-1"
-                rows={3}
-              />
-              <div className="flex w-full items-center justify-between md:w-auto md:gap-3">
-                <label className="flex-none cursor-pointer rounded-lg border border-dashed border-border px-3 py-2 text-xs font-medium text-muted-foreground">
-                  <input
-                    ref={fileInputRef}
-                    type="file"
-                    className="hidden"
-                    onChange={handleFileChange}
-                    accept="image/*,video/mp4"
-                  />
-                  <div className="flex items-center gap-1">
-                    <Paperclip className="h-4 w-4" />
-                    Įkelti failą
-                  </div>
-                </label>
-                <Button
-                  type="button"
-                  onClick={handleSend}
-                  disabled={sending || (!text.trim() && attachments.length === 0)}
-                  className="flex-none"
-                >
-                  {sending ? <Loader2 className="h-4 w-4 animate-spin" /> : <Send className="h-4 w-4" />}
-                </Button>
+
+            <div className="w-full space-y-2">
+              <div className="flex w-full flex-col gap-2 md:flex-row md:items-end">
+                <Textarea
+                  placeholder="Parašykite žinutę..."
+                  value={text}
+                  onChange={(event) => setText(event.target.value)}
+                  disabled={sending}
+                  className="w-full resize-none md:min-w-0 md:flex-1"
+                  rows={3}
+                />
+                <div className="flex w-full items-center justify-between md:w-auto md:gap-3">
+                  <label className="flex-none cursor-pointer rounded-lg border border-dashed border-border px-3 py-2 text-xs font-medium text-muted-foreground">
+                    <input
+                      ref={fileInputRef}
+                      type="file"
+                      className="hidden"
+                      onChange={handleFileChange}
+                      accept="image/*,video/mp4"
+                    />
+                    <div className="flex items-center gap-1">
+                      <Paperclip className="h-4 w-4" />
+                      Įkelti failą
+                    </div>
+                  </label>
+                  <Button
+                    type="button"
+                    onClick={handleSend}
+                    disabled={sending || (!text.trim() && attachments.length === 0)}
+                    className="flex-none"
+                  >
+                    {sending ? <Loader2 className="h-4 w-4 animate-spin" /> : <Send className="h-4 w-4" />}
+                  </Button>
+                </div>
               </div>
+              {attachments.length ? (
+                <div className="flex flex-wrap gap-2 text-xs text-muted-foreground">
+                  {attachments.map((attachment) => (
+                    <span key={attachment.url} className="truncate rounded-full bg-muted/60 px-3 py-1">
+                      {attachment.url.split('/').pop()}
+                    </span>
+                  ))}
+                </div>
+              ) : null}
+              {sendError ? <p className="text-xs text-destructive">{sendError}</p> : null}
             </div>
-            {attachments.length ? (
-              <div className="flex flex-wrap gap-2 text-xs text-muted-foreground">
-                {attachments.map((attachment) => (
-                  <span key={attachment.url} className="truncate rounded-full bg-muted/60 px-3 py-1">
-                    {attachment.url.split('/').pop()}
-                  </span>
-                ))}
-              </div>
-            ) : null}
-            {sendError ? <p className="text-xs text-destructive">{sendError}</p> : null}
-          </div>
           </div>
         </div>
       </div>

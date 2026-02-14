@@ -239,6 +239,12 @@ export interface SupportMessageResponse {
   attachments?: SupportAttachmentPayload[];
 }
 
+export interface SupportMessagesPageResponse {
+  messages: SupportMessageResponse[];
+  hasMore: boolean;
+  nextCursor: string | null;
+}
+
 export interface SupportThreadAdminResponse {
   id: string;
   userId: string;
@@ -1228,7 +1234,7 @@ export const api = {
   support: {
     myThread: () => get<{ id: string; status: string; lastMessageAt: string | null }>('/support/my-thread'),
     myThreadMessages: (params?: { limit?: number; cursor?: string }) =>
-      get<SupportMessageResponse[]>('/support/my-thread/messages', { query: params }),
+      get<SupportMessagesPageResponse>('/support/my-thread/messages', { query: params }),
     createMessage: (payload: { text?: string; attachments?: SupportAttachmentPayload[] }) =>
       post<SupportMessageResponse>('/support/my-thread/messages', { json: payload }),
     unread: () => get<SupportUnreadResponse>('/support/my-thread/unread'),
@@ -1242,7 +1248,7 @@ export const api = {
         thread: (id: string) =>
           get<SupportThreadAdminResponse>(`/admin/support/threads/${id}`),
         threadMessages: (id: string, params?: { limit?: number; cursor?: string }) =>
-          get<SupportMessageResponse[]>(`/admin/support/threads/${id}/messages`, { query: params }),
+          get<SupportMessagesPageResponse>(`/admin/support/threads/${id}/messages`, { query: params }),
         createMessage: (id: string, payload: { text?: string; attachments?: SupportAttachmentPayload[] }) =>
           post<SupportMessageResponse>(`/admin/support/threads/${id}/messages`, { json: payload }),
         ensureThread: (userId: string) =>

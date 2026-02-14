@@ -1,14 +1,15 @@
-import { NavLink } from "react-router-dom";
-import { useEffect, useState } from "react";
+import { NavLink, useLocation, useNavigate } from "react-router-dom";
+import { useEffect, useMemo, useState } from "react";
 import { useQuery } from "@tanstack/react-query";
 import { useAuth } from "@/contexts/AuthContext";
-import api from "@/lib/api";
+import api, { type AdminSupportUnreadResponse } from "@/lib/api";
 import { cn } from "@/lib/utils";
 import type { ComponentType } from "react";
 import {
   BarChart3,
   Bell,
   ClipboardList,
+  Ellipsis,
   FileStack,
   ListChecks,
   ListTodo,
@@ -16,6 +17,12 @@ import {
   User,
 } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuTrigger,
+} from "@/components/ui/dropdown-menu";
 import {
   GroupBeeIcon,
   HiveBeeIcon,
@@ -37,10 +44,12 @@ const profileNav: NavItem = { to: appRoutes.profile, label: "Profilis", icon: Us
 const publicStoreNav: NavItem = { to: "/parduotuve", label: "Parduotuvė", icon: ShopBeeIcon };
 const supportNav: NavItem = { to: appRoutes.support, label: "Žinutės", icon: Bell };
 const messagesNav: NavItem = { to: "/admin/support", label: "Žinutės", icon: Bell };
+const hivesNav: NavItem = { to: appRoutes.hives, label: "Aviliai", icon: HiveBeeIcon };
+const newsNav: NavItem = { to: "/admin/news", label: "Naujienos", icon: Newspaper };
 
 const userNavItems: NavItem[] = [
   { to: appRoutes.news, label: "Naujienos", icon: Newspaper },
-  { to: appRoutes.hives, label: "Aviliai", icon: HiveBeeIcon },
+  hivesNav,
   { to: appRoutes.tasks, label: "Užduotys", icon: ListTodo },
   supportNav,
   publicStoreNav,
@@ -53,10 +62,10 @@ const adminNavSections: AdminNavEntry[][] = [
     { to: "/admin/users", label: "Vartotojai", icon: UserBeeIcon },
     { to: "/admin/groups", label: "Grupės", icon: GroupBeeIcon },
     messagesNav,
-    { to: appRoutes.hives, label: "Aviliai", icon: HiveBeeIcon },
+    hivesNav,
   ],
   [
-    { to: "/admin/news", label: "Naujienos", icon: Newspaper },
+    newsNav,
     { to: "/admin/steps", label: "Žingsniai", icon: ListChecks },
     { to: "/admin/templates", label: "Šablonai", icon: FileStack },
     { to: "/admin/tasks", label: "Užduotys", icon: ClipboardList },
@@ -68,30 +77,47 @@ const adminNavSections: AdminNavEntry[][] = [
 const adminDesktopNavItems = adminNavSections.flatMap((section) =>
   section.flatMap((entry) => ("children" in entry ? entry.children : [entry])),
 );
-const adminMobileMainNav: NavItem[] = [
-  { to: "/admin/users", label: "Vartotojai", icon: UserBeeIcon },
-  { to: "/notifications", label: "Pranešimai", icon: Bell },
-  { to: "/admin/news", label: "Naujienos", icon: Newspaper },
-  reportsNavItem,
-  publicStoreNav,
+
+const adminMobilePrimaryNav: NavItem[] = [
+  hivesNav,
+  newsNav,
+  messagesNav,
+  { to: "/admin/store/products", label: "Parduotuvė", icon: ShopBeeIcon },
 ];
+
+const adminMobilePrimaryPaths = new Set(adminMobilePrimaryNav.map((item) => item.to));
 
 export const Sidebar = () => {
   const { user } = useAuth();
+  const navigate = useNavigate();
+  const location = useLocation();
   const isAdmin = user?.role === "admin";
   const isManager = user?.role === "manager";
   const isPrivileged = isAdmin || isManager;
 
   const desktopNavItems = isPrivileged ? adminDesktopNavItems : userNavItems;
-  const mobileNavItems = isPrivileged ? adminMobileMainNav : userNavItems;
+  const mobileNavItems = isPrivileged ? adminMobilePrimaryNav : userNavItems;
+
+  const adminMobileOverflowNav = useMemo(
+    () =>
+      adminDesktopNavItems.filter((item) => !adminMobilePrimaryPaths.has(item.to)),
+    [],
+  );
+
+  const moreIsActive = useMemo(() => {
+    if (!isPrivileged) return false;
+    return adminMobileOverflowNav.some((item) =>
+      location.pathname === item.to || location.pathname.startsWith(`${item.to}/`),
+    );
+  }, [adminMobileOverflowNav, isPrivileged, location.pathname]);
 
   const readStoredSupportUnread = () => {
-    if (typeof window === 'undefined') {
+    if (typeof window === "undefined") {
       return false;
     }
 
     try {
-      return window.localStorage.getItem('supportHasUnread') === '1';
+      return window.localStorage.getItem("supportHasUnread") === "1";
     } catch {
       return false;
     }
@@ -102,8 +128,8 @@ export const Sidebar = () => {
   useEffect(() => {
     if (!user || isPrivileged) {
       setSupportHasUnread(false);
-      if (typeof window !== 'undefined') {
-        window.localStorage.setItem('supportHasUnread', '0');
+      if (typeof window !== "undefined") {
+        window.localStorage.setItem("supportHasUnread", "0");
       }
       return;
     }
@@ -116,11 +142,11 @@ export const Sidebar = () => {
         if (!active) return;
         const next = Boolean(data?.unread);
         setSupportHasUnread(next);
-        if (typeof window !== 'undefined') {
-          window.localStorage.setItem('supportHasUnread', next ? '1' : '0');
+        if (typeof window !== "undefined") {
+          window.localStorage.setItem("supportHasUnread", next ? "1" : "0");
         }
       } catch {
-        // Swallow errors to keep last known state.
+        // keep previous state
       }
     };
 
@@ -136,7 +162,7 @@ export const Sidebar = () => {
   }, [user?.id, isPrivileged]);
 
   const { data: storeOrdersCountData } = useQuery<{ count: number }>({
-    queryKey: ['admin-store-orders-count'],
+    queryKey: ["admin-store-orders-count"],
     queryFn: () => api.admin.store.orders.count(),
     enabled: isPrivileged,
     staleTime: 60_000,
@@ -144,26 +170,24 @@ export const Sidebar = () => {
   const pendingOrdersCount = storeOrdersCountData?.count ?? 0;
 
   const adminSupportUnreadQuery = useQuery<AdminSupportUnreadResponse>({
-    queryKey: ['admin', 'support', 'unread-count'],
+    queryKey: ["admin", "support", "unread-count"],
     queryFn: () => api.support.admin.unreadCount(),
     enabled: !!user && isPrivileged,
     refetchInterval: 30_000,
   });
-
   const adminUnreadCount = adminSupportUnreadQuery.data?.count ?? 0;
 
   const reviewQueueBadgeQuery = useQuery({
-    queryKey: ['admin', 'assignments', 'review-count'],
+    queryKey: ["admin", "assignments", "review-count"],
     queryFn: () =>
       api.assignments.reviewQueue({
-        status: 'pending',
+        status: "pending",
         page: 1,
         limit: 1,
       }),
     enabled: !!user && isPrivileged,
     staleTime: 60_000,
   });
-
   const pendingReviewCount = reviewQueueBadgeQuery.data?.counts.pending ?? 0;
 
   return (
@@ -212,114 +236,157 @@ export const Sidebar = () => {
                 {item.to === supportNav.to && supportHasUnread ? (
                   <span className="absolute -top-1 -right-1 h-2 w-2 rounded-full bg-destructive" />
                 ) : null}
+                {item.to === messagesNav.to && adminUnreadCount > 0 ? (
+                  <span className="absolute -top-2 -right-3 inline-flex h-4 min-w-[1rem] items-center justify-center rounded-full bg-destructive px-1 text-[0.5rem] font-semibold text-white">
+                    {adminUnreadCount}
+                  </span>
+                ) : null}
               </div>
               <span className="truncate">{item.label}</span>
             </NavLink>
           ))}
+
+          {isPrivileged ? (
+            <DropdownMenu>
+              <DropdownMenuTrigger asChild>
+                <button
+                  type="button"
+                  className={cn(
+                    "flex flex-1 flex-col items-center justify-center gap-1 rounded-lg px-1 py-1 text-[0.55rem] font-medium transition-colors",
+                    moreIsActive
+                      ? "bg-sidebar-accent text-sidebar-primary"
+                      : "text-sidebar-foreground hover:bg-sidebar-accent/60",
+                  )}
+                >
+                  <Ellipsis className="h-4 w-4" />
+                  <span className="truncate">...</span>
+                </button>
+              </DropdownMenuTrigger>
+              <DropdownMenuContent align="end" className="mb-2 w-56">
+                {adminMobileOverflowNav.map((item) => (
+                  <DropdownMenuItem
+                    key={item.to}
+                    onSelect={() => navigate(item.to)}
+                    className="flex items-center gap-2"
+                  >
+                    <item.icon className="h-4 w-4" />
+                    <span>{item.label}</span>
+                  </DropdownMenuItem>
+                ))}
+                <DropdownMenuItem
+                  onSelect={() => navigate(profileNav.to)}
+                  className="flex items-center gap-2"
+                >
+                  <profileNav.icon className="h-4 w-4" />
+                  <span>{profileNav.label}</span>
+                </DropdownMenuItem>
+              </DropdownMenuContent>
+            </DropdownMenu>
+          ) : null}
         </div>
 
         <div className="hidden lg:block">
-        {isPrivileged ? (
-          <>
-            <div className="mb-2 px-3">
-              <p className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">
-                Administravimas
-              </p>
-            </div>
-            {adminNavSections.map((section, index) => (
-              <div key={index} className="space-y-1">
-                {section.map((item) =>
-                  "children" in item ? (
-                    <div key={item.label} className="space-y-1 px-3">
-                      <div className="flex items-center gap-2 px-2 text-xs font-semibold uppercase tracking-wider text-muted-foreground">
-                        <item.icon className="h-4 w-4" />
-                        <span>{item.label}</span>
-                      </div>
-                      <div className="space-y-1">
-                        {item.children.map((child) => (
-                          <NavLink
-                            key={child.to}
-                            to={child.to}
-                            className={({ isActive }) =>
-                              cn(
-                                "flex items-center gap-3 rounded-lg px-3 py-2 text-sm font-medium transition-colors",
-                                isActive
-                                  ? "bg-sidebar-accent text-sidebar-primary"
-                                  : "text-sidebar-foreground hover:bg-sidebar-accent/50",
-                              )
-                            }
-                          >
-                            <child.icon className="h-5 w-5" />
-                            <span>{child.label}</span>
-                          </NavLink>
-                        ))}
-                      </div>
-                    </div>
-                  ) : (
-                    <NavLink
-                      key={item.to}
-                      to={item.to}
-                      className={({ isActive }) =>
-                        cn(
-                          "flex items-center gap-3 rounded-lg px-3 py-2.5 text-sm font-medium transition-colors",
-                          isActive
-                            ? "bg-sidebar-accent text-sidebar-primary"
-                            : "text-sidebar-foreground hover:bg-sidebar-accent/50",
-                        )
-                      }
-                    >
-                      <item.icon className="h-5 w-5" />
-                      <div className="flex items-center gap-2">
-                        <span>{item.label}</span>
-                        {item.to === "/admin/store/products" && pendingOrdersCount > 0 ? (
-                          <Badge className="text-[0.6rem] px-2 py-0.5" variant="destructive">
-                            {pendingOrdersCount}
-                          </Badge>
-                        ) : null}
-                      </div>
-                      {item.to === messagesNav.to && adminUnreadCount > 0 ? (
-                        <span className="ml-2 inline-flex items-center justify-center rounded-full bg-destructive px-2 py-0.5 text-[0.6rem] font-semibold text-white">
-                          {adminUnreadCount}
-                        </span>
-                      ) : null}
-                      {item.to === '/admin/tasks' && pendingReviewCount > 0 ? (
-                        <span className="ml-2 inline-flex h-5 min-w-[1.25rem] items-center justify-center rounded-full bg-destructive px-2 py-0.5 text-[0.6rem] font-semibold text-white">
-                          {pendingReviewCount}
-                        </span>
-                      ) : null}
-                    </NavLink>
-                  ),
-                )}
-                {index < adminNavSections.length - 1 && (
-                  <div className="my-2 border-t border-sidebar-border"></div>
-                )}
+          {isPrivileged ? (
+            <>
+              <div className="mb-2 px-3">
+                <p className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">
+                  Administravimas
+                </p>
               </div>
-            ))}
-          </>
-        ) : (
-          <div className="space-y-1">
-            {desktopNavItems.map((item) => (
-              <NavLink
-                key={item.to}
-                to={item.to}
-                className={({ isActive }) =>
-                  cn(
-                    "flex items-center gap-3 rounded-lg px-3 py-2.5 text-sm font-medium transition-colors",
-                    isActive
-                      ? "bg-sidebar-accent text-sidebar-primary"
-                      : "text-sidebar-foreground hover:bg-sidebar-accent/50",
-                  )
-                }
-              >
-                <item.icon className="h-5 w-5" />
-                {item.to === supportNav.to && supportHasUnread ? (
-                  <span className="ml-2 h-2 w-2 rounded-full bg-destructive" />
-                ) : null}
-                {item.label}
-              </NavLink>
-            ))}
-          </div>
-        )}
+              {adminNavSections.map((section, index) => (
+                <div key={index} className="space-y-1">
+                  {section.map((item) =>
+                    "children" in item ? (
+                      <div key={item.label} className="space-y-1 px-3">
+                        <div className="flex items-center gap-2 px-2 text-xs font-semibold uppercase tracking-wider text-muted-foreground">
+                          <item.icon className="h-4 w-4" />
+                          <span>{item.label}</span>
+                        </div>
+                        <div className="space-y-1">
+                          {item.children.map((child) => (
+                            <NavLink
+                              key={child.to}
+                              to={child.to}
+                              className={({ isActive }) =>
+                                cn(
+                                  "flex items-center gap-3 rounded-lg px-3 py-2 text-sm font-medium transition-colors",
+                                  isActive
+                                    ? "bg-sidebar-accent text-sidebar-primary"
+                                    : "text-sidebar-foreground hover:bg-sidebar-accent/50",
+                                )
+                              }
+                            >
+                              <child.icon className="h-5 w-5" />
+                              <span>{child.label}</span>
+                            </NavLink>
+                          ))}
+                        </div>
+                      </div>
+                    ) : (
+                      <NavLink
+                        key={item.to}
+                        to={item.to}
+                        className={({ isActive }) =>
+                          cn(
+                            "flex items-center gap-3 rounded-lg px-3 py-2.5 text-sm font-medium transition-colors",
+                            isActive
+                              ? "bg-sidebar-accent text-sidebar-primary"
+                              : "text-sidebar-foreground hover:bg-sidebar-accent/50",
+                          )
+                        }
+                      >
+                        <item.icon className="h-5 w-5" />
+                        <div className="flex items-center gap-2">
+                          <span>{item.label}</span>
+                          {item.to === "/admin/store/products" && pendingOrdersCount > 0 ? (
+                            <Badge className="px-2 py-0.5 text-[0.6rem]" variant="destructive">
+                              {pendingOrdersCount}
+                            </Badge>
+                          ) : null}
+                        </div>
+                        {item.to === messagesNav.to && adminUnreadCount > 0 ? (
+                          <span className="ml-2 inline-flex items-center justify-center rounded-full bg-destructive px-2 py-0.5 text-[0.6rem] font-semibold text-white">
+                            {adminUnreadCount}
+                          </span>
+                        ) : null}
+                        {item.to === "/admin/tasks" && pendingReviewCount > 0 ? (
+                          <span className="ml-2 inline-flex h-5 min-w-[1.25rem] items-center justify-center rounded-full bg-destructive px-2 py-0.5 text-[0.6rem] font-semibold text-white">
+                            {pendingReviewCount}
+                          </span>
+                        ) : null}
+                      </NavLink>
+                    ),
+                  )}
+                  {index < adminNavSections.length - 1 && (
+                    <div className="my-2 border-t border-sidebar-border" />
+                  )}
+                </div>
+              ))}
+            </>
+          ) : (
+            <div className="space-y-1">
+              {desktopNavItems.map((item) => (
+                <NavLink
+                  key={item.to}
+                  to={item.to}
+                  className={({ isActive }) =>
+                    cn(
+                      "flex items-center gap-3 rounded-lg px-3 py-2.5 text-sm font-medium transition-colors",
+                      isActive
+                        ? "bg-sidebar-accent text-sidebar-primary"
+                        : "text-sidebar-foreground hover:bg-sidebar-accent/50",
+                    )
+                  }
+                >
+                  <item.icon className="h-5 w-5" />
+                  {item.to === supportNav.to && supportHasUnread ? (
+                    <span className="ml-2 h-2 w-2 rounded-full bg-destructive" />
+                  ) : null}
+                  {item.label}
+                </NavLink>
+              ))}
+            </div>
+          )}
         </div>
       </nav>
 

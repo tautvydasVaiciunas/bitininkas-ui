@@ -2,7 +2,7 @@ import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Textarea } from '@/components/ui/textarea';
-import { Loader2, Paperclip, Send } from 'lucide-react';
+import { ArrowLeft, Loader2, Paperclip, Send } from 'lucide-react';
 import { MainLayout } from '@/components/Layout/MainLayout';
 import { SupportAttachmentPreview } from '@/components/support/AttachmentPreview';
 import api, {
@@ -56,6 +56,7 @@ const AdminSupport = () => {
   const [userSearchResults, setUserSearchResults] = useState<AdminUserResponse[]>([]);
   const [searchLoading, setSearchLoading] = useState(false);
   const [searchError, setSearchError] = useState<string | null>(null);
+  const [mobileView, setMobileView] = useState<'list' | 'chat'>('list');
   const previousThreadIdRef = useRef<string | null>(null);
   const appliedThreadParamRef = useRef<string | null>(null);
   const messageScrollRef = useRef<HTMLDivElement | null>(null);
@@ -63,6 +64,11 @@ const AdminSupport = () => {
   const scrollToBottomAfterRenderRef = useRef(false);
   const queryClient = useQueryClient();
   const [searchParams, setSearchParams] = useSearchParams();
+
+  const isMobileViewport = useCallback(() => {
+    if (typeof window === 'undefined') return false;
+    return window.matchMedia('(max-width: 1023px)').matches;
+  }, []);
 
   const isNearBottom = useCallback(() => {
     const container = messageScrollRef.current;
@@ -160,6 +166,9 @@ const AdminSupport = () => {
 
     if (targetThreadId) {
       setSelectedThreadId(targetThreadId);
+      if (isMobileViewport()) {
+        setMobileView('chat');
+      }
     }
 
     if (targetThreadId && !threadList.some((thread) => thread.id === targetThreadId)) {
@@ -184,7 +193,7 @@ const AdminSupport = () => {
         })
         .catch(() => setSearchError('Nepavyko atidaryti pokalbio.'));
     }
-  }, [searchParams, setSearchParams, threadList, upsertThread]);
+  }, [isMobileViewport, searchParams, setSearchParams, threadList, upsertThread]);
 
   const refreshThreadList = useCallback(() => {
     queryClient.invalidateQueries({ queryKey: ['supportThreads'] });
@@ -314,10 +323,10 @@ const AdminSupport = () => {
   }, [loadThreads]);
 
   useEffect(() => {
-    if (!selectedThreadId && threads.length) {
+    if (!selectedThreadId && threads.length && !isMobileViewport()) {
       setSelectedThreadId(threads[0].id);
     }
-  }, [threads, selectedThreadId]);
+  }, [isMobileViewport, threads, selectedThreadId]);
 
   useEffect(() => {
     if (!selectedThreadId) {
@@ -441,6 +450,9 @@ const AdminSupport = () => {
       const thread = await api.support.admin.ensureThread(user.id);
       upsertThread(thread);
       setSelectedThreadId(thread.id);
+      if (isMobileViewport()) {
+        setMobileView('chat');
+      }
       const nextParams = new URLSearchParams(searchParams);
       nextParams.set('conversationId', thread.id);
       nextParams.set('threadId', thread.id);
@@ -494,7 +506,12 @@ const AdminSupport = () => {
     <MainLayout>
       <div className="mx-auto flex h-[calc(100dvh-6.5rem)] w-full max-w-6xl flex-1 flex-col gap-6 px-4 py-4 sm:h-[calc(100dvh-7rem)] lg:h-[calc(100vh-9rem)]">
         <div className="flex min-h-0 flex-1 flex-col gap-6 lg:flex-row">
-          <aside className="flex min-h-0 flex-col gap-4 rounded-2xl border border-border bg-background/60 p-4 shadow-sm shadow-black/5 lg:w-80 lg:flex-none">
+          <aside
+            className={cn(
+              'min-h-0 flex-col gap-4 rounded-2xl border border-border bg-background/60 p-4 shadow-sm shadow-black/5 lg:flex lg:w-80 lg:flex-none',
+              mobileView === 'list' ? 'flex' : 'hidden',
+            )}
+          >
             <div className="flex min-h-0 flex-1 flex-col gap-4 overflow-hidden">
               <div className="sticky top-0 z-10 bg-background/95 pb-3 pt-1">
                 <h2 className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">
@@ -546,6 +563,9 @@ const AdminSupport = () => {
                         key={thread.id}
                         onClick={() => {
                           setSelectedThreadId(thread.id);
+                          if (isMobileViewport()) {
+                            setMobileView('chat');
+                          }
                           const nextParams = new URLSearchParams(searchParams);
                           nextParams.set('conversationId', thread.id);
                           nextParams.set('threadId', thread.id);
@@ -597,9 +617,21 @@ const AdminSupport = () => {
             </div>
           </aside>
 
-          <div className="flex min-h-0 flex-1 flex-col gap-4">
+          <div className={cn('min-h-0 flex-1 flex-col gap-4 lg:flex', mobileView === 'chat' ? 'flex' : 'hidden')}>
             <div className="flex min-h-0 flex-1 flex-col gap-4 rounded-2xl border border-border bg-background/80 p-4 shadow-sm shadow-black/5">
               <header className="space-y-1">
+                <div className="flex items-center gap-2 lg:hidden">
+                  <Button
+                    type="button"
+                    variant="ghost"
+                    size="icon"
+                    onClick={() => setMobileView('list')}
+                    aria-label="Grįžti į pokalbių sąrašą"
+                  >
+                    <ArrowLeft className="h-4 w-4" />
+                  </Button>
+                  <span className="text-sm text-muted-foreground">Atgal į pokalbius</span>
+                </div>
                 <h1 className="text-xl font-semibold">Žinutės</h1>
                 <p className="text-xs text-muted-foreground">Atsakykite į vartotojų klausimus</p>
               </header>
@@ -662,7 +694,7 @@ const AdminSupport = () => {
               </div>
             </div>
 
-            <div className="w-full space-y-2">
+            <div className="sticky bottom-0 w-full space-y-2 bg-background/95 pb-1 pt-2">
               <div className="flex w-full flex-col gap-2 md:flex-row md:items-end">
                 <Textarea
                   placeholder="Parašykite žinutę..."

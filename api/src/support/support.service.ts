@@ -184,18 +184,19 @@ export class SupportService {
   async listThreadsForAdmin(options: ThreadListOptions) {
     const limit = options.limit ?? 20;
     const page = options.page && options.page > 0 ? options.page : 1;
+    const query = this.threadRepository
+      .createQueryBuilder('thread')
+      .leftJoinAndSelect('thread.user', 'user')
+      .orderBy('COALESCE(thread.last_message_at, thread.created_at)', 'DESC')
+      .addOrderBy('thread.id', 'DESC')
+      .skip((page - 1) * limit)
+      .take(limit);
 
-    const threads = await this.threadRepository.find({
-      relations: {
-        user: true,
-      },
-      where: options.status ? { status: options.status } : undefined,
-      order: {
-        lastMessageAt: 'DESC',
-      },
-      skip: (page - 1) * limit,
-      take: limit,
-    });
+    if (options.status) {
+      query.where('thread.status = :status', { status: options.status });
+    }
+
+    const threads = await query.getMany();
 
     return Promise.all(threads.map((thread) => this.buildAdminThreadView(thread)));
   }
@@ -262,7 +263,7 @@ export class SupportService {
 
     const messageLink = resolveFrontendUrl(this.configService, this.MESSAGE_LINK);
     const body = [
-      'Gavote naują žinutę.',
+      'Gavote naujÄ… Å¾inutÄ™.',
       `Atsakyti: ${messageLink}`,
     ].join('\n');
     const html = body
@@ -273,7 +274,7 @@ export class SupportService {
     try {
       await this.emailService.sendMail({
         to: threadUser.email,
-        subject: 'Nauja žinutė iš Bus medaus bitininko',
+        subject: 'Nauja Å¾inutÄ— iÅ¡ Bus medaus bitininko',
         text: body,
         html,
       });
@@ -281,7 +282,7 @@ export class SupportService {
       await this.userRepository.save(threadUser);
     } catch (error) {
       const details = error instanceof Error ? error.message : String(error);
-      this.logger.warn(`Nepavyko išsiųsti support laiško ${threadUser.email}: ${details}`);
+      this.logger.warn(`Nepavyko iÅ¡siÅ³sti support laiÅ¡ko ${threadUser.email}: ${details}`);
     }
   }
 
@@ -322,10 +323,10 @@ export class SupportService {
 
     const bodyLines = [
       `Vartotojas: ${threadUser.name ?? threadUser.email ?? threadUser.id}`,
-      `El. paštas: ${threadUser.email ?? 'nenurodytas'}`,
+      `El. paÅ¡tas: ${threadUser.email ?? 'nenurodytas'}`,
       `Vartotojo ID: ${threadUser.id}`,
-      `Žinutė: ${messageText}`,
-      `Prisegtų failų skaičius: ${attachmentsCount}`,
+      `Å½inutÄ—: ${messageText}`,
+      `PrisegtÅ³ failÅ³ skaiÄius: ${attachmentsCount}`,
       `Pokalbio nuoroda: ${messageLink}`,
     ];
 
@@ -335,7 +336,7 @@ export class SupportService {
     try {
       await this.emailService.sendMail({
         to: this.adminNotificationEmail,
-        subject: `Nauja pagalbos žinutė iš ${threadUser.name ?? 'vartotojo'}`,
+        subject: `Nauja pagalbos Å¾inutÄ— iÅ¡ ${threadUser.name ?? 'vartotojo'}`,
         text: body,
         html,
         replyTo: this.adminNotificationEmail,
@@ -346,7 +347,7 @@ export class SupportService {
     } catch (error) {
       const details = error instanceof Error ? error.message : String(error);
       this.logger.warn(
-        `Nepavyko išsiųsti administracinio support laiško (${this.adminNotificationEmail}) pokalbiui ${threadId}: ${details}`,
+        `Nepavyko iÅ¡siÅ³sti administracinio support laiÅ¡ko (${this.adminNotificationEmail}) pokalbiui ${threadId}: ${details}`,
       );
     }
   }

@@ -97,6 +97,13 @@ export class SupportController {
     const staffUsers = await this.userRepository.find({
       where: { role: In([UserRole.ADMIN, UserRole.MANAGER]) },
     });
+    const senderFallback = await this.userRepository.findOne({ where: { id: userId } });
+    const senderEmail =
+      (request.user?.['email'] as string | undefined)?.trim() || senderFallback?.email || null;
+    const senderName =
+      (request.user?.['name'] as string | undefined)?.trim() || senderFallback?.name || null;
+    const senderLabel = senderName && senderEmail ? `${senderName} (${senderEmail})` : senderEmail;
+    const conversationLink = `/admin/support?conversationId=${thread.id}&threadId=${thread.id}`;
 
     const notifBody =
       body.text && body.text.trim().length
@@ -107,13 +114,14 @@ export class SupportController {
       staffUsers.map((staff) =>
         this.notificationsService.createNotification(staff.id, {
           type: 'message',
-          title: 'Nauja support žinutė',
+          title: senderLabel
+            ? `Nauja support žinutė nuo ${senderLabel}`
+            : 'Nauja support žinutė',
           body: notifBody,
-          link: resolveFrontendUrl(this.configService, `/admin/support?threadId=${thread.id}`),
+          link: resolveFrontendUrl(this.configService, conversationLink),
         }),
       ),
     );
-
     return {
       id: message.id,
       senderRole: message.senderRole,
@@ -172,3 +180,4 @@ export class SupportController {
     return { success: true };
   }
 }
+

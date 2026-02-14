@@ -78,7 +78,7 @@ const AdminSupport = () => {
   );
   const threads = threadList;
   const threadsLoading = threadsQuery.isLoading;
-  const threadsError = threadsQuery.isError ? 'Nepavyko Ä¯kelti pokalbiÅ³.' : null;
+  const threadsError = threadsQuery.isError ? 'Nepavyko įkelti pokalbių.' : null;
   const hasMoreThreads = Boolean(threadsQuery.hasNextPage);
   const loadingMoreThreads = threadsQuery.isFetchingNextPage;
   const { refetch: refetchThreads } = threadsQuery;
@@ -237,7 +237,7 @@ const AdminSupport = () => {
       }
     } catch {
       if (!appendOlder && !refresh) {
-        setMessagesError('Nepavyko ?kelti ?inu?i?.');
+        setMessagesError('Nepavyko įkelti žinučių.');
       }
     } finally {
       if (appendOlder) {
@@ -281,7 +281,7 @@ const AdminSupport = () => {
           return;
         }
         setUserSearchResults([]);
-        setSearchError('PaieÅ¡ka nepavyko.');
+        setSearchError('Paieška nepavyko.');
       })
       .finally(() => {
         if (!active) {
@@ -393,9 +393,9 @@ const AdminSupport = () => {
     }
 
     if (sizeTooLarge) {
-      setSendError('Failas per didelis. Maksimalus dydis: 10 MB nuotraukai, 30 MB vaizdo Ä¯raÅ¡ui.');
+      setSendError('Failas per didelis. Maksimalus dydis: 10 MB nuotraukai, 30 MB vaizdo įrašui.');
     } else if (uploadError) {
-      setSendError('Nepavyko Ä¯kelti failo.');
+      setSendError('Nepavyko įkelti failo.');
     }
 
     if (uploaded.length) {
@@ -426,7 +426,7 @@ const AdminSupport = () => {
 
   const handleSend = async () => {
     if (!activeThread) {
-      setSendError('Pasirinkite pokalbÄ¯.');
+      setSendError('Pasirinkite pokalbį.');
       return;
     }
     const trimmedText = text.trim();
@@ -456,7 +456,7 @@ const AdminSupport = () => {
         unreadFromUser: 0,
       });
     } catch {
-      setSendError('Nepavyko iÅ¡siÅ³sti Å¾inutÄ—s.');
+      setSendError('Nepavyko išsiųsti žinutės.');
     } finally {
       setSending(false);
     }
@@ -476,11 +476,11 @@ const AdminSupport = () => {
                   Pokalbiai
                 </h2>
                 <p className="text-xs text-muted-foreground">
-                  Raskite vartotojÄ… arba pasirinkite esamÄ… temÄ….
+                  Raskite vartotoją arba pasirinkite esamą temą.
                 </p>
                 <div className="relative">
                   <Input
-                    placeholder="IeÅ¡koti vartotojo..."
+                    placeholder="Ieškoti vartotojo..."
                     value={userQuery}
                     onChange={(event) => setUserQuery(event.target.value)}
                     className="mb-2"
@@ -548,7 +548,7 @@ const AdminSupport = () => {
                               : 'text-muted-foreground',
                           )}
                         >
-                          {thread.lastMessageText ?? 'NÄ—ra Å¾inuÄiÅ³'} â€¢ {thread.unreadFromUser} neperskaitytÅ³
+                          {thread.lastMessageText ?? 'Nėra žinučių'} • {thread.unreadFromUser} neperskaitytų
                         </p>
                       </button>
                     ))}
@@ -578,8 +578,8 @@ const AdminSupport = () => {
           <div className="flex min-h-0 flex-1 flex-col gap-4">
             <div className="flex flex-1 min-h-0 flex-col gap-4 rounded-2xl border border-border bg-background/80 p-4 shadow-sm shadow-black/5">
               <header className="space-y-1">
-              <h1 className="text-xl font-semibold">Å½inutÄ—s</h1>
-              <p className="text-xs text-muted-foreground">Atsakykite Ä¯ vartotojÅ³ klausimus</p>
+              <h1 className="text-xl font-semibold">Žinutės</h1>
+              <p className="text-xs text-muted-foreground">Atsakykite į vartotojų klausimus</p>
             </header>
             <div className="flex-1 overflow-hidden rounded-xl border border-border/70 bg-white/80 p-3">
               <div className="flex h-full flex-col gap-4 overflow-y-auto pr-1">
@@ -589,7 +589,7 @@ const AdminSupport = () => {
                   {loadingMore ? (
                     <Loader2 className="mr-2 h-4 w-4 animate-spin" />
                   ) : (
-                    'Rodyti senesnes Å¾inutes'
+                    'Rodyti senesnes žinutes'
                   )}
                 </Button>
               </div>
@@ -599,7 +599,7 @@ const AdminSupport = () => {
             ) : messagesError ? (
               <p className="text-center text-sm text-destructive">{messagesError}</p>
             ) : messages.length === 0 ? (
-              <p className="text-center text-sm text-muted-foreground">Pasirinkite pokalbÄ¯ arba paraÅ¡ykite pirmÄ… Å¾inutÄ™.</p>
+              <p className="text-center text-sm text-muted-foreground">Pasirinkite pokalbį arba parašykite pirmą žinutę.</p>
             ) : (
               messages.map((message) => (
                 <div
@@ -612,7 +612,7 @@ const AdminSupport = () => {
                   )}
                 >
                   <p className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">
-                    {message.senderRole === 'user' ? 'Vartotojas' : 'Bus medaus komanda'} â€¢{' '}
+                    {message.senderRole === 'user' ? 'Vartotojas' : 'Bus medaus komanda'} •{' '}
                     {new Date(message.createdAt).toLocaleString('lt-LT')}
                   </p>
                   {message.text ? <p className="mt-2 whitespace-pre-wrap text-black">{message.text}</p> : null}
@@ -642,7 +642,7 @@ const AdminSupport = () => {
           <div className="w-full space-y-2">
             <div className="flex w-full flex-col gap-2 md:flex-row md:items-end">
               <Textarea
-                placeholder="ParaÅ¡ykite Å¾inutÄ™..."
+                placeholder="Parašykite žinutę..."
                 value={text}
                 onChange={(event) => setText(event.target.value)}
                 disabled={sending}
@@ -660,7 +660,7 @@ const AdminSupport = () => {
                   />
                   <div className="flex items-center gap-1">
                     <Paperclip className="h-4 w-4" />
-                    Ä®kelti failÄ…
+                    Įkelti failą
                   </div>
                 </label>
                 <Button

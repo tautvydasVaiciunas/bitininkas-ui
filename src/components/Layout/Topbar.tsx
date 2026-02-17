@@ -30,6 +30,7 @@ import { mapNotificationFromApi, type Notification, type NotificationType } from
 import { buildAvatarSrc } from '@/lib/avatar';
 import { appRoutes } from '@/lib/routes';
 import { TermsModal } from '@/components/TermsModal';
+import { ServiceContractModal } from '@/components/ServiceContractModal';
 
 const THEME_STORAGE_KEY = 'busmedaus-theme';
 
@@ -46,6 +47,7 @@ const readPreferredTheme = (): 'light' | 'dark' => {
 export const Topbar = () => {
   const [theme, setTheme] = useState<'light' | 'dark'>(readPreferredTheme);
   const [termsModalOpen, setTermsModalOpen] = useState(false);
+  const [serviceContractModalOpen, setServiceContractModalOpen] = useState(false);
   const { user, logout } = useAuth();
   const navigate = useNavigate();
   const queryClient = useQueryClient();
@@ -378,6 +380,12 @@ export const Topbar = () => {
                 <BookOpen className="mr-2 w-4 h-4" />
                 Naudojimosi taisyklės
               </DropdownMenuItem>
+              {user?.role === 'user' ? (
+                <DropdownMenuItem onClick={() => setServiceContractModalOpen(true)}>
+                  <BookOpen className="mr-2 w-4 h-4" />
+                  Paslaugos sutartis
+                </DropdownMenuItem>
+              ) : null}
               <DropdownMenuItem onClick={() => navigate(appRoutes.faq)}>
                 <HelpCircle className="mr-2 w-4 h-4" />
                 DUK
@@ -392,6 +400,10 @@ export const Topbar = () => {
         </div>
       </header>
       <TermsModal open={termsModalOpen} onOpenChange={setTermsModalOpen} />
+      <ServiceContractModal
+        open={serviceContractModalOpen}
+        onOpenChange={setServiceContractModalOpen}
+      />
     </>
   );
 };

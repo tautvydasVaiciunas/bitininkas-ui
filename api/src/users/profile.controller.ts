@@ -2,6 +2,7 @@ import {
   BadRequestException,
   Body,
   Controller,
+  Get,
   Patch,
   Post,
   Req,
@@ -26,6 +27,7 @@ import {
 } from '../common/config/storage.config';
 import { resolveRequestBaseUrl } from '../common/utils/request-base-url';
 import { UploadsService } from '../uploads/uploads.service';
+import { UserServiceContractService } from './user-service-contract.service';
 
 const AVATAR_SUBDIR = 'avatars';
 const MAX_AVATAR_SIZE_BYTES = 5 * 1024 * 1024;
@@ -53,6 +55,7 @@ export class ProfileController {
   constructor(
     private readonly usersService: UsersService,
     private readonly uploadsService: UploadsService,
+    private readonly userServiceContractService: UserServiceContractService,
   ) {}
 
   @Patch()
@@ -73,6 +76,16 @@ export class ProfileController {
   @Patch('password')
   updatePassword(@Req() req: Request & { user: { id: string } }, @Body() dto: UpdatePasswordDto) {
     return this.usersService.updatePassword(req.user.id, dto);
+  }
+
+  @Get('service-contract')
+  getServiceContract(@Req() req: Request & { user: { id: string } }) {
+    return this.userServiceContractService.getForUser(req.user.id);
+  }
+
+  @Post('service-contract/sign')
+  signServiceContract(@Req() req: Request & { user: { id: string } }) {
+    return this.userServiceContractService.signForUser(req.user.id);
   }
 
   @Post('avatar')

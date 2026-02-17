@@ -761,6 +761,17 @@ export interface ProfileResponse {
   updatedAt: string;
 }
 
+export interface ServiceContractResponse {
+  signed: boolean;
+  canSign: boolean;
+  shouldPrompt: boolean;
+  contractNumber: string | null;
+  signedAt: string | null;
+  templateHash: string;
+  templateVersion: string;
+  content: string;
+}
+
 export interface UpdateProfilePayload {
   name?: string | null;
   email?: string | null;
@@ -1399,6 +1410,8 @@ export const api = {
       patch<{ success: boolean }>('/profile/password', { json: payload }),
     uploadAvatar: (formData: FormData) =>
       post<{ avatarUrl: string }>('/profile/avatar', { body: formData }),
+    serviceContract: () => get<ServiceContractResponse>('/profile/service-contract'),
+    signServiceContract: () => post<ServiceContractResponse>('/profile/service-contract/sign'),
   },
   groups: {
     list: (params?: { page?: number; limit?: number }) =>

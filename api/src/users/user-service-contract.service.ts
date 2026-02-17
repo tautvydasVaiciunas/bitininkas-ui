@@ -213,6 +213,8 @@ export class UserServiceContractService {
 
   private async loadTemplateContent(): Promise<string> {
     const candidates = [
+      path.resolve(process.cwd(), 'public', 'service-contract-template.md'),
+      path.resolve(__dirname, '..', '..', '..', 'public', 'service-contract-template.md'),
       path.resolve(process.cwd(), '..', 'docs', 'Taisykles.md'),
       path.resolve(process.cwd(), '..', 'docs', 'taisykles.md'),
       path.resolve(process.cwd(), '..', 'docs', 'T&C.md'),

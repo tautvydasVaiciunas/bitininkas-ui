@@ -1410,8 +1410,26 @@ export const api = {
       patch<{ success: boolean }>('/profile/password', { json: payload }),
     uploadAvatar: (formData: FormData) =>
       post<{ avatarUrl: string }>('/profile/avatar', { body: formData }),
-    serviceContract: () => get<ServiceContractResponse>('/profile/service-contract'),
-    signServiceContract: () => post<ServiceContractResponse>('/profile/service-contract/sign'),
+    serviceContract: async () => {
+      try {
+        return await get<ServiceContractResponse>('/profile/service-contract');
+      } catch (error) {
+        if (error instanceof HttpError && error.status === 404) {
+          return get<ServiceContractResponse>('/users/profile/service-contract');
+        }
+        throw error;
+      }
+    },
+    signServiceContract: async () => {
+      try {
+        return await post<ServiceContractResponse>('/profile/service-contract/sign');
+      } catch (error) {
+        if (error instanceof HttpError && error.status === 404) {
+          return post<ServiceContractResponse>('/users/profile/service-contract/sign');
+        }
+        throw error;
+      }
+    },
   },
   groups: {
     list: (params?: { page?: number; limit?: number }) =>

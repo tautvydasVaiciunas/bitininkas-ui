@@ -50,7 +50,7 @@ const deleteFileIfExists = async (filePath?: string) => {
   }
 };
 
-@Controller('profile')
+@Controller(['profile', 'users/profile'])
 export class ProfileController {
   constructor(
     private readonly usersService: UsersService,

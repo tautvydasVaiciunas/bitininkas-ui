@@ -1,10 +1,14 @@
-import { Navigate } from 'react-router-dom';
+import { Navigate, useNavigate } from 'react-router-dom';
 import { Loader2 } from 'lucide-react';
+import { useEffect, useMemo, useState } from 'react';
+import { useQuery } from '@tanstack/react-query';
 import { useAuth } from '@/contexts/AuthContext';
+import api from '@/lib/api';
 import { Sidebar } from './Sidebar';
 import { Topbar } from './Topbar';
 import { Breadcrumbs } from './Breadcrumbs';
 import { FeedbackWidget } from '@/components/Feedback/FeedbackWidget';
+import { ServiceContractModal } from '@/components/ServiceContractModal';
 
 interface MainLayoutProps {
   children: React.ReactNode;
@@ -12,7 +16,35 @@ interface MainLayoutProps {
 }
 
 export const MainLayout = ({ children, showBreadcrumbs = true }: MainLayoutProps) => {
-  const { isAuthenticated, isBootstrapping } = useAuth();
+  const { user, isAuthenticated, isBootstrapping, logout } = useAuth();
+  const navigate = useNavigate();
+  const [contractGateOpen, setContractGateOpen] = useState(false);
+
+  const isUserRole = user?.role === 'user';
+  const { data: serviceContract } = useQuery({
+    queryKey: ['profile', 'service-contract'],
+    queryFn: () => api.profile.serviceContract(),
+    enabled: isAuthenticated && isUserRole,
+  });
+
+  const mustSignContract = useMemo(
+    () => isUserRole && Boolean(serviceContract) && !serviceContract.signed,
+    [isUserRole, serviceContract],
+  );
+
+  useEffect(() => {
+    if (mustSignContract) {
+      setContractGateOpen(true);
+      return;
+    }
+
+    setContractGateOpen(false);
+  }, [mustSignContract]);
+
+  const handleDismissUnsigned = () => {
+    logout();
+    navigate('/auth/login', { replace: true });
+  };
 
   if (isBootstrapping) {
     return (
@@ -38,6 +70,14 @@ export const MainLayout = ({ children, showBreadcrumbs = true }: MainLayoutProps
         </div>
       </main>
       <FeedbackWidget />
+      {isUserRole ? (
+        <ServiceContractModal
+          open={contractGateOpen}
+          onOpenChange={setContractGateOpen}
+          enforceSigning
+          onDismissWithoutSigning={handleDismissUnsigned}
+        />
+      ) : null}
     </div>
   );
 };

@@ -13,6 +13,7 @@ export interface UserServiceContractResponse {
   signed: boolean;
   canSign: boolean;
   shouldPrompt: boolean;
+  userEmail: string;
   contractNumber: string | null;
   signedAt: string | null;
   templateHash: string;
@@ -65,6 +66,7 @@ export class UserServiceContractService {
         signed: true,
         canSign: false,
         shouldPrompt: false,
+        userEmail: user.email,
         contractNumber: existing.contractNumber,
         signedAt: existing.signedAt.toISOString(),
         templateHash: existing.templateHash,
@@ -82,6 +84,7 @@ export class UserServiceContractService {
       signed: false,
       canSign,
       shouldPrompt,
+      userEmail: user.email,
       contractNumber: null,
       signedAt: null,
       templateHash: template.hash,
@@ -89,10 +92,10 @@ export class UserServiceContractService {
       content: this.buildSnapshotMarkdown({
         contractNumber: '—',
         signedAt: null,
+        userEmail: user.email,
         templateHash: template.hash,
         templateVersion: template.version,
         renderedTemplate,
-        context,
       }),
     };
   }
@@ -113,6 +116,7 @@ export class UserServiceContractService {
         signed: true,
         canSign: false,
         shouldPrompt: false,
+        userEmail: user.email,
         contractNumber: existing.contractNumber,
         signedAt: existing.signedAt.toISOString(),
         templateHash: existing.templateHash,
@@ -141,10 +145,10 @@ export class UserServiceContractService {
     created.snapshotMarkdown = this.buildSnapshotMarkdown({
       contractNumber: created.contractNumber,
       signedAt,
+      userEmail: user.email,
       templateHash: template.hash,
       templateVersion: template.version,
       renderedTemplate,
-      context,
     });
     await this.contractsRepository.save(created);
 
@@ -152,6 +156,7 @@ export class UserServiceContractService {
       signed: true,
       canSign: false,
       shouldPrompt: false,
+      userEmail: user.email,
       contractNumber: created.contractNumber,
       signedAt: created.signedAt.toISOString(),
       templateHash: created.templateHash,
@@ -244,33 +249,22 @@ export class UserServiceContractService {
   private buildSnapshotMarkdown(input: {
     contractNumber: string;
     signedAt: Date | null;
+    userEmail: string;
     templateHash: string;
     templateVersion: string;
     renderedTemplate: string;
-    context: ContractRenderContext;
   }): string {
-    const signedAtLabel = input.signedAt ? input.signedAt.toISOString() : '—';
+    const signedAtLabel = input.signedAt ? this.formatLocalDateTime(input.signedAt) : '—';
+    const shortHash = input.templateHash.slice(0, 12);
 
     return [
       '# Paslaugos sutartis',
       '',
       `Sutartis Nr: ${input.contractNumber}`,
       `Pasirašyta: ${signedAtLabel}`,
+      `El. paštas: ${input.userEmail || '—'}`,
       `Šablono versija: ${input.templateVersion}`,
-      `Šablono hash: ${input.templateHash}`,
-      '',
-      '## Sutarties duomenys',
-      '',
-      `- Vardas: ${input.context.fullName}`,
-      `- El. paštas: ${input.context.email}`,
-      `- Telefonas: ${input.context.phone}`,
-      `- Adresas: ${input.context.address}`,
-      `- Įmonė: ${input.context.companyName}`,
-      `- Įmonės kodas: ${input.context.companyCode}`,
-      `- PVM kodas: ${input.context.vatCode}`,
-      `- Užsakymo ID: ${input.context.orderId}`,
-      `- Užsakymo data: ${input.context.orderCreatedAt}`,
-      `- Prenumerata galioja iki: ${input.context.subscriptionValidUntil}`,
+      `Šablono hash: ${shortHash}`,
       '',
       '---',
       '',
@@ -295,5 +289,15 @@ export class UserServiceContractService {
 
     const trimmed = value.trim();
     return trimmed.length > 0 ? trimmed : '—';
+  }
+
+  private formatLocalDateTime(value: Date): string {
+    const year = value.getFullYear();
+    const month = String(value.getMonth() + 1).padStart(2, '0');
+    const day = String(value.getDate()).padStart(2, '0');
+    const hours = String(value.getHours()).padStart(2, '0');
+    const minutes = String(value.getMinutes()).padStart(2, '0');
+    const seconds = String(value.getSeconds()).padStart(2, '0');
+    return `${year}-${month}-${day} ${hours}:${minutes}:${seconds}`;
   }
 }

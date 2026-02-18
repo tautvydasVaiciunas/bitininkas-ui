@@ -4,17 +4,65 @@ import { Loader2 } from 'lucide-react';
 
 import api from '@/lib/api';
 import { Button } from '@/components/ui/button';
-import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from '@/components/ui/dialog';
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogFooter,
+  DialogHeader,
+  DialogTitle,
+} from '@/components/ui/dialog';
 import { ScrollArea } from '@/components/ui/scroll-area';
 
 interface ServiceContractModalProps {
   open: boolean;
   onOpenChange: (open: boolean) => void;
+  enforceSigning?: boolean;
+  onDismissWithoutSigning?: () => void;
 }
 
 const QUERY_KEY = ['profile', 'service-contract'] as const;
 
-export const ServiceContractModal = ({ open, onOpenChange }: ServiceContractModalProps) => {
+const formatDateTime = (value?: string | null) => {
+  if (!value) {
+    return '—';
+  }
+
+  const date = new Date(value);
+  if (Number.isNaN(date.getTime())) {
+    return '—';
+  }
+
+  const year = date.getFullYear();
+  const month = String(date.getMonth() + 1).padStart(2, '0');
+  const day = String(date.getDate()).padStart(2, '0');
+  const hours = String(date.getHours()).padStart(2, '0');
+  const minutes = String(date.getMinutes()).padStart(2, '0');
+  const seconds = String(date.getSeconds()).padStart(2, '0');
+
+  return `${year}-${month}-${day} ${hours}:${minutes}:${seconds}`;
+};
+
+const extractTemplateBody = (value?: string) => {
+  if (!value) {
+    return '';
+  }
+
+  const separator = '\n---\n';
+  const index = value.indexOf(separator);
+  if (index === -1) {
+    return value;
+  }
+
+  return value.slice(index + separator.length).trimStart();
+};
+
+export const ServiceContractModal = ({
+  open,
+  onOpenChange,
+  enforceSigning = false,
+  onDismissWithoutSigning,
+}: ServiceContractModalProps) => {
   const queryClient = useQueryClient();
   const { data, isLoading, isError } = useQuery({
     queryKey: QUERY_KEY,
@@ -38,13 +86,45 @@ export const ServiceContractModal = ({ open, onOpenChange }: ServiceContractModa
     return `Pasirašyta: ${signedAt}, Sutartis Nr: ${data.contractNumber}`;
   }, [data?.contractNumber, data?.signed, data?.signedAt]);
 
+  const contractBody = useMemo(() => {
+    const shortHash = data?.templateHash ? data.templateHash.slice(0, 12) : '—';
+    return [
+      '# Paslaugos sutartis',
+      '',
+      `Sutartis Nr: ${data?.contractNumber ?? '—'}`,
+      `Pasirašyta: ${formatDateTime(data?.signedAt)}`,
+      `El. paštas: ${data?.userEmail ?? '—'}`,
+      `Šablono versija: ${data?.templateVersion ?? '—'}`,
+      `Šablono hash: ${shortHash}`,
+      '',
+      '---',
+      '',
+      extractTemplateBody(data?.content),
+    ].join('\n');
+  }, [
+    data?.content,
+    data?.contractNumber,
+    data?.signedAt,
+    data?.templateHash,
+    data?.templateVersion,
+    data?.userEmail,
+  ]);
+
+  const handleOpenChange = (nextOpen: boolean) => {
+    if (!nextOpen && enforceSigning && data && !data.signed) {
+      onDismissWithoutSigning?.();
+    }
+    onOpenChange(nextOpen);
+  };
+
   return (
-    <Dialog open={open} onOpenChange={onOpenChange}>
+    <Dialog open={open} onOpenChange={handleOpenChange}>
       <DialogContent className="max-w-4xl">
         <DialogHeader>
           <DialogTitle>Paslaugos sutartis</DialogTitle>
           <DialogDescription>
-            Sutartis sugeneruojama pagal jūsų duomenis. Pasirašius išsaugoma nekintanti sutarties kopija.
+            Sutartis sugeneruojama pagal jūsų duomenis. Pasirašius išsaugoma nekintanti sutarties
+            kopija.
           </DialogDescription>
         </DialogHeader>
         {signedLabel ? (
@@ -64,18 +144,21 @@ export const ServiceContractModal = ({ open, onOpenChange }: ServiceContractModa
             </div>
           ) : (
             <pre className="whitespace-pre-line text-sm leading-relaxed text-muted-foreground">
-              {data?.content}
+              {contractBody}
             </pre>
           )}
         </ScrollArea>
         <DialogFooter>
           {!data?.signed && data?.canSign ? (
-            <Button onClick={() => signMutation.mutate()} disabled={signMutation.isLoading || isLoading}>
+            <Button
+              onClick={() => signMutation.mutate()}
+              disabled={signMutation.isLoading || isLoading}
+            >
               {signMutation.isLoading ? 'Pasirašoma...' : 'Pasirašyti'}
             </Button>
           ) : null}
-          <Button variant="outline" onClick={() => onOpenChange(false)}>
-            Uždaryti
+          <Button variant="outline" onClick={() => handleOpenChange(false)}>
+            {enforceSigning && data && !data.signed ? 'Atsijungti' : 'Uždaryti'}
           </Button>
         </DialogFooter>
       </DialogContent>

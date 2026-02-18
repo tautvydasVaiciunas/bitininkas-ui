@@ -765,6 +765,7 @@ export interface ServiceContractResponse {
   signed: boolean;
   canSign: boolean;
   shouldPrompt: boolean;
+  userEmail: string;
   contractNumber: string | null;
   signedAt: string | null;
   templateHash: string;

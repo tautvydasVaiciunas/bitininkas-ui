@@ -20,8 +20,9 @@ import { Label } from '@/components/ui/label';
 import { Badge } from '@/components/ui/badge';
 import { Textarea } from '@/components/ui/textarea';
 import { ResponsiveMedia } from '@/components/media/ResponsiveMedia';
+import { SupportAttachmentPreview } from '@/components/support/AttachmentPreview';
 import ltMessages from '@/i18n/messages.lt.json';
-import api, { HttpError } from '@/lib/api';
+import api, { HttpError, type SupportAttachmentPayload } from '@/lib/api';
 import {
   mapAssignmentDetailsFromApi,
   mapTemplateFromApi,
@@ -77,6 +78,13 @@ const getErrorMessage = (error: unknown) => {
 };
 
 const adminTasksQueryKey = ['tasks', 'admin', 'overview'] as const;
+const toAttachmentKind = (kind?: string): SupportAttachmentPayload['kind'] => {
+  if (kind === 'image' || kind === 'video') {
+    return kind;
+  }
+  return 'other';
+};
+
 type TaskStatusFilter = 'active' | 'archived' | 'past' | 'all';
 const statusOptions: { value: TaskStatusFilter; label: string }[] = [
   { value: 'active', label: 'Aktyvios' },
@@ -672,17 +680,35 @@ export default function AdminTasks() {
                         (entry) => entry.taskStepId === step.id,
                       );
                       const isCompleted = progressEntry?.status === 'completed';
+                      const stepAttachments =
+                        progressEntry?.media?.map((media) => ({
+                          id: media.id,
+                          url: media.url,
+                          mimeType: media.mimeType,
+                          sizeBytes: media.sizeBytes,
+                          kind: toAttachmentKind(media.kind),
+                        })) ?? [];
                       return (
-                        <li
-                          key={step.id}
-                          className="flex items-center justify-between rounded-lg border border-border px-3 py-2"
-                        >
-                          <span>
-                            {index + 1}. {step.title}
-                          </span>
-                          <Badge variant={isCompleted ? 'secondary' : 'outline'}>
-                            {isCompleted ? 'Atliktas' : 'Neatliktas'}
-                          </Badge>
+                        <li key={step.id} className="space-y-3 rounded-lg border border-border px-3 py-2">
+                          <div className="flex items-center justify-between">
+                            <span>
+                              {index + 1}. {step.title}
+                            </span>
+                            <Badge variant={isCompleted ? 'secondary' : 'outline'}>
+                              {isCompleted ? 'Atliktas' : 'Neatliktas'}
+                            </Badge>
+                          </div>
+                          {stepAttachments.length ? (
+                            <div className="grid gap-2 sm:grid-cols-2">
+                              {stepAttachments.map((attachment) => (
+                                <SupportAttachmentPreview
+                                  key={attachment.id}
+                                  attachment={attachment}
+                                  showDownloadAction
+                                />
+                              ))}
+                            </div>
+                          ) : null}
                         </li>
                       );
                     })}

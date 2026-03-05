@@ -207,17 +207,23 @@ export class NewsService {
     return trimmed.length ? trimmed : null;
   }
 
-  private buildEmailSnippet(value: string | null | undefined, limit = 180) {
-    const paragraphs = this.buildEmailParagraphs(value);
-    if (!paragraphs.length) {
+  private buildEmailSnippet(value: string | null | undefined, limit = 160) {
+    if (!value) {
       return '';
     }
-    const joined = paragraphs.join('\n\n');
-    if (joined.length <= limit) {
-      return joined;
+
+    const plain = value
+      .replace(/<[^>]*>/g, ' ')
+      .replace(/\[([^\]]+)\]\(([^)]+)\)/g, '$1')
+      .replace(/[*_~`>#-]/g, ' ')
+      .replace(/\s+/g, ' ')
+      .trim();
+
+    if (!plain) {
+      return '';
     }
-    const truncated = joined.slice(0, limit).trimEnd();
-    return `${truncated} (...)`;
+
+    return `${plain.slice(0, limit).trimEnd()}...`;
   }
 
   private buildEmailParagraphs(value: string | null | undefined) {
@@ -727,7 +733,7 @@ export class NewsService {
       );
 
       const link = this.buildNewsLink(full.id);
-      const emailCtaUrl = this.buildNewsListLink();
+      const emailCtaUrl = link;
       const emailSnippet = this.buildEmailSnippet(body);
       const combinedRecipientIds = new Set<string>();
       const assignmentLinkByRecipient: Record<string, string> = {};
@@ -802,7 +808,7 @@ export class NewsService {
             emailSubject: 'Paskelbta naujiena',
             emailBody: `Paskelbta naujiena "${title}"
 
-${emailSnippet}`,
+Peržiūra: ${emailSnippet}`,
             emailCtaUrl,
           });
         } catch (error) {
@@ -1084,12 +1090,12 @@ ${emailSnippet}`,
 
   private buildNewsLink(newsId: string) {
     const baseUrl = this.getFrontendBaseUrl();
-    return `${baseUrl}/news/${newsId}`;
+    return `${baseUrl}/naujienos/${newsId}`;
   }
 
   private buildNewsListLink() {
     const baseUrl = this.getFrontendBaseUrl();
-    return `${baseUrl}/news`;
+    return `${baseUrl}/naujienos`;
   }
 
   private buildTasksLink() {

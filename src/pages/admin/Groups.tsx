@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useState } from "react";
-import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
+import { useInfiniteQuery, useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import {
@@ -44,6 +44,7 @@ interface GroupFormState {
 }
 
 const defaultFormState: GroupFormState = { name: "", description: "" };
+const USERS_PAGE_LIMIT = 30;
 
 const mapToOptionLabel = (user: AdminUserResponse) => user.name || user.email;
 
@@ -63,6 +64,7 @@ export default function AdminGroups() {
   const [memberSearch, setMemberSearch] = useState<string>('');
   const [selectedHives, setSelectedHives] = useState<string[]>([]);
   const [showArchivedHives, setShowArchivedHives] = useState(false);
+  const isMembersDialogOpen = membersDialogGroupId !== null;
 
   const {
     data: groups = [],
@@ -77,9 +79,32 @@ export default function AdminGroups() {
     },
   });
 
-  const { data: users = [] } = useQuery<AdminUserResponse[]>({
-    queryKey: ["users", "all"],
-    queryFn: () => api.users.list(),
+  const normalizedMemberSearch = memberSearch.trim();
+  const {
+    data: usersPages,
+    isFetching: usersLoading,
+    isFetchingNextPage: usersLoadingMore,
+    hasNextPage: hasMoreUsers,
+    fetchNextPage: loadMoreUsers,
+  } = useInfiniteQuery({
+    queryKey: ["group-member-users", normalizedMemberSearch],
+    queryFn: ({ pageParam = 1 }) =>
+      api.users.list({
+        page: pageParam,
+        limit: USERS_PAGE_LIMIT,
+        q: normalizedMemberSearch,
+      }),
+    initialPageParam: 1,
+    enabled: isMembersDialogOpen,
+    getNextPageParam: (lastPage, allPages) => {
+      const lastPageNumber = typeof lastPage.page === "number" ? lastPage.page : allPages.length;
+      const totalLoaded = allPages.reduce((sum, page) => sum + page.length, 0);
+      const totalAvailable = typeof lastPage.total === "number" ? lastPage.total : totalLoaded;
+      if (totalLoaded >= totalAvailable) {
+        return undefined;
+      }
+      return lastPageNumber + 1;
+    },
   });
 
   const { data: userHives = [], isFetching: userHivesLoading } = useQuery<HiveResponse[]>({
@@ -100,7 +125,6 @@ export default function AdminGroups() {
     () => groups.find((group) => group.id === membersDialogGroupId) ?? null,
     [groups, membersDialogGroupId],
   );
-  const isMembersDialogOpen = membersDialogGroupId !== null;
   const assignedHiveIds = useMemo(() => {
     return new Set(
       membersDialogGroup?.members
@@ -148,6 +172,7 @@ export default function AdminGroups() {
   const invalidateUsers = () => {
     void queryClient.invalidateQueries({ queryKey: ["users"] });
     void queryClient.invalidateQueries({ queryKey: ["users", "all"] });
+    void queryClient.invalidateQueries({ queryKey: ["group-member-users"] });
   };
 
   const showErrorToast = (title: string, description?: string) => {
@@ -314,13 +339,19 @@ export default function AdminGroups() {
   };
 
   const availableMembers = useMemo(() => {
-    const term = memberSearch.trim().toLowerCase();
-    if (!term) return users;
-    return users.filter((candidate) => {
-      const haystack = `${candidate.name ?? ''} ${candidate.email ?? ''}`.toLowerCase();
-      return haystack.includes(term);
-    });
-  }, [users, memberSearch]);
+    const byId = new Map<string, AdminUserResponse>();
+    const pages = usersPages?.pages ?? [];
+
+    for (const page of pages) {
+      for (const candidate of page) {
+        if (!byId.has(candidate.id)) {
+          byId.set(candidate.id, candidate);
+        }
+      }
+    }
+
+    return Array.from(byId.values());
+  }, [usersPages]);
 
   const getErrorMessage = (value: unknown) => {
     if (!value) return undefined;
@@ -637,11 +668,13 @@ export default function AdminGroups() {
                               placeholder="Ieškoti el. pašto..."
                               value={memberSearch}
                               onChange={(event) => setMemberSearch(event.target.value)}
-                              disabled={addMemberMutation.isPending}
+                              disabled={addMemberMutation.isPending || usersLoadingMore}
                             />
                           </div>
                           <div className="rounded-md border border-border/70 bg-background">
-                            {availableMembers.length === 0 ? (
+                            {usersLoading && availableMembers.length === 0 ? (
+                              <p className="px-4 py-2 text-sm text-muted-foreground">Kraunama...</p>
+                            ) : availableMembers.length === 0 ? (
                               <p className="px-4 py-2 text-sm text-muted-foreground">Nėra vartotojų</p>
                             ) : (
                               <div className="max-h-64 overflow-y-auto">
@@ -664,6 +697,19 @@ export default function AdminGroups() {
                                   </button>
                                 ))}
                                 <div className="h-px w-full bg-border/70 last:hidden" />
+                                {hasMoreUsers ? (
+                                  <div className="px-2 py-2">
+                                    <Button
+                                      type="button"
+                                      variant="outline"
+                                      className="w-full"
+                                      onClick={() => void loadMoreUsers()}
+                                      disabled={usersLoadingMore || addMemberMutation.isPending}
+                                    >
+                                      {usersLoadingMore ? "Kraunama..." : "Krauti daugiau"}
+                                    </Button>
+                                  </div>
+                                ) : null}
                               </div>
                             )}
                           </div>

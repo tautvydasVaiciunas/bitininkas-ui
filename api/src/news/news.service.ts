@@ -223,6 +223,10 @@ export class NewsService {
       return '';
     }
 
+    if (plain.length <= limit) {
+      return plain;
+    }
+
     return `${plain.slice(0, limit).trimEnd()}...`;
   }
 
@@ -981,9 +985,10 @@ Peržiūra: ${emailSnippet}`,
     startDate: string;
     dueDate: string;
   }) {
+    const newsSnippet = this.buildEmailSnippet(params.newsBody, 160);
     const newsLines = [
-          `Paskelbtas naujienos įrašas "${params.newsTitle}".`,
-      ...this.buildEmailParagraphs(params.newsBody),
+      `Paskelbtas naujienos įrašas "${params.newsTitle}".`,
+      newsSnippet,
     ].filter((line) => line && line.length > 0);
 
     const taskLines = [

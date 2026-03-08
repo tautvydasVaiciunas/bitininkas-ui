@@ -1395,25 +1395,76 @@ export class AssignmentsService {
       this.countByReviewStatus(AssignmentReviewStatus.REJECTED),
     ]);
 
-    const data = items.map((assignment) => ({
-      id: assignment.id,
-      taskTitle: assignment.task?.title ?? 'Užduotis',
-      hiveLabel: assignment.hive?.label ?? '—',
-      hiveId: assignment.hiveId,
-      userName:
-        assignment.hive?.owner?.name ??
-        assignment.hive?.owner?.email ??
-        '—',
-      rating: assignment.rating ?? null,
-      ratingComment: assignment.ratingComment ?? null,
-      startDate: assignment.startDate ?? null,
-      dueDate: assignment.dueDate ?? null,
-      completedAt: assignment.completedAt ?? null,
-      reviewStatus: assignment.reviewStatus,
-      reviewComment: assignment.reviewComment ?? null,
-      reviewAt: assignment.reviewAt ?? null,
-      reviewByUserId: assignment.reviewByUserId ?? null,
-    }));
+    const assignmentIds = items.map((assignment) => assignment.id);
+    const submitterByAssignmentId = new Map<
+      string,
+      { userId: string; email: string | null; name: string | null }
+    >();
+
+    if (assignmentIds.length) {
+      const submitterRows = await this.progressRepository
+        .createQueryBuilder('progress')
+        .innerJoin('progress.user', 'user')
+        .select('progress.assignmentId', 'assignmentId')
+        .addSelect('progress.userId', 'userId')
+        .addSelect('user.email', 'email')
+        .addSelect('user.name', 'name')
+        .addSelect('COUNT(progress.id)', 'completedCount')
+        .addSelect('MAX(progress.completedAt)', 'latestCompletedAt')
+        .where('progress.assignmentId IN (:...assignmentIds)', { assignmentIds })
+        .andWhere('progress.status = :completedStatus', {
+          completedStatus: AssignmentProgressStatus.COMPLETED,
+        })
+        .groupBy('progress.assignmentId')
+        .addGroupBy('progress.userId')
+        .addGroupBy('user.email')
+        .addGroupBy('user.name')
+        .orderBy('progress.assignmentId', 'ASC')
+        .addOrderBy('COUNT(progress.id)', 'DESC')
+        .addOrderBy('MAX(progress.completedAt)', 'DESC')
+        .getRawMany<{
+          assignmentId: string;
+          userId: string;
+          email: string | null;
+          name: string | null;
+        }>();
+
+      for (const row of submitterRows) {
+        if (!submitterByAssignmentId.has(row.assignmentId)) {
+          submitterByAssignmentId.set(row.assignmentId, {
+            userId: row.userId,
+            email: row.email ?? null,
+            name: row.name ?? null,
+          });
+        }
+      }
+    }
+
+    const data = items.map((assignment) => {
+      const submitter = submitterByAssignmentId.get(assignment.id);
+      const userName = submitter?.email?.trim()
+        ? submitter.email
+        : submitter?.name?.trim()
+          ? submitter.name
+          : '\u2014';
+
+      return {
+        id: assignment.id,
+        taskTitle: assignment.task?.title ?? 'U\u017Eduotis',
+        hiveLabel: assignment.hive?.label ?? '\u2014',
+        hiveId: assignment.hiveId,
+        userName,
+        rating: assignment.rating ?? null,
+        ratingComment: assignment.ratingComment ?? null,
+        startDate: assignment.startDate ?? null,
+        dueDate: assignment.dueDate ?? null,
+        completedAt: assignment.completedAt ?? null,
+        reviewStatus: assignment.reviewStatus,
+        reviewComment: assignment.reviewComment ?? null,
+        reviewAt: assignment.reviewAt ?? null,
+        reviewByUserId: assignment.reviewByUserId ?? null,
+      };
+    });
 
     return {
       data,

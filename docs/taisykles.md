@@ -2,6 +2,74 @@ PRENUMERATOS ir PIRKIMO taisyklės
 Paskutinį kartą atnaujinta 2026-02-06
 Bičių ūkininko ūkio pažymėjimo Nr. 4299645.
 
+
+
+PIRKIMAS (Galioja pasirinkus rinkinio pirkimą):
+
+1. Bendrosios nuostatos
+1.1. Šios prekių pirkimo–pardavimo taisyklės (toliau – Taisyklės) yra abiem Šalims privalomas teisinis dokumentas, nustatantis Pirkėjo ir prekių bei paslaugų tiekėjo – mažosios bendrijos MB „Bus medaus avilys“, juridinio asmens kodas 306367604 (toliau – Pardavėjas), teises ir pareigas, prekių pirkimo–pardavimo, atsiskaitymo, pristatymo, grąžinimo, atsakomybės ir kitas su prekių įsigijimu interneto svetainėje www.busmedaus.lt susijusias sąlygas.
+1.2. Šios Taisyklės laikomos sudarančiomis pirkimo–pardavimo sutartį ir įsigalioja nuo momento, kai Pirkėjas su jomis susipažįsta ir su jomis sutinka, pažymėdamas atitinkamą varnelę interneto svetainėje ir atlikdamas rezervacijos (avansinio) mokėjimą.
+1.3. Pardavėjas turi teisę keisti, tikslinti ar papildyti šias Taisykles, laikydamasis galiojančių teisės aktų reikalavimų. Taisyklių pakeitimai netaikomi jau sudarytiems ir vykdomiems užsakymams.
+1.4. Pirkti prekes Pardavėjo interneto svetainėje turi teisę:
+1.4.1. veiksnūs fiziniai asmenys (sulaukę 18 metų);
+1.4.2. juridiniai asmenys;
+1.4.3. nepilnamečiai asmenys nuo 14 iki 18 metų, turėdami tėvų ar globėjų sutikimą, išskyrus atvejus, kai jie savarankiškai disponuoja savo pajamomis.
+
+2. Sutarties dalykas ir nuosavybės teisė
+2.1. Pagal šias Taisykles Pardavėjas įsipareigoja parduoti, o Pirkėjas – nupirkti interneto svetainėje www.busmedaus.lt užsakytus „Bus medaus" bitininkystės rinkinius. Pardavėjo teikiamą rinkinį sudaro: 
+2.1.1. bičių avilys;
+2.1.2. būtiniausi bitininkystės įrankiai; 
+2.1.3. bičių šeima; 
+2.1.4. metinė (12 mėn.) „Bus medaus“ bitininkystės platformos prenumerata - prieiga prie „Bus medaus“ bitininkystės platformos, vienos bičių motinos draudimas ją praradus, profesionalaus bitininko konsultacijos.
+2.2. Nuosavybės teisė į prekes pereina Pirkėjui nuo visiško užsakymo kainos apmokėjimo momento, jeigu Šalys raštu nesusitaria kitaip.
+2.3. Skirtingai nei paslaugų prenumeratos atveju, pagal šias Taisykles perduodami aviliai ir įranga tampa Pirkėjo nuosavybe ir nėra laikomi nuomojamu ar laikinai perduotu turtu.
+2.4. Po 12 mėn. termino, pasibaigus metinei „Bus medaus“ bitininkystės platformos prenumeratai, Pirkėjas gali atnaujinti prenumeratą dar metams ar ilgesniam periodui. Neatnaujinus „Bus medaus“ bitininkystės platformos prenumeratos, Pirkėjas praras bičių motinos draudimą, prieigą prie platfromos ir profesionalaus bitininko konsultacijų.
+
+3. Pirkimo–pardavimo sutarties sudarymas
+3.1. Pirkimo–pardavimo sutartis laikoma sudaryta nuo momento, kai Pirkėjas interneto svetainėje paspaudžia mygtuką „Rezervuoti“ ir atlieka rezervacijos (avansinio) mokėjimą.
+3.2. Atsiskaitymai vykdomi eurais, naudojantis elektroninės bankininkystės paslaugomis (Swedbank, SEB, Luminor, Citadele, Šiaulių bankas). Mokėjimai apdorojami per MakeCommerce.lt platformą.
+3.3. Visos sudarytos pirkimo–pardavimo sutartys saugomos Pardavėjo duomenų bazėje.
+
+4. Kainos ir atsiskaitymo tvarka
+4.1. Prekių kainos interneto svetainėje nurodomos eurais su PVM ir yra galutinės užsakymo pateikimo metu.
+4.2. Pirkėjas įsipareigoja:
+4.2.1. sumokėti rezervacijos (avansinį) mokestį sąskaitoje-faktūroje nurodytu terminu;
+4.2.2. sumokėti likusią užsakymo kainos dalį užsakymo formoje arba sąskaitoje-faktūroje nurodytu laiku.
+4.3. Gavus sąskaitą-faktūrą, galutinis apmokėjimas turi būti atliktas ne vėliau kaip per 2 (dvi) kalendorines dienas, jei nenurodyta kitaip.
+4.4. Neapmokėjus galutinės sumos per nustatytą terminą, Pardavėjas turi teisę anuliuoti užsakymą.
+
+5. Rezervacijos mokestis
+5.1. Rezervacijos (avansinis) mokestis laikomas Pardavėjo patirtų administracinių, planavimo ir parengiamųjų išlaidų kompensacija.
+5.2. Pardavėjas turi teisę negrąžinti rezervacijos mokesčio ir anuliuoti užsakymą šiais atvejais:
+5.2.1. Pirkėjui atsisakius užsakymo praėjus daugiau kaip 14 kalendorinių dienų nuo rezervacijos patvirtinimo;
+5.2.2. Pirkėjui per 2 kalendorines dienas (ne dėl Pardavėjo kaltės) nesumokėjus likusios užsakymo sumos.
+
+6. Prekių pristatymas
+6.1. Pirkėjas, pateikdamas užsakymą, privalo nurodyti tikslų prekių pristatymo adresą.
+6.2. Prekės pradedamos ruošti ir pristatomos tik gavus Pirkėjo apmokėjimą.
+6.3. Prekių perdavimo momentu, Pirkėjui pasirašius važtaraštyje ar siuntos perdavimo dokumente, laikoma, kad prekės perduotos tinkamos būklės ir pilnos komplektacijos.
+6.4. Jei Pirkėjas nepraneša apie pakuotės ar prekių pažeidimus pristatymo metu, Pardavėjas atleidžiamas nuo atsakomybės dėl tokių pažeidimų.
+
+7. Prekių grąžinimas ir keitimas
+7.1. Tinkamos kokybės prekės grąžinamos ir keičiamos Lietuvos Respublikos civilinio kodekso 6.362 straipsnyje nustatytais atvejais.
+7.2. Augalai, gyvūnai, bičių šeimos ir tinkamos kokybės maisto produktai nekeičiami ir negrąžinami.
+7.3. Pirkėjas turi teisę atsisakyti nuotoliniu būdu sudarytos sutarties per 14 kalendorinių dienų, apie tai raštu informavęs Pardavėją el. paštu bzzz@busmedaus.lt.
+7.4. Grąžinamos prekės turi būti nenaudotos, nepraradusios prekinės išvaizdos ir grąžinamos originalioje pakuotėje.
+7.5. Pinigai už grąžintas prekes grąžinami per 14 kalendorinių dienų nuo grąžinimo fakto patvirtinimo.
+
+8. Atsakomybė
+8.1. Pardavėjas neatsako už nuostolius, kilusius dėl techninių sutrikimų ar force majeure aplinkybių.
+8.2. Pirkėjas atsako už pateiktų duomenų teisingumą ir veiksmus, atliktus naudojantis interneto svetaine.
+8.3. Šalys atsako tik už tiesioginius nuostolius, išskyrus atvejus, kai žala padaryta tyčia ar dėl didelio neatsargumo.
+
+9. Asmens duomenų tvarkymas
+9.1. Pardavėjas tvarko Pirkėjo asmens duomenis sutarties sudarymo ir vykdymo tikslais, laikydamasis galiojančių teisės aktų.
+
+10. Baigiamosios nuostatos
+10.1. Visa komunikacija tarp Šalių vykdoma elektroninėmis priemonėmis.
+10.2. Jei kuri nors Taisyklių nuostata tampa negaliojanti, likusios nuostatos lieka galioti.
+
+
 ​PRENUMERATA (Galioja pasirinkus rinkinio prenumeratą):
 
 1. Bendrosios nuostatos
@@ -83,68 +151,3 @@ Bičių ūkininko ūkio pažymėjimo Nr. 4299645.
 9.3. Jei kuri nors Sutarties nuostata tampa negaliojanti, likusios nuostatos lieka galioti.
 9.4. Visa su Sutartimi susijusi komunikacija vykdoma elektroninėmis priemonėmis.
 ​
-
-PIRKIMAS (Galioja pasirinkus rinkinio pirkimą):
-
-1. Bendrosios nuostatos
-1.1. Šios prekių pirkimo–pardavimo taisyklės (toliau – Taisyklės) yra abiem Šalims privalomas teisinis dokumentas, nustatantis Pirkėjo ir prekių bei paslaugų tiekėjo – mažosios bendrijos MB „Bus medaus avilys“, juridinio asmens kodas 306367604 (toliau – Pardavėjas), teises ir pareigas, prekių pirkimo–pardavimo, atsiskaitymo, pristatymo, grąžinimo, atsakomybės ir kitas su prekių įsigijimu interneto svetainėje www.busmedaus.lt susijusias sąlygas.
-1.2. Šios Taisyklės laikomos sudarančiomis pirkimo–pardavimo sutartį ir įsigalioja nuo momento, kai Pirkėjas su jomis susipažįsta ir su jomis sutinka, pažymėdamas atitinkamą varnelę interneto svetainėje ir atlikdamas rezervacijos (avansinio) mokėjimą.
-1.3. Pardavėjas turi teisę keisti, tikslinti ar papildyti šias Taisykles, laikydamasis galiojančių teisės aktų reikalavimų. Taisyklių pakeitimai netaikomi jau sudarytiems ir vykdomiems užsakymams.
-1.4. Pirkti prekes Pardavėjo interneto svetainėje turi teisę:
-1.4.1. veiksnūs fiziniai asmenys (sulaukę 18 metų);
-1.4.2. juridiniai asmenys;
-1.4.3. nepilnamečiai asmenys nuo 14 iki 18 metų, turėdami tėvų ar globėjų sutikimą, išskyrus atvejus, kai jie savarankiškai disponuoja savo pajamomis.
-
-2. Sutarties dalykas ir nuosavybės teisė
-2.1. Pagal šias Taisykles Pardavėjas įsipareigoja parduoti, o Pirkėjas – nupirkti interneto svetainėje www.busmedaus.lt užsakytus „Bus medaus" bitininkystės rinkinius. Pardavėjo teikiamą rinkinį sudaro: 
-2.1.1. bičių avilys;
-2.1.2. būtiniausi bitininkystės įrankiai; 
-2.1.3. bičių šeima; 
-2.1.4. metinė (12 mėn.) „Bus medaus“ bitininkystės platformos prenumerata - prieiga prie „Bus medaus“ bitininkystės platformos, vienos bičių motinos draudimas ją praradus, profesionalaus bitininko konsultacijos.
-2.2. Nuosavybės teisė į prekes pereina Pirkėjui nuo visiško užsakymo kainos apmokėjimo momento, jeigu Šalys raštu nesusitaria kitaip.
-2.3. Skirtingai nei paslaugų prenumeratos atveju, pagal šias Taisykles perduodami aviliai ir įranga tampa Pirkėjo nuosavybe ir nėra laikomi nuomojamu ar laikinai perduotu turtu.
-2.4. Po 12 mėn. termino, pasibaigus metinei „Bus medaus“ bitininkystės platformos prenumeratai, Pirkėjas gali atnaujinti prenumeratą dar metams ar ilgesniam periodui. Neatnaujinus „Bus medaus“ bitininkystės platformos prenumeratos, Pirkėjas praras bičių motinos draudimą, prieigą prie platfromos ir profesionalaus bitininko konsultacijų.
-
-3. Pirkimo–pardavimo sutarties sudarymas
-3.1. Pirkimo–pardavimo sutartis laikoma sudaryta nuo momento, kai Pirkėjas interneto svetainėje paspaudžia mygtuką „Rezervuoti“ ir atlieka rezervacijos (avansinio) mokėjimą.
-3.2. Atsiskaitymai vykdomi eurais, naudojantis elektroninės bankininkystės paslaugomis (Swedbank, SEB, Luminor, Citadele, Šiaulių bankas). Mokėjimai apdorojami per MakeCommerce.lt platformą.
-3.3. Visos sudarytos pirkimo–pardavimo sutartys saugomos Pardavėjo duomenų bazėje.
-
-4. Kainos ir atsiskaitymo tvarka
-4.1. Prekių kainos interneto svetainėje nurodomos eurais su PVM ir yra galutinės užsakymo pateikimo metu.
-4.2. Pirkėjas įsipareigoja:
-4.2.1. sumokėti rezervacijos (avansinį) mokestį sąskaitoje-faktūroje nurodytu terminu;
-4.2.2. sumokėti likusią užsakymo kainos dalį užsakymo formoje arba sąskaitoje-faktūroje nurodytu laiku.
-4.3. Gavus sąskaitą-faktūrą, galutinis apmokėjimas turi būti atliktas ne vėliau kaip per 2 (dvi) kalendorines dienas, jei nenurodyta kitaip.
-4.4. Neapmokėjus galutinės sumos per nustatytą terminą, Pardavėjas turi teisę anuliuoti užsakymą.
-
-5. Rezervacijos mokestis
-5.1. Rezervacijos (avansinis) mokestis laikomas Pardavėjo patirtų administracinių, planavimo ir parengiamųjų išlaidų kompensacija.
-5.2. Pardavėjas turi teisę negrąžinti rezervacijos mokesčio ir anuliuoti užsakymą šiais atvejais:
-5.2.1. Pirkėjui atsisakius užsakymo praėjus daugiau kaip 14 kalendorinių dienų nuo rezervacijos patvirtinimo;
-5.2.2. Pirkėjui per 2 kalendorines dienas (ne dėl Pardavėjo kaltės) nesumokėjus likusios užsakymo sumos.
-
-6. Prekių pristatymas
-6.1. Pirkėjas, pateikdamas užsakymą, privalo nurodyti tikslų prekių pristatymo adresą.
-6.2. Prekės pradedamos ruošti ir pristatomos tik gavus Pirkėjo apmokėjimą.
-6.3. Prekių perdavimo momentu, Pirkėjui pasirašius važtaraštyje ar siuntos perdavimo dokumente, laikoma, kad prekės perduotos tinkamos būklės ir pilnos komplektacijos.
-6.4. Jei Pirkėjas nepraneša apie pakuotės ar prekių pažeidimus pristatymo metu, Pardavėjas atleidžiamas nuo atsakomybės dėl tokių pažeidimų.
-
-7. Prekių grąžinimas ir keitimas
-7.1. Tinkamos kokybės prekės grąžinamos ir keičiamos Lietuvos Respublikos civilinio kodekso 6.362 straipsnyje nustatytais atvejais.
-7.2. Augalai, gyvūnai, bičių šeimos ir tinkamos kokybės maisto produktai nekeičiami ir negrąžinami.
-7.3. Pirkėjas turi teisę atsisakyti nuotoliniu būdu sudarytos sutarties per 14 kalendorinių dienų, apie tai raštu informavęs Pardavėją el. paštu bzzz@busmedaus.lt.
-7.4. Grąžinamos prekės turi būti nenaudotos, nepraradusios prekinės išvaizdos ir grąžinamos originalioje pakuotėje.
-7.5. Pinigai už grąžintas prekes grąžinami per 14 kalendorinių dienų nuo grąžinimo fakto patvirtinimo.
-
-8. Atsakomybė
-8.1. Pardavėjas neatsako už nuostolius, kilusius dėl techninių sutrikimų ar force majeure aplinkybių.
-8.2. Pirkėjas atsako už pateiktų duomenų teisingumą ir veiksmus, atliktus naudojantis interneto svetaine.
-8.3. Šalys atsako tik už tiesioginius nuostolius, išskyrus atvejus, kai žala padaryta tyčia ar dėl didelio neatsargumo.
-
-9. Asmens duomenų tvarkymas
-9.1. Pardavėjas tvarko Pirkėjo asmens duomenis sutarties sudarymo ir vykdymo tikslais, laikydamasis galiojančių teisės aktų.
-
-10. Baigiamosios nuostatos
-10.1. Visa komunikacija tarp Šalių vykdoma elektroninėmis priemonėmis.
-10.2. Jei kuri nors Taisyklių nuostata tampa negaliojanti, likusios nuostatos lieka galioti.

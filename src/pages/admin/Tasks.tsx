@@ -38,6 +38,7 @@ import {
 } from '@/lib/types';
 
 const messages = ltMessages.tasks;
+const REVIEW_PAGE_SIZE = 20;
 
 const reviewStatusOptions: { value: AssignmentReviewStatus | 'all'; label: string }[] = [
   { value: 'pending', label: 'Laukia patikrinimo' },
@@ -108,6 +109,7 @@ export default function AdminTasks() {
   const [reviewStatusFilter, setReviewStatusFilter] = useState<AssignmentReviewStatus | 'all'>(
     'pending',
   );
+  const [reviewPage, setReviewPage] = useState(1);
   const [selectedReviewAssignment, setSelectedReviewAssignment] =
     useState<AssignmentReviewQueueItem | null>(null);
   const [reviewDialogComment, setReviewDialogComment] = useState('');
@@ -146,14 +148,30 @@ export default function AdminTasks() {
     isLoading: isReviewQueueLoading,
     refetch: refetchReviewQueue,
   } = useQuery<AssignmentReviewQueueResponse>({
-    queryKey: ['admin', 'assignments', 'review-queue', reviewStatusFilter],
+    queryKey: ['admin', 'assignments', 'review-queue', reviewStatusFilter, reviewPage],
     queryFn: () =>
       api.assignments.reviewQueue({
         status: reviewStatusFilter,
-        page: 1,
-        limit: 20,
+        page: reviewPage,
+        limit: REVIEW_PAGE_SIZE,
       }),
+    keepPreviousData: true,
   });
+
+  useEffect(() => {
+    setReviewPage(1);
+  }, [reviewStatusFilter]);
+
+  const reviewTotal = reviewQueue?.total ?? 0;
+  const reviewTotalPages = Math.max(1, Math.ceil(reviewTotal / REVIEW_PAGE_SIZE));
+  const reviewFrom = reviewTotal === 0 ? 0 : (reviewPage - 1) * REVIEW_PAGE_SIZE + 1;
+  const reviewTo = reviewTotal === 0 ? 0 : Math.min(reviewPage * REVIEW_PAGE_SIZE, reviewTotal);
+
+  useEffect(() => {
+    if (reviewPage > reviewTotalPages) {
+      setReviewPage(reviewTotalPages);
+    }
+  }, [reviewPage, reviewTotalPages]);
 
   useEffect(() => {
     if (!selectedReviewAssignment) {
@@ -386,7 +404,8 @@ export default function AdminTasks() {
                 {isReviewQueueLoading ? (
                   <div className="py-6 text-center text-muted-foreground">Kraunama...</div>
                 ) : reviewQueue?.data.length ? (
-                  <table className="w-full text-sm">
+                  <>
+                    <table className="w-full text-sm">
                     <thead className="text-xs uppercase tracking-wider text-muted-foreground">
                       <tr>
                         <th className="px-3 py-2 text-left">Užduotis</th>
@@ -431,7 +450,36 @@ export default function AdminTasks() {
                         </tr>
                       ))}
                     </tbody>
-                  </table>
+                    </table>
+                    <div className="mt-4 flex items-center justify-between gap-3 text-sm">
+                      <span className="text-muted-foreground">
+                        Rodoma {reviewFrom}-{reviewTo} iš {reviewTotal}
+                      </span>
+                      <div className="flex items-center gap-2">
+                        <span className="text-muted-foreground">
+                          Puslapis {reviewPage} / {reviewTotalPages}
+                        </span>
+                        <Button
+                          variant="outline"
+                          size="sm"
+                          disabled={isReviewQueueLoading || reviewPage <= 1}
+                          onClick={() => setReviewPage((prev) => Math.max(1, prev - 1))}
+                        >
+                          Ankstesnis
+                        </Button>
+                        <Button
+                          variant="outline"
+                          size="sm"
+                          disabled={isReviewQueueLoading || reviewPage >= reviewTotalPages}
+                          onClick={() =>
+                            setReviewPage((prev) => Math.min(reviewTotalPages, prev + 1))
+                          }
+                        >
+                          Kitas
+                        </Button>
+                      </div>
+                    </div>
+                  </>
                 ) : (
                   <div className="py-6 text-center text-muted-foreground">
                     Nėra peržiūros laukiančių užduočių.

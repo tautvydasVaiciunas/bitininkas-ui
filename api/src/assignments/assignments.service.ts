@@ -1400,6 +1400,10 @@ export class AssignmentsService {
       string,
       { userId: string; email: string | null; name: string | null }
     >();
+    const submitterFromActivityByAssignmentId = new Map<
+      string,
+      { userId: string; email: string | null; name: string | null }
+    >();
 
     if (assignmentIds.length) {
       const submitterRows = await this.progressRepository
@@ -1415,6 +1419,7 @@ export class AssignmentsService {
         .andWhere('progress.status = :completedStatus', {
           completedStatus: AssignmentProgressStatus.COMPLETED,
         })
+        .andWhere('user.role = :userRole', { userRole: UserRole.USER })
         .groupBy('progress.assignmentId')
         .addGroupBy('progress.userId')
         .addGroupBy('user.email')
@@ -1438,15 +1443,59 @@ export class AssignmentsService {
           });
         }
       }
+
+      const activityRows = await this.dataSource.query(
+        `
+          SELECT DISTINCT ON (al.entity_id)
+            al.entity_id AS "assignmentId",
+            al.user_id AS "userId",
+            u.email AS "email",
+            u.name AS "name"
+          FROM activity_logs al
+          INNER JOIN users u ON u.id = al.user_id
+          WHERE al.entity = 'assignment'
+            AND al.entity_id = ANY($1::uuid[])
+            AND al.action IN ('assignment_rated', 'step_completed')
+            AND u.role = $2
+          ORDER BY
+            al.entity_id ASC,
+            CASE WHEN al.action = 'assignment_rated' THEN 0 ELSE 1 END ASC,
+            al.created_at DESC
+        `,
+        [assignmentIds, UserRole.USER],
+      ) as Array<{
+        assignmentId: string;
+        userId: string;
+        email: string | null;
+        name: string | null;
+      }>;
+
+      for (const row of activityRows) {
+        if (!submitterFromActivityByAssignmentId.has(row.assignmentId)) {
+          submitterFromActivityByAssignmentId.set(row.assignmentId, {
+            userId: row.userId,
+            email: row.email ?? null,
+            name: row.name ?? null,
+          });
+        }
+      }
     }
 
     const data = items.map((assignment) => {
-      const submitter = submitterByAssignmentId.get(assignment.id);
+      const submitter =
+        submitterByAssignmentId.get(assignment.id) ??
+        submitterFromActivityByAssignmentId.get(assignment.id);
+      const ownerEmail = assignment.hive?.owner?.email?.trim();
+      const ownerName = assignment.hive?.owner?.name?.trim();
       const userName = submitter?.email?.trim()
         ? submitter.email
         : submitter?.name?.trim()
           ? submitter.name
-          : '\u2014';
+          : ownerEmail
+            ? ownerEmail
+            : ownerName
+              ? ownerName
+              : '\u2014';
 
       return {
         id: assignment.id,

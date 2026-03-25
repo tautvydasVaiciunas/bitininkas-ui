@@ -258,7 +258,8 @@ export class GroupsService {
     await this.membersRepository.remove(memberships);
     for (const membership of hiveMembers) {
       if (membership.user && membership.hive) {
-        await this.removeHiveMember(membership.hive.id, membership.user.id);
+        // Group membership changes must not drop direct hive-user assignments.
+        // Otherwise moving a hive between groups makes it disappear for that user.
         await this.notifyHiveMemberChange(membership.user, membership.hive, false, false);
       }
     }

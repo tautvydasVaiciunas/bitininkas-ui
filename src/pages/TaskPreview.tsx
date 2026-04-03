@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useState } from 'react';
-import { useNavigate, useParams } from 'react-router-dom';
+import { Navigate, useNavigate, useParams } from 'react-router-dom';
 import { useQuery } from '@tanstack/react-query';
 import { MainLayout } from '@/components/Layout/MainLayout';
 import { Card, CardContent, CardTitle } from '@/components/ui/card';
@@ -124,6 +124,10 @@ export default function TaskPreview() {
         </Card>
       </MainLayout>
     );
+  }
+
+  if (query.data?.isActive && assignmentId) {
+    return <Navigate to={appRoutes.taskRun(assignmentId)} replace />;
   }
 
   if (!assignment) {

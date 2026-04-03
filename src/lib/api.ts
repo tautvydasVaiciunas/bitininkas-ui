@@ -637,6 +637,7 @@ export interface SubmitAssignmentReviewPayload {
 
 export interface AssignmentReviewQueueItem {
   id: string;
+  userId: string | null;
   taskTitle: string;
   hiveLabel: string;
   hiveId: string;

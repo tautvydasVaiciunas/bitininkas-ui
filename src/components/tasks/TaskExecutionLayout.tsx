@@ -35,6 +35,9 @@ export interface TaskExecutionLayoutProps {
   requiresUserMedia: boolean;
   existingMedia: AssignmentStepMediaResponse[];
   hasUploadedMedia: boolean;
+  stepNotes?: string;
+  onStepNotesChange?: (value: string) => void;
+  stepNotesDisabled?: boolean;
   onRemoveMedia?: (media: AssignmentStepMediaResponse) => void;
   removeMediaPending?: boolean;
   mediaError?: string | null; 
@@ -52,6 +55,7 @@ export interface TaskExecutionLayoutProps {
   canSubmitRating: boolean;
   ratingSubmitPending: boolean;
   onSubmitRating: () => void;
+  ratingLockMessage?: string | null;
   hasRated: boolean;
   handlePrevStep: () => void;
   handleNextStep: () => void;
@@ -85,6 +89,9 @@ export function TaskExecutionLayout(props: TaskExecutionLayoutProps) {
     requiresUserMedia,
     existingMedia,
     hasUploadedMedia,
+    stepNotes,
+    onStepNotesChange,
+    stepNotesDisabled = false,
     mediaError,
     selectedMediaFileName,
     uploadPending,
@@ -102,6 +109,7 @@ export function TaskExecutionLayout(props: TaskExecutionLayoutProps) {
     canSubmitRating,
     ratingSubmitPending,
     onSubmitRating,
+    ratingLockMessage = null,
     hasRated,
     handlePrevStep,
     handleNextStep,
@@ -266,6 +274,30 @@ export function TaskExecutionLayout(props: TaskExecutionLayoutProps) {
                     <p className="text-foreground">
                       {currentStep?.contentText ?? 'Šio žingsnio instrukcijos nepateiktos.'}
                     </p>
+                  </div>
+                  <div className="rounded-md border border-primary/20 bg-primary/5 p-3 text-sm text-muted-foreground">
+                    Pereidami pirmyn arba atgal tik peržiūrite žingsnius. Žingsnis laikomas atliktu tik paspaudus
+                    „Atlikta“.
+                  </div>
+                  <div className="space-y-2">
+                    <Label htmlFor={`step-notes-${currentStep?.id ?? 'current'}`}>
+                      Komentaras (neprivalomas)
+                    </Label>
+                    <p className="text-xs text-muted-foreground">
+                      Nebūtina pildyti. Įrašykite tik jei norite palikti pastabą administratoriui.
+                    </p>
+                    <Textarea
+                      id={`step-notes-${currentStep?.id ?? 'current'}`}
+                      value={stepNotes ?? ''}
+                      placeholder="Pvz.: šiame avilyje pastebėjau..."
+                      rows={3}
+                      onChange={(event) => {
+                        if (!previewMode) {
+                          onStepNotesChange?.(event.target.value);
+                        }
+                      }}
+                      disabled={previewMode || stepNotesDisabled}
+                    />
                   </div>
                   <div className="rounded-2xl border border-muted/40 bg-muted/10 p-4 min-h-[220px]">
                       {currentMediaUrl ? (
@@ -449,6 +481,9 @@ export function TaskExecutionLayout(props: TaskExecutionLayoutProps) {
                   <p className="text-center text-sm text-muted-foreground">
                     Jūsų paskutinis įvertinimas: {assignmentRating} / 5
                   </p>
+                ) : null}
+                {ratingLockMessage ? (
+                  <p className="text-center text-sm text-amber-700">{ratingLockMessage}</p>
                 ) : null}
               </div>
             ) : (

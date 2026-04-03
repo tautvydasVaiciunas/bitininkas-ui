@@ -185,7 +185,12 @@ export default function AdminTasks() {
     queryKey: ['review', selectedReviewAssignment?.id, 'details'],
     queryFn: () =>
       api.assignments
-        .details(selectedReviewAssignment?.id ?? '')
+        .details(
+          selectedReviewAssignment?.id ?? '',
+          selectedReviewAssignment?.userId
+            ? { userId: selectedReviewAssignment.userId }
+            : undefined,
+        )
         .then(mapAssignmentDetailsFromApi),
     enabled: Boolean(selectedReviewAssignment),
   });
@@ -746,6 +751,17 @@ export default function AdminTasks() {
                               {isCompleted ? 'Atliktas' : 'Neatliktas'}
                             </Badge>
                           </div>
+                          <p className="whitespace-pre-line text-sm text-muted-foreground">
+                            {step.contentText?.trim() || 'Instrukcija nepateikta.'}
+                          </p>
+                          {progressEntry?.notes?.trim() ? (
+                            <div className="rounded-md bg-muted/40 p-2">
+                              <p className="mb-1 text-xs font-semibold uppercase tracking-wide text-muted-foreground">
+                                Vartotojo komentaras
+                              </p>
+                              <p className="whitespace-pre-line text-sm">{progressEntry.notes}</p>
+                            </div>
+                          ) : null}
                           {stepAttachments.length ? (
                             <div className="grid gap-2 sm:grid-cols-2">
                               {stepAttachments.map((attachment) => (

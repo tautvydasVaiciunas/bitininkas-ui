@@ -205,9 +205,9 @@ export class HiveEventsService {
 
     const body = [
       `Bus medaus bitininkas paliko pastabą aviliui ${hive.label}.`,
-      `Peržiūrėti: ${historyLink}`,
+      'Peržiūrėkite avilio istoriją Bus medaus sistemoje.',
     ].join('\n');
-    const html = body
+    const mainHtml = body
       .split('\n')
       .map((line) => `<p>${line}</p>`)
       .join('');
@@ -219,7 +219,9 @@ export class HiveEventsService {
             to: email,
             subject: 'Nauja pastaba jūsų avilio istorijoje',
             text: body,
-            html,
+            mainHtml,
+            primaryButtonLabel: 'Peržiūrėti',
+            primaryButtonUrl: historyLink,
           });
         } catch (error) {
           const details = error instanceof Error ? error.message : String(error);

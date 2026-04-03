@@ -739,6 +739,7 @@ export class NewsService {
       const link = this.buildNewsLink(full.id);
       const emailCtaUrl = link;
       const emailSnippet = this.buildEmailSnippet(body);
+      const notificationSnippet = this.buildEmailSnippet(body, 220);
       const combinedRecipientIds = new Set<string>();
       const assignmentLinkByRecipient: Record<string, string> = {};
 
@@ -806,7 +807,7 @@ export class NewsService {
           await this.notifications.createNotification(recipientId, {
             type: 'news',
             title: `Paskelbta naujiena: ${title}`,
-            body,
+            body: notificationSnippet || 'Atidarykite naujieną, kad perskaitytumėte visą tekstą.',
             link,
             sendEmail: !combinedRecipientIds.has(recipientId),
             emailSubject: 'Paskelbta naujiena',
@@ -939,8 +940,8 @@ Peržiūra: ${emailSnippet}`,
       return;
     }
 
-    const subject = 'Atėjo naujienos įrašas ir užduotis';
-    const heading = 'Naujiena ir užduotis';
+    const subject = 'Paskelbta naujiena ir nauja užduotis';
+    const heading = 'Paskelbta naujiena ir nauja užduotis';
 
     await Promise.all(
       users.map(async (user) => {

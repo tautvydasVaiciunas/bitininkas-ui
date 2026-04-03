@@ -65,8 +65,10 @@ export default function TaskRun() {
   const [ratingComment, setRatingComment] = useState('');
   const [selectedMediaFile, setSelectedMediaFile] = useState<File | null>(null);
   const [mediaError, setMediaError] = useState<string | null>(null);
+  const [stepNotes, setStepNotes] = useState('');
   const mediaInputRef = useRef<HTMLInputElement | null>(null);
   const cameraInputRef = useRef<HTMLInputElement | null>(null);
+  const viewedOnlyHintShownStepIdsRef = useRef<Set<string>>(new Set());
   const [pendingMediaDeletion, setPendingMediaDeletion] = useState<PendingMediaDeletion | null>(null);
   const [isRemoveDialogOpen, setIsRemoveDialogOpen] = useState(false);
 
@@ -127,6 +129,12 @@ export default function TaskRun() {
     setSelectedMediaFile(null);
     setMediaError(null);
   }, [currentStep?.id]);
+
+  useEffect(() => {
+    if (!isRatingStep) {
+      setStepNotes(currentProgress?.notes ?? '');
+    }
+  }, [currentStep?.id, currentProgress?.notes, isRatingStep]);
 
   useEffect(() => {
     if (!assignment) return;
@@ -262,10 +270,16 @@ export default function TaskRun() {
   const toggleStepMutation = useMutation<
     StepProgressToggleResult,
     HttpError | Error,
-    { taskStepId: string; stepIndex: number }
+    { taskStepId: string; stepIndex: number; notes?: string }
   >({
     mutationFn: (payload) =>
-      api.progress.completeStep({ assignmentId: id!, taskStepId: payload.taskStepId }).then(mapStepToggleResponseFromApi),
+      api.progress
+        .completeStep({
+          assignmentId: id!,
+          taskStepId: payload.taskStepId,
+          notes: payload.notes,
+        })
+        .then(mapStepToggleResponseFromApi),
     onSuccess: (result, variables) => {
       const progressEntry = result.progress;
       const previousAssignmentStatus = data?.assignment.status;
@@ -311,6 +325,7 @@ export default function TaskRun() {
       );
 
       queryClient.invalidateQueries({ queryKey: ['assignments', 'list'] });
+      setStepNotes(progressEntry.notes ?? '');
 
       if (result.status === 'completed') {
         if (previousStepStatus !== 'completed') {
@@ -430,12 +445,22 @@ export default function TaskRun() {
   };
 
   const handleNextStep = () => {
+    if (currentStep && !hasCurrentStepCompleted && !viewedOnlyHintShownStepIdsRef.current.has(currentStep.id)) {
+      viewedOnlyHintShownStepIdsRef.current.add(currentStep.id);
+      toast.info('Žingsnis dar nepažymėtas kaip atliktas', {
+        description: 'Pereidami tik peržiūrite žingsnį. Spauskite „Atlikta“, kai jį realiai atliksite.',
+      });
+    }
     setCurrentStepIndex((index) => Math.min(steps.length, index + 1));
   };
 
   const handleStepComplete = () => {
     if (!currentStep || toggleStepMutation.isPending) return;
-    toggleStepMutation.mutate({ taskStepId: currentStep.id, stepIndex: currentStepIndex });
+    toggleStepMutation.mutate({
+      taskStepId: currentStep.id,
+      stepIndex: currentStepIndex,
+      notes: stepNotes.trim() || undefined,
+    });
   };
 
   const handleStepUncomplete = () => {
@@ -476,8 +501,18 @@ export default function TaskRun() {
 
   const hasRated = Boolean(assignment?.ratedAt);
   const canSubmitRating =
-    isRatingStep && ratingValue !== null && !hasRated;
+    isRatingStep && ratingValue !== null && !hasRated && progressPercent === 100;
+  const ratingLockMessage =
+    isRatingStep && !hasRated && progressPercent < 100
+      ? 'Prieš vertinimą pažymėkite visus žingsnius kaip atliktus.'
+      : null;
   const handleSubmitRating = () => {
+    if (progressPercent < 100) {
+      toast.error('Dar ne visi žingsniai atlikti', {
+        description: 'Prieš vertinimą pažymėkite visus žingsnius kaip atliktus.',
+      });
+      return;
+    }
     if (!id || !canSubmitRating || ratingMutation.isPending) {
       return;
     }
@@ -508,6 +543,9 @@ export default function TaskRun() {
         requiresUserMedia={requiresUserMedia}
         existingMedia={existingMedia}
         hasUploadedMedia={hasUploadedMedia}
+        stepNotes={stepNotes}
+        onStepNotesChange={setStepNotes}
+        stepNotesDisabled={hasCurrentStepCompleted || toggleStepMutation.isPending}
         mediaError={mediaError}
         selectedMediaFileName={selectedMediaFile?.name ?? null}
         uploadPending={uploadMediaMutation.isPending}
@@ -522,6 +560,7 @@ export default function TaskRun() {
         canSubmitRating={canSubmitRating}
         ratingSubmitPending={ratingMutation.isPending}
         onSubmitRating={handleSubmitRating}
+        ratingLockMessage={ratingLockMessage}
         hasRated={hasRated}
         handlePrevStep={handlePrevStep}
         handleNextStep={handleNextStep}

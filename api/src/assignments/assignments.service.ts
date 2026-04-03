@@ -45,6 +45,7 @@ import { HiveEventType } from "../hives/hive-event.entity";
 import { EmailService } from "../email/email.service";
 import { ReviewAssignmentDto } from "./dto/review-assignment.dto";
 import { AssignmentStepMediaService } from "./assignment-step-media.service";
+import { resolveFrontendUrl } from "../common/utils/frontend-url";
 
 export interface AssignmentStepMediaDto {
   id: string;
@@ -471,7 +472,7 @@ export class AssignmentsService {
       return `${this.appBaseUrl}${path}`;
     }
 
-    return path;
+    return resolveFrontendUrl(this.configService, path);
   }
 
   private isStartDateInFuture(startDate?: string | null) {
@@ -982,7 +983,6 @@ export class AssignmentsService {
 
               `Ji prasidės ${startText} ir turite ją atlikti iki ${dueText}.`,
 
-              `Peržiūrėti: ${link}`,
 
             ]
 
@@ -992,13 +992,17 @@ export class AssignmentsService {
 
               `Atlikite ją iki ${dueText}.`,
 
-              `Vykdyti: ${link}`,
 
             ];
 
         const body = bodyLines.join('\n');
 
-        const html = bodyLines.map((line) => `<p>${line}</p>`).join('');
+        const mainHtml = bodyLines
+          .map((line) => `<p>${this.escapeHtmlForEmail(line)}</p>`)
+          .join('');
+        const primaryButtonLabel = useFutureEmail
+          ? 'Per\u017Ei\u016Br\u0117ti'
+          : 'Vykdyti u\u017Eduot\u012F';
 
 
 
@@ -1023,7 +1027,9 @@ export class AssignmentsService {
           to: email,
           subject,
           text: body,
-          html,
+          mainHtml,
+          primaryButtonLabel,
+          primaryButtonUrl: link,
         });
             } catch (error) {
               this.logger.warn(
@@ -1086,6 +1092,18 @@ export class AssignmentsService {
     this.assertValidDateRange(nextStartDate, nextDueDate);
 
     if (dto.status) {
+      if (dto.status === AssignmentStatus.DONE && user.role === UserRole.USER) {
+        const allStepsCompleted = await this.hasUserCompletedAllSteps(
+          assignment.id,
+          assignment.taskId,
+          user.id,
+        );
+        if (!allStepsCompleted) {
+          throw new BadRequestException(
+            'Prieš užbaigiant užduotį pažymėkite visus žingsnius kaip atliktus.',
+          );
+        }
+      }
       assignment.status = dto.status;
     }
 
@@ -1499,6 +1517,7 @@ export class AssignmentsService {
 
       return {
         id: assignment.id,
+        userId: submitter?.userId ?? assignment.hive?.ownerUserId ?? null,
         taskTitle: assignment.task?.title ?? 'U\u017Eduotis',
         hiveLabel: assignment.hive?.label ?? '\u2014',
         hiveId: assignment.hiveId,
@@ -1603,6 +1622,19 @@ export class AssignmentsService {
       throw new BadRequestException('Užduotis jau įvertinta');
     }
 
+    if (user.role === UserRole.USER) {
+      const allStepsCompleted = await this.hasUserCompletedAllSteps(
+        assignment.id,
+        assignment.taskId,
+        user.id,
+      );
+      if (!allStepsCompleted) {
+        throw new BadRequestException(
+          'Prieš vertinimą pažymėkite visus žingsnius kaip atliktus.',
+        );
+      }
+    }
+
     if (assignment.status !== AssignmentStatus.DONE) {
       assignment.status = AssignmentStatus.DONE;
     }
@@ -1619,6 +1651,27 @@ export class AssignmentsService {
     const saved = await this.assignmentsRepository.save(assignment);
     await this.activityLog.log('assignment_rated', user.id, 'assignment', assignment.id);
     return saved;
+  }
+
+  private async hasUserCompletedAllSteps(
+    assignmentId: string,
+    taskId: string,
+    userId: string,
+  ): Promise<boolean> {
+    const totalSteps = await this.stepRepository.count({ where: { taskId } });
+    if (!totalSteps) {
+      return true;
+    }
+
+    const completedSteps = await this.progressRepository.count({
+      where: {
+        assignmentId,
+        userId,
+        status: AssignmentProgressStatus.COMPLETED,
+      },
+    });
+
+    return completedSteps >= totalSteps;
   }
 
   private isAssignmentActive(assignment: Assignment) {
@@ -1893,10 +1946,9 @@ export class AssignmentsService {
     const bodyLines = [
       `Užduotį „${taskTitle}“ galite vykdyti jau dabar.`,
       `Atlikite ją iki ${dueDate}.`,
-      `Vykdyti: ${link}`,
     ];
     const body = bodyLines.join('\n');
-    const html = bodyLines
+    const mainHtml = bodyLines
       .map((line) => `<p>${this.escapeHtmlForEmail(line)}</p>`)
       .join('');
 
@@ -1907,7 +1959,9 @@ export class AssignmentsService {
             to: email,
             subject: 'Jau galite vykdyti užduotį',
             text: body,
-            html,
+            mainHtml,
+            primaryButtonLabel: 'Vykdyti u\u017Eduot\u012F',
+            primaryButtonUrl: link,
           });
         } catch (error) {
           const details = error instanceof Error ? error.message : String(error);

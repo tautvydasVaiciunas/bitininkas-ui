@@ -448,11 +448,11 @@ export class HivesService {
     const supportUrl = resolveFrontendUrl(this.configService, '/support');
     const subject = added ? 'Priskirtas naujas avilys' : 'Avilys pašalintas iš jūsų paskyros';
     const text = added
-      ? `Jums priskirtas avilys „${hive.label}“. Peržiūrėti: ${hiveUrl}`
-      : `Avilys „${hive.label}“ nebėra priskirtas jūsų paskyrai. Jei manote, kad tai klaida, parašykite žinutę per sistemą: ${supportUrl}`;
+      ? `Jums priskirtas avilys „${hive.label}“.`
+      : `Avilys „${hive.label}“ nebėra priskirtas jūsų paskyrai. Jei manote, kad tai klaida, parašykite žinutę per sistemą.`;
     const html = added
       ? `<p>Jums priskirtas avilys „${hive.label}“.</p>`
-      : `<p>Avilys „${hive.label}“ nebėra priskirtas jūsų paskyrai.</p><p>Jei manote, kad tai klaida, <a href="${supportUrl}">parašykite žinutę</a>.</p>`;
+      : `<p>Avilys „${hive.label}“ nebėra priskirtas jūsų paskyrai.</p><p>Jei manote, kad tai klaida, parašykite žinutę per sistemą.</p>`;
 
     if (user.email) {
       try {
@@ -461,8 +461,8 @@ export class HivesService {
           subject,
           text,
           mainHtml: html,
-          primaryButtonLabel: added ? 'Peržiūrėti avilį' : null,
-          primaryButtonUrl: added ? hiveUrl : null,
+          primaryButtonLabel: added ? 'Peržiūrėti avilį' : 'Parašyti žinutę',
+          primaryButtonUrl: added ? hiveUrl : supportUrl,
         });
       } catch (error) {
         this.logger.warn(

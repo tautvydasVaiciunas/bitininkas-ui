@@ -22,8 +22,7 @@ import { Express, Request } from 'express';
 import { JwtAuthGuard } from '../common/guards/jwt-auth.guard';
 import { MulterExceptionFilter } from '../common/filters/multer-exception.filter';
 import {
-  ALLOWED_UPLOAD_MIME_TYPES,
-  getMaxBytesForMime,
+  isAllowedUploadMimeType,
   UPLOAD_MAX_VIDEO_BYTES,
 } from '../common/config/security.config';
 import {
@@ -80,7 +79,7 @@ export class AssignmentStepMediaController {
         files: 1,
       },
       fileFilter: (_req, file, cb) => {
-        if (!ALLOWED_UPLOAD_MIME_TYPES.has(file.mimetype)) {
+        if (!isAllowedUploadMimeType(file.mimetype)) {
           cb(new BadRequestException('Nepalaikomas failo tipas'), false);
           return;
         }

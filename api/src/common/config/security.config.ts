@@ -36,12 +36,21 @@ export const ALLOWED_UPLOAD_MIME_TYPES = new Set([
   ...ALLOWED_VIDEO_MIME_TYPES,
 ]);
 
+const normalizeMime = (mime: string) => mime.trim().toLowerCase();
+
+export const isAllowedUploadMimeType = (mime: string): boolean => {
+  const normalized = normalizeMime(mime);
+  return ALLOWED_IMAGE_MIME_TYPES.has(normalized) || normalized.startsWith('video/');
+};
+
 export const getMaxBytesForMime = (mime: string): number => {
-  if (ALLOWED_IMAGE_MIME_TYPES.has(mime)) {
+  const normalized = normalizeMime(mime);
+
+  if (ALLOWED_IMAGE_MIME_TYPES.has(normalized)) {
     return UPLOAD_MAX_IMAGE_BYTES;
   }
 
-  if (ALLOWED_VIDEO_MIME_TYPES.has(mime)) {
+  if (normalized.startsWith('video/')) {
     return UPLOAD_MAX_VIDEO_BYTES;
   }
 

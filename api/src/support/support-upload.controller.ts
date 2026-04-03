@@ -18,8 +18,8 @@ import { Express, Request } from 'express';
 import { JwtAuthGuard } from '../common/guards/jwt-auth.guard';
 import { MulterExceptionFilter } from '../common/filters/multer-exception.filter';
 import {
-  ALLOWED_UPLOAD_MIME_TYPES,
   getMaxBytesForMime,
+  isAllowedUploadMimeType,
   RATE_LIMIT_MAX,
   RATE_LIMIT_TTL_SECONDS,
   UPLOAD_MAX_VIDEO_BYTES,
@@ -80,7 +80,7 @@ export class SupportUploadController {
           return;
         }
 
-        if (!ALLOWED_UPLOAD_MIME_TYPES.has(file.mimetype)) {
+        if (!isAllowedUploadMimeType(file.mimetype)) {
           cb(new BadRequestException('Nepalaikomas failo tipas'), false);
           return;
         }

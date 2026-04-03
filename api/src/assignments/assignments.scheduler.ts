@@ -16,6 +16,7 @@ import { MAILER_SERVICE, MailerService } from '../notifications/mailer.service';
 import { GroupMember } from '../groups/group-member.entity';
 import { User, UserRole } from '../users/user.entity';
 import { EmailService } from '../email/email.service';
+import { resolveFrontendUrl } from '../common/utils/frontend-url';
 
 const WEEKLY_REMINDER_CRON = process.env.REMINDER_CRON ?? '0 9 * * 1';
 
@@ -206,7 +207,6 @@ export class AssignmentsScheduler {
       lines.push('Užduotis jau praleista.');
     }
 
-    lines.push(`Nuoroda: ${link}`);
     const message = lines.join('\n');
 
     const html = renderNotificationEmailHtml({
@@ -327,7 +327,6 @@ export class AssignmentsScheduler {
       intro,
       `Pavadinimas: ${taskTitle}`,
       `Terminas: ${assignment.dueDate}`,
-      `Nuoroda: ${link}`,
     ].join('\n');
 
     try {
@@ -400,7 +399,7 @@ export class AssignmentsScheduler {
       return `${this.appBaseUrl}${path}`;
     }
 
-    return path;
+    return resolveFrontendUrl(this.configService, path);
   }
 
   private normalizeBaseUrl(value: string | null) {
@@ -459,11 +458,10 @@ export class AssignmentsScheduler {
     const body = [
       `Užduotį „${taskTitle}“ galite vykdyti jau dabar.`,
       `Atlikite ją iki ${dueDate}.`,
-      `Vykdyti: ${link}`,
     ].join('\n');
-    const html = body
+    const mainHtml = body
       .split('\n')
-      .map((line) => `<p>${line}</p>`)
+      .map((line) => `<p>${this.escapeHtmlForEmail(line)}</p>`)
       .join('');
 
     await Promise.all(
@@ -473,7 +471,9 @@ export class AssignmentsScheduler {
             to: email,
             subject: 'Jau galite vykdyti užduotį',
             text: body,
-            html,
+            mainHtml,
+            primaryButtonLabel: 'Vykdyti u\u017Eduot\u012F',
+            primaryButtonUrl: link,
           });
         } catch (error) {
           const details = error instanceof Error ? error.message : String(error);
@@ -521,10 +521,11 @@ export class AssignmentsScheduler {
     const link = this.buildAssignmentEmailLink(assignment.id);
     const bodyLines = [
       `Primename, kad užduotį „${taskTitle}“ reikia atlikti iki ${dueDate}.`,
-      `Vykdyti: ${link}`,
     ];
     const body = bodyLines.join('\n');
-    const html = bodyLines.map((line) => `<p>${line}</p>`).join('');
+    const mainHtml = bodyLines
+      .map((line) => `<p>${this.escapeHtmlForEmail(line)}</p>`)
+      .join('');
 
 
 
@@ -535,7 +536,9 @@ export class AssignmentsScheduler {
             to: email,
             subject: 'Primename apie užduotį',
             text: body,
-            html,
+            mainHtml,
+            primaryButtonLabel: 'Vykdyti u\u017Eduot\u012F',
+            primaryButtonUrl: link,
           });
         } catch (error) {
           const details = error instanceof Error ? error.message : String(error);
@@ -543,5 +546,14 @@ export class AssignmentsScheduler {
         }
       }),
     );
+  }
+
+  private escapeHtmlForEmail(value: string) {
+    return value
+      .replace(/&/g, '&amp;')
+      .replace(/</g, '&lt;')
+      .replace(/>/g, '&gt;')
+      .replace(/"/g, '&quot;')
+      .replace(/'/g, '&#39;');
   }
 }

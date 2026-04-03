@@ -19,10 +19,10 @@ import { Roles } from '../common/decorators/roles.decorator';
 import { UserRole } from '../users/user.entity';
 import { MulterExceptionFilter } from '../common/filters/multer-exception.filter';
 import {
-  ALLOWED_UPLOAD_MIME_TYPES,
   RATE_LIMIT_MAX,
   RATE_LIMIT_TTL_SECONDS,
   getMaxBytesForMime,
+  isAllowedUploadMimeType,
   UPLOAD_MAX_VIDEO_BYTES,
 } from '../common/config/security.config';
 import {
@@ -88,7 +88,7 @@ export class MediaController {
           return;
         }
 
-        if (!ALLOWED_UPLOAD_MIME_TYPES.has(file.mimetype)) {
+        if (!isAllowedUploadMimeType(file.mimetype)) {
           cb(new BadRequestException('Nepalaikomas failo tipas'), false);
           return;
         }

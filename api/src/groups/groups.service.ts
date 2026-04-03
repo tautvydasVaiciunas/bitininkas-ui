@@ -22,6 +22,8 @@ import {
   PaginatedResult,
   PaginationOptions,
 } from '../common/pagination/pagination.service';
+import { ConfigService } from '@nestjs/config';
+import { resolveFrontendUrl } from '../common/utils/frontend-url';
 
 @Injectable()
 export class GroupsService {
@@ -38,6 +40,7 @@ export class GroupsService {
     private readonly pagination: PaginationService,
     private readonly notificationsService: NotificationsService,
     private readonly emailService: EmailService,
+    private readonly configService: ConfigService,
   ) {}
 
   private ensureManager(role: UserRole) {
@@ -281,12 +284,14 @@ export class GroupsService {
     }
 
     const subject = added ? 'Priskirtas naujas avilys' : 'Avilys pašalintas iš jūsų paskyros';
+    const hiveUrl = resolveFrontendUrl(this.configService, `/hives/${hive.id}`);
+    const supportUrl = resolveFrontendUrl(this.configService, '/support');
     const text = added
-      ? `Jums priskirtas avilys „${hive.label}“. Peržiūrėti: https://app.busmedaus.lt/hives/${hive.id}`
-      : `Avilys „${hive.label}“ nebėra priskirtas jūsų paskyrai. Jei manote, kad tai klaida, parašykite žinutę per sistemą.`;
-    const html = added
-      ? `<p>Jums priskirtas avilys „${hive.label}“.</p><p><a href="https://app.busmedaus.lt/hives/${hive.id}">Peržiūrėti avilį</a></p>`
-      : `<p>Avilys „${hive.label}“ nebėra priskirtas jūsų paskyrai.</p><p><a href="https://app.busmedaus.lt/support">Parašykite žinutę</a></p>`;
+      ? `Jums priskirtas avilys „${hive.label}“.`
+      : `Avilys „${hive.label}“ nebėra priskirtas jūsų paskyrai.`;
+    const mainHtml = added
+      ? `<p>Jums priskirtas avilys „${hive.label}“.</p>`
+      : `<p>Avilys „${hive.label}“ nebėra priskirtas jūsų paskyrai.</p>`;
 
     if (user.email) {
       try {
@@ -294,7 +299,9 @@ export class GroupsService {
           to: user.email,
           subject,
           text,
-          html,
+          mainHtml,
+          primaryButtonLabel: added ? 'Peržiūrėti avilį' : 'Parašyti žinutę',
+          primaryButtonUrl: added ? hiveUrl : supportUrl,
         });
       } catch (error) {
         this.logger.warn(

@@ -295,9 +295,9 @@ export class SupportService {
     const messageLink = resolveFrontendUrl(this.configService, this.MESSAGE_LINK);
     const body = [
       'Gavote naują žinutę.',
-      `Atsakyti: ${messageLink}`,
+      'Atsakykite Bus medaus sistemoje.',
     ].join('\n');
-    const html = body
+    const mainHtml = body
       .split('\n')
       .map((line) => `<p>${line}</p>`)
       .join('');
@@ -307,7 +307,9 @@ export class SupportService {
         to: threadUser.email,
         subject: 'Nauja žinutė iš Bus medaus bitininko',
         text: body,
-        html,
+        mainHtml,
+        primaryButtonLabel: 'Peržiūrėti žinutes',
+        primaryButtonUrl: messageLink,
       });
       threadUser.lastMessageEmailAt = now;
       await this.userRepository.save(threadUser);
@@ -365,14 +367,16 @@ export class SupportService {
     ];
 
     const body = bodyLines.join('\n');
-    const html = bodyLines.map((line) => `<p>${line}</p>`).join('');
+    const mainHtml = bodyLines.map((line) => `<p>${line}</p>`).join('');
 
     try {
       await this.emailService.sendMail({
         to: this.adminNotificationEmail,
         subject: `Vartotojas ${senderDisplay} parašė žinutę`,
         text: body,
-        html,
+        mainHtml,
+        primaryButtonLabel: 'Peržiūrėti pokalbį',
+        primaryButtonUrl: messageLink,
         replyTo: this.adminNotificationEmail,
       });
       this.logger.log(

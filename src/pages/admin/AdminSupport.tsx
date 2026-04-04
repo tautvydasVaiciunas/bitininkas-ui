@@ -463,7 +463,8 @@ const AdminSupport = () => {
   };
 
   const handleSend = async () => {
-    if (!activeThread) {
+    const threadId = selectedThreadId;
+    if (!threadId) {
       setSendError('Pasirinkite pokalbį.');
       return;
     }
@@ -478,7 +479,7 @@ const AdminSupport = () => {
     setSending(true);
     setSendError(null);
     try {
-      const response = await api.support.admin.createMessage(activeThread.id, payload);
+      const response = await api.support.admin.createMessage(threadId, payload);
       setMessages((prev) => [...prev, response]);
       if (shouldStick) {
         scrollToBottomAfterRenderRef.current = true;
@@ -487,7 +488,7 @@ const AdminSupport = () => {
       setAttachments([]);
       const messageText =
         response.text ?? (trimmedText ? trimmedText : attachments.length ? 'Prisegtas failas' : null);
-      updateThreadSummary(activeThread.id, {
+      updateThreadSummary(threadId, {
         lastMessageText: messageText,
         lastMessageAt: response.createdAt,
         unreadFromUser: 0,

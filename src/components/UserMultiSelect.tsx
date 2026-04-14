@@ -93,7 +93,10 @@ export function UserMultiSelect({
             onValueChange={(value) => onSearch?.(value)}
           />
           <CommandEmpty>{emptyText}</CommandEmpty>
-          <CommandList className="max-h-64 overflow-y-auto">
+          <CommandList
+            className="max-h-64 overflow-y-auto overscroll-contain"
+            onWheelCapture={(event) => event.stopPropagation()}
+          >
             <CommandGroup>
                 {options.map((option) => {
                   const isSelected = value.includes(option.value);

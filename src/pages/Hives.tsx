@@ -99,6 +99,8 @@ type CreateHiveFormState = {
   tagId: string | null;
 };
 
+const USER_PAGE_LIMIT = 20;
+
 
 type SubscriptionTone = "inactive" | "active" | "expiring";
 
@@ -380,21 +382,81 @@ export default function Hives() {
   const isPrivileged = canManageHives;
   const [searchEmail, setSearchEmail] = useState("");
   const [statusFilter, setStatusFilter] = useState<HiveListStatusFilter>("active");
+  const [userOptions, setUserOptions] = useState<MultiSelectOption[]>([]);
+  const [userSearchTerm, setUserSearchTerm] = useState("");
+  const [userPage, setUserPage] = useState(1);
+  const [userHasMore, setUserHasMore] = useState(false);
+  const [userLoading, setUserLoading] = useState(false);
 
-  const { data: users = [] } = useQuery<AdminUserResponse[]>({
-    queryKey: ["users", "all"],
-    queryFn: () => api.users.list(),
-    enabled: canManageMembers,
-  });
+  const handleUserSearch = (value: string) => {
+    setUserSearchTerm(value.trim());
+    setUserPage(1);
+    setUserOptions([]);
+    setUserHasMore(false);
+  };
+
+  const handleLoadMoreUsers = () => {
+    if (userLoading || !userHasMore) return;
+    setUserPage((prev) => prev + 1);
+  };
+
+  useEffect(() => {
+    if (!canManageMembers || !isCreateDialogOpen) {
+      setUserOptions([]);
+      setUserHasMore(false);
+      setUserLoading(false);
+      return;
+    }
+
+    let active = true;
+    setUserLoading(true);
+
+    api.users
+      .list({ q: userSearchTerm, page: userPage, limit: USER_PAGE_LIMIT })
+      .then((response) => {
+        if (!active) return;
+        const entries = Array.isArray(response) ? response : [];
+        const mapped = entries.map((item: AdminUserResponse) => ({
+          value: item.id,
+          label: item.name || item.email,
+          description: item.name ? item.email : undefined,
+        }));
+        const totalItems =
+          response.total ?? (userPage - 1) * USER_PAGE_LIMIT + entries.length;
+        setUserHasMore(totalItems > userPage * USER_PAGE_LIMIT);
+        setUserOptions((prev) => {
+          const base = userPage === 1 ? [] : prev;
+          const map = new Map<string, MultiSelectOption>(
+            base.map((option) => [option.value, option]),
+          );
+          for (const option of mapped) {
+            map.set(option.value, option);
+          }
+          return Array.from(map.values());
+        });
+      })
+      .catch(() => {
+        if (!active) return;
+        if (userPage === 1) {
+          setUserOptions([]);
+        }
+        setUserHasMore(false);
+      })
+      .finally(() => {
+        if (active) {
+          setUserLoading(false);
+        }
+      });
+
+    return () => {
+      active = false;
+    };
+  }, [canManageMembers, isCreateDialogOpen, userPage, userSearchTerm]);
 
   const memberOptions: MultiSelectOption[] = useMemo(() => {
-    if (!users.length) return [];
-    return users.map((item) => ({
-      value: item.id,
-      label: item.name || item.email,
-      description: item.name ? item.email : undefined,
-    }));
-  }, [users]);
+    if (!userOptions.length) return [];
+    return userOptions;
+  }, [userOptions]);
 
   const {
     data: hives = [],
@@ -671,6 +733,10 @@ export default function Hives() {
                       setIsCreateDialogOpen(open);
                       if (!open) {
                         resetCreateForm();
+                        setUserSearchTerm("");
+                        setUserPage(1);
+                        setUserHasMore(false);
+                        setUserOptions([]);
                       }
                     }}
                   >
@@ -734,6 +800,11 @@ export default function Hives() {
                                 setCreateForm((prev) => ({ ...prev, members }))
                               }
                               placeholder="Pasirinkite komandos narius (nebūtina)"
+                              loading={userLoading}
+                              hasMore={userHasMore}
+                              onLoadMore={handleLoadMoreUsers}
+                              onSearch={handleUserSearch}
+                              emptyText={userLoading ? "Kraunama..." : "Nėra vartotojų"}
                             />
                           </div>
                         ) : null}

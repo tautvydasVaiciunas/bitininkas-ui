@@ -587,11 +587,19 @@ const AdminSupport = () => {
                         ) : null}
                         <p
                           className={cn(
-                            'text-xs',
+                            'mt-1 h-10 overflow-hidden text-xs leading-5 line-clamp-2 break-words',
                             thread.unreadFromUser > 0 ? 'text-amber-800' : 'text-muted-foreground',
                           )}
                         >
-                          {thread.lastMessageText ?? 'Nėra žinučių'} • {thread.unreadFromUser} neperskaitytų
+                          {thread.lastMessageText ?? 'Nėra žinučių'}
+                        </p>
+                        <p
+                          className={cn(
+                            'mt-1 text-[11px] font-medium',
+                            thread.unreadFromUser > 0 ? 'text-amber-800' : 'text-muted-foreground',
+                          )}
+                        >
+                          {thread.unreadFromUser} neperskaitytų
                         </p>
                       </button>
                     ))}
@@ -672,7 +680,7 @@ const AdminSupport = () => {
                           {message.senderRole === 'user' ? 'Vartotojas' : 'Bus medaus komanda'} •{' '}
                           {new Date(message.createdAt).toLocaleString('lt-LT')}
                         </p>
-                        {message.text ? <p className="mt-2 whitespace-pre-wrap text-black">{message.text}</p> : null}
+                        {message.text ? <p className="mt-2 whitespace-pre-wrap">{message.text}</p> : null}
                         {(() => {
                           const messageAttachments = message.attachments ?? [];
                           if (!messageAttachments.length) return null;
@@ -748,3 +756,4 @@ const AdminSupport = () => {
 };
 
 export default AdminSupport;
+

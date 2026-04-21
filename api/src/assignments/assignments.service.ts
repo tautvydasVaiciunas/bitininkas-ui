@@ -8,7 +8,7 @@ import {
 } from "@nestjs/common";
 import { ConfigService } from "@nestjs/config";
 import { InjectRepository } from "@nestjs/typeorm";
-import { DataSource, DeepPartial, FindOptionsWhere, In, IsNull, Not, Repository } from "typeorm";
+import { DataSource, DeepPartial, FindOptionsWhere, In, Not, Repository } from "typeorm";
 import { Assignment, AssignmentStatus, AssignmentReviewStatus } from "./assignment.entity";
 import { CreateAssignmentDto } from "./dto/create-assignment.dto";
 import { UpdateAssignmentDto } from "./dto/update-assignment.dto";
@@ -1391,8 +1391,7 @@ export class AssignmentsService {
         .leftJoinAndSelect('assignment.task', 'task')
         .leftJoinAndSelect('assignment.hive', 'hive')
         .leftJoinAndSelect('hive.owner', 'owner')
-        .where('assignment.status = :done', { done: AssignmentStatus.DONE })
-        .andWhere('assignment.rating IS NOT NULL');
+        .where('assignment.status = :done', { done: AssignmentStatus.DONE });
 
       if (statusFilter && statusFilter !== 'all') {
         query.andWhere('assignment.reviewStatus = :status', { status: statusFilter });
@@ -1552,7 +1551,6 @@ export class AssignmentsService {
       where: {
         status: AssignmentStatus.DONE,
         reviewStatus: status,
-        rating: Not(IsNull()),
       },
     });
   }

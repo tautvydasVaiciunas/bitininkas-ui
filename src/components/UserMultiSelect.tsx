@@ -1,4 +1,4 @@
-import { useMemo, useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import { ChevronsUpDown, Check, X } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import {
@@ -45,16 +45,38 @@ export function UserMultiSelect({
   onSearch,
 }: UserMultiSelectProps) {
   const [open, setOpen] = useState(false);
+  const [searchValue, setSearchValue] = useState('');
+  const [knownOptions, setKnownOptions] = useState<Record<string, MultiSelectOption>>({});
 
-  const mappedOptions = useMemo(() => {
-    const map = new Map<string, MultiSelectOption>();
-    options.forEach((option) => {
-      map.set(option.value, option);
+  useEffect(() => {
+    if (!options.length) {
+      return;
+    }
+    setKnownOptions((prev) => {
+      const next = { ...prev };
+      for (const option of options) {
+        next[option.value] = option;
+      }
+      return next;
     });
-    return map;
   }, [options]);
 
-  const toggleValue = (newValue: string) => {
+  const mappedOptions = useMemo(() => {
+    const map = new Map<string, MultiSelectOption>(Object.entries(knownOptions));
+    options.forEach((option) => map.set(option.value, option));
+    return map;
+  }, [knownOptions, options]);
+
+  const toggleValue = (newValue: string, selectedOption?: MultiSelectOption) => {
+    if (selectedOption) {
+      setKnownOptions((prev) => {
+        if (prev[selectedOption.value]) {
+          return prev;
+        }
+        return { ...prev, [selectedOption.value]: selectedOption };
+      });
+    }
+
     if (value.includes(newValue)) {
       onChange(value.filter((item) => item !== newValue));
     } else {
@@ -63,12 +85,37 @@ export function UserMultiSelect({
   };
 
   const selectedOptions = value
-    .map((item) => mappedOptions.get(item))
+    .map((item) => mappedOptions.get(item) ?? { value: item, label: item })
     .filter((option): option is MultiSelectOption => Boolean(option));
+
+  const selectedSummary = useMemo(() => {
+    if (value.length === 0) {
+      return placeholder;
+    }
+    if (selectedOptions.length === 0) {
+      return `Pasirinkta ${value.length} vartotoj${value.length === 1 ? 'as' : 'ai'}`;
+    }
+
+    const labels = selectedOptions.map((option) => option.label);
+    if (labels.length <= 2) {
+      return labels.join(', ');
+    }
+    return `${labels.slice(0, 2).join(', ')} +${labels.length - 2}`;
+  }, [placeholder, selectedOptions, value.length]);
 
   return (
     <div className="space-y-2">
-      <Popover open={open} onOpenChange={(next) => !disabled && setOpen(next)}>
+      <Popover
+        open={open}
+        onOpenChange={(next) => {
+          if (disabled) return;
+          setOpen(next);
+          if (!next) {
+            setSearchValue('');
+            onSearch?.('');
+          }
+        }}
+      >
         <PopoverTrigger asChild>
           <Button
             type="button"
@@ -79,9 +126,7 @@ export function UserMultiSelect({
             disabled={disabled}
           >
             <span className="truncate">
-              {value.length === 0
-                ? placeholder
-                : `Pasirinkta ${value.length} vartotoj${value.length === 1 ? 'as' : 'ai'}`}
+              {selectedSummary}
             </span>
             <ChevronsUpDown className="ml-2 h-4 w-4 shrink-0 opacity-50" />
           </Button>
@@ -90,7 +135,11 @@ export function UserMultiSelect({
           <Command>
           <CommandInput
             placeholder="Ieškoti vartotojų..."
-            onValueChange={(value) => onSearch?.(value)}
+            value={searchValue}
+            onValueChange={(nextValue) => {
+              setSearchValue(nextValue);
+              onSearch?.(nextValue);
+            }}
           />
           <CommandEmpty>{emptyText}</CommandEmpty>
           <CommandList
@@ -103,8 +152,9 @@ export function UserMultiSelect({
                   return (
                     <CommandItem
                       key={option.value}
+                      value={`${option.label} ${option.description ?? ''}`}
                       onSelect={() => {
-                        toggleValue(option.value);
+                        toggleValue(option.value, option);
                       }}
                       className="flex items-start gap-2"
                     >

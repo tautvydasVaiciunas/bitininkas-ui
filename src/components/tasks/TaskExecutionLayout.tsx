@@ -225,6 +225,9 @@ export function TaskExecutionLayout(props: TaskExecutionLayoutProps) {
                   <p className="text-foreground">
                     Mums svarbi jūsų nuomonė – ar užduotis buvo aiški? Ką galėtume aprašyti geriau? Įvertinkite ir padėkite mums tobulėti.
                   </p>
+                  <p className="text-sm text-muted-foreground">
+                    Vertinimas nėra privalomas: administratoriui užduotis matoma ir be jo.
+                  </p>
                   <div className="flex items-center gap-1">
                     {Array.from({ length: 5 }).map((_, index) => {
                       const value = index + 1;

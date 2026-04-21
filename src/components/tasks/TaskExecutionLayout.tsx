@@ -1,4 +1,4 @@
-﻿import { ChangeEvent, RefObject } from 'react';
+﻿import { ChangeEvent, RefObject, useEffect, useState } from 'react';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { ResponsiveMedia } from '@/components/media/ResponsiveMedia';
@@ -8,6 +8,7 @@ import { Label } from '@/components/ui/label';
 import { Textarea } from '@/components/ui/textarea';
 import { AssignmentStatusBadge } from '@/components/AssignmentStatusBadge';
 import { CheckCircle2, ChevronLeft, ChevronRight, Loader2, RotateCcw, Star, X } from 'lucide-react';
+import { SupportLightbox } from '@/components/support/SupportLightbox';
 import {
   AssignmentStepMediaResponse,
   AssignmentStatus,
@@ -71,6 +72,8 @@ export interface TaskExecutionLayoutProps {
 }
 
 export function TaskExecutionLayout(props: TaskExecutionLayoutProps) {
+  const [isStepImagePreviewOpen, setIsStepImagePreviewOpen] = useState(false);
+
   const {
     title,
     hiveLabel,
@@ -123,6 +126,12 @@ export function TaskExecutionLayout(props: TaskExecutionLayoutProps) {
     previewMode = false,
     assignmentRating,
   } = props;
+
+  const canPreviewCurrentImage = Boolean(currentMediaUrl && currentMediaType === 'image');
+
+  useEffect(() => {
+    setIsStepImagePreviewOpen(false);
+  }, [currentStep?.id]);
 
   const maxSelectable = previewMode
     ? steps.length - 1
@@ -223,10 +232,10 @@ export function TaskExecutionLayout(props: TaskExecutionLayoutProps) {
               {isRatingStep ? (
                 <div className="space-y-6">
                   <p className="text-foreground">
-                    Mums svarbi jūsų nuomonė – ar užduotis buvo aiški? Ką galėtume aprašyti geriau? Įvertinkite ir padėkite mums tobulėti.
+                    Mums svarbi jusu nuomone – ar užduotis buvo aiški? Ka galetume aprašyti geriau? Ivertinkite ir padekite mums tobuleti.
                   </p>
                   <p className="text-sm text-muted-foreground">
-                    Vertinimas nėra privalomas: administratoriui užduotis matoma ir be jo.
+                    Vertinimas nera privalomas: administratoriui užduotis matoma ir be jo.
                   </p>
                   <div className="flex items-center gap-1">
                     {Array.from({ length: 5 }).map((_, index) => {
@@ -242,7 +251,7 @@ export function TaskExecutionLayout(props: TaskExecutionLayoutProps) {
                             }
                           }}
                           className="focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-primary"
-                          aria-label={`${value} žvaigždutės`}
+                          aria-label={`${value} žvaigždutes`}
                           disabled={previewMode}
                         >
                           <Star
@@ -259,7 +268,7 @@ export function TaskExecutionLayout(props: TaskExecutionLayoutProps) {
                     <Textarea
                       id="ratingComment"
                       value={ratingComment}
-                      placeholder="Palikite savo pastabas apie užduotį..."
+                      placeholder="Palikite savo pastabas apie užduoti..."
                       rows={4}
                       onChange={(event) => {
                         if (!previewMode) {
@@ -279,7 +288,7 @@ export function TaskExecutionLayout(props: TaskExecutionLayoutProps) {
                     </p>
                   </div>
                   <div className="rounded-md border border-primary/20 bg-primary/5 p-3 text-sm text-muted-foreground">
-                    Pereidami pirmyn arba atgal tik peržiūrite žingsnius. Žingsnis laikomas atliktu tik paspaudus
+                    Pereidami pirmyn arba atgal tik peržiurite žingsnius. Žingsnis laikomas atliktu tik paspaudus
                     „Atlikta“.
                   </div>
                   <div className="space-y-2">
@@ -287,12 +296,12 @@ export function TaskExecutionLayout(props: TaskExecutionLayoutProps) {
                       Komentaras (neprivalomas)
                     </Label>
                     <p className="text-xs text-muted-foreground">
-                      Nebūtina pildyti. Įrašykite tik jei norite palikti pastabą administratoriui.
+                      Nebutina pildyti. Irašykite tik jei norite palikti pastaba administratoriui.
                     </p>
                     <Textarea
                       id={`step-notes-${currentStep?.id ?? 'current'}`}
                       value={stepNotes ?? ''}
-                      placeholder="Pvz.: šiame avilyje pastebėjau..."
+                      placeholder="Pvz.: šiame avilyje pastebejau..."
                       rows={3}
                       onChange={(event) => {
                         if (!previewMode) {
@@ -302,30 +311,42 @@ export function TaskExecutionLayout(props: TaskExecutionLayoutProps) {
                       disabled={previewMode || stepNotesDisabled}
                     />
                   </div>
-                  <div className="rounded-2xl border border-muted/40 bg-muted/10 p-4 min-h-[220px]">
-                      {currentMediaUrl ? (
-                        <div className="flex h-full w-full items-center justify-center">
-                          <div className="w-full max-w-[640px]">
+                  {currentMediaUrl ? (
+                    <div className="rounded-2xl border border-muted/40 bg-muted/10 p-4 min-h-[220px]">
+                      <div className="flex h-full w-full items-center justify-center">
+                        <div className="w-full max-w-[640px]">
+                          {canPreviewCurrentImage ? (
+                            <button
+                              type="button"
+                              onClick={() => setIsStepImagePreviewOpen(true)}
+                              className="w-full cursor-zoom-in"
+                              aria-label="Atidaryti nuotrauką didesnei peržiūrai"
+                            >
+                              <ResponsiveMedia
+                                url={currentMediaUrl}
+                                type={currentMediaType}
+                                title={currentStep?.title ?? 'Žingsnis'}
+                                className="h-[220px] w-full rounded-xl"
+                                fit="contain"
+                              />
+                            </button>
+                          ) : (
                             <ResponsiveMedia
                               url={currentMediaUrl}
                               type={currentMediaType}
                               title={currentStep?.title ?? 'Žingsnis'}
-                              className="h-[220px] w-full rounded-xl object-cover"
+                              className="h-[220px] w-full rounded-xl"
+                              fit="contain"
                             />
-                          </div>
+                          )}
                         </div>
-                      ) : (
-                        <div className="flex h-full w-full items-center justify-center">
-                          <p className="text-sm text-center text-muted-foreground">
-                            Šiam žingsniui nėra prisegto failo.
-                          </p>
-                        </div>
-                      )}
-                  </div>
+                      </div>
+                    </div>
+                  ) : null}
                   {requiresUserMedia ? (
                     <>
                       <Badge variant="outline" className="border-amber-500/40 bg-amber-50 text-amber-700">
-                        Šiam žingsniui reikalinga jūsų nuotrauka arba vaizdo įrašas
+                        Šiam žingsniui reikalinga jusu nuotrauka arba vaizdo irašas
                       </Badge>
                       <div className="space-y-4 rounded-2xl border border-amber-200/80 bg-amber-50/80 p-4">
                       <div className="flex flex-wrap items-center gap-3">
@@ -335,7 +356,7 @@ export function TaskExecutionLayout(props: TaskExecutionLayoutProps) {
                           onClick={onUploadClick}
                           disabled={previewMode || uploadPending}
                         >
-                          Įkelti nuotrauką / vaizdo įrašą
+                          Ikelti nuotrauka / vaizdo iraša
                         </Button>
                         <Button
                           type="button"
@@ -368,18 +389,18 @@ export function TaskExecutionLayout(props: TaskExecutionLayoutProps) {
                             {uploadPending ? (
                               <>
                                 <Loader2 className="h-4 w-4 animate-spin" />
-                                Įkeliama...
+                                Ikeliama...
                               </>
                             ) : selectedMediaFileName ? (
                               <>Pasirinkta: {selectedMediaFileName}</>
                             ) : hasUploadedMedia ? (
                               <>
                                 {existingMedia.length === 1
-                                  ? '1 failas įkeltas'
-                                  : `${existingMedia.length} failai įkelti`}
+                                  ? '1 failas ikeltas'
+                                  : `${existingMedia.length} failai ikelti`}
                               </>
                             ) : (
-                              'Pasirinkite failą, kad galėtumėte pažymėti žingsnį'
+                              'Pasirinkite faila, kad galetumete pažymeti žingsni'
                             )}
                           </div>
                         </div>
@@ -390,7 +411,7 @@ export function TaskExecutionLayout(props: TaskExecutionLayoutProps) {
                         ) : null}
                         {hasUploadedMedia && existingMedia.length ? (
                           <div className="space-y-3">
-                            <p className="text-sm font-semibold text-foreground">Įkelti failai</p>
+                            <p className="text-sm font-semibold text-foreground">Ikelti failai</p>
                             <div className="grid gap-3 md:grid-cols-2">
                             {existingMedia.map((item) => {
                               const uploadedAt = new Date(item.createdAt);
@@ -422,7 +443,7 @@ export function TaskExecutionLayout(props: TaskExecutionLayoutProps) {
                                       ) : null}
                                     </div>
                                     <p className="text-xs text-muted-foreground">
-                                      Įkelta {formatDateIsoOr(item.createdAt)}
+                                      Ikelta {formatDateIsoOr(item.createdAt)}
                                       {timeLabel ? `, ${timeLabel}` : ''}
                                     </p>
                                   </div>
@@ -475,14 +496,14 @@ export function TaskExecutionLayout(props: TaskExecutionLayoutProps) {
                   disabled={previewMode || !canSubmitRating || ratingSubmitPending}
                 >
                   {ratingSubmitPending
-                    ? 'Siunčiama...'
+                    ? 'Siunciama...'
                     : hasRated
                     ? 'Vertinimas išsaugotas'
-                    : 'Siųsti vertinimą'}
+                    : 'Siusti vertinima'}
                 </Button>
                 {assignmentRating ? (
                   <p className="text-center text-sm text-muted-foreground">
-                    Jūsų paskutinis įvertinimas: {assignmentRating} / 5
+                    Jusu paskutinis ivertinimas: {assignmentRating} / 5
                   </p>
                 ) : null}
                 {ratingLockMessage ? (
@@ -501,12 +522,12 @@ export function TaskExecutionLayout(props: TaskExecutionLayoutProps) {
                     {toggleStepPending ? (
                       <>
                         <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-                        Grąžinama...
+                        Gražinama...
                       </>
                     ) : (
                       <>
                         <RotateCcw className="mr-2 h-4 w-4" />
-                        Pažymėti kaip neatliktą
+                        Pažymeti kaip neatlikta
                       </>
                     )}
                   </Button>
@@ -521,7 +542,7 @@ export function TaskExecutionLayout(props: TaskExecutionLayoutProps) {
                     }
                     title={
                       requiresUserMedia && !hasUploadedMedia
-                        ? 'Įkelkite nuotrauką arba vaizdo įrašą, kad galėtumėte pažymėti žingsnį'
+                        ? 'Ikelkite nuotrauka arba vaizdo iraša, kad galetumete pažymeti žingsni'
                         : undefined
                     }
                   >
@@ -534,6 +555,16 @@ export function TaskExecutionLayout(props: TaskExecutionLayoutProps) {
           </div>
         </div>
       </div>
+      {canPreviewCurrentImage && currentMediaUrl ? (
+        <SupportLightbox
+          imageUrl={currentMediaUrl}
+          open={isStepImagePreviewOpen}
+          onClose={() => setIsStepImagePreviewOpen(false)}
+          showDownload
+        />
+      ) : null}
     </div>
   );
 }
+
+

@@ -33,7 +33,7 @@ export const SupportLightbox = ({ imageUrl, open, onClose, showDownload }: Suppo
       role="presentation"
     >
       <div
-        className="relative flex max-h-[90vh] max-w-[90vw] flex-col items-center justify-center overflow-hidden rounded-2xl border border-border bg-background p-4 shadow-lg"
+        className="relative flex max-h-[90vh] max-w-[90vw] flex-col items-center justify-center overflow-auto rounded-2xl border border-border bg-background p-4 shadow-lg"
         onClick={handleInnerClick}
       >
         <button
@@ -47,7 +47,8 @@ export const SupportLightbox = ({ imageUrl, open, onClose, showDownload }: Suppo
         <img
           src={imageUrl}
           alt="Priedo peržiūra"
-          className="max-h-[80vh] max-w-[90vw] object-contain"
+          className="max-h-[80vh] max-w-[90vw] select-none object-contain"
+          style={{ touchAction: 'pinch-zoom' }}
         />
         {showDownload ? (
           <button
@@ -56,7 +57,7 @@ export const SupportLightbox = ({ imageUrl, open, onClose, showDownload }: Suppo
             className="mt-4 flex items-center gap-2 rounded-full border border-border px-3 py-1 text-xs font-semibold text-muted-foreground hover:bg-muted/70"
           >
             <Download className="h-4 w-4" />
-            Atsisiųsti
+            Atidaryti pilnai
           </button>
         ) : null}
       </div>

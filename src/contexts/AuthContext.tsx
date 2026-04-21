@@ -161,11 +161,21 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
       const result = await api.auth.login({ email, password });
       setToken(result.accessToken, result.refreshToken);
 
-      const profile = await api.auth.me();
-      const normalizedUser = normalizeUser(mapUserFromApi(profile));
-      if (normalizedUser) {
-        setUser(normalizedUser);
-        persistAuthUser(normalizedUser);
+      const normalizedLoginUser = normalizeUser(result.user);
+      if (normalizedLoginUser) {
+        setUser(normalizedLoginUser);
+        persistAuthUser(normalizedLoginUser);
+      }
+
+      try {
+        const profile = await api.auth.me();
+        const normalizedUser = normalizeUser(mapUserFromApi(profile));
+        if (normalizedUser) {
+          setUser(normalizedUser);
+          persistAuthUser(normalizedUser);
+        }
+      } catch (profileError) {
+        console.warn('Login succeeded but profile refresh failed', profileError);
       }
 
       return { success: true };

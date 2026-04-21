@@ -42,7 +42,7 @@ export default function Login() {
       const path = from ? `${from.pathname}${from.search ?? ''}` : '/';
       navigate(path, { replace: true });
     } else {
-      setLoginError('Neteisingas el. paštas arba slaptažodis.');
+      setLoginError(result.error ?? 'Neteisingas el. paštas arba slaptažodis.');
     }
   };
 
@@ -125,3 +125,4 @@ export default function Login() {
     </div>
   );
 }
+

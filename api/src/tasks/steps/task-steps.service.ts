@@ -248,7 +248,29 @@ export class TaskStepsService {
       mediaType: this.normalizeMediaType(dto.mediaType),
       requireUserMedia: dto.requireUserMedia ?? false,
       orderIndex: dto.orderIndex ?? fallbackOrder,
+      sourceTaskStepId: dto.sourceTaskStepId ?? null,
     };
+  }
+
+  private async syncLinkedTaskSteps(sourceStepId: string, manager: EntityManager) {
+    const sourceStep = await this.findById(sourceStepId, manager);
+    const linkedSteps = await this.getStepsRepository(manager).find({
+      where: { sourceTaskStepId: sourceStepId },
+    });
+
+    if (!linkedSteps.length) {
+      return;
+    }
+
+    for (const step of linkedSteps) {
+      step.title = sourceStep.title;
+      step.contentText = sourceStep.contentText ?? null;
+      step.mediaUrl = sourceStep.mediaUrl ?? null;
+      step.mediaType = sourceStep.mediaType ?? null;
+      step.requireUserMedia = sourceStep.requireUserMedia ?? false;
+    }
+
+    await this.getStepsRepository(manager).save(linkedSteps);
   }
 
   private validateOrderSequence(
@@ -423,6 +445,11 @@ export class TaskStepsService {
 
           if (shouldUpdateTags) {
             await this.syncStepTags(manager, savedStep.id, dto.tagIds, { message: 'Nepavyko atnaujinti žingsnio' });
+          }
+
+          const globalTaskId = await this.getGlobalTaskId();
+          if (globalTaskId && savedStep.taskId === globalTaskId) {
+            await this.syncLinkedTaskSteps(savedStep.id, manager);
           }
 
           return savedStep;

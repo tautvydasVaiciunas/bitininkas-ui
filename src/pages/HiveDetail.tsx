@@ -65,7 +65,7 @@ export default function HiveDetail() {
       const [hiveResponse, assignmentsResponse, tasksResponse] = await Promise.all([
         api.hives.details(id),
         api.assignments.list({ hiveId: id }),
-        api.tasks.list(),
+        api.tasks.list({ status: 'all' }),
       ]);
 
       const hive = mapHiveFromApi(hiveResponse);

@@ -43,7 +43,7 @@ export default function Dashboard() {
       const [hivesResponse, assignmentsResponse, tasksResponse] = await Promise.all([
         api.hives.list(),
         api.assignments.list(),
-        api.tasks.list(),
+        api.tasks.list({ status: 'all' }),
       ]);
 
       const hives = hivesResponse.map(mapHiveFromApi);

@@ -70,6 +70,21 @@ export class TaskStep {
   })
   requireUserMedia!: boolean;
 
+  @ManyToOne(() => TaskStep, (step) => step.derivedSteps, {
+    nullable: true,
+    onDelete: 'SET NULL',
+  })
+  @JoinColumn({ name: 'source_task_step_id' })
+  sourceTaskStep?: TaskStep | null;
+
+  @Column({
+    name: 'source_task_step_id',
+    type: 'uuid',
+    nullable: true,
+    default: null,
+  })
+  sourceTaskStepId!: string | null;
+
   @CreateDateColumn({ name: 'created_at' })
   createdAt!: Date;
 
@@ -83,4 +98,7 @@ export class TaskStep {
     inverseJoinColumn: { name: 'tag_id' },
   })
   tags!: Tag[];
+
+  @OneToMany(() => TaskStep, (step) => step.sourceTaskStep)
+  derivedSteps!: TaskStep[];
 }

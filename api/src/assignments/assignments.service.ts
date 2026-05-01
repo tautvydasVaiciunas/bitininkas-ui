@@ -621,6 +621,7 @@ export class AssignmentsService {
       const taskEntity = taskRepo.create({
         title: trimmedTitle,
         createdByUserId: user.id,
+        templateId: dto.templateId,
       } as DeepPartial<Task>);
       const savedTask = await taskRepo.save(taskEntity);
 
@@ -640,6 +641,7 @@ export class AssignmentsService {
             mediaUrl: source.mediaUrl ?? null,
             mediaType: source.mediaType ?? null,
             requireUserMedia: source.requireUserMedia ?? false,
+            sourceTaskStepId: source.id,
           });
         });
 

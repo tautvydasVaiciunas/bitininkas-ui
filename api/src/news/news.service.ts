@@ -260,6 +260,7 @@ export class NewsService {
           mediaType: mediaType ?? undefined,
           requireUserMedia: taskStep?.requireUserMedia ?? false,
           orderIndex: templateStep.orderIndex,
+          sourceTaskStepId: taskStep?.id ?? undefined,
         };
       });
   }
@@ -671,6 +672,7 @@ export class NewsService {
 
       const taskPayload: CreateTaskDto = {
         title: dto.taskTitle.trim(),
+        templateId: dto.templateId,
         steps: this.buildStepsFromTemplate(template),
       };
 

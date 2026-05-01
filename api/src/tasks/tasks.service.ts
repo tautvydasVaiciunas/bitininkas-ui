@@ -17,7 +17,10 @@ import { Template } from '../templates/template.entity';
 import { NewsPost } from '../news/news-post.entity';
 
 type StepInput = Partial<
-  Pick<TaskStep, 'title' | 'contentText' | 'mediaUrl' | 'mediaType' | 'requireUserMedia' | 'orderIndex'>
+  Pick<
+    TaskStep,
+    'title' | 'contentText' | 'mediaUrl' | 'mediaType' | 'requireUserMedia' | 'orderIndex' | 'sourceTaskStepId'
+  >
 >;
 
 export interface LatestNewsMetadata {
@@ -86,6 +89,7 @@ export class TasksService {
       mediaType: this.normalizeMediaType(step.mediaType),
       requireUserMedia: step.requireUserMedia ?? false,
       orderIndex,
+      sourceTaskStepId: step.sourceTaskStepId ?? null,
     };
   }
 
@@ -105,6 +109,7 @@ export class TasksService {
           mediaType: mediaType ?? undefined,
           requireUserMedia: taskStep?.requireUserMedia ?? false,
           orderIndex: templateStep.orderIndex,
+          sourceTaskStepId: taskStep?.id ?? undefined,
         };
       });
   }

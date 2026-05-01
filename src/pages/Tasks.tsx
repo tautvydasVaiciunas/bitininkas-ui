@@ -321,7 +321,10 @@ export default function Tasks() {
         onlyAvailableNow ? { availableNow: true } : undefined,
       );
       const assignments = assignmentResponse.map(mapAssignmentFromApi);
-      const [hivesResponse, tasksResponse] = await Promise.all([api.hives.list(), api.tasks.list()]);
+      const [hivesResponse, tasksResponse] = await Promise.all([
+        api.hives.list(),
+        api.tasks.list({ status: 'all' }),
+      ]);
       const hives = hivesResponse.map(mapHiveFromApi);
       const tasks = tasksResponse.map(mapTaskFromApi);
       const completionEntries = await Promise.all(

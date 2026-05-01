@@ -73,4 +73,8 @@ export class CreateTaskStepInputDto {
   @ArrayUnique({ message: 'Žymės negali kartotis' })
   @IsUUID('4', { each: true, message: 'Žymės turi būti teisingi ID' })
   tagIds?: string[];
+
+  @IsOptional()
+  @IsUUID('4', { message: 'Susieto Å¾ingsnio ID turi bÅ«ti teisingas UUID' })
+  sourceTaskStepId?: string;
 }

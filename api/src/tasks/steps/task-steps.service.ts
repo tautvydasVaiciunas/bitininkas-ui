@@ -10,6 +10,7 @@ import { DataSource, EntityManager, In, Repository } from 'typeorm';
 
 import { Task, TaskFrequency } from '../task.entity';
 import { TaskStep, type TaskStepMediaType } from './task-step.entity';
+import { TemplateStep } from '../../templates/template-step.entity';
 import { ActivityLogService } from '../../activity-log/activity-log.service';
 import { UserRole } from '../../users/user.entity';
 import { CreateTaskStepDto } from './dto/create-task-step.dto';
@@ -30,6 +31,8 @@ export class TaskStepsService {
     private readonly stepsRepository: Repository<TaskStep>,
     @InjectRepository(Task)
     private readonly tasksRepository: Repository<Task>,
+    @InjectRepository(TemplateStep)
+    private readonly templateStepsRepository: Repository<TemplateStep>,
     @InjectRepository(Tag)
     private readonly tagsRepository: Repository<Tag>,
     private readonly dataSource: DataSource,
@@ -42,6 +45,10 @@ export class TaskStepsService {
 
   private getTagsRepository(manager?: EntityManager) {
     return manager ? manager.getRepository(Tag) : this.tagsRepository;
+  }
+
+  private getTemplateStepsRepository(manager?: EntityManager) {
+    return manager ? manager.getRepository(TemplateStep) : this.templateStepsRepository;
   }
 
   private assertManager(role: UserRole) {
@@ -273,6 +280,42 @@ export class TaskStepsService {
     await this.getStepsRepository(manager).save(linkedSteps);
   }
 
+  private async syncTemplateMappedTaskSteps(sourceStepId: string, manager: EntityManager) {
+    const sourceStep = await this.findById(sourceStepId, manager);
+    const templateLinks = await this.getTemplateStepsRepository(manager).find({
+      where: { taskStepId: sourceStepId },
+    });
+
+    if (!templateLinks.length) {
+      return;
+    }
+
+    for (const link of templateLinks) {
+      await manager
+        .createQueryBuilder()
+        .update(TaskStep)
+        .set({
+          title: sourceStep.title,
+          contentText: sourceStep.contentText ?? null,
+          mediaUrl: sourceStep.mediaUrl ?? null,
+          mediaType: sourceStep.mediaType ?? null,
+          requireUserMedia: sourceStep.requireUserMedia ?? false,
+          sourceTaskStepId: sourceStep.id,
+        })
+        .where(
+          `"task_id" IN (
+            SELECT "id"
+            FROM "tasks"
+            WHERE "template_id" = :templateId
+          )`,
+          { templateId: link.templateId },
+        )
+        .andWhere(`"order_index" = :orderIndex`, { orderIndex: link.orderIndex })
+        .andWhere(`"task_id" != :globalTaskId`, { globalTaskId: sourceStep.taskId })
+        .execute();
+    }
+  }
+
   private validateOrderSequence(
     payload: { stepId: string; orderIndex: number }[],
     expectedLength: number,
@@ -450,6 +493,7 @@ export class TaskStepsService {
           const globalTaskId = await this.getGlobalTaskId();
           if (globalTaskId && savedStep.taskId === globalTaskId) {
             await this.syncLinkedTaskSteps(savedStep.id, manager);
+            await this.syncTemplateMappedTaskSteps(savedStep.id, manager);
           }
 
           return savedStep;

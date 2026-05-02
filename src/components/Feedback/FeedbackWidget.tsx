@@ -31,13 +31,12 @@ export const FeedbackWidget = () => {
   const lastTriggerRef = useRef<HTMLButtonElement | null>(null);
   const [message, setMessage] = useState('');
   const [messageError, setMessageError] = useState('');
-  const [attachment, setAttachment] = useState<AttachmentPreview | null>(null);
+  const [attachments, setAttachments] = useState<AttachmentPreview[]>([]);
   const [uploading, setUploading] = useState(false);
   const [uploadError, setUploadError] = useState('');
   const [submitting, setSubmitting] = useState(false);
   const [pageUrl, setPageUrl] = useState('');
   const [pageTitle, setPageTitle] = useState('');
-  const [deviceInfo, setDeviceInfo] = useState('');
   const fileInputRef = useRef<HTMLInputElement | null>(null);
   const { toast } = useToast();
 
@@ -45,13 +44,6 @@ export const FeedbackWidget = () => {
     if (typeof window === 'undefined') return;
     setPageUrl(window.location.href);
     setPageTitle(document.title ?? '');
-    const ua = navigator.userAgent ?? '';
-    const language = navigator.language ?? '';
-    const sizeHint = `${window.innerWidth}x${window.innerHeight}`;
-    const infoParts = [ua, language && `lang=${language}`, `screen=${sizeHint}`].filter(
-      Boolean,
-    );
-    setDeviceInfo(infoParts.join(' | '));
   }, []);
 
   const handleOpen = (event: MouseEvent<HTMLButtonElement>) => {
@@ -71,8 +63,8 @@ export const FeedbackWidget = () => {
   };
 
   const handleUpload = async (event: ChangeEvent<HTMLInputElement>) => {
-    const file = event.target.files?.[0];
-    if (!file) {
+    const files = Array.from(event.target.files ?? []);
+    if (!files.length) {
       return;
     }
 
@@ -80,49 +72,51 @@ export const FeedbackWidget = () => {
     setUploading(true);
 
     try {
-      const form = new FormData();
-      form.append('file', file);
-      const response = await api.support.uploadAttachment(form);
-      setAttachment({
-        ...response,
-        name: file.name,
-      });
-    } catch (error) {
-      setUploadError('Nepavyko įkelti failo. Pabandykite dar kartą.');
+      const uploaded: AttachmentPreview[] = [];
+
+      for (const file of files) {
+        const form = new FormData();
+        form.append('file', file);
+        const response = await api.support.uploadAttachment(form);
+        uploaded.push({
+          ...response,
+          name: file.name,
+        });
+      }
+
+      setAttachments((prev) => [...prev, ...uploaded]);
+    } catch {
+      setUploadError('Nepavyko ikelti failo. Pabandykite dar karta.');
     } finally {
       setUploading(false);
       event.target.value = '';
     }
   };
 
-  const handleRemoveAttachment = () => {
-    setAttachment(null);
+  const handleRemoveAttachment = (url: string) => {
+    setAttachments((prev) => prev.filter((attachment) => attachment.url !== url));
   };
 
   const buildPayload = (): FeedbackRequestPayload => {
-    const attachments: FeedbackAttachmentPayload[] | undefined = attachment
-      ? [
-          {
-            url: attachment.url,
-            mimeType: attachment.mimeType,
-            name: attachment.name,
-          },
-        ]
+    const payloadAttachments: FeedbackAttachmentPayload[] | undefined = attachments.length
+      ? attachments.map((attachment) => ({
+          url: attachment.url,
+          mimeType: attachment.mimeType,
+          name: attachment.name,
+        }))
       : undefined;
 
     return {
       message: message.trim(),
       pageUrl: pageUrl || undefined,
       pageTitle: pageTitle || undefined,
-      deviceInfo: deviceInfo || undefined,
-      context: user?.email ? `El. paštas: ${user.email}` : undefined,
-      attachments,
+      attachments: payloadAttachments,
     };
   };
 
   const handleSubmit = async () => {
     if (!message.trim()) {
-      setMessageError('Aprašykite problemą ar klausimą.');
+      setMessageError('Apra�ykite problema ar klausima.');
       return;
     }
 
@@ -132,17 +126,17 @@ export const FeedbackWidget = () => {
     try {
       await api.support.sendFeedback(buildPayload());
       toast({
-        title: 'Ačiū!',
-        description: 'Jūsų atsiliepimas perduotas komandai.',
+        title: 'Aciu!',
+        description: 'Jusu atsiliepimas i�saugotas �inutese.',
       });
       setIsOpen(false);
       setMessage('');
-      setAttachment(null);
-    } catch (error) {
+      setAttachments([]);
+    } catch {
       toast({
         variant: 'destructive',
         title: 'Klaida',
-        description: 'Nepavyko išsiųsti atsiliepimo. Pabandykite dar kartą.',
+        description: 'Nepavyko i�siusti atsiliepimo. Pabandykite dar karta.',
       });
     } finally {
       setSubmitting(false);
@@ -161,8 +155,8 @@ export const FeedbackWidget = () => {
       </button>
       <button
         type="button"
-        className="fixed bottom-20 right-4 z-50 flex h-14 w-14 items-center justify-center rounded-full bg-primary text-background shadow-lg transition hover:bg-primary/90 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-ring lg:hidden"
-        aria-label="Parašyti atsiliepimą"
+        className="fixed bottom-32 right-4 z-50 flex h-14 w-14 items-center justify-center rounded-full bg-primary text-background shadow-lg transition hover:bg-primary/90 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-ring lg:hidden"
+        aria-label="Para�yti atsiliepima"
         onClick={handleOpen}
       >
         <MessageCircle className="h-6 w-6" />
@@ -171,41 +165,41 @@ export const FeedbackWidget = () => {
       <Dialog open={isOpen} onOpenChange={handleOpenChange}>
         <DialogContent className="max-w-xl">
           <DialogHeader>
-            <DialogTitle>Parašykite atsiliepimą</DialogTitle>
+            <DialogTitle>Para�ykite atsiliepima</DialogTitle>
             <DialogDescription>
-              Papasakokite, kas nusibodo ar ką norėtumėte pagerinti. Automatiškai pridėsime puslapio
-              informaciją ir naršyklės duomenis.
+              Para�ykite, kas neveikia arba ka noretumete pagerinti. Atsiliepimas bus i�saugotas
+              �inuciu istorijoje su puslapio nuoroda.
             </DialogDescription>
           </DialogHeader>
 
           <div className="space-y-2">
-            <Label htmlFor="feedback-message">Aprašymas</Label>
+            <Label htmlFor="feedback-message">Apra�ymas</Label>
             <Textarea
               id="feedback-message"
-              placeholder="Čia galite parašyti daugiau detalių apie problemą..."
+              placeholder="Cia galite para�yti daugiau detaliu apie problema..."
               value={message}
               maxLength={MAX_MESSAGE_LENGTH}
               rows={6}
               onChange={(event) => setMessage(event.target.value)}
             />
             <p className="text-xs text-muted-foreground">
-              {message.length}/{MAX_MESSAGE_LENGTH} ženklų
+              {message.length}/{MAX_MESSAGE_LENGTH} �enklu
             </p>
             {messageError && <p className="text-sm text-destructive">{messageError}</p>}
           </div>
 
           <div className="space-y-2">
             <Label className="flex items-center justify-between gap-2 text-sm font-semibold">
-              <span>Pridėkite nuotrauką arba ekranvaizdį (nebūtina)</span>
-              <span className="text-xs text-muted-foreground">PNG / JPG / WEBP</span>
+              <span>Pridekite nuotrauka ar video (nebutina)</span>
+              <span className="text-xs text-muted-foreground">PNG / JPG / WEBP / MP4</span>
             </Label>
             <div className="flex items-center gap-2">
               <input
                 id="feedback-upload"
                 ref={fileInputRef}
                 type="file"
-                accept="image/*"
-                capture="environment"
+                accept="image/*,video/mp4"
+                multiple
                 className="sr-only"
                 onChange={handleUpload}
               />
@@ -219,62 +213,67 @@ export const FeedbackWidget = () => {
                 {uploading ? (
                   <>
                     <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-                    Įkelti...
+                    Ikeliama...
                   </>
                 ) : (
                   <>
                     <Paperclip className="mr-2 h-4 w-4" />
-                    Įkelti failą
+                    Ikelti failus
                   </>
                 )}
               </Button>
-              {attachment && (
+              {attachments.length > 0 && (
                 <Button
                   size="sm"
                   variant="ghost"
-                  onClick={handleRemoveAttachment}
+                  onClick={() => setAttachments([])}
                   className="border border-border/50"
                 >
-                  Ištrinti
+                  I�trinti visus
                 </Button>
               )}
             </div>
             {uploadError && <p className="text-sm text-destructive">{uploadError}</p>}
-            {attachment && (
-              <div className="flex gap-3 rounded-lg border border-border/50 bg-secondary/40 p-3">
-                {attachment.kind === 'image' ? (
-                  <img
-                    src={resolveMediaUrl(attachment.url)}
-                    alt="Pridėtas failas"
-                    className="h-20 w-20 rounded-md object-cover"
-                  />
-                ) : (
-                  <div className="flex h-20 w-20 items-center justify-center rounded-md border border-border/60 text-muted-foreground">
-                    <Paperclip className="h-6 w-6" />
+            {attachments.length > 0 && (
+              <div className="grid gap-3 sm:grid-cols-2">
+                {attachments.map((attachment) => (
+                  <div key={attachment.url} className="flex gap-3 rounded-lg border border-border/50 bg-secondary/40 p-3">
+                    {attachment.kind === 'image' ? (
+                      <img
+                        src={resolveMediaUrl(attachment.url)}
+                        alt="Pridetas failas"
+                        className="h-20 w-20 rounded-md object-cover"
+                      />
+                    ) : (
+                      <div className="flex h-20 w-20 items-center justify-center rounded-md border border-border/60 text-muted-foreground">
+                        <Paperclip className="h-6 w-6" />
+                      </div>
+                    )}
+                    <div className="flex flex-1 flex-col gap-1 overflow-hidden">
+                      <p className="truncate text-sm font-semibold">{attachment.name}</p>
+                      <p className="text-xs text-muted-foreground">
+                        {attachment.mimeType ?? 'Failo tipas ne�inomas'}
+                      </p>
+                    </div>
+                    <Button
+                      variant="ghost"
+                      size="icon"
+                      className="self-start rounded-full border border-border/50"
+                      onClick={() => handleRemoveAttachment(attachment.url)}
+                    >
+                      <X className="h-4 w-4" />
+                    </Button>
                   </div>
-                )}
-                <div className="flex flex-1 flex-col gap-1">
-                  <p className="text-sm font-semibold">{attachment.name}</p>
-                  <p className="text-xs text-muted-foreground">
-                    {attachment.mimeType ?? 'Failo tipas nežinomas'}
-                  </p>
-                </div>
-                <Button
-                  variant="ghost"
-                  size="icon"
-                  className="self-start rounded-full border border-border/50"
-                  onClick={handleRemoveAttachment}
-                >
-                  <X className="h-4 w-4" />
-                </Button>
+                ))}
               </div>
             )}
           </div>
 
           <div className="rounded-lg border border-border/60 bg-muted/60 p-3 text-sm text-muted-foreground">
-            <p>Puslapis: <span className="text-foreground">{pageTitle || pageUrl}</span></p>
-            <p>Vartotojas: {user?.name ?? user?.email ?? 'prisijungęs vartotojas'}</p>
-            <p>Įrenginys / naršyklė: {deviceInfo || 'nepateikta'}</p>
+            <p>
+              Puslapis: <span className="text-foreground">{pageTitle || pageUrl}</span>
+            </p>
+            <p>Vartotojas: {user?.name ?? user?.email ?? 'prisijunges vartotojas'}</p>
           </div>
 
           <DialogFooter>
@@ -284,14 +283,14 @@ export const FeedbackWidget = () => {
               disabled={submitting}
               type="button"
             >
-              Atšaukti
+              At�aukti
             </Button>
             <Button
               onClick={handleSubmit}
               disabled={submitting || !message.trim()}
               type="button"
             >
-              {submitting ? 'Siunčiama...' : 'Siųsti'}
+              {submitting ? 'Siunciama...' : 'Siusti'}
             </Button>
           </DialogFooter>
         </DialogContent>

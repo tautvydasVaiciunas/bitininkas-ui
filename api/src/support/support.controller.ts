@@ -21,7 +21,6 @@ import { Request } from 'express';
 import { ConfigService } from '@nestjs/config';
 import { resolveFrontendUrl } from '../common/utils/frontend-url';
 import { CreateFeedbackDto } from './dto/create-feedback.dto';
-import { FeedbackService } from './feedback.service';
 import { Throttle } from '@nestjs/throttler';
 import { RATE_LIMIT_MAX, RATE_LIMIT_TTL_SECONDS } from '../common/config/security.config';
 
@@ -34,8 +33,58 @@ export class SupportController {
     @InjectRepository(User)
     private readonly userRepository: Repository<User>,
     private readonly configService: ConfigService,
-    private readonly feedbackService: FeedbackService,
   ) {}
+
+  private buildFeedbackMessage(body: CreateFeedbackDto) {
+    const lines = ['[Atsiliepimas]'];
+
+    const pageLabel = body.pageTitle?.trim() || body.pageUrl?.trim() || null;
+    if (pageLabel) {
+      lines.push(`Puslapis: ${pageLabel}`);
+    }
+
+    if (body.pageUrl?.trim() && body.pageUrl.trim() !== pageLabel) {
+      lines.push(`Nuoroda: ${body.pageUrl.trim()}`);
+    }
+
+    lines.push('', body.message.trim());
+
+    return lines.join('\n');
+  }
+
+  private async notifyStaffAboutUserMessage(
+    threadId: string,
+    userId: string,
+    text: string | null | undefined,
+    hasAttachments: boolean,
+  ) {
+    const staffUsers = await this.userRepository.find({
+      where: { role: In([UserRole.ADMIN, UserRole.MANAGER]) },
+    });
+    const senderFallback = await this.userRepository.findOne({ where: { id: userId } });
+    const senderEmail = senderFallback?.email?.trim() || null;
+    const senderName = senderFallback?.name?.trim() || null;
+    const senderLabel = senderName && senderEmail ? `${senderName} (${senderEmail})` : senderEmail;
+    const conversationLink = `/admin/support?conversationId=${threadId}&threadId=${threadId}`;
+
+    const trimmedText = text?.trim() ?? '';
+    const notifBody = trimmedText.length
+      ? trimmedText.slice(0, 180)
+      : hasAttachments
+        ? 'Vartotojas pridėjo priedą prie žinutės.'
+        : 'Vartotojas atsiuntė naują žinutę.';
+
+    await Promise.all(
+      staffUsers.map((staff) =>
+        this.notificationsService.createNotification(staff.id, {
+          type: 'message',
+          title: senderLabel ? `Žinutė nuo ${senderLabel}` : 'Žinutė nuo vartotojo',
+          body: notifBody,
+          link: resolveFrontendUrl(this.configService, conversationLink),
+        }),
+      ),
+    );
+  }
 
   @Get('my-thread')
   async getThread(@Req() request: Request) {
@@ -108,34 +157,11 @@ export class SupportController {
       senderRole: 'user',
       attachments: (body.attachments ?? []).map(mapAttachment),
     });
-
-    const staffUsers = await this.userRepository.find({
-      where: { role: In([UserRole.ADMIN, UserRole.MANAGER]) },
-    });
-    const senderFallback = await this.userRepository.findOne({ where: { id: userId } });
-    const senderEmail =
-      (request.user?.['email'] as string | undefined)?.trim() || senderFallback?.email || null;
-    const senderName =
-      (request.user?.['name'] as string | undefined)?.trim() || senderFallback?.name || null;
-    const senderLabel = senderName && senderEmail ? `${senderName} (${senderEmail})` : senderEmail;
-    const conversationLink = `/admin/support?conversationId=${thread.id}&threadId=${thread.id}`;
-
-    const notifBody =
-      body.text && body.text.trim().length
-        ? body.text.trim().slice(0, 180)
-        : 'Vartotojas pridėjo priedą prie support žinutės.';
-
-    await Promise.all(
-      staffUsers.map((staff) =>
-        this.notificationsService.createNotification(staff.id, {
-          type: 'message',
-          title: senderLabel
-            ? `Žinutė nuo ${senderLabel}`
-            : 'Žinutė nuo vartotojo',
-          body: notifBody,
-          link: resolveFrontendUrl(this.configService, conversationLink),
-        }),
-      ),
+    await this.notifyStaffAboutUserMessage(
+      thread.id,
+      userId,
+      body.text,
+      (body.attachments?.length ?? 0) > 0,
     );
     return {
       id: message.id,
@@ -171,25 +197,30 @@ export class SupportController {
     },
   })
   async createFeedback(@Req() request: Request, @Body() body: CreateFeedbackDto) {
-    const user = request.user ?? {};
-    await this.feedbackService.sendFeedback(
-      {
-        message: body.message.trim(),
-        pageUrl: body.pageUrl,
-        pageTitle: body.pageTitle,
-        deviceInfo: body.deviceInfo,
-        attachments: body.attachments,
-        context: body.context,
-      },
-      {
-        userId: user['id'] ?? null,
-        userEmail: user['email'] ?? null,
-        userName: user['name'] ?? null,
-        ip: request.ip ?? null,
-        forwardedIp: (request.headers['x-forwarded-for'] as string | undefined) ?? null,
-        userAgent: request.headers['user-agent'] ?? null,
-        timestamp: new Date().toISOString(),
-      },
+    const userId = request.user?.['id'] ?? null;
+    if (!userId) {
+      return { success: true };
+    }
+
+    const thread = await this.supportService.findOrCreateThreadForUser(userId);
+    const message = await this.supportService.createMessage(thread.id, {
+      text: this.buildFeedbackMessage(body),
+      senderUserId: userId,
+      senderRole: 'user',
+      attachments: (body.attachments ?? []).map((attachment) => ({
+        url: attachment.url,
+        mimeType: attachment.mimeType ?? 'application/octet-stream',
+        kind:
+          attachment.mimeType?.startsWith('image/') ? 'image' : attachment.mimeType?.startsWith('video/') ? 'video' : 'other',
+        sizeBytes: 0,
+      })),
+    });
+
+    await this.notifyStaffAboutUserMessage(
+      thread.id,
+      userId,
+      message.text,
+      (body.attachments?.length ?? 0) > 0,
     );
 
     return { success: true };

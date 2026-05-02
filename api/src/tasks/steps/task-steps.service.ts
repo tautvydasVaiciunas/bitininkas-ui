@@ -19,6 +19,25 @@ import { UpdateTaskStepDto } from './dto/update-task-step.dto';
 import { DatabaseErrorContext, runWithDatabaseErrorHandling } from '../../common/errors/database-error.util';
 import { Tag } from '../tags/tag.entity';
 
+type StepComparisonShape = {
+  title: string;
+  contentText: string | null;
+  mediaUrl: string | null;
+  mediaType: string | null;
+  requireUserMedia: boolean;
+};
+
+type LegacyTaskStepRow = {
+  taskId: string;
+  taskStepId: string;
+  orderIndex: number;
+  title: string;
+  contentText: string;
+  mediaUrl: string;
+  mediaType: string;
+  requireUserMedia: boolean;
+};
+
 @Injectable()
 export class TaskStepsService {
   private readonly logger = new Logger(TaskStepsService.name);
@@ -316,6 +335,163 @@ export class TaskStepsService {
     }
   }
 
+  private normalizeComparableStep(step: Partial<StepComparisonShape> | null | undefined): StepComparisonShape {
+    return {
+      title: step?.title ?? '',
+      contentText: step?.contentText ?? '',
+      mediaUrl: step?.mediaUrl ?? '',
+      mediaType: step?.mediaType ?? '',
+      requireUserMedia: step?.requireUserMedia ?? false,
+    };
+  }
+
+  private areComparableStepsEqual(
+    left: Partial<StepComparisonShape> | null | undefined,
+    right: Partial<StepComparisonShape> | null | undefined,
+  ) {
+    const normalizedLeft = this.normalizeComparableStep(left);
+    const normalizedRight = this.normalizeComparableStep(right);
+
+    return (
+      normalizedLeft.title === normalizedRight.title &&
+      normalizedLeft.contentText === normalizedRight.contentText &&
+      normalizedLeft.mediaUrl === normalizedRight.mediaUrl &&
+      normalizedLeft.mediaType === normalizedRight.mediaType &&
+      normalizedLeft.requireUserMedia === normalizedRight.requireUserMedia
+    );
+  }
+
+  private groupLegacyRowsByTask(rows: LegacyTaskStepRow[]) {
+    const map = new Map<string, LegacyTaskStepRow[]>();
+
+    for (const row of rows) {
+      const list = map.get(row.taskId) ?? [];
+      list.push(row);
+      map.set(row.taskId, list);
+    }
+
+    return map;
+  }
+
+  private async fetchLegacyTaskRows(stepCount: number, manager: EntityManager): Promise<LegacyTaskStepRow[]> {
+    return manager.query(
+      `
+        SELECT
+          t.id AS "taskId",
+          s.id AS "taskStepId",
+          s.order_index AS "orderIndex",
+          s.title AS "title",
+          COALESCE(s.content_text, '') AS "contentText",
+          COALESCE(s.media_url, '') AS "mediaUrl",
+          COALESCE(s.media_type, '') AS "mediaType",
+          s.require_user_media AS "requireUserMedia"
+        FROM tasks t
+        INNER JOIN task_steps s ON s.task_id = t.id
+        WHERE t.template_id IS NULL
+          AND t.deleted_at IS NULL
+          AND EXISTS (SELECT 1 FROM assignments a WHERE a.task_id = t.id)
+          AND s.task_id IN (
+            SELECT inner_steps.task_id
+            FROM task_steps inner_steps
+            GROUP BY inner_steps.task_id
+            HAVING COUNT(*) = $1
+          )
+        ORDER BY t.id ASC, s.order_index ASC, s.id ASC
+      `,
+      [stepCount],
+    );
+  }
+
+  private async syncInferredLegacyTasks(sourceStepId: string, manager: EntityManager) {
+    const templateLinks = await this.getTemplateStepsRepository(manager).find({
+      where: { taskStepId: sourceStepId },
+      order: { orderIndex: 'ASC' },
+    });
+
+    if (!templateLinks.length) {
+      return;
+    }
+
+    const processedTaskIds = new Set<string>();
+
+    for (const link of templateLinks) {
+      const templateSteps = await this.getTemplateStepsRepository(manager).find({
+        where: { templateId: link.templateId },
+        relations: { taskStep: true },
+        order: { orderIndex: 'ASC' },
+      });
+
+      if (!templateSteps.length) {
+        continue;
+      }
+
+      const legacyRows = await this.fetchLegacyTaskRows(templateSteps.length, manager);
+      const rowsByTaskId = this.groupLegacyRowsByTask(legacyRows);
+
+      for (const [taskId, rows] of rowsByTaskId.entries()) {
+        if (processedTaskIds.has(taskId)) {
+          continue;
+        }
+
+        const orderedRows = rows.slice().sort((a, b) => a.orderIndex - b.orderIndex);
+        if (orderedRows.length !== templateSteps.length) {
+          continue;
+        }
+
+        let matchesTemplate = true;
+
+        for (let index = 0; index < templateSteps.length; index += 1) {
+          const templateStep = templateSteps[index];
+          const taskRow = orderedRows[index];
+
+          if (!templateStep || !taskRow || templateStep.orderIndex !== taskRow.orderIndex) {
+            matchesTemplate = false;
+            break;
+          }
+
+          if (templateStep.taskStepId === sourceStepId) {
+            continue;
+          }
+
+          if (!this.areComparableStepsEqual(taskRow, templateStep.taskStep)) {
+            matchesTemplate = false;
+            break;
+          }
+        }
+
+        if (!matchesTemplate) {
+          continue;
+        }
+
+        await manager.update(Task, { id: taskId, templateId: null }, { templateId: link.templateId });
+
+        for (let index = 0; index < templateSteps.length; index += 1) {
+          const templateStep = templateSteps[index];
+          const taskRow = orderedRows[index];
+
+          if (!templateStep || !taskRow) {
+            continue;
+          }
+
+          await manager.update(
+            TaskStep,
+            { id: taskRow.taskStepId },
+            {
+              title: templateStep.taskStep.title,
+              contentText: templateStep.taskStep.contentText ?? null,
+              mediaUrl: templateStep.taskStep.mediaUrl ?? null,
+              mediaType: templateStep.taskStep.mediaType ?? null,
+              requireUserMedia: templateStep.taskStep.requireUserMedia ?? false,
+              sourceTaskStepId: templateStep.taskStepId,
+            },
+          );
+        }
+
+        processedTaskIds.add(taskId);
+      }
+    }
+  }
+
   private validateOrderSequence(
     payload: { stepId: string; orderIndex: number }[],
     expectedLength: number,
@@ -494,6 +670,7 @@ export class TaskStepsService {
           if (globalTaskId && savedStep.taskId === globalTaskId) {
             await this.syncLinkedTaskSteps(savedStep.id, manager);
             await this.syncTemplateMappedTaskSteps(savedStep.id, manager);
+            await this.syncInferredLegacyTasks(savedStep.id, manager);
           }
 
           return savedStep;
